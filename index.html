@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>勇者大冒險：大師覺醒</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    ::-webkit-scrollbar { display: none; }
+    body { -ms-overflow-style: none; scrollbar-width: none; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+    .bounce { animation: bounce 1s infinite alternate cubic-bezier(0.5, 0.05, 1, 0.5); }
+    @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-10px); } }
+    .shake { animation: shake 0.3s; }
+    @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-4px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-4px); } 100% { transform: translateX(0); } }
+    .legendary-text { background: linear-gradient(to right, #fbbf24, #f97316, #ef4444); -webkit-background-clip: text; color: transparent; animation: shine 2s linear infinite; font-weight: 900; }
+    @keyframes shine { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+    .walk { animation: walk 0.6s infinite alternate ease-in-out; }
+    @keyframes walk { from { transform: rotate(-10deg) translateY(0); } to { transform: rotate(10deg) translateY(-5px); } }
+  </style>
+</head>
+<body class="bg-black text-slate-200 h-[100dvh] w-full flex justify-center overflow-hidden font-sans">
+  
+  <div class="h-full w-full max-w-md bg-slate-950 flex flex-col shadow-2xl relative">
+    
+    <!-- === 頂部狀態列 (完美比例與字體放大) === -->
+    <div class="flex-shrink-0 bg-slate-900 border-b border-slate-800 p-3.5 z-10 relative overflow-hidden">
+      <div id="ui-relic-glow" class="absolute inset-0 bg-amber-500 opacity-0 transition-opacity duration-500 pointer-events-none"></div>
+
+      <!-- 等級與金幣 -->
+      <div class="flex justify-between items-center mb-2 relative z-10">
+        <div class="text-xl font-bold text-white flex items-center gap-2">
+          <span class="text-cyan-400">Lv.<span id="ui-level">1</span></span> 
+          <span id="ui-job" class="bg-indigo-900/50 text-indigo-300 px-2 py-0.5 rounded text-sm border border-indigo-700">初心者</span>
+        </div>
+        <div class="text-amber-400 font-bold text-xl tabular-nums flex items-center gap-1 drop-shadow">
+           <span id="ui-gold">0</span> 🪙
+        </div>
+      </div>
+      
+      <!-- HP / MP -->
+      <div class="flex gap-2 w-full mb-2 relative z-10">
+        <div class="flex-1 relative bg-slate-950 rounded border border-slate-700 h-4 overflow-hidden shadow-inner">
+          <div id="ui-hp-bar" class="bg-red-500 h-full transition-all duration-200" style="width: 100%;"></div>
+          <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">HP <span id="ui-hp-text" class="ml-1 tabular-nums">100/100</span></div>
+        </div>
+        <div class="flex-1 relative bg-slate-950 rounded border border-slate-700 h-4 overflow-hidden shadow-inner">
+          <div id="ui-mp-bar" class="bg-blue-500 h-full transition-all duration-200" style="width: 100%;"></div>
+          <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">MP <span id="ui-mp-text" class="ml-1 tabular-nums">20/20</span></div>
+        </div>
+      </div>
+      
+      <!-- 經驗值條 (獨立且與血條完美對齊等寬) -->
+      <div class="w-full relative bg-slate-950 rounded border border-slate-700 h-3 overflow-hidden mb-2 z-10 shadow-inner">
+          <div id="ui-xp-bar" class="bg-amber-400 h-full transition-all duration-200" style="width: 0%;"></div>
+          <div class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-200">EXP <span id="ui-xp-text" class="ml-1 tabular-nums">0/50</span></div>
+      </div>
+
+      <!-- 地圖與任務 -->
+      <div class="flex justify-between items-center relative z-10">
+         <span id="ui-zone" class="text-sm font-bold text-cyan-400 truncate max-w-[160px]">史萊姆草原</span>
+         <div class="flex items-center gap-1.5">
+             <span id="ui-debuff-text" style="display: none;" class="text-[10px] font-bold text-orange-400 truncate border border-orange-500/30 bg-orange-900/30 px-1.5 py-0.5 rounded shadow">⚠️ 狀態</span>
+             <span id="ui-quest-tracker" style="display: none;" class="text-[11px] font-bold text-amber-300 bg-amber-900/40 px-1.5 py-0.5 rounded border border-amber-700/50 shrink-0 shadow">📜 <span id="ui-quest-prog">0/10</span></span>
+         </div>
+      </div>
+    </div>
+
+    <!-- === 中央動態區 === -->
+    <div class="flex-1 flex flex-col p-2 gap-2 bg-black overflow-hidden relative">
+      
+      <!-- [畫面 1: 冒險區] -->
+      <div id="view-battle" class="flex-1 flex flex-col gap-2 min-h-0" style="display: flex;">
+        
+        <!-- 戰鬥姿態選擇器 -->
+        <div class="flex-shrink-0 flex gap-1.5 p-1 bg-slate-900 rounded-lg border border-slate-700 overflow-x-auto">
+            <button id="st-atk" onclick="game.setStance('atk')" class="flex-none px-3 py-2 text-xs font-bold rounded transition-colors bg-slate-800 text-slate-400 whitespace-nowrap">⚔️ 猛攻</button>
+            <button id="st-def" onclick="game.setStance('def')" class="flex-none px-3 py-2 text-xs font-bold rounded transition-colors bg-slate-800 text-slate-400 whitespace-nowrap">🛡️ 鐵壁</button>
+            <button id="st-bal" onclick="game.setStance('bal')" class="flex-none px-3 py-2 text-xs font-bold rounded transition-colors bg-cyan-900/80 text-cyan-100 border border-cyan-500 whitespace-nowrap">⚖️ 均衡</button>
+            <button id="st-agi" onclick="game.setStance('agi')" class="flex-none px-3 py-2 text-xs font-bold rounded transition-colors bg-slate-800 text-slate-400 whitespace-nowrap">🍃 狂風</button>
+            <button id="st-cri" onclick="game.setStance('cri')" class="flex-none px-3 py-2 text-xs font-bold rounded transition-colors bg-slate-800 text-slate-400 whitespace-nowrap">🎯 會心</button>
+        </div>
+
+        <div class="flex-shrink-0 h-40 bg-slate-900 rounded-xl border border-slate-700 flex flex-col items-center justify-center relative shadow-inner overflow-hidden">
+          <div class="absolute top-1.5 left-2 text-slate-400 font-bold text-xs" id="ui-progress">首領 0/20</div>
+          <div class="absolute bottom-1.5 right-2 text-red-400 font-bold text-[11px] bg-red-950/50 px-1.5 py-0.5 rounded border border-red-900/50" id="ui-stats-mini" style="display: none;">敵 ATK:0</div>
+          
+          <div id="ui-comp-mini" style="display: none;" class="absolute top-1.5 right-2 text-indigo-300 font-bold text-xs bg-indigo-950/80 px-1.5 py-0.5 rounded border border-indigo-500/50 whitespace-nowrap z-10 shadow">
+            🤝 <span id="ui-comp-name">劍士</span>(剩<span id="ui-comp-turns">5</span>)
+          </div>
+          
+          <!-- 探索畫面 -->
+          <div id="stage-explore" class="flex flex-col items-center w-full px-6" style="display: flex;">
+             <div class="text-5xl mb-2 walk" id="ui-explore-icon">🚶‍♂️</div>
+             <div class="text-sm font-bold text-cyan-300 mb-2" id="ui-explore-action">警惕地前進中...</div>
+             <div class="w-3/4 h-2 bg-slate-950 rounded-full border border-slate-700 relative overflow-hidden">
+               <div id="ui-explore-bar" class="absolute top-0 left-0 h-full bg-cyan-500 transition-all duration-100" style="width: 0%;"></div>
+             </div>
+          </div>
+
+          <!-- 戰鬥畫面 -->
+          <div id="stage-combat" class="flex flex-col items-center w-full" style="display: none;">
+             <div id="ui-enemy-icon" class="text-6xl mb-1 drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] bounce">💧</div>
+             <div class="flex items-center gap-1 mb-1">
+                 <span id="ui-enemy-stance" class="text-sm">⚔️</span>
+                 <span id="ui-enemy-name" class="text-base font-bold text-red-400">史萊姆</span>
+                 <span id="ui-enemy-adv" class="text-[10px]"></span>
+             </div>
+             <div class="w-3/4 h-2.5 bg-slate-950 rounded-full border border-slate-700 relative overflow-hidden shadow-inner">
+               <div id="ui-ehp-bar" class="absolute top-0 left-0 h-full bg-red-600 transition-all duration-200" style="width: 100%;"></div>
+             </div>
+          </div>
+        </div>
+
+        <div id="ui-log" class="flex-1 overflow-y-auto bg-slate-900/60 rounded-xl p-3 border border-slate-800 text-[14px] leading-relaxed flex flex-col gap-1.5 font-mono pb-2"></div>
+      </div>
+
+      <!-- [畫面 2: 城鎮區 (動態解鎖)] -->
+      <div id="view-town" class="flex-1 overflow-y-auto bg-slate-900 rounded-xl border border-slate-700 p-3 space-y-3" style="display: none;">
+        <!-- 城鎮繁榮度 Banner -->
+        <div class="bg-indigo-950/40 p-3 rounded-lg border border-indigo-700/50 shadow-md relative overflow-hidden">
+           <div class="flex justify-between items-end mb-1 relative z-10">
+               <div class="flex flex-col">
+                   <span class="text-xs text-indigo-300 font-bold mb-0.5">邊境城鎮 <span class="text-[10px] text-slate-400">(探索與打怪自動升級)</span></span>
+                   <span class="text-lg font-bold text-cyan-400">繁榮度 Lv.<span id="ui-town-lvl">1</span></span>
+               </div>
+               <button onclick="game.donate()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-3 py-2 rounded font-bold text-xs shadow active:scale-95 transition-transform">捐獻資金</button>
+           </div>
+           <div class="w-full h-2 bg-slate-950 rounded-full border border-slate-700 relative overflow-hidden z-10 mt-2 shadow-inner">
+               <div id="ui-town-bar" class="absolute top-0 left-0 h-full bg-indigo-500 transition-all duration-200" style="width: 0%;"></div>
+           </div>
+           <div class="text-[10px] text-slate-400 mt-1.5 relative z-10 flex justify-between font-bold">
+               <span>EXP: <span id="ui-town-exp">0/1000</span></span>
+               <span id="ui-town-next" class="text-amber-400"></span>
+           </div>
+        </div>
+        
+        <!-- 動態生成的城鎮區塊 -->
+        <div id="ui-town-content" class="space-y-3"></div>
+      </div>
+
+      <!-- [畫面 3: 聖物區] -->
+      <div id="view-relic" class="flex-1 overflow-y-auto bg-slate-900 rounded-xl border border-slate-700 p-4 flex flex-col" style="display: none;">
+         <h2 class="text-center text-amber-400 font-bold text-xl border-b border-slate-700 pb-2 mb-4">💎 女神祈願</h2>
+         <p class="text-xs text-slate-400 mb-4 text-center">花費金幣祈禱，獲取無限疊加的聖物。</p>
+         <div class="flex justify-center mb-6">
+            <button onclick="game.prayRelic()" class="w-4/5 bg-gradient-to-br from-amber-600 to-red-600 active:scale-95 transition-transform text-white font-bold text-lg py-4 px-6 rounded-2xl shadow-[0_0_20px_rgba(217,119,6,0.4)] border border-amber-400 flex flex-col items-center">
+               <span>🙏 虔誠祈禱</span>
+               <span id="ui-relic-cost" class="text-sm font-normal mt-1 drop-shadow">1000 🪙</span>
+            </button>
+         </div>
+         <div class="text-sm font-bold text-white mb-2">已擁有的聖物庫：</div>
+         <div id="ui-relic-list" class="flex-1 overflow-y-auto space-y-2 pb-2"></div>
+      </div>
+      
+    </div>
+
+    <!-- === 底部控制列 (完美的 1:1 比例) === -->
+    <div class="flex-shrink-0 bg-slate-900 border-t border-slate-800 p-3 shadow-lg z-10 pb-safe">
+      
+      <!-- 探索與喝水 完美 1:1 佈局 -->
+      <div id="ctrl-battle" class="flex gap-3 mb-3 w-full">
+        <button id="btn-main-act" onclick="game.mainAction()" class="flex-1 bg-cyan-700 text-white py-3.5 rounded-xl text-lg font-bold active:bg-cyan-600 shadow-md transition-colors relative overflow-hidden">
+           <span class="relative z-10" id="ui-main-act-text">🔍 探索前進</span>
+           <div id="ui-seal-overlay" style="display: none;" class="absolute inset-0 bg-purple-900 items-center justify-center text-sm font-bold text-purple-200 z-20">封印平砍</div>
+        </button>
+        <button id="btn-potion" onclick="game.usePotion()" class="flex-1 bg-pink-900/80 text-pink-200 py-3.5 rounded-xl text-lg font-bold active:bg-pink-700 border border-pink-700 flex items-center justify-center gap-1.5 transition-colors relative disabled:opacity-50 disabled:grayscale shadow-md">
+          <span>🧪 喝水</span>
+          <span class="text-[11px] font-normal text-pink-300 bg-pink-950/50 px-1.5 py-0.5 rounded border border-pink-800/50" id="ui-potion-count">15🪙</span>
+          <div id="ui-seal-pot" style="display: none;" class="absolute inset-0 bg-purple-900 items-center justify-center text-sm font-bold text-purple-200 rounded-xl z-20">被封印</div>
+        </button>
+      </div>
+
+      <div class="flex gap-2">
+        <button id="btn-auto" onclick="game.toggleAuto()" class="flex-[1.5] bg-slate-800 border border-slate-600 text-slate-300 py-3 rounded-lg text-xs font-bold transition-colors shadow">
+          ▶️ 自動掛機
+        </button>
+        <button id="tab-bat" onclick="game.switchTab('battle')" class="flex-1 bg-cyan-900 border border-cyan-500 text-cyan-100 py-3 rounded-lg text-xs font-bold transition-colors shadow">
+          ⚔️ 冒險
+        </button>
+        <button id="tab-twn" onclick="game.switchTab('town')" class="flex-1 bg-slate-800 border border-slate-600 text-slate-300 py-3 rounded-lg text-xs font-bold transition-colors shadow">
+          🏰 城鎮
+        </button>
+        <button id="tab-rel" onclick="game.switchTab('relic')" class="flex-1 bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-lg text-xs font-bold transition-colors shadow cursor-not-allowed">
+          🔒 聖物
+        </button>
+      </div>
+    </div>
+
+    <!-- 路線選擇遮罩 -->
+    <div id="ui-map-choice" style="display: none;" class="absolute inset-0 bg-slate-950/95 z-[60] flex-col items-center justify-center p-6 backdrop-blur-md">
+      <h2 class="text-3xl font-black text-cyan-400 mb-2 drop-shadow-md">命運的分歧點</h2>
+      <p class="text-slate-300 mb-6 text-center text-sm" id="ui-map-timer">請選擇接下來要探索的區域。</p>
+      <div id="ui-map-options" class="flex flex-col gap-3 w-full max-w-sm"></div>
+    </div>
+
+    <!-- 死亡遮罩 (修復防死結) -->
+    <div id="ui-death" style="display: none;" class="absolute inset-0 bg-black/95 z-[70] flex-col items-center justify-center p-6 backdrop-blur-md">
+      <h1 class="text-6xl font-black text-red-500 mb-3 drop-shadow-md animate-pulse">YOU DIED</h1>
+      <p class="text-slate-300 mb-8 text-center text-lg" id="ui-death-desc">冒險終止</p>
+      <button onclick="game.revive()" class="w-full bg-amber-600 hover:bg-amber-500 text-white rounded-2xl py-4 text-xl font-bold shadow-[0_0_15px_rgba(217,119,6,0.6)] active:scale-95 transition-transform">
+        👼 退回上一層並消除地圖負面效果<br/><span class="text-sm font-normal drop-shadow">(扣除 20% 金幣)</span>
+      </button>
+    </div>
+
+  </div>
+
+  <script>
+    // ==========================================
+    // 🛡️ 絕對防禦機制：防彈 DOM 引擎 & 數字縮寫
+    // ==========================================
+    const U = {
+        fNum: (n) => {
+            if (n >= 1000000000) return (n / 1000000000).toFixed(2) + 'B';
+            if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
+            if (n >= 10000) return (n / 1000).toFixed(1) + 'K';
+            return Math.floor(n).toString();
+        },
+        el: (id) => document.getElementById(id),
+        txt: (id, text) => { let e = U.el(id); if(e) e.innerText = text; },
+        html: (id, html) => { let e = U.el(id); if(e) e.innerHTML = html; },
+        css: (id, cls) => { let e = U.el(id); if(e) e.className = cls; },
+        show: (id, d = 'block') => { let e = U.el(id); if(e) e.style.display = d; },
+        hide: (id) => { let e = U.el(id); if(e) e.style.display = 'none'; },
+        w: (id, p) => { let e = U.el(id); if(e) e.style.width = Math.max(0, Math.min(100, p)) + '%'; },
+        btn: (id, dis, html) => { let e = U.el(id); if(e) { e.disabled = dis; if(html) e.innerHTML = html; } }
+    };
+
+    // ==========================================
+    // 🎲 靜態資料庫
+    // ==========================================
+    const EQ_NAMES = {
+      w: { b: ['短劍','木棍','戰斧','法杖','匕首','長槍','太刀','巨劍','魔杖','聖劍','手弩','流星錘'], p: ['破舊的','沉重的','鋒利的','精工的','附魔的','狂暴的','閃耀的','史詩的','傳說的','弒神的'] },
+      a: { b: ['布衣','皮甲','鎖子甲','鐵鎧甲','魔法袍','盜賊衣','秘銀甲','精靈袍','龍鱗甲','聖騎甲','神盾','星辰袍'], p: ['破舊的','修補的','堅固的','精良的','附魔的','庇護的','閃耀的','史詩的','傳說的','不朽的'] }
+    };
+
+    const DB = {
+      ZONES: [
+        { n: '史萊姆草原', e: ['綠史萊姆💧', '紅史萊姆🍎', '野豬🐗'] }, { n: '寧靜森林', e: ['毒蛇🐍', '巨角蟲🐛', '森林狼🐺'] },
+        { n: '烈日沙漠', e: ['毒蠍子🦂', '沙漠盜賊🥷', '木乃伊🧟'] }, { n: '幽暗沼澤', e: ['泥泥怪💩', '沼澤鱷魚🐊', '食人花🌺'] },
+        { n: '廢棄礦坑', e: ['礦坑蝙蝠🦇', '穴居人🧌', '岩石魔像🗿'] }, { n: '極寒冰谷', e: ['冰晶鳥❄️', '雪人⛄', '冰原熊🐻‍❄️'] },
+        { n: '焦熱火山', e: ['火妖🔥', '地獄犬🐺', '火焰蜥蜴🦎'] }, { n: '死亡墓地', e: ['骷髏兵💀', '幽靈👻', '吸血鬼🧛'] },
+        { n: '天空之塔', e: ['風精靈🍃', '雲妖☁️', '天使守衛👼'] }, { n: '虛空神殿', e: ['虛空眼👁️', '混沌魔👾', '深淵觸手🦑'] }
+      ],
+      DEBUFFS: {
+        normal: { n: '[普通]', d: '無負面效果', c: 'text-slate-300' },
+        hard:   { n: '[險惡]', d: '怪物攻防血大增', c: 'text-orange-400' },
+        toxic:  { n: '[劇毒]', d: '每回合扣 5% 最大血量', c: 'text-lime-400' },
+        curse:  { n: '[詛咒]', d: '攻擊力與防禦力減半', c: 'text-fuchsia-400' },
+        blind:  { n: '[致盲]', d: '攻擊有 30% 機率 MISS', c: 'text-slate-500' },
+        seal:   { n: '[封印]', d: '被動技能與藥水失效', c: 'text-purple-400' },
+        abyss:  { n: '[深淵]', d: '強度 3倍，掉寶經驗激增', c: 'text-red-500' }
+      },
+      RARITY: [
+        { n: '普通', m: 1.0, c: 'text-slate-400' }, { n: '優秀', m: 1.4, c: 'text-green-400' },
+        { n: '稀有', m: 2.0, c: 'text-blue-400' }, { n: '史詩', m: 3.0, c: 'text-purple-400' },
+        { n: '傳說', m: 5.0, c: 'legendary-text' } 
+      ],
+      M_RARITY: [
+        { p: 70, n: '', m: 1, xp: 1, c: 'text-red-400' }, { p: 20, n: '菁英 ', m: 1.5, xp: 2, c: 'text-orange-400' },
+        { p: 8, n: '稀有 ', m: 3.0, xp: 5, c: 'text-cyan-400' }, { p: 2, n: '傳說 ', m: 6.0, xp: 15, c: 'legendary-text' }
+      ],
+      STANCES: {
+          atk: { n: '猛攻', i: '⚔️', w: 'def' }, def: { n: '鐵壁', i: '🛡️', w: 'bal' },
+          bal: { n: '均衡', i: '⚖️', w: 'agi' }, agi: { n: '狂風', i: '🍃', w: 'cri' }, cri: { n: '會心', i: '🎯', w: 'atk' }
+      },
+      TOWN_UNLOCKS: [
+          { l: 2, n: '基礎訓練所 (上限Lv10)' }, { l: 3, n: '初階轉職神殿' }, { l: 4, n: '初階裝備附魔 (1~3詞綴)' },
+          { l: 5, n: '女神聖物 (開放聖物系統)' }, { l: 6, n: '進階訓練所 (上限Lv40)' }, { l: 7, n: '中階轉職解鎖' },
+          { l: 8, n: '進階裝備附魔 (2~4詞綴)' }, { l: 9, n: '終極訓練所 (無上限)' }, { l: 10, n: '終極轉職 & 神匠附魔 (滿詞綴)' }
+      ],
+      ENCHANTS_POOL: [
+        { id: 'atk', n: '物攻', u: '%', max: 5 }, { id: 'def', n: '防禦', u: '%', max: 5 },
+        { id: 'hp', n: '生命', u: '%', max: 5 }, { id: 'mp', n: '魔力', u: '%', max: 5 },
+        { id: 'critRate', n: '爆擊率', u: '%', max: 3 }, { id: 'cdmg', n: '爆擊傷', u: '%', max: 8 },
+        { id: 'hpr', n: '回血', u: '%', max: 2 }, { id: 'mpr', n: '回魔', u: 'pt', max: 3 },
+        { id: 'dodge', n: '閃避', u: '%', max: 3 }
+      ],
+      JOBS: {
+        novice:  { t: 1, n: '初心者', icon: '🥚', cost: 0, mpc: 0, desc: '無消耗，無特技', mul: {hp:1, atk:1, def:1} },
+        warrior: { t: 3, n: '戰士', icon: '🪓', cost: 50, mpc: 3, desc: '20%機率【雙倍重擊】', mul: {hp:1.3, atk:1.5, def:0.9} },
+        mage:    { t: 3, n: '魔法使', icon: '🔮', cost: 50, mpc: 5, desc: '15%機率【爆裂火球】', mul: {hp:0.8, atk:2.0, def:0.7} },
+        thief:   { t: 3, n: '盜賊', icon: '🥷', cost: 50, mpc: 2, desc: '金幣 1.3倍，高爆擊', mul: {hp:1.0, atk:1.3, def:1.0} },
+        priest:  { t: 3, n: '祭司', icon: '✝️', cost: 50, mpc: 4, desc: '25%機率【攻擊並回血】', mul: {hp:1.1, atk:0.9, def:1.2} },
+        archer:  { t: 3, n: '弓箭手', icon: '🏹', cost: 50, mpc: 3, desc: '30%機率【二連矢】', mul: {hp:0.9, atk:1.4, def:0.8} },
+        berserker: { t: 7, n: '狂戰士', icon: '🩸', cost: 5000, mpc: 6, desc: '25%【狂暴3倍傷】', mul: {hp:1.8, atk:2.5, def:0.6} },
+        archmage:  { t: 7, n: '大魔導', icon: '🌌', cost: 5000, mpc: 10, desc: '20%【毀滅隕石】', mul: {hp:0.7, atk:3.5, def:0.5} },
+        assassin:  { t: 7, n: '刺客王', icon: '🗡️', cost: 5000, mpc: 5, desc: '金幣1.8倍，10%必殺', mul: {hp:1.2, atk:2.0, def:1.0} },
+        paladin:   { t: 7, n: '聖騎士', icon: '🛡️', cost: 5000, mpc: 8, desc: '防禦與聖光大治癒', mul: {hp:2.5, atk:1.2, def:2.5} },
+        sniper:    { t: 7, n: '神射手', icon: '🎯', cost: 5000, mpc: 6, desc: '20%【爆頭暈眩】', mul: {hp:1.0, atk:2.8, def:0.8} },
+        dk:        { t: 7, n: '龍騎士', icon: '🐉', cost: 5000, mpc: 4, desc: '高三圍與微量吸血', mul: {hp:2.0, atk:2.0, def:2.0} },
+        swordmaster: { t: 10, n: '劍聖', icon: '🤺', cost: 20000, mpc: 8, desc: '30%【極限五連擊】', mul: {hp:1.5, atk:3.0, def:1.0} },
+        valkyrie:    { t: 10, n: '武神', icon: '🥋', cost: 20000, mpc: 0, desc: '25%【絕對反擊】無傷反傷', mul: {hp:3.0, atk:1.5, def:3.0} },
+        necromancer: { t: 10, n: '死靈法師', icon: '💀', cost: 20000, mpc: 12, desc: '20%【靈魂吸取】巨量吸血', mul: {hp:1.0, atk:3.8, def:0.5} },
+        timemage:    { t: 10, n: '時空使', icon: '⏳', cost: 20000, mpc: 15, desc: '15%【時間暫停】連擊暈眩', mul: {hp:0.8, atk:4.0, def:0.5} },
+        highpriest:  { t: 10, n: '神官', icon: '🌟', cost: 20000, mpc: 10, desc: '30%【神聖裁決】大補血', mul: {hp:2.0, atk:1.5, def:2.0} }
+      },
+      TRAIN: {
+        vit: { n: '體能訓練', i: '💪', max: 9999, base: 20, unit: ' 基礎HP' },
+        str: { n: '臂力特訓', i: '⚔️', max: 9999, base: 5, unit: ' 基礎ATK' },
+        end: { n: '鐵壁防禦', i: '🛡️', max: 9999, base: 3, unit: ' 基礎DEF' },
+        agi: { n: '敏捷反應', i: '🍃', max: 40, base: 1, unit: '% 閃避率' },
+        luk: { n: '弱點洞察', i: '🎯', max: 40, base: 1, unit: '% 爆擊率' },
+        men: { n: '精神冥想', i: '🔮', max: 9999, base: 10, unit: ' 最大MP' }
+      },
+      RELICS: [
+        { id: 'r_atk', n: '勇氣之劍', i: '🗡️', base: '攻擊力 +{X}%', step: 5 }, 
+        { id: 'r_hp', n: '生命樹葉', i: '🌿', base: '最大血量 +{X}%', step: 5 },
+        { id: 'r_def', n: '守護者盾', i: '🛡️', base: '防禦力 +{X}%', step: 5 }, 
+        { id: 'r_mp', n: '藍色輝石', i: '🔮', base: '最大魔力 +{X}%', step: 10 },
+        { id: 'r_gld', n: '貪婪之壺', i: '🏺', base: '金幣獲取 +{X}%', step: 8 }, 
+        { id: 'r_xp', n: '智慧卷軸', i: '📜', base: '經驗獲取 +{X}%', step: 8 },  
+        { id: 'r_heal', n: '治癒聖杯', i: '🍷', base: '回血效果 +{X}%', step: 10 },
+        { id: 'r_cdmg', n: '刺客袖劍', i: '🗡️', base: '爆擊倍率 +{X}%', step: 10 },
+        { id: 'r_boss', n: '屠龍槍尖', i: '🔱', base: '對首領傷害 +{X}%', step: 10 },
+        { id: 'r_dodg', n: '輕靈之羽', i: '🪶', base: '基礎閃避 +{X}%', step: 2 }
+      ],
+      COMPANIONS: [
+        { id: 'c_kirito', n: '黑衣劍士', i: '⚔️', turns: 6, type: 'dmg', val: 3.5, msg: '星爆十六連擊！' },
+        { id: 'c_saitama', n: '披風俠', i: '👊', turns: 1, type: 'kill', val: 0, msg: '普通的一拳。' },
+        { id: 'c_elf', n: '精靈使者', i: '🧝‍♀️', turns: 8, type: 'heal', val: 0.25, msg: '詠唱了治癒魔法。' },
+        { id: 'c_thief', n: '尋寶獵人', i: '🗺️', turns: 10, type: 'gold', val: 3.0, msg: '在一旁搜尋著財寶！' },
+        { id: 'c_mario', n: '水管工大叔', i: '🍄', turns: 3, type: 'stun', val: 0, msg: '重重踩在怪物頭上！' },
+        { id: 'c_pika', n: '黃色電氣鼠', i: '⚡', turns: 5, type: 'dmg', val: 2.0, msg: '十萬伏特！' },
+        { id: 'c_inu', n: '半妖獵魔人', i: '🐶', turns: 6, type: 'vamp', val: 2.5, msg: '施展了風之傷！' },
+        { id: 'c_fma', n: '鍊金兄弟', i: '🦾', turns: 4, type: 'armorbreak', val: 0, msg: '鍊成了陷阱，瓦解了敵方防禦！' },
+        { id: 'c_link', n: '光之勇者', i: '🗡️', turns: 3, type: 'dmg', val: 5.0, msg: '揮舞大師之劍！' },
+        { id: 'c_luffy', n: '橡膠海賊', i: '☠️', turns: 5, type: 'dmg', val: 2.0, msg: '機關槍亂打！' }
+      ],
+      EXP_EVENTS: [
+        { t: '發現野果', d: '吃下後恢復了少量體力。', eff: 'heal', icon: '🍎' }, 
+        { t: '被荊棘刺傷', d: '不小心被毒刺劃破，損失 HP。', eff: 'dmg', icon: '🩸' },
+        { t: '撿到錢袋', d: '獲得了一些金幣！', eff: 'gold', icon: '💰' }, 
+        { t: '踩到陷阱', d: '暗箭射出，你受傷了！', eff: 'dmg', icon: '🪤' },
+        { t: '古老石碑', d: '研讀碑文，獲得了經驗值。', eff: 'xp', icon: '📜' }, 
+        { t: '發現捷徑', d: '找到了一條隱密的小路！', eff: 'speed', icon: '🗺️' },
+        { t: '路邊泉水', d: '喝了一口，身心舒暢。', eff: 'heal', icon: '⛲' }, 
+        { t: '遺留寶箱', d: '運氣真好，發現遺留的獎勵。', eff: 'gold', icon: '🎁' },
+        { t: '遭遇流沙', d: '費了很大的勁才爬出來。', eff: 'delay', icon: '🏜️' }, 
+        { t: '神祕菇菇', d: '吃了之後精神百倍。', eff: 'speed', icon: '🍄' },
+        { t: '魔法結界', d: '消耗 MP 強行破解，獲得大量經驗！', eff: 'mp_xp', icon: '✨' },
+        { t: '遇見委託人', d: '接下了緊急討伐委託！', eff: 'quest', icon: '📜' },
+        { t: '發現藥草', d: '採集到了珍貴的恢復藥水！', eff: 'pot', icon: '🧪' },
+        { t: '幫助流浪商人', d: '幫助商人推車，城鎮獲得了發展資金。', eff: 'town_exp', icon: '🤝' },
+        { t: '發現建材', d: '將木材送回城鎮，城鎮繁榮度提升！', eff: 'town_exp', icon: '🪵' }
+      ],
+      EXP_NORMAL: [
+        '撥開了前方的荊棘...', '涉過一條湍急的小溪...', '警惕地環顧四周...',
+        '沿著古老的足跡前進...', '翻過了一座陡峭的岩壁...', '感受到微風吹拂...',
+        '聽到遠處傳來狼嚎...', '在濃霧中摸索前行...', '跨過一棵倒下的巨木...', '仔細檢查周圍的草叢...'
+      ]
+    };
+
+    // --- 遊戲全域狀態 ---
+    const state = {
+      isAuto: false, tab: 'battle', phase: 'EXPLORE', explorePct: 0, isWaiting: false,
+      lvl: 1, xp: 0, xpReq: 100, gold: 0, 
+      hp: 100, mp: 20, job: 'novice', potions: 5,
+      unlockedJobs: ['novice'], stance: 'bal', 
+      
+      town: { lvl: 1, exp: 0 },
+      jobLvl: {}, jobExp: {}, 
+      train: { vit: 0, str: 0, end: 0, agi: 0, luk: 0, men: 0 },
+      
+      map: { baseIdx: 0, lvl: 1, debuff: 'normal' }, mapOptions: [], mapTimer: null,
+      eq: { 
+        w: {l: 1, r: 0, n: '破舊的木棍', enc: []}, 
+        a: {l: 1, r: 0, n: '破舊的麻衣', enc: []} 
+      }, 
+      relics: { r_atk: 0, r_hp: 0, r_def: 0, r_gld: 0, r_xp: 0, r_heal: 0, r_cdmg: 0, r_boss: 0, r_mp: 0, r_dodg: 0 }, relicPulls: 0,
+      
+      quest: { active: false, target: 0, curr: 0, g: 0, xp: 0 },
+      kills: 0, enemy: null, loop: null, companion: null,
+      stats: { atk: 10, def: 2, mhp: 100, mmp: 20, dodge: 0, crit: 0 }
+    };
+
+    // --- 核心運算 ---
+    const calc = {
+      rm: (rIdx) => DB.RARITY[rIdx].m,
+      relM: (id) => 1 + (state.relics[id] * (DB.RELICS.find(r=>r.id===id).step / 100)),
+      
+      sumEnc: (type, effId) => {
+          let sum = 0;
+          if(state.eq[type].enc) { state.eq[type].enc.forEach(e => { if(e.id === effId) sum += e.v; }); }
+          return sum;
+      },
+
+      refreshStats: () => {
+        let jBase = DB.JOBS[state.job].mul; 
+        let jLv = state.jobLvl[state.job] || 1;
+        let jMult = 1 + (jLv * 0.02); 
+        
+        let globalJobLvl = Object.values(state.jobLvl).reduce((sum, val) => sum + val, 0);
+        let globalJobMult = 1 + (globalJobLvl * 0.005);
+
+        let curseMod = state.map.debuff === 'curse' ? 0.5 : 1.0; 
+        
+        let bHp = (100 + state.lvl * 20 + state.train.vit * 20) * globalJobMult;
+        let bMp = (20 + state.lvl * 5 + state.train.men * 10) * globalJobMult;
+        let bAtk = (10 + state.lvl * 4 + state.train.str * 5) * globalJobMult;
+        let bDef = (2 + state.lvl * 2 + state.train.end * 3) * globalJobMult;
+        
+        let stAtkMod = state.stance === 'atk' ? 1.3 : state.stance === 'def' ? 0.8 : state.stance === 'cri' ? 0.85 : 1.0;
+        let stDefMod = state.stance === 'def' ? 1.4 : state.stance === 'atk' ? 0.7 : state.stance === 'agi' ? 0.8 : 1.0;
+
+        let eAtkM = 1 + (calc.sumEnc('w', 'atk') / 100) + (calc.sumEnc('a', 'atk') / 100);
+        let eDefM = 1 + (calc.sumEnc('w', 'def') / 100) + (calc.sumEnc('a', 'def') / 100);
+        let eHpM = 1 + (calc.sumEnc('w', 'hp') / 100) + (calc.sumEnc('a', 'hp') / 100);
+        let eMpM = 1 + (calc.sumEnc('w', 'mp') / 100) + (calc.sumEnc('a', 'mp') / 100);
+
+        state.stats.mhp = Math.floor((bHp + state.eq.a.l * 12 * calc.rm(state.eq.a.r)) * (jBase.hp * jMult) * calc.relM('r_hp') * eHpM);
+        state.stats.mmp = Math.floor(bMp * calc.relM('r_mp') * eMpM); 
+        state.stats.atk = Math.floor((bAtk + state.eq.w.l * 10 * calc.rm(state.eq.w.r)) * (jBase.atk * jMult) * calc.relM('r_atk') * curseMod * stAtkMod * eAtkM);
+        state.stats.def = Math.floor((bDef + state.eq.a.l * 5 * calc.rm(state.eq.a.r)) * (jBase.def * jMult) * calc.relM('r_def') * curseMod * stDefMod * eDefM);
+        
+        let stAgi = state.stance === 'agi' ? 15 : 0;
+        state.stats.dodge = Math.min(60, state.train.agi + (state.relics.r_dodg * 2) + stAgi + calc.sumEnc('a', 'dodge') + calc.sumEnc('w', 'dodge'));
+        
+        let stCri = state.stance === 'cri' ? 15 : 0;
+        state.stats.crit = Math.min(60, state.train.luk + stCri + calc.sumEnc('w', 'critRate') + calc.sumEnc('a', 'critRate'));
+        
+        state.hp = Math.max(0, Math.min(state.hp, state.stats.mhp)); state.mp = Math.max(0, Math.min(state.mp, state.stats.mmp));
+      },
+
+      trainCost: (k) => 50 + (state.train[k] * 50),
+      relicCost: () => 500 + (state.relicPulls * 500),
+      jobExpReq: (lv) => Math.floor(50 * Math.pow(1.4, lv)), 
+      
+      townReq: () => Math.floor(1000 * Math.pow(1.5, state.town.lvl - 1)),
+
+      eMaxHp: (isBoss, rMult=1) => {
+        let base = Math.floor(40 * Math.pow(1.15, state.map.lvl) * (isBoss ? 15 : 1) * rMult);
+        let dyn = Math.floor(state.stats.atk * (isBoss ? 5 : 1.5));
+        let finalHp = base + dyn;
+        if(state.map.debuff === 'hard') finalHp = Math.floor(finalHp * 1.5);
+        if(state.map.debuff === 'abyss') finalHp = Math.floor(finalHp * 3.0);
+        return finalHp;
+      },
+      eAtk: (isBoss, rMult=1) => {
+        let base = Math.floor(4 * Math.pow(1.12, state.map.lvl) * (isBoss ? 3 : 1) * rMult);
+        let dyn = Math.floor(state.stats.def * 0.7); 
+        let finalAtk = base + dyn;
+        if(state.map.debuff === 'hard') finalAtk = Math.floor(finalAtk * 1.5);
+        if(state.map.debuff === 'abyss') finalAtk = Math.floor(finalAtk * 3.0);
+        return finalAtk;
+      }
+    };
+
+    const genEqName = (type, rIdx) => {
+      let rPre = EQ_NAMES[type].p; let rBase = EQ_NAMES[type].b;
+      let preWord = rPre[Math.min(rPre.length - 1, rIdx * 2 + Math.floor(Math.random()*2))];
+      let baseWord = rBase[Math.floor(Math.random() * rBase.length)];
+      return `${preWord}${baseWord}`;
+    };
+
+    const rollEnchants = (tier) => {
+       let minAffix = tier === 3 ? 3 : (tier === 2 ? 2 : 1);
+       let maxAffix = tier === 3 ? 6 : (tier === 2 ? 4 : 3);
+       let maxStat = tier === 3 ? 8 : (tier === 2 ? 4 : 2); 
+       
+       let count = Math.floor(Math.random() * (maxAffix - minAffix + 1)) + minAffix;
+       let result = [];
+       for(let i=0; i<count; i++) {
+           let afx = DB.ENCHANTS_POOL[Math.floor(Math.random() * DB.ENCHANTS_POOL.length)];
+           let val = Math.floor(Math.random() * maxStat) + 1;
+           let exist = result.find(e => e.id === afx.id);
+           if(exist) { exist.v += val; } else { result.push({ id: afx.id, n: afx.n, u: afx.u, v: val }); }
+       }
+       return result;
+    };
+
+    const checkStanceAdv = (pSt, eSt) => {
+        if(DB.STANCES[pSt].w === eSt) return 1;
+        if(DB.STANCES[eSt].w === pSt) return -1;
+        return 0;
+    };
+
+    // --- 遊戲邏輯控制器 ---
+    const game = {
+      
+      init: () => {
+        Object.keys(DB.JOBS).forEach(k => { 
+            if(!state.jobLvl[k]) state.jobLvl[k] = 1; 
+            if(!state.jobExp[k]) state.jobExp[k] = 0; 
+        });
+        if(!state.unlockedJobs.includes('novice')) state.unlockedJobs.push('novice');
+
+        calc.refreshStats(); state.hp = state.stats.mhp; state.mp = state.stats.mmp;
+        game.updateUI();
+        game.log('✨ 傳奇冒險：城鎮復興與五行戰略 正式展開！', 'cyan');
+      },
+
+      log: (msg, color = 'slate') => {
+        let logEl = U.el('ui-log'); if(!logEl) return;
+        const div = document.createElement('div');
+        const cMap = { slate: 'text-slate-400', cyan: 'text-cyan-400 font-bold', red: 'text-red-400', green: 'text-green-400 font-bold', amber: 'text-amber-400 font-bold', purple: 'text-purple-400 font-bold text-[14px]', legend: 'legendary-text text-[14px]' };
+        div.className = cMap[color] || 'text-slate-400'; div.innerHTML = msg;
+        logEl.appendChild(div); 
+        if (logEl.children.length > 50) logEl.removeChild(logEl.firstChild);
+        logEl.scrollTop = logEl.scrollHeight;
+      },
+
+      checkLevelUp: () => {
+        if (state.xp >= state.xpReq) {
+          state.lvl++; state.xp -= state.xpReq; state.xpReq = Math.floor(state.xpReq * 1.5 + 50); 
+          calc.refreshStats(); state.hp = state.stats.mhp; state.mp = state.stats.mmp;
+          game.log(`🎉 升級至 Lv.${state.lvl}！`, 'cyan');
+        }
+      },
+
+      checkJobLevelUp: () => {
+        let j = state.job; let req = calc.jobExpReq(state.jobLvl[j]);
+        if (state.jobExp[j] >= req) {
+           state.jobLvl[j]++; state.jobExp[j] -= req; calc.refreshStats();
+           game.log(`🌟 【${DB.JOBS[j].n}】熟練度升級至 Lv.${state.jobLvl[j]}！(全屬性+0.5%)`, 'legend');
+           if(state.tab === 'town') game.renderTown();
+        }
+      },
+
+      updateTownHeader: () => {
+        U.txt('ui-town-lvl', state.town.lvl);
+        let req = calc.townReq();
+        U.w('ui-town-bar', (state.town.exp / req) * 100);
+        U.txt('ui-town-exp', `${U.fNum(state.town.exp)}/${U.fNum(req)}`);
+        let nx = DB.TOWN_UNLOCKS.find(u => u.l === state.town.lvl + 1);
+        U.txt('ui-town-next', nx ? `下級解鎖: ${nx.n}` : '城鎮持續擴建中...');
+      },
+
+      checkTownLevelUpSilent: () => {
+        let req = calc.townReq();
+        let levelUp = false;
+        while (state.town.exp >= req) {
+            state.town.lvl++; state.town.exp -= req;
+            levelUp = true;
+            req = calc.townReq();
+        }
+        if (levelUp) {
+            game.log(`🎊 城鎮繁榮度提升至 Lv.${state.town.lvl}！解鎖新設施！`, 'legend');
+            if(state.tab === 'town') game.renderTown();
+            game.updateUI();
+        }
+        game.updateTownHeader();
+      },
+
+      donate: () => {
+          let amt = Math.floor(state.gold * 0.2);
+          if (amt < 100 && state.gold >= 100) amt = 100;
+          if (amt < 100) { game.log('❌ 資金不足，最少需捐獻 100🪙。', 'red'); return; }
+          
+          state.gold -= amt; state.town.exp += amt;
+          game.log(`🤝 捐獻了 ${U.fNum(amt)}🪙 建設資金！`, 'green');
+          game.checkTownLevelUpSilent(); game.updateUI();
+      },
+
+      setStance: (s) => {
+        state.stance = s;
+        ['atk','def','bal','agi','cri'].forEach(k => {
+            U.css('st-'+k, 'flex-none px-3 py-2 text-xs font-bold rounded transition-colors whitespace-nowrap bg-slate-800 text-slate-400');
+        });
+        let cMap = { atk: 'bg-red-900/80 text-red-100 border border-red-500', def: 'bg-blue-900/80 text-blue-100 border border-blue-500', bal: 'bg-cyan-900/80 text-cyan-100 border border-cyan-500', agi: 'bg-green-900/80 text-green-100 border border-green-500', cri: 'bg-purple-900/80 text-purple-100 border border-purple-500' };
+        U.css('st-'+s, `flex-none px-3 py-2 text-xs font-bold rounded transition-colors whitespace-nowrap ${cMap[s]}`);
+        calc.refreshStats(); game.updateUI();
+      },
+
+      updateUI: () => {
+        U.txt('ui-level', state.lvl); 
+        
+        let jLv = state.jobLvl[state.job] || 1;
+        let jName = jLv >= 10 ? `[覺醒] ${DB.JOBS[state.job].n}` : DB.JOBS[state.job].n;
+        U.txt('ui-job', `${jName} Lv.${jLv}`); 
+        U.css('ui-job', jLv >= 10 ? 'bg-amber-900/80 text-amber-300 px-2 py-0.5 rounded text-sm border border-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-indigo-900/50 text-indigo-300 px-2 py-0.5 rounded text-sm border border-indigo-700');
+        
+        U.txt('ui-gold', U.fNum(state.gold));
+        
+        let mapName = DB.ZONES[state.map.baseIdx].n; let debuff = DB.DEBUFFS[state.map.debuff];
+        U.html('ui-zone', `${debuff.n} ${state.map.lvl}F ${mapName}`); U.css('ui-zone', `text-sm font-bold shrink-0 truncate max-w-[160px] ${debuff.c}`);
+        
+        if(state.map.debuff !== 'normal') { U.show('ui-debuff-text'); U.txt('ui-debuff-text', `⚠️ ${debuff.d}`); U.css('ui-debuff-text', `text-[11px] font-bold mt-1 truncate border border-orange-500/30 bg-orange-900/30 px-1.5 py-0.5 rounded shadow ${debuff.c}`); } 
+        else { U.hide('ui-debuff-text'); }
+
+        let mhp = state.stats.mhp || 1; let mmp = state.stats.mmp || 1;
+        U.w('ui-hp-bar', (state.hp/mhp)*100); U.txt('ui-hp-text', `${U.fNum(Math.max(0, Math.floor(state.hp)))}/${U.fNum(mhp)}`);
+        U.w('ui-mp-bar', (state.mp/mmp)*100); U.txt('ui-mp-text', `${U.fNum(Math.max(0, Math.floor(state.mp)))}/${U.fNum(mmp)}`);
+        U.w('ui-xp-bar', (state.xp/state.xpReq)*100); U.txt('ui-xp-text', `${U.fNum(state.xp)}/${U.fNum(state.xpReq)}`);
+
+        if (state.quest.active) {
+            U.show('ui-quest-tracker', 'inline'); U.txt('ui-quest-prog', `${state.quest.curr}/${state.quest.target}`);
+            U.css('ui-quest-tracker', state.quest.curr >= state.quest.target ? 'text-[11px] font-bold text-green-400 bg-green-900/40 px-1.5 py-0.5 rounded shrink-0 shadow' : 'text-[11px] font-bold text-amber-300 bg-amber-900/40 px-1.5 py-0.5 rounded border border-amber-700/50 shrink-0 shadow');
+        } else { U.hide('ui-quest-tracker'); }
+
+        if (state.phase === 'EXPLORE') {
+            U.hide('stage-combat'); U.show('stage-explore', 'flex'); U.hide('ui-stats-mini');
+            U.w('ui-explore-bar', state.explorePct); U.txt('ui-main-act-text', '🔍 探索');
+            U.css('btn-main-act', "flex-1 bg-cyan-700 text-white py-3.5 rounded-xl text-lg font-bold active:bg-cyan-600 shadow-md transition-colors relative overflow-hidden");
+        } else if (state.enemy) {
+            U.hide('stage-explore'); U.show('stage-combat', 'flex'); U.show('ui-stats-mini'); 
+            U.txt('ui-stats-mini', `敵 ATK: ${U.fNum(state.enemy.atk)}`);
+            U.txt('ui-enemy-icon', state.enemy.icon); 
+            
+            let eStObj = DB.STANCES[state.enemy.stance];
+            let adv = checkStanceAdv(state.stance, state.enemy.stance);
+            let advHtml = adv === 1 ? '<span class="text-green-400 font-bold ml-1 text-xs">(有利)</span>' : (adv === -1 ? '<span class="text-red-400 font-bold ml-1 text-xs">(劣勢)</span>' : '');
+            
+            U.html('ui-enemy-name', `<span class="text-base mr-1">${eStObj.i}</span><span class="text-lg font-bold ${state.enemy.isBoss ? 'text-fuchsia-400' : state.enemy.color}">${state.enemy.n}</span>${advHtml}`);
+            U.w('ui-ehp-bar', (state.enemy.hp/state.enemy.mhp)*100);
+            
+            U.txt('ui-main-act-text', '⚔️ 攻擊');
+            U.css('btn-main-act', "flex-1 bg-red-700 text-white py-3.5 rounded-xl text-lg font-bold active:bg-red-600 shadow-md transition-colors relative overflow-hidden");
+        }
+
+        U.txt('ui-progress', state.kills >= 20 ? '⚠️ 首領戰' : `首領 ${state.kills}/20`);
+        let progEl = U.el('ui-progress'); if(progEl) { if(state.kills >= 20) progEl.classList.add('text-red-500', 'animate-pulse'); else progEl.classList.remove('text-red-500', 'animate-pulse'); }
+
+        if (state.companion) { U.show('ui-comp-mini', 'block'); U.txt('ui-comp-name', state.companion.n); U.txt('ui-comp-turns', state.companion.turns); } 
+        else { U.hide('ui-comp-mini'); }
+
+        if(state.map.debuff === 'seal') { 
+           U.btn('btn-potion', true, `<span class="mb-0.5">封印</span><span class="text-[10px] font-normal text-pink-300">無法使用</span>`); 
+           U.show('ui-seal-overlay', 'flex'); U.show('ui-seal-pot', 'flex');
+        } else { 
+           U.btn('btn-potion', false, `<span>🧪 喝水</span><span class="text-[11px] font-normal text-pink-300 bg-pink-950/60 px-2 py-0.5 rounded border border-pink-800/50">${state.potions>0?`剩${state.potions}瓶`:'15🪙'}</span>`);
+           U.hide('ui-seal-overlay'); U.hide('ui-seal-pot');
+        }
+
+        if (state.town.lvl >= 5) {
+            U.btn('tab-rel', false, '💎 聖物'); U.css('tab-rel', state.tab==='relic' ? "flex-1 bg-cyan-900 border border-cyan-500 text-cyan-100 py-3 rounded-lg text-sm font-bold transition-colors shadow" : "flex-1 bg-slate-800 border border-slate-600 text-slate-300 py-3 rounded-lg text-sm font-bold transition-colors shadow");
+        } else {
+            U.btn('tab-rel', true, '🔒 聖物'); U.css('tab-rel', "flex-1 bg-slate-800/50 border border-slate-700 text-slate-500 py-3 rounded-lg text-sm font-bold cursor-not-allowed shadow");
+        }
+      },
+
+      exploreStep: () => {
+        if (state.mp <= 0) {
+            state.mp = Math.min(state.stats.mmp, state.mp + Math.floor(state.stats.mmp * 0.3));
+            game.log('🧘 MP耗盡，強制冥想休息... (恢復 30% MP)', 'purple');
+            U.txt('ui-explore-action', '🧘 冥想休息中...'); U.txt('ui-explore-icon', '🧘');
+            game.updateUI(); return;
+        }
+
+        U.txt('ui-explore-icon', '🚶‍♂️');
+        let step = Math.floor(15 + Math.random() * 15);
+
+        if (Math.random() < 0.25) { 
+           let ev = DB.EXP_EVENTS[Math.floor(Math.random() * DB.EXP_EVENTS.length)];
+           
+           if (ev.eff === 'mp_xp') {
+               if(state.mp >= 10) { state.mp -= 10; let gain = Math.floor(50 * state.map.lvl * calc.relM('r_xp')); state.xp += gain; step += 10; game.log(`✨ 消耗 10 MP 破解結界，獲得 ${U.fNum(gain)} 經驗！`, 'purple'); }
+               else { game.log(`❌ 遇到魔法結界，MP 不足無法破解。`, 'slate'); step -= 5; }
+           } else {
+               U.txt('ui-explore-action', `${ev.icon} ${ev.t}`); game.log(`【探索】${ev.d}`, 'cyan');
+               let healMod = calc.relM('r_heal');
+               if (ev.eff === 'heal') state.hp = Math.min(state.stats.mhp, state.hp + Math.floor(state.stats.mhp*0.1*healMod));
+               if (ev.eff === 'fullheal') state.hp = state.stats.mhp;
+               if (ev.eff === 'dmg') { state.hp -= Math.floor(state.stats.mhp*0.05); if (state.hp <= 0) { game.handleDeath(); return; } }
+               if (ev.eff === 'gold') { let g = Math.floor(15 * state.map.lvl * calc.relM('r_gld')); state.gold += g; }
+               if (ev.eff === 'xp') { let x = Math.floor(30 * state.map.lvl * calc.relM('r_xp')); state.xp += x; game.checkLevelUp(); }
+               if (ev.eff === 'mp') state.mp = Math.min(state.stats.mmp, state.mp + 10);
+               if (ev.eff === 'pot') { state.potions++; game.log(`🧪 獲得了一瓶藥水！`, 'green'); }
+               if (ev.eff === 'town_exp') { state.town.exp += Math.floor(20*state.map.lvl); game.log(`🤝 獲得了城鎮繁榮度！`, 'green'); game.checkTownLevelUpSilent(); }
+               if (ev.eff === 'quest' && !state.quest.active) {
+                   state.quest = { active: true, target: Math.floor(5 + Math.random()*15), curr: 0, g: Math.floor(state.map.lvl*100), xp: Math.floor(state.map.lvl*150) };
+                   game.log(`📜 接取了緊急任務！完成可獲大量獎勵。`, 'amber');
+               }
+               if (ev.eff === 'delay') step = -10;
+               if (ev.eff === 'speed') step = 40;
+           }
+        } else {
+           U.txt('ui-explore-action', DB.EXP_NORMAL[Math.floor(Math.random() * DB.EXP_NORMAL.length)]);
+           state.mp = Math.min(state.stats.mmp, state.mp + 1); 
+        }
+
+        if (Math.random() < 0.1) { state.town.exp += Math.floor(5 * state.map.lvl); game.checkTownLevelUpSilent(); }
+
+        state.explorePct += step; if (state.explorePct < 0) state.explorePct = 0;
+        
+        if (state.explorePct >= 100) {
+           state.explorePct = 0; state.phase = 'COMBAT';
+           let stKeys = Object.keys(DB.STANCES);
+           let rndStance = stKeys[Math.floor(Math.random() * stKeys.length)];
+           
+           if (state.kills >= 20) {
+              let pool = DB.ZONES[state.map.baseIdx].e; let pick = pool[Math.floor(Math.random() * pool.length)]; let name = pick.slice(0, -2);
+              state.enemy = { n: `[首領] 巨型${name}`, icon: '🐲', hp: calc.eMaxHp(true), mhp: calc.eMaxHp(true), atk: calc.eAtk(true), isBoss: true, color: 'text-fuchsia-400', rxp: 1, afx: null, stance: rndStance };
+              game.log(`⚠️ 遭遇區域首領！這傢伙擺出了【${DB.STANCES[rndStance].n}】姿態！`, 'red');
+           } else {
+              let pool = DB.ZONES[state.map.baseIdx].e; let pick = pool[Math.floor(Math.random() * pool.length)];
+              let name = pick.slice(0, -2); let icon = pick.slice(-2);
+              
+              let rRoll = Math.random() * 100; let mR = DB.M_RARITY[0];
+              let cumulative = 0; for(let i=0; i<DB.M_RARITY.length; i++) { cumulative += DB.M_RARITY[i].p; if(rRoll < cumulative) { mR = DB.M_RARITY[i]; break; } }
+              
+              state.enemy = { n: `${mR.n}${name}`, icon: icon, hp: calc.eMaxHp(false, mR.m), mhp: calc.eMaxHp(false, mR.m), atk: calc.eAtk(false, mR.m), isBoss: false, color: mR.c, rxp: mR.xp, afx: null, stance: rndStance };
+              
+              if (mR.m > 1 && Math.random() < 0.5) {
+                 let afx = DB.M_AFFIXES[Math.floor(Math.random() * DB.M_AFFIXES.length)];
+                 state.enemy.n = afx.n + state.enemy.n; state.enemy.afx = afx.id;
+                 if(afx.id === 'atk') state.enemy.atk = Math.floor(state.enemy.atk * 1.5);
+                 if(afx.id === 'def') { state.enemy.mhp = Math.floor(state.enemy.mhp * 1.5); state.enemy.hp = state.enemy.mhp; }
+              }
+              game.log(`💢 遭遇了 ${state.enemy.n} (姿態: ${DB.STANCES[rndStance].n})`);
+           }
+        }
+        game.updateUI();
+      },
+
+      showMapChoice: () => {
+        state.phase = 'EXPLORE'; state.explorePct = 0; state.enemy = null; 
+        U.html('ui-map-options', ''); state.mapOptions = [];
+        let pool = Object.keys(DB.DEBUFFS);
+        for(let i=0; i<3; i++) {
+           let zIdx = Math.floor(Math.random() * DB.ZONES.length); let debuff = pool[Math.floor(Math.random() * pool.length)];
+           if(state.map.lvl < 5 && debuff === 'abyss') debuff = 'normal'; if(i===0) debuff = 'normal'; 
+           state.mapOptions.push({ baseIdx: zIdx, lvl: state.map.lvl + 1, debuff: debuff });
+           
+           let dInfo = DB.DEBUFFS[debuff]; let btn = document.createElement('button');
+           btn.className = "p-3 rounded-xl border text-left active:scale-95 transition-transform bg-slate-900 " + (debuff==='normal'?'border-slate-600':debuff==='abyss'?'border-fuchsia-500 shadow-[0_0_10px_rgba(217,70,239,0.5)]':'border-orange-500 bg-orange-950/20');
+           btn.innerHTML = `<div class="font-bold text-lg text-white mb-0.5"><span class="${dInfo.c}">${dInfo.n}</span> ${DB.ZONES[zIdx].n}</div><div class="text-xs text-slate-400">${dInfo.d}</div>`;
+           btn.onclick = () => game.selectMap(i); U.el('ui-map-options').appendChild(btn);
+        }
+        U.show('ui-map-choice', 'flex');
+        if (state.isAuto) {
+           U.html('ui-map-timer', `請選擇接下來要探索的區域。<br/><span class="text-amber-400">(自動掛機中：3秒後自動選擇)</span>`);
+           state.mapTimer = setTimeout(() => { let mc = U.el('ui-map-choice'); if(mc && mc.style.display === 'flex') game.selectMap(0); }, 3000);
+        } else { U.html('ui-map-timer', `請選擇接下來要探索的區域。`); }
+      },
+
+      selectMap: (idx) => {
+        clearTimeout(state.mapTimer); state.map = state.mapOptions[idx]; state.kills = 0; state.isWaiting = false; U.hide('ui-map-choice');
+        calc.refreshStats(); game.log(`前往了 ${DB.DEBUFFS[state.map.debuff].n} ${DB.ZONES[state.map.baseIdx].n}`, 'cyan');
+        game.updateUI();
+      },
+
+      enchant: (type, tier) => {
+          let cost = tier === 3 ? 10000 : (tier === 2 ? 3000 : 1000);
+          if (state.gold >= cost) {
+              state.gold -= cost;
+              state.eq[type].enc = rollEnchants(tier);
+              calc.refreshStats(); state.hp = state.stats.mhp; state.mp = state.stats.mmp;
+              game.log(`🔮 花費 ${U.fNum(cost)}🪙 洗鍊${type==='w'?'武器':'防具'}槽附魔成功！`, 'purple');
+              if(state.tab === 'town') game.renderTown(); game.updateUI();
+          } else {
+              game.log(`❌ 洗鍊需要 ${U.fNum(cost)} 🪙。`, 'red');
+          }
+      },
+
+      rollLoot: () => {
+        let isBoss = state.enemy.isBoss; let isAbyss = state.map.debuff === 'abyss';
+        if (Math.random() > (isBoss ? 1.0 : (isAbyss ? 0.6 : 0.20))) return; 
+        
+        let type = Math.random() > 0.5 ? 'w' : 'a'; let dropLvl = state.lvl + (isBoss ? 3 : 0) + Math.floor(Math.random()*4) + 1;
+        let rRoll = Math.random(); let rIdx = 0; if (isBoss) rRoll += 0.3; if(isAbyss) rRoll += 0.2;
+        
+        if (rRoll > 0.98) rIdx = 4; else if (rRoll > 0.85) rIdx = 3; else if (rRoll > 0.60) rIdx = 2; else if (rRoll > 0.30) rIdx = 1;
+
+        let dropPwr = dropLvl * DB.RARITY[rIdx].m; let curPwr = state.eq[type].l * DB.RARITY[state.eq[type].r].m;
+        let rColor = rIdx === 4 ? 'legend' : rIdx === 3 ? 'purple' : rIdx === 2 ? 'cyan' : rIdx === 1 ? 'green' : 'slate';
+        let eqName = genEqName(type, rIdx);
+
+        if (dropPwr > curPwr) {
+          state.eq[type] = { l: dropLvl, r: rIdx, n: eqName, enc: state.eq[type].enc || [] };
+          calc.refreshStats(); state.hp = state.stats.mhp; 
+          game.log(`🎁 戰利品自動換上！[${DB.RARITY[rIdx].n}] ${eqName} Lv.${dropLvl}`, rColor);
+          let gl = U.el('ui-relic-glow');
+          if(rIdx >= 3 && gl) {
+            gl.style.opacity = '1'; gl.classList.add(rIdx===4?'bg-amber-500':'bg-purple-500');
+            setTimeout(() => { gl.style.opacity = '0'; setTimeout(()=>gl.classList.remove('bg-amber-500', 'bg-purple-500'), 500); }, 800);
+          }
+        } else {
+          let sellG = Math.floor(dropLvl * 5 * DB.RARITY[rIdx].m * calc.relM('r_gld')); state.gold += sellG;
+          game.log(`🗑️ 分解裝備 [${DB.RARITY[rIdx].n}] ${eqName}，得 ${U.fNum(sellG)}🪙`, 'slate');
+        }
+      },
+
+      executeTurn: () => {
+        if(!state.enemy || state.hp <= 0 || state.isWaiting) return;
+
+        let isSeal = state.map.debuff === 'seal';
+        if(state.map.debuff === 'toxic') { let tox = Math.floor(state.stats.mhp * 0.05); state.hp -= tox; game.log(`🤢 受到劇毒傷害 ${tox}`, 'red'); if(state.hp <= 0) { game.handleDeath(); return; } }
+
+        if (state.companion) {
+            let c = state.companion;
+            if (c.type === 'dmg') { let cd = Math.floor(state.stats.atk * c.val); state.enemy.hp -= cd; game.log(`👥 ${c.n} ${c.msg} 造成 ${U.fNum(cd)} 傷`, 'cyan'); }
+            else if (c.type === 'heal') { let ch = Math.floor(state.stats.mhp * c.val); state.hp = Math.min(state.stats.mhp, state.hp + ch); game.log(`👥 ${c.n} ${c.msg} 恢復 ${U.fNum(ch)} HP`, 'green'); }
+            else if (c.type === 'kill') { 
+                if(!state.enemy.isBoss) { state.enemy.hp = 0; game.log(`👥 ${c.n} ${c.msg} 秒殺了怪物！`, 'amber'); }
+                else { let cd = Math.floor(state.stats.atk * 10); state.enemy.hp -= cd; game.log(`👥 ${c.n} ${c.msg} 重創首領 ${U.fNum(cd)} 傷！`, 'amber'); }
+            }
+            else if (c.type === 'armorbreak') { state.enemy.def = 0; game.log(`👥 ${c.n} ${c.msg}`, 'cyan'); }
+            else if (c.type === 'stun') { game.log(`👥 ${c.n} ${c.msg} 敵人本回合無法行動！`, 'amber'); }
+            else if (c.type === 'vamp') { let cd = Math.floor(state.stats.atk * c.val); state.enemy.hp -= cd; state.hp = Math.min(state.stats.mhp, state.hp + Math.floor(cd*0.5)); game.log(`👥 ${c.n} ${c.msg} 造成 ${U.fNum(cd)}傷並吸血！`, 'cyan'); }
+            c.turns--; if (c.turns <= 0) { game.log(`👋 ${c.n} 離開了隊伍。`, 'purple'); state.companion = null; }
+            if (state.enemy.hp <= 0) { game.resolveEnemyDeath(); return; }
+        }
+
+        let eventBuff = 1; let eStun = (state.companion && state.companion.type === 'stun');
+        if (Math.random() < 0.05 && !state.companion) {
+            state.companion = JSON.parse(JSON.stringify(DB.COMPANIONS[Math.floor(Math.random() * DB.COMPANIONS.length)]));
+            game.log(`🤝 遇見傳奇人物【${state.companion.n}】！加入隊伍！`, 'legend');
+        } 
+
+        let adv = checkStanceAdv(state.stance, state.enemy.stance);
+        let pAdvMod = adv === 1 ? 1.2 : adv === -1 ? 0.8 : 1.0;
+        let eAdvMod = adv === 1 ? 0.8 : adv === -1 ? 1.2 : 1.0;
+
+        let isBlind = state.map.debuff === 'blind' && Math.random() < 0.3;
+        
+        if (isBlind) {
+            game.log('🙈 致盲！你的攻擊落空了。', 'slate');
+        } else if (state.enemy.afx === 'swift' && Math.random() < 0.2) {
+            game.log(`💨 敵人[迅捷]閃避了你的攻擊！`, 'slate');
+        } else {
+            let patk = state.stats.atk * eventBuff * pAdvMod; let pmsg = ''; let dmg = patk; 
+            
+            if (calc.sumEnc('w', 'atk') > 0 && Math.random() < 0.2) { patk = Math.floor(patk * 1.2); pmsg = '【破甲】'; }
+            
+            if (isSeal) { 
+                pmsg = '【封印平砍】'; state.mp = Math.min(state.stats.mmp, state.mp + 2 + calc.sumEnc('a', 'mpr')); 
+            } else {
+                let job = state.job; let jInfo = DB.JOBS[job]; let skCost = jInfo.mpc || 0;
+                let jLv = state.jobLvl[job] || 1;
+                let skPwr = 1 + (state.train.men * 0.05); 
+                let triggered = false;
+                
+                let trgBonus = (jLv * 0.005); 
+                
+                if (job === 'warrior' && Math.random() < 0.2 + trgBonus) triggered = true;
+                else if (job === 'mage' && Math.random() < 0.15 + trgBonus) triggered = true;
+                else if (job === 'thief' && Math.random() < 0.25 + trgBonus) triggered = true;
+                else if (job === 'priest' && Math.random() < 0.25 + trgBonus) triggered = true;
+                else if (job === 'archer' && Math.random() < 0.3 + trgBonus) triggered = true;
+                else if (job === 'berserker' && Math.random() < 0.25 + trgBonus) triggered = true;
+                else if (job === 'archmage' && Math.random() < 0.2 + trgBonus) triggered = true;
+                else if (job === 'assassin' && !state.enemy.isBoss && Math.random() < 0.1 + trgBonus) triggered = true;
+                else if (job === 'paladin' && Math.random() < 0.2 + trgBonus) triggered = true;
+                else if (job === 'sniper' && Math.random() < 0.2 + trgBonus) triggered = true;
+                else if (job === 'dk') triggered = true; 
+                else if (job === 'swordmaster' && Math.random() < 0.3 + trgBonus) triggered = true;
+                else if (job === 'valkyrie' && Math.random() < 0.25 + trgBonus) triggered = true;
+                else if (job === 'necromancer' && Math.random() < 0.2 + trgBonus) triggered = true;
+                else if (job === 'timemage' && Math.random() < 0.15 + trgBonus) triggered = true;
+                else if (job === 'highpriest' && Math.random() < 0.3 + trgBonus) triggered = true;
+
+                if (triggered && skCost > 0) {
+                    if (state.mp >= skCost) {
+                        state.mp -= skCost;
+                        let healMod = calc.relM('r_heal') * (1 + calc.sumEnc('a', 'hpr')/100);
+                        if (job === 'warrior') { dmg = Math.floor(patk * 2 * skPwr); pmsg = pmsg ? pmsg+'+雙倍重擊' : '【雙倍重擊】'; }
+                        else if (job === 'mage') { dmg = Math.floor(patk * 2.5 * skPwr); pmsg = pmsg ? pmsg+'+爆裂火球' : '【爆裂火球】'; }
+                        else if (job === 'thief') { dmg = Math.floor(patk * 1.5 * skPwr); pmsg = pmsg ? pmsg+'+暗殺' : '【暗殺爆擊】'; state.gold += Math.floor(state.lvl * 2 * calc.relM('r_gld')); }
+                        else if (job === 'priest') { dmg = Math.floor(patk * skPwr); state.hp=Math.min(state.stats.mhp, state.hp+Math.floor(state.stats.mhp*0.15*skPwr*healMod)); pmsg=pmsg ? pmsg+'+祈禱' : '【祈禱打擊】'; }
+                        else if (job === 'archer') { dmg = Math.floor(patk * 1.2 * 2 * skPwr); pmsg = pmsg ? pmsg+'+二連矢' : '【二連矢】'; }
+                        else if (job === 'berserker') { dmg = Math.floor(patk * 3 * skPwr); state.hp -= Math.floor(dmg*0.1); pmsg = pmsg ? pmsg+'+狂暴' : '【狂暴反傷】'; }
+                        else if (job === 'archmage') { dmg = Math.floor(patk * 4 * skPwr); pmsg = pmsg ? pmsg+'+隕石' : '【毀滅隕石】'; }
+                        else if (job === 'assassin') { dmg = state.enemy.hp; pmsg = pmsg ? pmsg+'+必殺' : '【一擊必殺】'; }
+                        else if (job === 'paladin') { dmg = Math.floor(patk * skPwr); state.hp=Math.min(state.stats.mhp, state.hp+Math.floor(state.stats.mhp*0.3*skPwr*healMod)); pmsg=pmsg ? pmsg+'+聖光' : '【聖光治癒】'; }
+                        else if (job === 'sniper') { dmg = Math.floor(patk * 2 * skPwr); eStun = true; pmsg = pmsg ? pmsg+'+爆頭' : '【爆頭暈眩】'; }
+                        else if (job === 'dk') { dmg = Math.floor(patk * skPwr); state.hp=Math.min(state.stats.mhp, state.hp+Math.floor(dmg*0.15*healMod)); } 
+                        else if (job === 'swordmaster') { dmg = Math.floor(patk * 0.8 * 5 * skPwr); pmsg = pmsg ? pmsg+'+五連擊' : '【極限五連擊】'; }
+                        else if (job === 'valkyrie') { dmg = Math.floor(patk * 2.5 * skPwr); pmsg = pmsg ? pmsg+'+絕對反擊' : '【絕對反擊】'; eStun = true; }
+                        else if (job === 'necromancer') { dmg = Math.floor(patk * 1.5 * skPwr); state.hp=Math.min(state.stats.mhp, state.hp+Math.floor(dmg*0.5*healMod)); pmsg = pmsg ? pmsg+'+靈魂吸取' : '【靈魂吸取】'; }
+                        else if (job === 'timemage') { dmg = Math.floor(patk * 1.5 * skPwr); eStun = true; pmsg = pmsg ? pmsg+'+時停' : '【時間暫停】'; }
+                        else if (job === 'highpriest') { dmg = patk; state.hp=Math.min(state.stats.mhp, state.hp+Math.floor(state.stats.mhp*0.6*skPwr*healMod)); state.mp=Math.min(state.stats.mmp, state.mp+10); pmsg = pmsg ? pmsg+'+神聖裁決' : '【神聖裁決】'; }
+                    } else {
+                        pmsg = pmsg ? pmsg+'+MP不足' : '【MP不足平砍】'; dmg = patk; state.mp = Math.min(state.stats.mmp, state.mp + 2 + calc.sumEnc('a', 'mpr'));
+                    }
+                } else {
+                    dmg = patk; state.mp = Math.min(state.stats.mmp, state.mp + 2 + calc.sumEnc('a', 'mpr')); 
+                }
+            }
+
+            let vampPct = calc.sumEnc('w', 'hpRegen') || 0; 
+            if(vampPct > 0) { state.hp = Math.min(state.stats.mhp, state.hp + Math.floor(dmg * (vampPct/100))); }
+
+            if (state.stats.crit > 0 && Math.random() * 100 < state.stats.crit) {
+                let critMod = 1.5 + (calc.relM('r_cdmg') - 1) + (calc.sumEnc('w', 'cdmg')/100);
+                dmg = Math.floor(dmg * critMod);
+                pmsg = pmsg ? pmsg + '+爆擊' : '【爆擊】';
+            }
+            if (state.enemy.isBoss) { dmg = Math.floor(dmg * calc.relM('r_boss')); }
+
+            dmg = Math.max(1, dmg + Math.floor(Math.random()*5)); 
+            
+            // 狂戰士自損死亡保護：先結算自己是否因為自傷而死！
+            if (state.hp <= 0) {
+               game.log(`💀 狂暴反作用力讓你力竭而亡...`, 'red');
+               game.handleDeath(); return;
+            }
+
+            state.enemy.hp -= dmg;
+            game.log(`⚔️ 攻擊！${pmsg ? `<span class="text-amber-400">${pmsg}</span>` : ''} 造成 ${U.fNum(dmg)} 傷`);
+            let eIco = U.el('ui-enemy-icon'); if(eIco) { eIco.classList.add('shake'); setTimeout(()=>eIco.classList.remove('shake'), 300); }
+        }
+
+        if (state.enemy.hp <= 0) { game.resolveEnemyDeath(); return; }
+
+        if (!eStun) {
+          let hpr = calc.sumEnc('a', 'hpr');
+          if(hpr > 0) { state.hp = Math.min(state.stats.mhp, state.hp + Math.floor(state.stats.mhp * (hpr/100))); }
+
+          if (state.stats.dodge > 0 && Math.random() * 100 < state.stats.dodge) {
+             game.log(`🍃 閃避！你靈巧地躲過了攻擊。`, 'green');
+          } else {
+             let edef = Math.floor(state.stats.def * 0.5); 
+             let minDmg = Math.floor(state.stats.mhp * 0.02);
+             let edmg = Math.max(minDmg, Math.floor(state.enemy.atk * eAdvMod) - edef);
+             state.hp -= edmg; game.log(`💥 敵反擊，受 ${U.fNum(edmg)} 傷`, 'red');
+
+             if(state.enemy.afx === 'vamp') {
+                 let heal = Math.floor(edmg * 0.5); state.enemy.hp = Math.min(state.enemy.mhp, state.enemy.hp + heal);
+                 game.log(`🦇 敵方[吸血] 恢復了 ${U.fNum(heal)} HP`, 'slate');
+             }
+
+             if (state.enchants.a === 2) {
+                 let thn = Math.floor(edmg * 0.1); state.enemy.hp -= thn;
+                 if (state.enemy.hp <= 0) { game.log(`🪞 荊棘反傷 ${thn} 擊殺了敵人！`, 'cyan'); game.resolveEnemyDeath(); return; }
+             }
+          }
+        } else { game.log('😵 敵人暈眩中，無法行動。'); }
+
+        if (state.hp <= 0) { game.handleDeath(); return; }
+        game.updateUI();
+      },
+
+      resolveEnemyDeath: () => {
+        if (state.isWaiting) return; 
+        state.isWaiting = true; // 鎖死死亡重複觸發
+
+        let isBoss = state.enemy.isBoss; let jobXpM = state.job==='novice'?1.2:1; let jobGldM = (state.job==='thief'||state.job==='assassin')?1.5:1; let mXP = state.enemy.rxp || 1; 
+        let compGoldM = (state.companion && state.companion.type === 'gold') ? state.companion.val : 1;
+
+        let baseG = Math.floor(8 * Math.pow(1.15, state.map.lvl) * (isBoss?10:1) * calc.relM('r_gld') * jobGldM * mXP * compGoldM);
+        let baseXP = Math.floor(20 * Math.pow(1.15, state.map.lvl) * (isBoss?8:1) * calc.relM('r_xp') * jobXpM * mXP);
+        if(state.map.debuff === 'abyss') { baseG = Math.floor(baseG*2); baseXP = Math.floor(baseXP*2); }
+        
+        state.gold += baseG; state.xp += baseXP;
+        game.log(`💀 擊敗 ${state.enemy.n}！得 ${U.fNum(baseXP)}XP, ${U.fNum(baseG)}G`, 'amber');
+        game.rollLoot();
+
+        state.jobExp[state.job] += (isBoss ? 5 : 1); game.checkJobLevelUp();
+        state.town.exp += (isBoss ? 20 : 2); game.checkTownLevelUpSilent();
+
+        if (state.quest.active && state.quest.curr < state.quest.target) { 
+           state.quest.curr++; 
+           if(state.quest.curr >= state.quest.target) {
+               state.gold += state.quest.g; state.xp += state.quest.xp;
+               game.log(`🎉 任務完成！飛鴿傳書送來 ${U.fNum(state.quest.xp)}XP, ${U.fNum(state.quest.g)}🪙`, 'green');
+               state.quest.active = false;
+           }
+        }
+        game.checkLevelUp();
+
+        state.enemy = null;
+        state.phase = 'EXPLORE';
+        state.explorePct = 0;
+
+        if (isBoss) { 
+          game.log(`### 擊殺首領！準備進入下一層 ###`, 'purple'); 
+          setTimeout(() => game.showMapChoice(), 1000); 
+        } 
+        else { 
+          state.kills++;
+          if (Math.random() < 0.03) { 
+             game.log(`🌀 發現了【神秘傳送門】！獲得大量財寶！`, 'legend'); state.gold += baseG * 10; setTimeout(() => game.showMapChoice(), 1500); 
+          } else {
+             state.isWaiting = false; // 解除鎖定，繼續探索
+          }
+        }
+        game.updateUI();
+      },
+
+      handleDeath: () => {
+        if(state.isWaiting || state.hp > 0) return;
+        state.isWaiting = true;
+        game.toggleAuto(false); state.hp = 0; U.show('ui-death', 'flex'); U.txt('ui-death-desc', `倒在 ${DB.ZONES[state.map.baseIdx].n} (Lv.${state.lvl})`);
+        game.log('🪦 你倒下了...', 'red'); game.updateUI();
+      },
+
+      mainAction: () => { 
+          if (state.isWaiting || state.hp <= 0) return;
+          if (state.map.debuff === 'seal' && state.phase === 'COMBAT') { game.log('⚠️ 封印狀態下，無法手動攻擊，只能倚靠掛機硬扛！', 'purple'); return; }
+          if(state.phase === 'EXPLORE') game.exploreStep();
+          else if (state.enemy && state.hp > 0) game.executeTurn(); 
+      },
+      
+      usePotion: () => {
+        if (state.hp <= 0 || state.isWaiting) return;
+        if (state.map.debuff === 'seal') { return; } 
+        if (state.hp >= state.stats.mhp) { game.log('HP 已滿，不需要喝水。'); return; }
+        
+        let healMod = calc.relM('r_heal');
+        if (state.potions > 0) { state.potions--; state.hp = Math.min(state.stats.mhp, state.hp + Math.floor(state.stats.mhp * 0.4 * healMod)); game.log(`🧪 喝下藥水，恢復生命。`, 'green'); game.updateUI(); } 
+        else if (state.gold >= 15) { state.gold -= 15; state.hp = Math.min(state.stats.mhp, state.hp + Math.floor(state.stats.mhp * 0.4 * healMod)); game.log(`🧪 購買並喝下藥水，恢復生命。`, 'green'); game.updateUI(); }
+        else { game.log('❌ 藥水與金幣皆不足(需 15G)。', 'red'); }
+      },
+
+      trainStat: (k) => {
+        let maxLvl = DB.TRAIN[k].max;
+        if(state.town.lvl < 2) return;
+        if(state.town.lvl < 6 && state.train[k] >= 10 && (k === 'agi' || k === 'luk' ? false : true)) { game.log('❌ 訓練所等級不足，請提升城鎮繁榮度。', 'red'); return; }
+        if(state.town.lvl < 9 && state.train[k] >= 40 && (k === 'agi' || k === 'luk' ? false : true)) { game.log('❌ 訓練所等級不足，請提升城鎮繁榮度。', 'red'); return; }
+
+        if (state.train[k] >= maxLvl) return;
+
+        let cost = calc.trainCost(k);
+        if (state.gold >= cost) { 
+            state.gold -= cost; state.train[k]++; calc.refreshStats(); state.hp = state.stats.mhp; state.mp = state.stats.mmp;
+            game.log(`💪 訓練成功！${DB.TRAIN[k].n} 提升`, 'green'); game.updateTownHeader(); if(state.tab === 'town') game.renderTown(); game.updateUI(); 
+        } 
+        else { game.log(`❌ 訓練需要 ${U.fNum(cost)} 🪙。`, 'red'); }
+      },
+      
+      changeJob: (jId) => {
+        if (state.job === jId) return;
+        
+        let cost = state.unlockedJobs.includes(jId) ? 0 : DB.JOBS[jId].cost;
+        if (state.gold >= cost) {
+          if(!state.unlockedJobs.includes(jId)) { state.gold -= cost; state.unlockedJobs.push(jId); }
+          state.job = jId; calc.refreshStats(); state.hp = state.stats.mhp;
+          game.log(`🔁 成功轉職為 【${DB.JOBS[jId].n}】！`, 'purple'); if(state.tab === 'town') game.renderTown(); game.updateUI();
+        } else { game.log(`❌ 解鎖職業需要 ${U.fNum(cost)} 🪙。`, 'red'); }
+      },
+
+      prayRelic: () => {
+        let cost = calc.relicCost();
+        if (state.gold >= cost) {
+          state.gold -= cost; state.relicPulls++;
+          let rKeys = Object.keys(state.relics); let get = rKeys[Math.floor(Math.random() * rKeys.length)]; state.relics[get]++;
+          let gl = U.el('ui-relic-glow');
+          if(gl) { gl.style.opacity = '1'; gl.classList.add('bg-amber-500'); setTimeout(() => { gl.style.opacity = '0'; setTimeout(()=>gl.classList.remove('bg-amber-500'), 500); }, 500); }
+          calc.refreshStats(); state.hp = state.stats.mhp;
+          game.log(`✨ 女神賜福！獲得聖物：${DB.RELICS.find(r=>r.id===get).n}！`, 'legend'); game.renderRelics(); game.updateUI();
+        } else { game.log(`❌ 祈禱所需金幣不足 (${U.fNum(cost)}G)。`, 'red'); }
+      },
+
+      renderTown: () => {
+        let cnt = U.el('ui-town-content'); if(!cnt) return;
+        let html = '';
+        let tLvl = state.town.lvl;
+
+        let wEncTxt = state.eq.w.enc && state.eq.w.enc.length>0 ? state.eq.w.enc.map(e=>`<span class="text-[10px] text-amber-200 bg-amber-900/40 border border-amber-700/50 px-1 rounded mr-0.5 inline-block">${e.n}+${e.v}${e.u}</span>`).join('') : '<span class="text-[11px] text-slate-500 bg-slate-800 px-1 rounded">無附魔</span>';
+        let aEncTxt = state.eq.a.enc && state.eq.a.enc.length>0 ? state.eq.a.enc.map(e=>`<span class="text-[10px] text-amber-200 bg-amber-900/40 border border-amber-700/50 px-1 rounded mr-0.5 inline-block">${e.n}+${e.v}${e.u}</span>`).join('') : '<span class="text-[11px] text-slate-500 bg-slate-800 px-1 rounded">無附魔</span>';
+        
+        html += `<div class="bg-slate-800 p-3 rounded-lg border border-slate-600 shadow-md">
+           <div class="text-xs text-slate-400 mb-2 font-bold flex justify-between items-center">
+              <span>裝備狀態</span><span class="text-[10px] text-amber-500 border border-amber-800 bg-amber-900/30 px-1.5 py-0.5 rounded-full">裝備智能自動替換</span>
+           </div>
+           <div class="flex flex-col gap-2">
+             <div class="flex flex-col bg-slate-900 p-2.5 rounded border border-slate-700 shadow-inner">
+                <div class="flex justify-between items-center mb-1"><span class="text-sm text-slate-500 font-bold">武器槽</span><span class="text-slate-300 font-bold text-sm text-right leading-tight truncate pl-2">${state.eq.w.n} Lv.${state.eq.w.l}</span></div>
+                <div class="flex flex-wrap gap-0.5 mt-0.5">${wEncTxt}</div>
+             </div>
+             <div class="flex flex-col bg-slate-900 p-2.5 rounded border border-slate-700 shadow-inner">
+                <div class="flex justify-between items-center mb-1"><span class="text-sm text-slate-500 font-bold">防具槽</span><span class="text-slate-300 font-bold text-sm text-right leading-tight truncate pl-2">${state.eq.a.n} Lv.${state.eq.a.l}</span></div>
+                <div class="flex flex-wrap gap-0.5 mt-0.5">${aEncTxt}</div>
+             </div>
+           </div>`;
+        if(tLvl >= 4) {
+            html += `<div class="flex flex-col gap-2 mt-2">`;
+            if (tLvl >= 4) html += `<div class="flex gap-2"><button onclick="game.enchant('w', 1)" class="flex-1 bg-indigo-900/80 border border-indigo-600 text-indigo-100 py-1.5 rounded font-bold text-[11px] active:scale-95 shadow">1K🪙 初階洗鍊武器</button><button onclick="game.enchant('a', 1)" class="flex-1 bg-indigo-900/80 border border-indigo-600 text-indigo-100 py-1.5 rounded font-bold text-[11px] active:scale-95 shadow">1K🪙 初階洗鍊防具</button></div>`;
+            if (tLvl >= 8) html += `<div class="flex gap-2"><button onclick="game.enchant('w', 2)" class="flex-1 bg-purple-900/80 border border-purple-600 text-purple-100 py-1.5 rounded font-bold text-[11px] active:scale-95 shadow">3K🪙 進階洗鍊武器</button><button onclick="game.enchant('a', 2)" class="flex-1 bg-purple-900/80 border border-purple-600 text-purple-100 py-1.5 rounded font-bold text-[11px] active:scale-95 shadow">3K🪙 進階洗鍊防具</button></div>`;
+            if (tLvl >= 10) html += `<div class="flex gap-2"><button onclick="game.enchant('w', 3)" class="flex-1 bg-amber-900/80 border border-amber-600 text-amber-100 py-1.5 rounded font-bold text-[11px] active:scale-95 shadow">10K🪙 神匠洗鍊武器</button><button onclick="game.enchant('a', 3)" class="flex-1 bg-amber-900/80 border border-amber-600 text-amber-100 py-1.5 rounded font-bold text-[11px] active:scale-95 shadow">10K🪙 神匠洗鍊防具</button></div>`;
+            html += `</div>`;
+        }
+        html += `</div>`;
+
+        // 訓練所
+        if (tLvl >= 2) {
+            let limitTxt = tLvl >= 9 ? '無上限' : (tLvl >= 6 ? '上限Lv.40' : '上限Lv.10');
+            html += `<div class="bg-slate-800 p-3 rounded-lg border border-slate-600 shadow-md">
+               <div class="text-xs text-slate-400 mb-2 font-bold flex justify-between items-center">
+                  <span>💪 冒險者訓練所</span><span class="text-[10px] text-green-400">${limitTxt}</span>
+               </div>
+               <div class="grid grid-cols-2 gap-1.5">`;
+            for (const [k, obj] of Object.entries(DB.TRAIN)) {
+              let cost = calc.trainCost(k); 
+              let limit = obj.max;
+              if (k !== 'agi' && k !== 'luk') { limit = tLvl >= 9 ? obj.max : (tLvl >= 6 ? Math.min(40, obj.max) : Math.min(10, obj.max)); }
+              let isMax = state.train[k] >= limit;
+              let costTxt = isMax ? '達當前上限' : `${U.fNum(cost)}🪙 (Lv.${state.train[k]})`;
+              let curEffTxt = `加成: +${state.train[k] * obj.base}${obj.unit}`;
+              html += `<button onclick="game.trainStat('${k}')" class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-1 rounded-lg font-bold text-xs shadow transition-colors flex flex-col items-center ${isMax?'opacity-50 cursor-not-allowed':''}">
+                <span class="text-[14px] mb-0.5">${obj.i} ${obj.n}</span><span class="text-amber-400 font-normal text-[11px]">${costTxt}</span><span class="text-[10px] text-green-300 mt-0.5">${curEffTxt}</span>
+              </button>`;
+            }
+            html += `</div></div>`;
+        }
+
+        // 轉職
+        if (tLvl >= 3) {
+            html += `<div class="bg-slate-800 p-3 rounded-lg border border-slate-600 shadow-md">
+               <div class="text-xs text-slate-400 mb-2 font-bold flex justify-between items-center">
+                  <span>🏛️ 轉職神殿</span><span class="text-[10px] text-emerald-400">滿級可覺醒</span>
+               </div>
+               <div class="grid grid-cols-2 gap-1.5">`;
+            for (const [id, j] of Object.entries(DB.JOBS)) {
+              if (j.t > 1 && j.t > tLvl) continue; 
+              let isCur = state.job === id; let isUnlocked = state.unlockedJobs.includes(id);
+              let jLv = state.jobLvl[id] || 1; let jName = jLv >= 10 ? `[覺醒] ${j.n}` : j.n;
+              let cls = 'p-2 rounded-lg text-xs font-bold border transition-colors flex flex-col items-center justify-center gap-0.5 ';
+              cls += isCur ? 'bg-indigo-900/50 border-indigo-500 text-indigo-200' : 'bg-slate-900 border-slate-700 text-slate-400 active:bg-slate-800';
+              let costTxt = isUnlocked ? (isCur ? '' : '(免費切換)') : `(${U.fNum(j.cost)}🪙)`;
+              let mpTxt = j.mpc > 0 ? `<span class="text-blue-300 ml-1">耗${j.mpc}MP</span>` : '';
+              html += `<button onclick="game.changeJob('${id}')" class="${cls}">
+                <span class="text-2xl mb-1">${j.icon}</span><span class="${jLv>=10?'text-amber-300':''} text-sm">${jName} ${isCur ? `Lv.${jLv}` : costTxt}</span><span class="text-[10px] font-normal opacity-80 text-center mt-0.5">${j.desc}${mpTxt}</span>
+              </button>`;
+            }
+            html += `</div></div>`;
+        }
+        
+        cnt.innerHTML = html;
+      },
+
+      renderRelics: () => {
+        let list = U.el('ui-relic-list'); if(!list) return; list.innerHTML = ''; let hasRelic = false;
+        DB.RELICS.forEach(r => {
+          let count = state.relics[r.id];
+          if (count > 0) {
+            hasRelic = true; let div = document.createElement('div'); div.className = "flex items-center justify-between bg-slate-800 border border-amber-900/50 p-3 rounded-xl";
+            let currentPct = count * r.step; let dynamicDesc = r.base.replace('{X}', currentPct);
+            div.innerHTML = `<div class="flex items-center gap-3"><span class="text-3xl">${r.i}</span><div><div class="text-amber-400 font-bold text-base mb-0.5">${r.n} <span class="text-white text-xs ml-1">Lv.${count}</span></div><div class="text-[11px] text-slate-300">${dynamicDesc}</div></div></div>`;
+            list.appendChild(div);
+          }
+        });
+        if(!hasRelic) list.innerHTML = '<div class="text-center text-slate-500 text-sm mt-8">尚未獲得任何聖物。</div>';
+      },
+
+      toggleAuto: (forceState = null) => {
+        state.isAuto = forceState !== null ? forceState : !state.isAuto;
+        let btn = U.el('btn-auto'); if(!btn) return;
+        btn.innerText = state.isAuto ? '⏸️ 停止掛機' : '▶️ 自動掛機';
+        
+        let actCls = ['bg-amber-600', 'text-white', 'border-amber-500', 'shadow-[0_0_10px_rgba(217,119,6,0.6)]'];
+        let inactCls = ['bg-slate-800', 'text-slate-300', 'border-slate-600'];
+        
+        if (state.isAuto) {
+           btn.classList.remove(...inactCls); btn.classList.add(...actCls);
+           game.log('🤖 啟動掛機', 'amber'); if(!state.loop) state.loop = setInterval(game.autoLogic, 800); 
+        } else {
+           btn.classList.remove(...actCls); btn.classList.add(...inactCls);
+           game.log('🤖 停止掛機', 'slate'); clearInterval(state.loop); state.loop = null; 
+        }
+      },
+
+      autoLogic: () => {
+        let mc = U.el('ui-map-choice');
+        if (state.hp <= 0 || state.isWaiting || (mc && mc.style.display === 'flex')) return;
+        if (state.phase === 'EXPLORE') game.exploreStep();
+        else if (state.hp < state.stats.mhp * 0.4 && (state.potions > 0 || state.gold >= 15) && state.map.debuff !== 'seal') game.usePotion(); 
+        else game.executeTurn();
+      },
+
+      switchTab: (t) => {
+        state.tab = t;
+        U.hide('view-battle'); U.hide('view-town'); U.hide('view-relic');
+        const tabOff = "flex-1 bg-slate-800 border border-slate-600 text-slate-300 py-3 rounded-lg text-sm font-bold transition-colors shadow";
+        const tabOn = "flex-1 bg-cyan-900 border border-cyan-500 text-cyan-100 py-3 rounded-lg text-sm font-bold transition-colors shadow";
+        U.css('tab-bat', tabOff); U.css('tab-twn', tabOff); U.css('tab-rel', tabOff);
+        
+        if (t === 'battle') { U.show('view-battle', 'flex'); U.css('tab-bat', tabOn); }
+        else if (t === 'town') { 
+            U.show('view-town', 'block'); U.css('tab-twn', tabOn); 
+            game.updateTownHeader();
+            game.renderTown(); game.updateUI(); 
+        }
+        else if (t === 'relic') { 
+            if(state.town.lvl < 5) return; 
+            U.show('view-relic', 'flex'); U.css('tab-rel', tabOn); game.renderRelics(); game.updateUI(); 
+        }
+      },
+
+      revive: () => {
+        state.gold = Math.floor(state.gold * 0.8); state.hp = state.stats.mhp; 
+        state.map.lvl = Math.max(1, state.map.lvl - 1); state.map.debuff = 'normal'; calc.refreshStats();
+        U.hide('ui-death');
+        state.isWaiting = false;
+        state.phase = 'EXPLORE'; state.explorePct = 0; state.enemy = null; state.kills = Math.max(0, state.kills - 5);
+        game.updateUI(); game.log('👼 降階並消除了地圖負面效果，女神將你復活。', 'cyan');
+        if(state.isAuto) game.toggleAuto(false);
+      }
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      window.game = game;
+      game.init();
+    });
+  </script>
+</body>
+</html>
