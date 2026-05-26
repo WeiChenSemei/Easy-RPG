@@ -529,7 +529,7 @@
         this.status = { poison: 0, blind: 0, paralyze: 0, sleep: 0, confuse: 0, silence: 0, weak: 0, bleed: 0, regen: 0, berserk: 0, reflect_buff: 0, stun: 0 };
         this.combatState = { charging: false, jumpTimer: 0, jumpTarget: null, defending: false };
         this.buffs = { defending: false, dodge: 0, berserk: false }; 
-        this.isDead = false; this.actionQueued = null; this.currentRerolls = 1; 
+        this.isDead = false; this.actionQueued = null; this.currentRerolls = 1; this.lastExecutedAction = null; 
       }
       getEquipLvl(id) { return this.cardMemory[id] || 1; }
       getMult(id) { return 1.0 + ((this.cardMemory[id] || 1) - 1) * 0.2; }
@@ -936,7 +936,7 @@
       gameState.party.forEach(h => { 
           h.shield = 0; if (h.equips.weapon?.startShield) h.shield += h.equips.weapon.startShield; if (h.equips.offhand?.startShield) h.shield += h.equips.offhand.startShield; if (h.equips.accessory?.startShield) h.shield += h.equips.accessory.startShield; 
           h.combatState = { charging: false, jumpTimer: 0, jumpTarget: null, defending: false }; h.status = { poison: 0, blind: 0, paralyze: 0, sleep: 0, confuse: 0, silence: 0, weak: 0, bleed: 0, regen: 0, berserk: 0, reflect_buff: 0, stun: 0 }; 
-          h.actionQueued = null; 
+          h.actionQueued = null; h.lastExecutedAction = null; 
           [h.magic, h.special, h.items].forEach(list => { 
               list.forEach(s => { 
                   if (s.isEquipItem) return; const dbRef = DATABASE[s.type].find(ref => ref.id === s.id); if (!dbRef) return; 
@@ -1044,12 +1044,16 @@
 
     async function runSinglePartyAction(hero, act) { 
       let heroIdx = gameState.party.indexOf(hero); 
+      if (act.type !== 'system' && act.effect !== 'mimic' && !act.isSubAction) { gameState.lastPartyAction = { ...act }; hero.lastExecutedAction = { ...act }; }
       if (hero.status.bleed > 0 && (act.type === 'attack' || act.type === 'special')) { let bd = Math.floor(hero.getMaxHp() * 0.1); hero.hp = Math.max(0, hero.hp - bd); createFloatNum(`-${bd}`, 'text-red-500', true, heroIdx); addLog(`🩸 『${hero.name}』因流血流失了生命！`, 'text-red-400'); if(hero.hp <= 0) { hero.isDead = true; addLog(`💀 戰損！『${hero.name}』在血泊中倒下了！`, 'text-red-500 font-bold'); renderBattleScreen(); return; } } 
       if (act.effect === 'defend') { hero.buffs.defending = true; addLog(`🛡️ 『${hero.name}』擺出防禦姿態！`, 'text-blue-300'); updateAnimationMsg(`『${hero.name}』採取防禦！`); animateElement(`hero-mini-${heroIdx}`, 'animate-heal'); createFloatNum('防禦', 'text-blue-400', true, heroIdx); renderBattleScreen(); return; } 
 
       if (act.effect === 'mimic') {
-          if (!gameState.lastPartyAction) { addLog(`❓ 『${hero.name}』試圖模仿，但找不到對象！`, 'text-gray-400'); createFloatNum('MISS', 'text-gray-400', true, heroIdx); return; }
-          act = { ...gameState.lastPartyAction, actor: hero, isSubAction: true }; addLog(`🎭 『${hero.name}』進行完美模仿！`);
+          let prevHeroIdx = (heroIdx - 1 + gameState.party.length) % gameState.party.length;
+          let targetHero = gameState.party[prevHeroIdx];
+          let actionToMimic = targetHero.lastExecutedAction;
+          if (!actionToMimic) { addLog(`❓ 『${hero.name}』試圖模仿『${targetHero.name}』，但對方還沒行動過！`, 'text-gray-400'); createFloatNum('MISS', 'text-gray-400', true, heroIdx); return; }
+          act = { ...actionToMimic, actor: hero, isSubAction: true }; addLog(`🎭 『${hero.name}』完美模仿了『${targetHero.name}』的動作！`);
           if (act.target && act.target.isDead && act.effect !== 'phoenix' && act.effect !== 'revive') { act.target = act.targetFriendly ? (gameState.party.find(x => !x.isDead) || hero) : gameState.enemies.find(e => !e.isDead); if (!act.target) return; }
       }
       
@@ -1083,7 +1087,6 @@
           return;
       }
 
-      if (act.type !== 'system' && act.effect !== 'mimic' && !act.isSubAction) { gameState.lastPartyAction = { ...act }; }
       animateElement(`hero-mini-${heroIdx}`, 'animate-shake'); 
       let tName = act.isAoe ? "全體" : (act.target ? act.target.name : "自己"); 
       
