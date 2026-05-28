@@ -240,12 +240,12 @@
         this.atk = Math.floor((rStat.a * floor + 5) * tm);
         this.def = this.isMetal ? 999 : Math.floor((rStat.d * floor) * tm);
         this.speed = Math.floor(rStat.s * floor + 5);
+        this.imCond = null; this.affix = null;
         
         this.hp = this.maxHp; this.isDead = false; this.status = { poison:0, blind:0, paralyze:0, sleep:0, confuse:0, silence:0, weak:0, bleed:0, regen:0, stun:0, berserk:0, reflect_buff:0, enchant_fire:0 };
         this.stunTimer = 0; this.wetTimer = 0; this.assassinMarks = 0;
         this.immunities = []; this.weaknesses = []; this.affixes = [];
         
-        // 菁英動態詞綴與防禦整合系統
         if (floor >= 3 && !isBoss && !this.isMetal && Math.random() < 0.4) { 
             let hasWk = false;
             if (floor >= 4 && Math.random() < 0.3) {
@@ -451,8 +451,11 @@
     function startRoom() { 
       if(gameState.room === 1) gameState.maxRooms = Math.floor(Math.random() * 6) + 10;
       const isBossRoom = (gameState.room === gameState.maxRooms); gameState.enemies = []; 
-      if (isBossRoom) { gameState.enemies.push(new Enemy(gameState.floor, true, "")); logAndMsg(`⚠️ 遭遇關卡霸主！`, 'text-red-400 font-bold'); } 
-      else { const count = Math.min(8, Math.floor(Math.random() * 3) + 1 + Math.floor(gameState.floor / 3)); for (let i = 0; i < count; i++) gameState.enemies.push(new Enemy(gameState.floor, false, String.fromCharCode(65 + i))); logAndMsg(`🔦 發現 ${gameState.enemies.length} 隻魔物。`, 'text-yellow-300'); } 
+      const count = Math.min(8, Math.floor(Math.random() * 3) + 1 + Math.floor(gameState.floor / 3)); 
+      if (isBossRoom) gameState.enemies.push(new Enemy(gameState.floor, true, "")); 
+      for (let i = 0; i < (isBossRoom ? count - 1 : count); i++) gameState.enemies.push(new Enemy(gameState.floor, false, String.fromCharCode(65 + i))); 
+      logAndMsg(isBossRoom ? `⚠️ 遭遇關卡霸主與其隨從！` : `🔦 發現 ${gameState.enemies.length} 隻魔物。`, isBossRoom ? 'text-red-400 font-bold' : 'text-yellow-300');
+      
       gameState.party.forEach(h => { 
           if (h.matk < h.getAtk()) h.matk++;
           h.shield = 0; if (h.equips.weapon?.startShield) h.shield += h.equips.weapon.startShield; if (h.equips.offhand?.startShield) h.shield += h.equips.offhand.startShield; if (h.equips.accessory?.startShield) h.shield += h.equips.accessory.startShield; 
@@ -481,28 +484,22 @@
       }); 
       const mGrid = document.getElementById('enemies-grid'); 
       mGrid.className = "grid grid-cols-4 gap-1 h-full w-full"; mGrid.innerHTML = ''; 
-      let aMap = {'吸血':'bg-red-700','劇毒':'bg-green-700','神速':'bg-blue-600','堅硬':'bg-slate-600','強壯':'bg-orange-700','防毒':'bg-gray-700','防暈':'bg-gray-700','防眠':'bg-gray-700','火免':'bg-red-800','冰免':'bg-blue-800','雷免':'bg-yellow-700','土免':'bg-yellow-900','暗免':'bg-purple-900','聖免':'bg-yellow-200 text-black','攻免':'bg-red-900','魔免':'bg-purple-900','技免':'bg-green-900','道免':'bg-yellow-700','攻弱':'bg-red-950 text-yellow-300 border border-red-800','魔弱':'bg-purple-950 text-yellow-300 border border-purple-800','技弱':'bg-green-950 text-yellow-300 border border-green-800','道弱':'bg-yellow-950 text-yellow-300 border border-yellow-800'};
+      let sMap = {'吸血':'text-red-500','劇毒':'text-green-500','神速':'text-blue-400','堅硬':'text-slate-400','強壯':'text-orange-500','防毒':'text-gray-400','防暈':'text-gray-400','防眠':'text-gray-400','火免':'text-red-600','冰免':'text-blue-400','雷免':'text-yellow-400','土免':'text-yellow-600','暗免':'text-purple-500','聖免':'text-yellow-200','攻免':'text-red-700','魔免':'text-purple-600','技免':'text-green-600','道免':'text-yellow-500','攻弱':'text-red-400','魔弱':'text-purple-400','技弱':'text-green-400','道弱':'text-yellow-400'};
       for (let i = 0; i < 8; i++) { 
         const e = gameState.enemies[i]; const slot = document.createElement('div'); 
         if (e && !e.isDead) { 
           slot.id = `enemy-card-${i}`; 
-          
           let glow = e.isBoss ? 'bg-gradient-to-b from-red-900/40 to-slate-950 border-2 border-red-500 shadow-[inset_0_0_8px_rgba(255,0,0,0.4)]' : 
                      (e.weaknesses.length > 0 ? 'bg-red-950/50 border border-red-800' : (e.immunities.length > 0 ? 'bg-slate-900 border border-gray-600' : 'bg-slate-950 border border-gray-800'));
           
           if (gameState.targetingAction && !gameState.targetingAction.targetFriendly) { glow = e.isBoss ? 'target-glow-enemy bg-red-900/50 border-2 border-red-500' : 'target-glow-enemy hover:bg-white/10'; slot.onclick = () => handleTargetClick(e, false); } else if (!gameState.targetingAction && gameState.isInputPhase) { glow += ' info-glow transition-all hover:border-yellow-300'; slot.onclick = () => showEnemyInfo(i); } else { slot.onclick = null; } 
           slot.className = `p-1 flex flex-col justify-between items-center text-center transition-all h-full min-h-[55px] relative ${glow}`; 
           
-          let tagsHTML = ''; let tOff = 1;
-          e.affixes.forEach(af => { 
-              let c = aMap[af] || 'bg-gray-800'; if(!c.includes('text-')) c += ' text-white';
-              tagsHTML += `<span class="absolute top-${tOff} left-1 ${c} px-1 py-0.5 rounded text-[0.4em] font-bold z-40 shadow-sm">${af}</span>`; 
-              tOff += 4; 
-          });
+          let stars = e.affixes.map(af => `<span class="${sMap[af]||'text-gray-300'}">★</span>`).join('');
 
           let emoji = e.isBoss ? '👿' : (e.isMetal ? '👽' : (e.s.includes('kamikaze') ? '💣' : '👾')); if (e.status.sleep > 0) emoji = '💤'; 
           let pct = (e.hp / e.maxHp) * 100; 
-          slot.innerHTML = `<div class="w-full bg-black h-1.5 mb-0.5 border border-gray-600 pointer-events-none"><div class="bg-red-600 h-full transition-all" style="width:${pct}%"></div></div><div class="text-xl sm:text-2xl relative mb-0.5 pointer-events-none">${emoji}${e.status.poison>0?'<span class="absolute -top-1 -right-2 text-[0.35em] bg-black text-green-400 px-1 retro-font">P</span>':''}${e.status.stun>0?'<span class="absolute -top-1 -right-2 text-[0.35em] bg-black text-yellow-400 px-1 retro-font">S</span>':''}${e.status.blind>0?'<span class="absolute bottom-1 -right-2 text-[0.35em] bg-black text-gray-400 px-1 retro-font">B</span>':''}${e.status.paralyze>0?'<span class="absolute top-3 -right-2 text-[0.35em] bg-yellow-600 text-black px-1 retro-font">R</span>':''}${e.status.confuse>0?'<span class="absolute top-7 -right-2 text-[0.35em] bg-purple-600 text-white px-1 retro-font">C</span>':''}${tagsHTML}</div><div class="text-[0.55em] retro-font ${e.colorClass} truncate w-full pointer-events-none">${e.name}</div><div class="text-[0.5em] retro-font text-gray-400 leading-none mt-0.5 pointer-events-none">${e.hp}/${e.maxHp}</div>`; 
+          slot.innerHTML = `<div class="w-full bg-black h-1.5 mb-0.5 border border-gray-600 pointer-events-none"><div class="bg-red-600 h-full transition-all" style="width:${pct}%"></div></div><div class="text-xl sm:text-2xl relative mb-0.5 pointer-events-none">${emoji}${e.status.poison>0?'<span class="absolute -top-1 -right-2 text-[0.35em] bg-black text-green-400 px-1 retro-font">P</span>':''}${e.status.stun>0?'<span class="absolute -top-1 -right-2 text-[0.35em] bg-black text-yellow-400 px-1 retro-font">S</span>':''}${e.status.blind>0?'<span class="absolute bottom-1 -right-2 text-[0.35em] bg-black text-gray-400 px-1 retro-font">B</span>':''}${e.status.paralyze>0?'<span class="absolute top-3 -right-2 text-[0.35em] bg-yellow-600 text-black px-1 retro-font">R</span>':''}${e.status.confuse>0?'<span class="absolute top-7 -right-2 text-[0.35em] bg-purple-600 text-white px-1 retro-font">C</span>':''}</div><div class="text-[0.55em] retro-font ${e.colorClass} truncate w-full pointer-events-none">${stars}${e.name}</div><div class="text-[0.5em] retro-font text-gray-400 leading-none mt-0.5 pointer-events-none">${e.hp}/${e.maxHp}</div>`; 
         } else { slot.className = "h-full min-h-[55px] flex items-center justify-center opacity-10"; slot.innerHTML = ``; } mGrid.appendChild(slot); 
       } 
     }
