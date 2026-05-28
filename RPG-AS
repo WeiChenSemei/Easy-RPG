@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>深淵漫步 (Abyss Stroll)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    html, body { overflow: hidden; width: 100%; height: 100%; touch-action: none; position: fixed; }
+    body { font-family: 'Noto Sans TC', sans-serif; background-color: #000000; color: #ffffff; user-select: none; -webkit-user-select: none; }
+    .retro-font { font-family: 'Press Start 2P', monospace; letter-spacing: 1px; }
+    .ff-box { background-color: #0000a8; border: 3px solid #ffffff; border-radius: 2px; box-shadow: inset 0 0 0 1px #000, 0 0 0 2px #000; color: #ffffff; }
+    .ff-box-dark { background-color: #000000; border: 2px solid #ffffff; border-radius: 2px; color: #ffffff; }
+    .ff-btn { background-color: #000000; border: 2px solid #ffffff; color: #ffffff; border-radius: 0; transition: transform 0.1s, border-color 0.1s, background-color 0.1s; cursor: pointer; }
+    .ff-btn:hover { border-color: #fde047; background-color: rgba(255,255,255,0.1); }
+    .ff-btn:active { transform: scale(0.96); background-color: rgba(255,255,255,0.2); border-color: #fde047; }
+    .ff-btn:disabled { border-color: #444; color: #555; pointer-events: none; background-color: #000; }
+    .ff-btn-danger:hover { border-color: #ef4444; background-color: rgba(239,68,68,0.2); color: #fca5a5;}
+    .screen-crt::after { content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%); background-size: 100% 4px; pointer-events: none; z-index: 10; opacity: 0.4; }
+    @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 50% { transform: translateY(-12px) scale(1.3); opacity: 1; } 100% { transform: translateY(-25px) scale(1.1); opacity: 0; } }
+    .damage-float { animation: floatUp 0.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; z-index: 50;}
+    @keyframes shakeAndFlash { 0%, 100% { transform: translateX(0); filter: none; } 20%, 40% { transform: translateX(5px); filter: drop-shadow(0 0 8px rgba(255,0,0,0.9)) brightness(1.5); } 60%, 80% { transform: translateX(-3px); filter: drop-shadow(0 0 4px rgba(255,0,0,0.6)) brightness(1.2); } }
+    .animate-shake { animation: shakeAndFlash 0.35s ease-in-out; z-index: 20; position: relative; }
+    @keyframes dodgeEffect { 0%, 100% { transform: translateX(0); opacity: 1; filter: none; } 50% { transform: translateX(-10px) skewX(-5deg); opacity: 0.5; filter: brightness(1.5); } }
+    .animate-dodge { animation: dodgeEffect 0.35s ease-out; }
+    @keyframes healPulse { 0%, 100% { filter: none; transform: scale(1); } 50% { filter: drop-shadow(0 0 10px #4ade80) brightness(1.2); transform: scale(1.05); } }
+    .animate-heal { animation: healPulse 0.4s ease-out; z-index: 20; position: relative; }
+    @keyframes targetGlow { 0%, 100% { border-color: #ffffff; } 50% { border-color: #ff0000; box-shadow: 0 0 12px #ff0000; } }
+    .target-glow-enemy { animation: targetGlow 0.8s infinite; cursor: crosshair !important; border-width: 2px; border-style: dashed; }
+    @keyframes allyGlow { 0%, 100% { border-color: #ffffff; } 50% { border-color: #0088ff; box-shadow: 0 0 12px #0088ff; } }
+    .target-glow-ally { animation: allyGlow 0.8s infinite; cursor: pointer !important; border-width: 2px; border-style: dashed; }
+    .info-glow:hover { border-color: #fde047; box-shadow: 0 0 8px #fde047; cursor: pointer; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; touch-action: pan-y; }
+    .glow-text { text-shadow: 0 0 8px rgba(253, 224, 71, 0.8); }
+  </style>
+</head>
+<body class="flex justify-center items-start min-h-screen p-0 sm:p-2 overflow-hidden">
+
+  <div id="game-container" style="font-size: 16px;" class="w-full max-w-md h-[85vh] sm:h-[720px] bg-black border-0 sm:border-[4px] border-[#333] sm:rounded-md flex flex-col relative shadow-2xl overflow-hidden screen-crt">
+    
+    <div class="ff-box border-t-0 border-l-0 border-r-0 px-2 py-2 flex justify-between items-center z-20 shrink-0">
+      <div class="flex items-center gap-1"><span id="txt-floor" class="font-bold text-white retro-font text-[0.8em]">B1-1</span></div>
+      <div class="flex-1 px-2 sm:px-3"><div class="w-full bg-black h-2.5 border-2 border-gray-500"><div id="floor-progress" class="bg-blue-400 h-full transition-all w-0"></div></div></div>
+      <div class="flex gap-1.5 items-center">
+        <button onclick="openSaveModal()" class="ff-btn px-2 py-1 text-[0.6em] retro-font uppercase shadow-md">SYSTEM</button>
+        <div class="flex border-2 border-white bg-black">
+          <button onclick="adjustFontSize(-1)" class="px-2 py-0.5 text-white hover:bg-white hover:text-black retro-font text-[0.7em] transition-colors">-</button>
+          <div class="w-[2px] bg-white"></div>
+          <button onclick="adjustFontSize(1)" class="px-2 py-0.5 text-white hover:bg-white hover:text-black retro-font text-[0.7em] transition-colors">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex z-10 shrink-0 text-[0.75em] retro-font p-1 gap-1 border-b-2 border-white/20">
+      <button id="tab-adventure" onclick="switchTab('adventure')" class="flex-1 py-2 border-2 border-white text-black bg-white transition-all">BATTLE</button>
+      <button id="tab-status" onclick="switchTab('status')" class="flex-1 py-2 border-2 border-transparent text-gray-400 hover:text-white transition-all">STATUS</button>
+      <button id="tab-log" onclick="switchTab('log')" class="flex-1 py-2 border-2 border-transparent text-gray-400 hover:text-white transition-all">LOGS</button>
+    </div>
+
+    <div class="flex-1 flex flex-col overflow-hidden relative">
+      <div id="panel-adventure" class="flex-1 flex flex-col p-1 gap-1 overflow-y-auto no-scrollbar justify-between">
+        <div class="grid grid-cols-2 gap-1 shrink-0"><div id="hero-mini-0"></div><div id="hero-mini-1"></div><div id="hero-mini-2"></div><div id="hero-mini-3"></div></div>
+        <div class="ff-box p-1 min-h-[40px] flex flex-col justify-center text-center relative shrink-0 shadow-lg mx-1">
+          <div id="animation-flash-bg" class="absolute inset-0 bg-white/0 pointer-events-none transition-all duration-100"></div>
+          <p id="battle-latest-msg" class="text-[0.75em] text-white font-bold leading-relaxed tracking-wider truncate px-1">冒險者們整裝出發，進入無止盡的深淵。</p>
+        </div>
+        <div id="enemies-container" class="ff-box-dark p-1 relative flex flex-col justify-center items-center shrink-0 min-h-[145px] border-gray-700">
+          <div id="enemies-grid" class="grid grid-cols-4 gap-1 h-full w-full"></div>
+          <div id="floating-numbers" class="absolute inset-0 pointer-events-none z-30"></div>
+        </div>
+        <div class="ff-box p-1.5 flex flex-col gap-1 shrink-0 relative mt-0">
+          <div class="flex justify-between items-center text-[0.7em] px-1 min-h-[18px] retro-font text-yellow-300 border-b-2 border-white/30 pb-0.5 mb-0.5">
+            <span class="tracking-widest"><span id="acting-hero-name" class="text-white"></span></span><span id="turn-phase-indicator" class="text-white transition-all duration-200">回合準備中</span>
+          </div>
+          <div id="action-main-buttons" class="grid grid-cols-2 gap-1.5 relative min-h-[85px]"></div>
+        </div>
+      </div>
+      <div id="panel-status" class="flex-1 p-2 overflow-y-auto no-scrollbar hidden"><div id="status-full-list" class="space-y-3"></div></div>
+      <div id="panel-log" class="flex-1 p-2 flex flex-col hidden overflow-hidden">
+        <div class="flex justify-between items-center text-[0.75em] text-gray-400 mb-2 px-1 retro-font shrink-0"><span>BATTLE LOG</span><button onclick="clearHistoryLogs()" class="ff-btn px-3 py-1.5">CLEAR</button></div>
+        <div id="log-history-scroll" class="flex-1 overflow-y-auto ff-box-dark p-3 text-[0.75em] font-mono text-gray-300 space-y-2 no-scrollbar border-gray-600 leading-relaxed min-h-0"></div>
+      </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="action-select-modal" class="absolute inset-0 bg-black/85 z-40 flex flex-col justify-end hidden text-[0.85em]">
+      <div class="ff-box border-b-0 rounded-b-none max-h-[65vh] flex flex-col m-1 mb-0 shadow-2xl">
+        <div class="p-3 border-b-2 border-white flex justify-between items-center"><div class="flex items-center gap-2 retro-font text-yellow-300"><span id="modal-icon"></span><span id="modal-title"></span></div><button onclick="closeActionMenu()" class="ff-btn px-3 py-1.5 retro-font text-[0.75em]">CLOSE</button></div>
+        <div id="modal-equips-bar" class="hidden p-2 bg-black border-b-2 border-white text-[0.7em] text-gray-300 grid grid-cols-4 gap-1 text-center retro-font leading-tight"></div>
+        <div id="modal-items-grid" class="flex-1 overflow-y-auto p-2 grid grid-cols-1 gap-2 no-scrollbar pb-6"></div>
+      </div>
+    </div>
+    <div id="replace-modal" class="absolute inset-0 bg-black/90 z-50 flex flex-col justify-center hidden text-[0.85em] p-2">
+      <div class="ff-box max-h-[80vh] flex flex-col shadow-2xl">
+        <div class="p-3 border-b-2 border-white flex justify-between items-center bg-red-900"><div class="flex items-center gap-2 retro-font text-white">⚠️ 空間已滿：請選擇替換</div></div>
+        <div class="p-3 text-center text-yellow-300 font-bold tracking-widest text-[0.9em] leading-relaxed"><span id="replace-new-skill-name" class="text-white"></span><br>請選擇一項覆蓋遺忘：</div>
+        <div id="replace-items-grid" class="flex-1 overflow-y-auto p-2 grid grid-cols-1 gap-2 no-scrollbar"></div>
+        <div class="p-2 border-t-2 border-white"><button onclick="cancelReplace()" class="ff-btn ff-btn-danger w-full py-3 retro-font text-[0.8em] text-gray-300">放棄物品/技能</button></div>
+      </div>
+    </div>
+    <div id="hero-info-modal" class="absolute inset-0 bg-black/90 z-40 flex flex-col justify-center items-center hidden text-[0.9em] p-3 backdrop-blur-sm">
+      <div class="ff-box p-4 w-full max-w-sm flex flex-col gap-3 shadow-2xl max-h-[85vh] overflow-y-auto no-scrollbar relative">
+        <button onclick="closeHeroInfo()" class="absolute top-2 right-2 ff-btn px-2 py-1 text-[0.7em] retro-font text-white z-50">X</button><div id="hero-info-content" class="flex flex-col gap-2"></div>
+      </div>
+    </div>
+    <div id="enemy-info-modal" class="absolute inset-0 bg-black/90 z-40 flex flex-col justify-center items-center hidden text-[0.9em] p-4 backdrop-blur-sm">
+      <div class="ff-box p-5 w-full max-w-xs flex flex-col gap-4 shadow-2xl">
+        <div class="border-b-2 border-white pb-2 flex justify-between items-center"><span class="retro-font text-red-400 text-[1em]" id="enemy-info-title">TITLE</span><button onclick="closeEnemyInfo()" class="ff-btn px-2 py-1 text-[0.7em] retro-font text-white">X</button></div>
+        <div class="text-[0.85em] text-gray-300 font-sans font-bold tracking-widest leading-relaxed" id="enemy-info-desc"></div>
+      </div>
+    </div>
+    <div id="details-modal" style="z-index: 60;" class="absolute inset-0 bg-black/90 flex flex-col p-4 justify-center items-center hidden text-[0.9em] backdrop-blur-md">
+      <div class="ff-box p-5 w-full max-w-xs flex flex-col gap-4 shadow-2xl">
+        <div id="details-title">TITLE</div><div class="text-[0.85em] text-gray-300 font-sans font-bold tracking-widest leading-relaxed text-center" id="details-desc">DESCRIPTION</div>
+        <button onclick="closeDetailsModal()" class="ff-btn mt-2 py-2 text-[0.8em] retro-font text-center w-full">CLOSE</button>
+      </div>
+    </div>
+    <div id="draft-modal" class="absolute inset-0 bg-black/95 z-40 flex flex-col p-4 justify-between hidden">
+      <div class="text-center mt-4 shrink-0"><h3 class="text-yellow-400 font-bold text-xl retro-font animate-pulse">VICTORY</h3><p class="text-[0.85em] text-gray-400 mt-2 font-bold tracking-widest">獲得戰利品</p><div id="draft-hero-queue" class="flex justify-center items-center gap-1.5 mt-4 w-full px-1"></div></div>
+      <div id="draft-cards-container" class="flex-1 flex flex-col justify-center gap-3 my-2 overflow-y-auto no-scrollbar"></div>
+      <div class="grid grid-cols-2 gap-2 shrink-0 mb-4 px-3"><button onclick="rerollDraft()" class="ff-btn py-3 text-[0.7em] retro-font text-yellow-300 tracking-widest">重抽 (<span id="reroll-count-lbl">0</span>)</button><button onclick="skipDraft()" class="ff-btn ff-btn-danger py-3 text-[0.7em] retro-font text-gray-400 tracking-widest">放棄</button></div>
+    </div>
+    <div id="transition-overlay" class="absolute inset-0 bg-black z-50 flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-500"><h2 id="transition-title" class="text-4xl sm:text-5xl text-white retro-font mb-4 tracking-widest text-center leading-normal"></h2><p id="transition-sub" class="text-xl text-gray-400 font-bold tracking-widest text-center"></p></div>
+    <div id="save-modal" class="absolute inset-0 bg-black/90 z-50 flex flex-col p-4 justify-center items-center hidden text-[0.9em]">
+      <div class="ff-box p-5 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
+        <div class="flex justify-between items-center border-b-2 border-white pb-3 retro-font text-yellow-300 text-[1em]"><span>SYSTEM DATA</span><button onclick="closeSaveModal()" class="ff-btn px-3 py-1.5 text-white text-[0.8em]">X</button></div>
+        <div class="flex flex-col gap-2"><label class="text-[0.8em] text-white font-bold tracking-widest">回憶咒語：</label><textarea id="save-code-area" placeholder="請在此貼上咒語..." class="bg-black border-2 border-gray-500 p-2 text-[0.75em] text-green-400 h-24 resize-none font-mono focus:outline-none placeholder-gray-600"></textarea></div>
+        <div class="grid grid-cols-2 gap-2 mt-1"><button onclick="exportSaveCode()" class="ff-btn py-2.5 text-[0.75em] retro-font text-center">匯出咒語</button><button onclick="importSaveCode()" class="ff-btn py-2.5 text-[0.75em] retro-font text-center text-yellow-200">匯入咒語</button></div>
+        <div class="grid grid-cols-2 gap-2 border-t-2 border-white pt-4 mt-1"><button onclick="quickSaveGame()" class="ff-btn py-2.5 text-[0.75em] retro-font text-center text-blue-300">QUICK SAVE</button><button onclick="quickLoadGame()" class="ff-btn py-2.5 text-[0.75em] retro-font text-center text-blue-300">QUICK LOAD</button></div>
+      </div>
+    </div>
+    <div id="rename-modal" class="absolute inset-0 bg-black/90 z-50 flex flex-col p-4 justify-center items-center hidden text-[0.9em]">
+      <div class="ff-box p-5 w-full max-w-xs text-center flex flex-col gap-4">
+        <h4 class="text-yellow-300 retro-font text-[0.9em]">CHANGE NAME</h4><input type="text" id="rename-input" maxlength="10" class="bg-black border-2 border-white p-2 text-center text-white retro-font focus:outline-none text-[1em]">
+        <div class="flex gap-2 justify-center mt-2"><button onclick="confirmRename()" class="ff-btn px-4 py-2 text-[0.75em] retro-font">OK</button><button onclick="closeRenameModal()" class="ff-btn px-4 py-2 text-[0.75em] retro-font">CANCEL</button></div>
+      </div>
+    </div>
+    <div id="system-message-modal" class="absolute inset-0 bg-black/90 z-[60] flex flex-col p-4 justify-center items-center hidden text-[0.9em]">
+      <div class="ff-box p-5 w-full max-w-xs text-center flex flex-col gap-4 shadow-2xl"><h4 class="text-red-400 retro-font text-[0.9em]">SYSTEM MESSAGE</h4><p id="system-message-text" class="text-white text-[0.85em] tracking-widest leading-relaxed"></p><button onclick="closeSystemMessage()" class="ff-btn px-4 py-2 mt-2 text-[0.75em] retro-font">OK</button></div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "endless_oath_v32_final";
+    let baseFontSize = 16;
+    function showSystemMessage(msg) { document.getElementById('system-message-text').innerText = msg; document.getElementById('system-message-modal').classList.remove('hidden'); }
+    function closeSystemMessage() { document.getElementById('system-message-modal').classList.add('hidden'); }
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    function formatNum(num) { if(num>=1e12)return(num/1e12).toFixed(1)+'T';if(num>=1e9)return(num/1e9).toFixed(1)+'B';if(num>=1e6)return(num/1e6).toFixed(1)+'M';if(num>=1e3)return(num/1e3).toFixed(1)+'K';return num.toString();}
+    function formatLvl(lvl, type) { if (type === 'passive' && lvl >= 6) return 'Lv.6 (MAX)'; if (type === 'items' || type === 'condition') return ''; return `Lv.${lvl}`; }
+    
+    // Unified Logging System
+    function addLog(msg, colorClass = "text-white") { gameState.historyLogs.push({ msg: `[${new Date().toLocaleTimeString('zh-TW', { hour12: false })}] ${msg}`, color: colorClass }); if (gameState.historyLogs.length > 200) gameState.historyLogs.shift(); if (gameState.activeTab === 'log') renderHistoryLogs(); }
+    function updateAnimationMsg(txt) { document.getElementById('battle-latest-msg').innerText = txt; let f = document.getElementById('animation-flash-bg'); f.className = "absolute inset-0 bg-white pointer-events-none opacity-20"; setTimeout(() => f.className = "absolute inset-0 bg-white pointer-events-none transition-opacity duration-300 opacity-0", 80); }
+    function logAndMsg(msg, colorClass = "text-white") { addLog(msg, colorClass); updateAnimationMsg(msg); }
+    function isControlDisabled(char) { return char.status.paralyze > 0 || char.status.sleep > 0 || char.status.stun > 0; }
+    function animateElement(id, cls) { let e = document.getElementById(id); if(e){ e.classList.add(cls); setTimeout(()=>e.classList.remove(cls), 400); } }
+    function createFloatNum(txt, col, isH, idx) { let c = document.getElementById('floating-numbers'); let tgt = document.getElementById(isH ? `hero-mini-${idx}` : `enemy-card-${idx}`); if (!tgt || !c) return; let r = tgt.getBoundingClientRect(); let pr = c.getBoundingClientRect(); let s = document.createElement('span'); s.className = `absolute font-black ${col} retro-font text-[14px] damage-float pointer-events-none text-shadow-md z-50`; s.style.left = `${r.left - pr.left + (r.width / 2) - 10}px`; s.style.top = `${r.top - pr.top + (r.height / 3)}px`; s.innerText = txt; c.appendChild(s); setTimeout(() => s.remove(), 900); }
+    function updateTopBar() { const floorTxt = document.getElementById('txt-floor'); if (floorTxt) floorTxt.innerText = `B${gameState.floor}-${gameState.room}`; const progressEl = document.getElementById('floor-progress'); if (progressEl) progressEl.style.width = `${(gameState.room / gameState.maxRooms) * 100}%`; }
+    function switchTab(tabId) { gameState.activeTab = tabId; ['adventure', 'status', 'log'].forEach(id => { document.getElementById(`tab-${id}`).className = `flex-1 py-2 sm:py-3 transition-all border-2 border-white ${tabId === id ? 'text-black bg-white' : 'text-gray-400 bg-black hover:text-white border-transparent border-b-white/20'}`; document.getElementById(`panel-${id}`).classList.toggle('hidden', tabId !== id); }); if (tabId === 'status') renderPartyManagementTab(); if (tabId === 'log') renderHistoryLogs(); }
+    function adjustFontSize(dir) { baseFontSize = Math.max(12, Math.min(24, baseFontSize + dir)); document.getElementById('game-container').style.fontSize = `${baseFontSize}px`; }
+
+    // Minified DB
+    const CONDITION_DB=[{id:'c_poison',prop:'poison',name:'猛毒',desc:'每回合中毒',type:'condition',icon:'毒',color:'text-green-400'},{id:'c_blind',prop:'blind',name:'盲目',desc:'物攻命中下降',type:'condition',icon:'盲',color:'text-gray-400'},{id:'c_paralyze',prop:'paralyze',name:'麻痺',desc:'無法行動',type:'condition',icon:'痺',color:'text-yellow-500'},{id:'c_sleep',prop:'sleep',name:'睡眠',desc:'沉睡,受擊驚醒',type:'condition',icon:'眠',color:'text-blue-300'},{id:'c_confuse',prop:'confuse',name:'混亂',desc:'隨機攻擊',type:'condition',icon:'亂',color:'text-purple-400'},{id:'c_silence',prop:'silence',name:'封咒',desc:'無法施法',type:'condition',icon:'默',color:'text-gray-500'},{id:'c_weak',prop:'weak',name:'衰弱',desc:'攻防降30%',type:'condition',icon:'弱',color:'text-orange-400'},{id:'c_bleed',prop:'bleed',name:'流血',desc:'動則失血10%',type:'condition',icon:'血',color:'text-red-500'},{id:'c_regen',prop:'regen',name:'再生',desc:'回血5%',type:'condition',icon:'再',color:'text-green-300'},{id:'c_berserk',prop:'berserk',name:'狂暴',desc:'攻速升防降,亂擊',type:'condition',icon:'狂',color:'text-red-400'},{id:'c_reflect',prop:'reflect_buff',name:'反射',desc:'反彈80%傷害',type:'condition',icon:'反',color:'text-blue-400'},{id:'c_stun',prop:'stun',name:'暈眩',desc:'無法行動',type:'condition',icon:'暈',color:'text-yellow-300'}];
+    const WEAPONS_DB=[{id:'w_01',name:'洋蔥劍',desc:'洋蔥組件其一',type:'weapon',isTwoHanded:!1,val:12},{id:'w_02',name:'刺客匕首',desc:'物暴+20%,普攻疊印記',type:'weapon',isTwoHanded:!1,val:9,crit:.2},{id:'w_03',name:'誓約巨劍',desc:'雙手大劍',type:'weapon',isTwoHanded:!0,val:26},{id:'w_04',name:'橡木法杖',desc:'魔效+20%',type:'weapon',isTwoHanded:!1,val:6,magBoost:1.2},{id:'w_05',name:'風行輕弩',desc:'速+4',type:'weapon',isTwoHanded:!1,val:11,speed:4},{id:'w_06',name:'死神大鐮刀',desc:'普攻全體',type:'weapon',isTwoHanded:!0,val:14,isAoe:!0},{id:'w_07',name:'嗜血短刃',desc:'吸血15%',type:'weapon',isTwoHanded:!1,val:10,lifesteal:.15},{id:'w_08',name:'賢者魔杖',desc:'魔次+1',type:'weapon',isTwoHanded:!1,val:8,spellUses:1},{id:'w_09',name:'破甲流星鎚',desc:'穿甲15%',type:'weapon',isTwoHanded:!1,val:13,pierce:.15},{id:'w_10',name:'光之聖約劍',desc:'回3HP',type:'weapon',isTwoHanded:!1,val:18,regen:3},{id:'w_11',name:'雷霆戰斧',desc:'雙手,暴率+10%',type:'weapon',isTwoHanded:!0,val:28,crit:.1},{id:'w_12',name:'冰霜法杖',desc:'魔+30%,速+2',type:'weapon',isTwoHanded:!1,val:8,magBoost:1.3,speed:2},{id:'w_13',name:'龍骨長槍',desc:'穿甲10%',type:'weapon',isTwoHanded:!1,val:15,pierce:.1},{id:'w_14',name:'毒蛇之牙',desc:'20%毒',type:'weapon',isTwoHanded:!1,val:11,poisonChance:.2},{id:'w_15',name:'幻影雙刃',desc:'閃10%,速+6',type:'weapon',isTwoHanded:!0,val:22,dodge:.1,speed:6},{id:'w_16',name:'守護者之劍',desc:'開場15盾',type:'weapon',isTwoHanded:!1,val:14,startShield:15},{id:'w_17',name:'狂戰士大劍',desc:'雙手,防-5',type:'weapon',isTwoHanded:!0,val:32,def:-5},{id:'w_18',name:'正宗',desc:'雙手,暴+40%',type:'weapon',isTwoHanded:!0,val:25,crit:.4},{id:'w_19',name:'石中劍',desc:'回5HP',type:'weapon',isTwoHanded:!1,val:35,regen:5},{id:'w_20',name:'諸神黃昏',desc:'穿甲25%',type:'weapon',isTwoHanded:!1,val:28,pierce:.25},{id:'w_21',name:'睡魔之劍',desc:'20%眠',type:'weapon',isTwoHanded:!1,val:16,sleepChance:.2},{id:'w_22',name:'雷神之鎚',desc:'20%痺',type:'weapon',isTwoHanded:!1,val:19,paralyzeChance:.2},{id:'w_23',name:'血腥護腕',desc:'30%流血',type:'weapon',isTwoHanded:!1,val:23,bleedChance:.3},{id:'w_24',name:'魔劍・噬魂',desc:'攻+50,每回扣10%HP',type:'weapon',isTwoHanded:!1,val:50,curse:!0}];
+    const OFFHANDS_DB=[{id:'o_01',name:'洋蔥盾',desc:'防+3,洋蔥組件其二',type:'offhand',val:3},{id:'o_02',name:'鋼鐵大盾',desc:'物減12%',type:'offhand',val:6,blockPhys:.12},{id:'o_03',name:'暗影副刃',desc:'追加隨機斬擊',type:'offhand',val:5,isWeapon:!0},{id:'o_04',name:'治癒法典',desc:'治癒+20%',type:'offhand',val:1,healBoost:.2},{id:'o_05',name:'抗魔護符',desc:'魔減15%',type:'offhand',val:4,blockMagic:.15},{id:'o_06',name:'獅子巨盾',desc:'開場20盾',type:'offhand',val:7,startShield:20},{id:'o_07',name:'毒刺袖匕',desc:'追加30%毒',type:'offhand',val:4,isWeapon:!0,poisonChance:.3},{id:'o_08',name:'反擊圓盾',desc:'反4真傷',type:'offhand',val:4,reflect:4},{id:'o_09',name:'魔法水晶',desc:'魔+15%',type:'offhand',val:2,magBoost:1.15},{id:'o_10',name:'招架短刀',desc:'閃+8%',type:'offhand',val:3,dodge:.08},{id:'o_11',name:'生命寶珠',desc:'回2HP',type:'offhand',val:1,regen:2},{id:'o_12',name:'源氏之盾',desc:'防10,閃15%',type:'offhand',val:10,dodge:.15},{id:'o_13',name:'埃癸斯神盾',desc:'魔減25%',type:'offhand',val:8,blockMagic:.25},{id:'o_14',name:'防禦壁壘',desc:'物減20%,速-2',type:'offhand',val:12,blockPhys:.2,speed:-2}];
+    const ARMORS_DB=[{id:'a_01',name:'洋蔥服',desc:'HP+15,洋蔥組件其三',type:'armor',val:4,hp:15},{id:'a_02',name:'鐵衛鎧甲',desc:'HP+50,速-2,重甲',type:'armor',val:15,hp:50,speed:-2,isHeavy:!0},{id:'a_03',name:'秘法編織袍',desc:'魔+10%,HP+20',type:'armor',val:6,hp:20,magBoost:1.1},{id:'a_04',name:'幻影皮衣',desc:'閃暴+8%',type:'armor',val:7,hp:25,crit:.08,dodge:.08},{id:'a_05',name:'荊棘反甲',desc:'反6物傷,重甲',type:'armor',val:11,hp:35,reflect:6,isHeavy:!0},{id:'a_06',name:'天使庇護衣',desc:'戰後回15%',type:'armor',val:9,hp:40,endHeal:.15},{id:'a_07',name:'龍鱗重甲',desc:'反5傷,速-3,重甲',type:'armor',val:18,hp:40,speed:-3,reflect:5,isHeavy:!0},{id:'a_08',name:'刺客夜行衣',desc:'閃12%,暴5%',type:'armor',val:8,hp:15,dodge:.12,crit:.05},{id:'a_09',name:'戰神板甲',desc:'攻+3,重甲',type:'armor',val:14,hp:60,atk:3,isHeavy:!0},{id:'a_10',name:'聖光法袍',desc:'回3HP',type:'armor',val:7,hp:30,regen:3},{id:'a_11',name:'巨獸皮甲',desc:'HP+80',type:'armor',val:10,hp:80},{id:'a_12',name:'源氏之鎧',desc:'HP+100,速-1,重甲',type:'armor',val:25,hp:100,speed:-1,isHeavy:!0},{id:'a_13',name:'緞帶',desc:'魔+30%,回5HP',type:'armor',val:5,magBoost:1.3,regen:5},{id:'a_14',name:'防毒面具',desc:'免毒盲',type:'armor',val:6,hp:10,immunePoisonBlind:!0}];
+    const ACCESSORIES_DB=[{id:'ac_01',name:'洋蔥戒指',desc:'攻+4,洋蔥組件其四',type:'accessory',bonusAtk:4},{id:'ac_02',name:'紅寶石項鍊',desc:'HP+30',type:'accessory',bonusHp:30},{id:'ac_03',name:'疾風飛靴',desc:'速+5',type:'accessory',bonusSpeed:5},{id:'ac_04',name:'聖耀十字架',desc:'開場25盾',type:'accessory',startShield:25},{id:'ac_05',name:'惡魔戒指',desc:'吸血10%',type:'accessory',lifesteal:.1},{id:'ac_06',name:'吸血鬼印記',desc:'吸血15%',type:'accessory',lifesteal:.15},{id:'ac_07',name:'獵豹指環',desc:'速+8,閃5%',type:'accessory',bonusSpeed:8,bonusDodge:.05},{id:'ac_08',name:'狂暴吊墜',desc:'防-2,攻+8',type:'accessory',bonusAtk:8,def:-2},{id:'ac_09',name:'守護石',desc:'開場40盾',type:'accessory',startShield:40},{id:'ac_10',name:'龍之血滴',desc:'HP+50,回2HP',type:'accessory',bonusHp:50,regen:2},{id:'ac_11',name:'赫耳墨斯之靴',desc:'速+12,閃10%',type:'accessory',bonusSpeed:12,bonusDodge:.1},{id:'ac_12',name:'英雄之證',desc:'攻5,HP50,速5',type:'accessory',bonusAtk:5,bonusHp:50,bonusSpeed:5},{id:'ac_13',name:'鎮靜之戒',desc:'免混亂封咒',type:'accessory',immuneMental:!0}];
+    const MAGIC_DB=[{id:'m_01',name:'火球術',desc:'[火]單體火傷',type:'magic',maxUses:3,power:25,effect:'damage'},{id:'m_02',name:'治癒術',desc:'單體恢復',type:'magic',maxUses:4,power:22,effect:'heal',targetFriendly:!0},{id:'m_03',name:'閃電鏈',desc:'[雷]全體雷傷',type:'magic',maxUses:2,power:15,isAoe:!0,effect:'damage'},{id:'m_04',name:'冰凍術',desc:'[冰]單體傷降速',type:'magic',maxUses:3,power:20,effect:'damage_slow'},{id:'m_05',name:'聖盾庇護',desc:'單體30盾',type:'magic',maxUses:3,power:30,effect:'shield',targetFriendly:!0},{id:'m_06',name:'群體治癒',desc:'全體15HP',type:'magic',maxUses:2,power:15,isAoe:!0,effect:'heal',targetFriendly:!0},{id:'m_07',name:'神聖復活',desc:'復活30%',type:'magic',maxUses:1,power:0,effect:'revive',targetFriendly:!0},{id:'m_08',name:'隕石風暴',desc:'[消散/火]全體火傷',type:'magic',maxUses:1,power:45,isAoe:!0,effect:'damage',isConsumable:!0},{id:'m_09',name:'吸血鬼吻',desc:'單體吸血',type:'magic',maxUses:3,power:18,effect:'damage_heal'},{id:'m_10',name:'聖光閃耀',desc:'全體25HP',type:'magic',maxUses:2,power:25,isAoe:!0,effect:'heal',targetFriendly:!0},{id:'m_11',name:'劇毒新星',desc:'全體毒傷',type:'magic',maxUses:2,power:8,isAoe:!0,effect:'aoe_poison'},{id:'m_12',name:'巴哈姆特',desc:'[消散]全體絕傷',type:'magic',maxUses:1,power:80,isAoe:!0,effect:'megaflare',isConsumable:!0},{id:'m_13',name:'奧丁',desc:'[消散]機率秒殺',type:'magic',maxUses:1,power:60,isAoe:!0,effect:'zantetsuken',isConsumable:!0},{id:'m_14',name:'希瓦',desc:'[消散/冰]全體冰傷',type:'magic',maxUses:1,power:30,isAoe:!0,effect:'shiva',isConsumable:!0},{id:'m_15',name:'伊弗利特',desc:'[消散/火]全體火傷',type:'magic',maxUses:1,power:35,isAoe:!0,effect:'damage',isConsumable:!0},{id:'m_16',name:'拉姆',desc:'[消散/雷]全體雷暈',type:'magic',maxUses:1,power:20,isAoe:!0,effect:'aoe_damage_stun',isConsumable:!0},{id:'m_17',name:'泰坦',desc:'[消散]全體土傷',type:'magic',maxUses:1,power:35,isAoe:!0,effect:'damage',isConsumable:!0},{id:'m_18',name:'利維坦',desc:'[消散]全體破甲',type:'magic',maxUses:1,power:25,isAoe:!0,effect:'aoe_damage_armor_break',isConsumable:!0},{id:'m_19',name:'亞歷山大',desc:'[消散]全體聖傷',type:'magic',maxUses:1,power:45,isAoe:!0,effect:'damage',isConsumable:!0},{id:'m_20',name:'鳳凰',desc:'[消散]全體復活',type:'magic',maxUses:1,power:50,isAoe:!0,effect:'phoenix',targetFriendly:!0,isConsumable:!0},{id:'m_21',name:'催眠術',desc:'單體睡眠',type:'magic',maxUses:3,power:0,effect:'sleep'},{id:'m_22',name:'閃光爆彈',desc:'全體盲目',type:'magic',maxUses:2,power:0,isAoe:!0,effect:'aoe_blind'},{id:'m_23',name:'沉默術',desc:'單體封咒',type:'magic',maxUses:3,power:0,effect:'silence'},{id:'m_24',name:'再生術',desc:'單體5回血',type:'magic',maxUses:2,power:0,effect:'regen_buff',targetFriendly:!0},{id:'m_27',name:'反射光環',desc:'單體反射80%',type:'magic',maxUses:2,power:0,effect:'reflect_buff',targetFriendly:!0},{id:'m_28',name:'狂暴術',desc:'單體狂暴',type:'magic',maxUses:2,power:0,effect:'berserk',targetFriendly:!0},{id:'m_29',name:'雙重施法',desc:'連續施法',type:'magic',maxUses:2,power:0,effect:'double_cast'},{id:'m_30',name:'沙塵暴',desc:'[氣候]全體土傷加沙塵',type:'magic',maxUses:2,power:20,isAoe:!0,effect:'aoe_damage_sand'},{id:'m_31',name:'大晴明術',desc:'[氣候]全體回10HP加烈陽',type:'magic',maxUses:2,power:10,isAoe:!0,effect:'heal_sun',targetFriendly:!0},{id:'m_32',name:'惡魔吐息',desc:'[氣候]全體暗傷加瘴氣',type:'magic',maxUses:2,power:22,isAoe:!0,effect:'aoe_damage_miasma'}];
+    const SPECIAL_DB=[{id:'s_01',name:'奮力劈斬',desc:'單體大傷',type:'special',maxUses:4,power:24,effect:'damage'},{id:'s_02',name:'橫掃',desc:'全體物理',type:'special',maxUses:2,power:14,isAoe:!0,effect:'damage'},{id:'s_03',name:'極速雙擊',desc:'單體2連斬',type:'special',maxUses:3,power:13,effect:'double_strike'},{id:'s_04',name:'戰盾嘲諷',desc:'嘲諷+25盾',type:'special',maxUses:3,power:0,isAoe:!0,effect:'taunt'},{id:'s_05',name:'劇毒割喉',desc:'單體毒傷並疊印記',type:'special',maxUses:3,power:18,effect:'poison'},{id:'s_06',name:'盾牌猛擊',desc:'單體傷暈',type:'special',maxUses:3,power:15,effect:'damage_stun'},{id:'s_07',name:'旋風斬',desc:'全體物理',type:'special',maxUses:3,power:12,isAoe:!0,effect:'damage'},{id:'s_08',name:'致命刺殺',desc:'高傷可引爆印記',type:'special',maxUses:2,power:30,effect:'damage'},{id:'s_09',name:'嗜血狂斬',desc:'50%吸血',type:'special',maxUses:3,power:25,effect:'damage_lifesteal'},{id:'s_10',name:'金屬斬',desc:'剋金屬',type:'special',maxUses:5,power:3,effect:'metal_slash'},{id:'s_11',name:'超究武神霸斬',desc:'[消散]5連亂斬',type:'special',maxUses:1,power:20,isAoe:!0,effect:'omnislash',isConsumable:!0},{id:'s_12',name:'無想轉生',desc:'[消散]單體7連擊',type:'special',maxUses:1,power:15,effect:'musou_tensei',isConsumable:!0},{id:'s_13',name:'氣功波',desc:'無視防禦',type:'special',maxUses:3,power:20,effect:'pierce_damage'},{id:'s_14',name:'破甲斬',desc:'傷加永久降防',type:'special',maxUses:3,power:15,effect:'armor_break'},{id:'s_15',name:'麻痺打擊',desc:'傷加麻痺',type:'special',maxUses:3,power:10,effect:'damage_paralyze'},{id:'s_16',name:'蓄力',desc:'下擊2.5倍',type:'special',maxUses:4,power:0,effect:'charge',targetFriendly:!0},{id:'s_17',name:'龍跳躍',desc:'騰空落擊',type:'special',maxUses:2,power:0,effect:'jump'},{id:'s_18',name:'爆裂拳',desc:'單體3快拳',type:'special',maxUses:3,power:10,effect:'triple_strike'},{id:'s_19',name:'過肩摔',desc:'巨傷(非首領)',type:'special',maxUses:2,power:35,effect:'suplex'},{id:'s_20',name:'狂暴化',desc:'自身狂暴',type:'special',maxUses:3,power:0,effect:'berserk',targetFriendly:!0,isSelfOnly:!0},{id:'s_21',name:'鏡面架勢',desc:'自身反射80%',type:'special',maxUses:2,power:0,effect:'reflect_buff',targetFriendly:!0,isSelfOnly:!0},{id:'s_22',name:'模仿',desc:'複製前隊友',type:'special',maxUses:3,power:0,effect:'mimic',isSelfOnly:!0},{id:'s_23',name:'馴獸',desc:'魔物倒戈',type:'special',maxUses:2,power:0,effect:'tame'},{id:'s_24',name:'賭博',desc:'隨機特技',type:'special',maxUses:4,power:0,effect:'gamble'},{id:'s_25',name:'腥血拔刀',desc:'扣20%HP無視防禦巨傷',type:'special',maxUses:99,power:40,effect:'blood_strike'},{id:'s_26',name:'日輪斬',desc:'[氣候]單體斬擊加烈陽',type:'special',maxUses:3,power:25,effect:'damage_sun'},{id:'s_27',name:'火焰劍',desc:'[火]單體火物傷',type:'special',maxUses:3,power:30,effect:'damage'},{id:'s_28',name:'冰凍劍',desc:'[冰]單體傷降速',type:'special',maxUses:3,power:25,effect:'damage_slow'},{id:'s_29',name:'閃電劍',desc:'[雷]單體雷麻痺',type:'special',maxUses:3,power:25,effect:'damage_paralyze'}];
+    const ITEMS_DB=[{id:'i_01',name:'急救傷藥',desc:'單體30HP',type:'items',maxUses:10,power:30,effect:'heal',targetFriendly:!0},{id:'i_02',name:'烈性手雷',desc:'全體20真傷',type:'items',maxUses:10,power:20,isAoe:!0,effect:'fixed_damage'},{id:'i_03',name:'甦醒針劑',desc:'復活20HP',type:'items',maxUses:3,power:20,effect:'revive',targetFriendly:!0},{id:'i_04',name:'補能晶石',desc:'全技次數+1',type:'items',maxUses:3,power:1,effect:'restore_uses',targetFriendly:!0},{id:'i_05',name:'聖靈藥',desc:'[消散]全員全滿',type:'items',maxUses:1,power:999,isAoe:!0,effect:'phoenix',targetFriendly:!0,isConsumable:!0},{id:'i_06',name:'麻痺毒藥',desc:'[雷]25傷加麻痺',type:'items',maxUses:5,power:25,effect:'damage_paralyze'},{id:'i_07',name:'萬能藥',desc:'解全異常',type:'items',maxUses:3,power:0,effect:'cure_all',targetFriendly:!0},{id:'i_08',name:'混亂毒氣',desc:'20傷全體混亂',type:'items',maxUses:5,power:20,isAoe:!0,effect:'aoe_confuse'},{id:'i_09',name:'止血繃帶',desc:'解流血',type:'items',maxUses:3,power:0,effect:'cure_bleed',targetFriendly:!0},{id:'i_10',name:'狂暴藥劑',desc:'單體狂暴',type:'items',maxUses:3,power:0,effect:'berserk',targetFriendly:!0},{id:'i_11',name:'反射鏡',desc:'鏡面護盾',type:'items',maxUses:3,power:0,effect:'reflect_buff',targetFriendly:!0},{id:'i_12',name:'火炎塗劑',desc:'單體火屬賦魔3回',type:'items',maxUses:3,power:0,effect:'enchant_fire',targetFriendly:!0},{id:'i_13',name:'風化砂瓶',desc:'[氣候]全體15傷加沙塵',type:'items',maxUses:3,power:15,isAoe:!0,effect:'aoe_fixed_sand'},{id:'i_14',name:'腐敗孢子',desc:'[氣候]全體毒傷加瘴氣',type:'items',maxUses:3,power:10,isAoe:!0,effect:'aoe_poison_miasma'}];
+    const PASSIVES_DB=[{id:'p_01',name:'生命強壯',desc:'HP+15',type:'passive'},{id:'p_02',name:'力量怪手',desc:'攻+8%',type:'passive'},{id:'p_03',name:'魔力泉源',desc:'魔法次數上限+1',type:'passive'},{id:'p_04',name:'神速身法',desc:'速+2',type:'passive'},{id:'p_05',name:'光之庇護',desc:'戰後回復+8%',type:'passive'},{id:'p_06',name:'嗜血渴望',desc:'吸血+5%',type:'passive'},{id:'p_07',name:'鋼鐵之軀',desc:'防+5',type:'passive'},{id:'p_08',name:'靈巧本能',desc:'閃+3%',type:'passive'},{id:'p_09',name:'奧術精通',desc:'魔傷+5%',type:'passive'},{id:'p_10',name:'命運之手',desc:'重抽次數+1',type:'passive'},{id:'p_13',name:'不屈意志',desc:'防+3',type:'passive'},{id:'p_14',name:'狂戰士之魂',desc:'普攻傷害+15%，速度+1，但物理防禦降低5點',type:'passive'},{id:'p_17',name:'空手搏擊',desc:'空手攻大增',type:'passive'},{id:'p_18',name:'怪物魔導士',desc:'普攻隨機怪招,升級吸血+3%',type:'passive'},{id:'p_19',name:'重甲防禦陣',desc:'重甲加盾防+50%閃歸零,每級HP+8',type:'passive'},{id:'p_20',name:'魔法劍士',desc:'元素劍轉全體,每級攻+2%',type:'passive'},{id:'p_21',name:'氣象共鳴',desc:'氣候中魔傷+10%,每級+3%',type:'passive'},{id:'p_22',name:'道具學徒',desc:'道具效能+10%,每級+5%',type:'passive'}];
+
+    const DATABASE = { weapon: WEAPONS_DB, offhand: OFFHANDS_DB, armor: ARMORS_DB, accessory: ACCESSORIES_DB, magic: MAGIC_DB, special: SPECIAL_DB, items: ITEMS_DB, passive: PASSIVES_DB, condition: CONDITION_DB };
+    const ALL_CARDS_POOL = [ ...WEAPONS_DB, ...OFFHANDS_DB, ...ARMORS_DB, ...ACCESSORIES_DB, ...MAGIC_DB, ...SPECIAL_DB, ...ITEMS_DB, ...PASSIVES_DB ];
+    
+    // M_DB
+    const M_DB = [{id:1,n:"綠色黏液怪",r:"tank",s:[]},{id:2,n:"赤紅黏液怪",r:"tank",s:[]},{id:3,n:"尖耳小蝙蝠",r:"assassin",s:['vampire']},{id:4,n:"地精斥候",r:"warrior",s:['flee']},{id:5,n:"枯骨步兵",r:"warrior",s:[]},{id:6,n:"劇毒小蜘蛛",r:"assassin",s:['poison']},{id:7,n:"墓穴殭屍",r:"tank",s:['poison']},{id:8,n:"哥布林射手",r:"assassin",s:['assassinate']},{id:9,n:"瘟疫巨鼠",r:"warrior",s:['flee']},{id:10,n:"食岩幼蟲",r:"tank",s:[]},{id:11,n:"蠻族獸人",r:"warrior",s:[]},{id:12,n:"荒野幽靈",r:"mage",s:['mage_aoe']},{id:13,n:"雙翼石像鬼",r:"tank",s:['stun']},{id:14,n:"黑泥洞蛇",r:"assassin",s:['poison']},{id:15,n:"狂暴野豬",r:"tank",s:['stun']},{id:16,n:"地精薩滿",r:"mage",s:['heal']},{id:17,n:"噬血妖花",r:"mage",s:['poison']},{id:18,n:"枯骨騎兵",r:"warrior",s:[]},{id:19,n:"吸血鬼蝠",r:"assassin",s:['vampire']},{id:20,n:"微光火精靈",r:"mage",s:['mage_aoe']},{id:27,n:"死骨通靈師",r:"mage",s:['heal']},{id:29,n:"影流夜行刺",r:"assassin",s:['assassinate']},{id:34,n:"深淵魅魔",r:"assassin",s:['vampire']},{id:37,n:"極寒深淵法",r:"mage",s:['heal']},{id:38,n:"金屬史萊姆",r:"tank",s:['flee'],m:1},{id:39,n:"離散金屬",r:"tank",s:['flee'],m:1},{id:52,n:"提燈怪",r:"tank",s:['tonberry']},{id:53,n:"爆彈怪",r:"tank",s:['kamikaze']},{id:54,n:"仙人掌",r:"assassin",s:['flee']},{id:55,n:"貝希摩斯",r:"boss",s:['assassinate']},{id:41,n:"巨霸史萊姆王",r:"boss",s:['boss_aoe']},{id:42,n:"哥布林黃金王",r:"boss",s:['buff']},{id:43,n:"枯骨終焉將軍",r:"boss",s:['boss_aoe']},{id:44,n:"獸人鐵血督軍",r:"boss",s:['stun']},{id:45,n:"地精千足毒母",r:"boss",s:['poison']},{id:46,n:"猩紅吸血伯爵",r:"boss",s:['vampire']},{id:47,n:"滅世炎魔領主",r:"boss",s:['boss_aoe']},{id:48,n:"龍王",r:"boss",s:['boss_aoe']},{id:49,n:"大魔王佐瑪",r:"boss",s:['boss_aoe']},{id:50,n:"狂人卡夫卡",r:"boss",s:['mage_aoe']},{id:51,n:"片翼天使賽菲羅斯",r:"boss",s:['assassinate']},{id:56,n:"神龍",r:"boss",s:['boss_aoe']},{id:57,n:"歐米茄",r:"boss",s:['boss_aoe']},{id:58,n:"吉爾伽美什",r:"boss",s:['buff']}];
+    const E_SKILLS = { 'normal':{n:'攻擊',t:'dmg',p:1}, 'flee':{n:'逃跑',t:'flee'}, 'kamikaze':{n:'自爆',t:'kami'}, 'vampire':{n:'吸血',t:'dmg',p:1.2,heal:0.5}, 'poison':{n:'毒牙',t:'dmg',p:1,apply:'psn'}, 'stun':{n:'重擊',t:'dmg',p:1,apply:'bld'}, 'heal':{n:'治癒',t:'heal',p:1.5}, 'buff':{n:'戰吼',t:'buff'}, 'assassinate':{n:'暗殺',t:'dmg',p:1.8,ign:1}, 'mage_aoe':{n:'魔彈風暴',t:'aoe',p:0.8}, 'tonberry':{n:'菜刀開膛',t:'fixed',v:999}, 'boss_aoe':{n:'毀滅攻擊',t:'aoe',p:1.5} };
+
+    let gameState = { floor: 1, room: 1, maxRooms: 10, roundCount: 1, historyLogs: [], party: [], enemies: [], currentHeroIndex: 0, isBattleActive: false, isInputPhase: false, pendingDrafts: [], draftChoiceIndex: 0, targetingAction: null, activeTab: 'adventure', lastPartyAction: null, weather: null, wTimer: 0 };
+
+    function getGearBonus(hero, field) { return Object.values(hero.equips).reduce((sum, eq) => { if (!eq) return sum; let base = eq[field] || 0; if (base && ['weapon', 'offhand', 'armor', 'accessory'].includes(eq.type) && field === 'val') { base += (hero.getEquipLvl(eq.id) - 1) * (eq.type === 'armor' ? 5 : 1); } return sum + base; }, 0); }
+
+    class Hero {
+      constructor(id, name) {
+        this.id = id; this.name = name; this.baseMaxHp = 100; this.baseAtk = 10; this.baseDef = 4; this.baseSpeed = 10;
+        this.equips = { weapon: null, offhand: null, armor: null, accessory: null }; this.magic = []; this.special = []; this.items = []; this.passives = [];
+        this.cardMemory = {}; this.bMag = 0; this.bSpc = 0; this.bItm = 0; this.hp = 100; this.shield = 0; this.bCrit = 0;
+        this.status = { poison: 0, blind: 0, paralyze: 0, sleep: 0, confuse: 0, silence: 0, weak: 0, bleed: 0, regen: 0, berserk: 0, reflect_buff: 0, stun: 0, enchant_fire: 0 };
+        this.matk = 10;
+        this.combatState = { charging: false, jumpTimer: 0, jumpTarget: null, defending: false };
+        this.buffs = { defending: false, dodge: 0, berserk: false }; this.isDead = false; this.actionQueued = null; this.currentRerolls = 1; this.lastExecutedAction = null;
+      }
+      getEquipLvl(id) { return this.cardMemory[id] || 1; } getMult(id) { return 1.0 + ((this.cardMemory[id] || 1) - 1) * 0.2; }
+      getMaxMagic() { return 5 + this.bMag; } getMaxSpecial() { return 5 + this.bSpc; } getMaxItems() { return 10 + this.bItm; } getMaxPassives() { return 5; } getMaxRerolls() { return 1 + (this.cardMemory['p_10'] || 0); }
+      getMaxHp() { let val = this.baseMaxHp + getGearBonus(this, 'hp') + (this.equips.accessory?.bonusHp || 0); if (this.cardMemory['p_01']) val += this.cardMemory['p_01'] * 15; if (this.cardMemory['p_19']) val += this.cardMemory['p_19'] * 8; return val; }
+      getAtk() { 
+        let val = this.baseAtk; if (this.equips.weapon) val += getGearBonus(this, 'val'); else if (this.cardMemory['p_17']) val += 10 + this.cardMemory['p_17'] * 5;
+        val += (this.equips.armor?.atk || 0) + (this.equips.accessory?.bonusAtk || 0);
+        if (this.cardMemory['p_02']) val = Math.floor(val * (1 + this.cardMemory['p_02'] * 0.08)); if (this.cardMemory['p_14']) val = Math.floor(val * (1 + this.cardMemory['p_14'] * 0.15));
+        if (this.cardMemory['p_20']) val = Math.floor(val * (1 + this.cardMemory['p_20'] * 0.02));
+        if (this.status.weak > 0) val = Math.floor(val * 0.7); if (this.status.berserk > 0) val = Math.floor(val * 1.5); return val; 
+      }
+      getDef() { 
+        let val = this.baseDef + (this.equips.armor?.val || 0) + (this.equips.accessory?.def || 0); if (this.equips.offhand && !this.equips.offhand.isWeapon) val += getGearBonus(this, 'val');
+        if (this.cardMemory['p_07']) val += this.cardMemory['p_07'] * 5; if (this.cardMemory['p_13']) val += this.cardMemory['p_13'] * 3;
+        if (this.cardMemory['p_14']) val -= 5; 
+        if (this.cardMemory['p_19'] && this.equips.armor?.isHeavy && this.equips.offhand) val = Math.floor(val * 1.5);
+        if (this.status.weak > 0) val = Math.floor(val * 0.7); if (this.status.berserk > 0) val = Math.floor(val * 0.5); return Math.max(0, val); 
+      }
+      getSpeed() { let val = this.baseSpeed + (this.equips.weapon?.speed || 0) + (this.equips.armor?.speed || 0) + (this.equips.offhand?.speed || 0) + (this.equips.accessory ? (this.equips.accessory.bonusSpeed || 0) + (this.getEquipLvl(this.equips.accessory.id) - 1) : 0); if (this.cardMemory['p_04']) val += this.cardMemory['p_04'] * 2; if (this.cardMemory['p_14']) val += this.cardMemory['p_14'] * 1; return val; }
+      getCritChance() { return 0.05 + (this.equips.weapon?.crit || 0) + (this.equips.armor?.crit || 0) + (this.equips.accessory?.bonusCrit || 0) + (this.bCrit || 0); }
+      getDodgeChance() { if (this.combatState.jumpTimer > 0) return 1.0; if (this.cardMemory['p_19'] && this.equips.armor?.isHeavy && this.equips.offhand) return 0; return 0.05 + (this.equips.weapon?.dodge || 0) + (this.equips.armor?.dodge || 0) + (this.equips.offhand?.dodge || 0) + (this.equips.accessory?.bonusDodge || 0) + (this.cardMemory['p_08'] ? this.cardMemory['p_08'] * 0.03 : 0); }
+    }
+
+    class Enemy {
+      constructor(floor, isBoss = false, indexStr = "A") {
+        this.isBoss = isBoss; let pool = M_DB.filter(m => isBoss ? m.r === "boss" : m.r !== "boss");
+        if (!isBoss && Math.random() > 0.08) pool = pool.filter(m => !m.m);
+        let base = pool[Math.floor(Math.random() * pool.length)]; 
+        this.tierName = "普通"; this.colorClass = "text-white"; this.isMetal = base.m || false; this.baseId = base.id;
+        
+        let tm = 1.0; 
+        if (!isBoss && !this.isMetal) {
+          let tr = Math.random();
+          if (floor >= 4) { if (tr < 0.05) { this.tierName = "傳奇"; this.colorClass = "text-purple-400"; tm = 2.0; } else if (tr < 0.15) { this.tierName = "稀有"; this.colorClass = "text-yellow-400"; tm = 1.5; } else if (tr < 0.40) { this.tierName = "菁英"; this.colorClass = "text-blue-300"; tm = 1.2; } }
+          else if (floor >= 3) { if (tr < 0.1) { this.tierName = "稀有"; this.colorClass = "text-yellow-400"; tm = 1.5; } else if (tr < 0.3) { this.tierName = "菁英"; this.colorClass = "text-blue-300"; tm = 1.2; } }
+          else if (floor >= 2 && tr < 0.2) { this.tierName = "菁英"; this.colorClass = "text-blue-300"; tm = 1.2; }
+        } else if (isBoss) { this.tierName = "霸主"; this.colorClass = "text-red-500"; tm = 1.0; } else if (this.isMetal) { this.tierName = "稀有"; this.colorClass = "text-yellow-400"; tm = 1.0; }
+        
+        this.name = isBoss || this.isMetal ? `${base.n}` : `${base.n} ${indexStr}`; 
+        this.shortName = isBoss ? '魔王' : `怪物${indexStr}`;
+        this.s = base.s ? [...base.s] : []; 
+        let rStat = { 'tank':{h:35,a:3,d:2,s:0.5}, 'warrior':{h:25,a:4,d:1,s:1}, 'assassin':{h:15,a:5,d:0.5,s:2}, 'mage':{h:18,a:4,d:0.5,s:1.5}, 'boss':{h:150,a:10,d:5,s:1.5} }[base.r || 'warrior'];
+        this.maxHp = this.isMetal ? 4 + Math.floor(floor*0.5) : Math.floor((rStat.h * floor + 20) * tm);
+        this.atk = Math.floor((rStat.a * floor + 5) * tm);
+        this.def = this.isMetal ? 999 : Math.floor((rStat.d * floor) * tm);
+        this.speed = Math.floor(rStat.s * floor + 5);
+        this.imCond = null; this.affix = null;
+        
+        // 菁英動態詞綴系統
+        if (floor >= 3 && !isBoss && !this.isMetal && Math.random() < 0.4) { 
+            let afx = [{s:'vampire', n:'吸血'}, {s:'poison', n:'劇毒'}, {spd:2, n:'神速'}, {imCond:'poison', n:'防毒'}, {imCond:'stun', n:'防暈'}, {imCond:'sleep', n:'防眠'}, {defM:1.5, n:'堅硬'}, {hpM:1.5, n:'強壯'}]; 
+            let af = afx[Math.floor(Math.random()*afx.length)]; this.affix = af.n;
+            if(af.s) this.s.push(af.s); if(af.spd) this.speed = Math.floor(this.speed * af.spd); 
+            if(af.imCond) this.imCond = af.imCond; if(af.defM) this.def = Math.floor(this.def * af.defM); if(af.hpM) { this.maxHp = Math.floor(this.maxHp * af.hpM); this.hp = this.maxHp; }
+        }
+
+        this.hp = this.maxHp; this.isDead = false; this.status = { poison:0, blind:0, paralyze:0, sleep:0, confuse:0, silence:0, weak:0, bleed:0, regen:0, stun:0, berserk:0, reflect_buff:0, enchant_fire:0 };
+        this.stunTimer = 0; this.wetTimer = 0; this.assassinMarks = 0;
+        this.immunities = []; this.weaknesses = [];
+        
+        if (floor >= 4 && !isBoss && !this.isMetal) { 
+            if (Math.random() < 0.4) {
+                if (Math.random() < 0.35) {
+                    let wP = ['attack', 'magic', 'special', 'items'];
+                    this.weaknesses.push(wP[Math.floor(Math.random() * wP.length)]);
+                } else {
+                    let iP = ['attack', 'magic', 'special', 'items', 'fire', 'ice', 'lightning', 'earth', 'dark', 'holy'];
+                    let count = Math.random() < 0.3 ? 2 : 1;
+                    for(let i=0; i<count; i++) {
+                        let idx = Math.floor(Math.random() * iP.length);
+                        if(!this.immunities.includes(iP[idx])) this.immunities.push(iP[idx]);
+                        iP.splice(idx, 1);
+                    }
+                }
+            }
+        }
+      }
+    }
+
+    function showDetailsModal(type, id, heroIdx) {
+      if (!id || id === 'undefined') return; const h = gameState.party[heroIdx]; const item = DATABASE[type].find(x => x.id === id); if (!item) return;
+      if (type === 'condition') { document.getElementById('details-title').innerText = `${item.name}`; document.getElementById('details-title').className = `border-b-2 border-white pb-2 retro-font ${item.color} text-[1em] text-center leading-normal`; document.getElementById('details-desc').innerHTML = item.desc; document.getElementById('details-modal').classList.remove('hidden'); return; } else { document.getElementById('details-title').className = `border-b-2 border-white pb-2 retro-font text-yellow-300 text-[1em] text-center leading-normal`; }
+      let lvl = h ? (h.cardMemory[id] || 1) : 1; let powerStr = "";
+      if (item.power && item.power > 0) { let calcPwr = item.power; if (!item.isConsumable && (type === 'magic' || type === 'special')) calcPwr = Math.floor(calcPwr * (1 + (lvl - 1) * 0.1)); powerStr = `\n<br><span class="text-blue-300">威力/效能：${calcPwr}</span>`; }
+      if (['weapon', 'armor', 'offhand', 'accessory'].includes(type)) { let eqMap = {'weapon':{n:"攻擊力",b:1}, 'armor':{n:"最大HP",b:5}, 'offhand':{n:"防禦力",b:1}, 'accessory':{n:"速度",b:1}}; powerStr += `<br><span class="text-green-300">【強化總加成】<br>${eqMap[type].n} +${(lvl - 1) * eqMap[type].b}</span>`; }
+      let pMap = {'p_01':`最大HP +${lvl*15}`,'p_02':`攻擊力 +${lvl*8}%`,'p_03':`魔法次數上限 +${lvl}`,'p_04':`速度 +${lvl*2}`,'p_05':`戰後恢復 +${lvl*8}% HP`,'p_06':`吸血率 +${lvl*5}%`,'p_07':`防禦力 +${lvl*5}`,'p_08':`閃避率 +${lvl*3}%`,'p_09':`魔法傷害 +${lvl*5}%`,'p_10':`重抽次數 +${lvl}`,'p_13':`防禦力 +${lvl*3}`,'p_14':`速度 +${lvl}`,'p_17':`未武裝攻擊 +${10+lvl*5}`,'p_18':`吸血率 +${lvl*3}%`,'p_19':`最大HP +${lvl*8}`,'p_20':`攻擊力 +${lvl*2}%`,'p_21':`氣候中魔傷 +${10+lvl*3}%`,'p_22':`道具效能 +${10+lvl*5}%`};
+      if (type === 'passive' && pMap[id]) powerStr += `\n<br><span class="text-blue-300">當前加成效果：${pMap[id]}</span>`;
+      document.getElementById('details-title').innerText = `${item.name} ${formatLvl(lvl, type)}`; let consumeText = item.isConsumable ? "\n<br><span class='text-red-400'>[⚠️ 用後永久消散]</span>" : ""; document.getElementById('details-desc').innerHTML = item.desc + powerStr + consumeText + `<br><br><span class="text-gray-500 text-[0.8em]">當前強化次數: ${Math.max(0, lvl - 1)}</span>`; document.getElementById('details-modal').classList.remove('hidden');
+    }
+    function closeDetailsModal() { document.getElementById('details-modal').classList.add('hidden'); }
+
+    function generateHeroCardHTML(h, idx, isModal = false) {
+         let activeConds = CONDITION_DB.filter(c => h.status[c.prop] > 0); let condsDisplay = activeConds.length > 0 ? activeConds.map(c => `<span onclick="showDetailsModal('condition', '${c.id}', ${idx})" class="px-2 py-1 border border-gray-600 text-[0.7em] retro-font ${c.color} cursor-pointer hover:border-white transition-colors bg-black/50 rounded">${c.name} (${h.status[c.prop]}R)</span>`).join('') : '<span class="text-gray-500 text-[0.7em] retro-font">無</span>';
+         let magicStr = h.magic.map(s => `<span onclick="showDetailsModal('${s.type}', '${s.id}', ${idx})" class="px-2 py-1 border border-gray-600 text-[0.7em] retro-font text-blue-300 cursor-pointer hover:border-yellow-300 transition-colors bg-black/50 rounded">${(DATABASE[s.type].find(x => x.id === s.id)?.name || "未知")} ${formatLvl(h.cardMemory[s.id]||1, s.type)}</span>`).join('');
+         let specialStr = h.special.map(s => `<span onclick="showDetailsModal('${s.type}', '${s.id}', ${idx})" class="px-2 py-1 border border-gray-600 text-[0.7em] retro-font text-green-300 cursor-pointer hover:border-yellow-300 transition-colors bg-black/50 rounded">${(DATABASE[s.type].find(x => x.id === s.id)?.name || "未知")} ${formatLvl(h.cardMemory[s.id]||1, s.type)}</span>`).join('');
+         let itemStr = h.items.map(s => { if(s.isEquipItem) { let dbE = DATABASE[s.equipType].find(x => x.id === s.id); return `<span onclick="showDetailsModal('${s.equipType}', '${s.id}', ${idx})" class="px-2 py-1 border border-gray-600 text-[0.7em] retro-font text-gray-400 cursor-pointer hover:border-yellow-300 transition-colors bg-black/50 rounded">${dbE?dbE.name:'裝備'} ${formatLvl(h.cardMemory[s.id]||1, s.equipType)}</span>`; } else { return `<span onclick="showDetailsModal('${s.type}', '${s.id}', ${idx})" class="px-2 py-1 border border-gray-600 text-[0.7em] retro-font text-yellow-300 cursor-pointer hover:border-yellow-300 transition-colors bg-black/50 rounded">${DATABASE[s.type].find(x => x.id === s.id)?.name || "未知"}</span>`; } }).join('');
+         let passiveStr = h.passives.map(p => `<span onclick="showDetailsModal('passive', '${p.id}', ${idx})" class="px-2 py-1 border border-gray-600 text-[0.7em] retro-font text-purple-300 cursor-pointer hover:border-yellow-300 transition-colors bg-black/50 rounded">${(DATABASE['passive'].find(x => x.id === p.id)?.name || "未知")} ${formatLvl(h.cardMemory[p.id]||1, 'passive')}</span>`).join('');
+         let boxClass = isModal ? '' : 'ff-box p-3'; let topRowPadding = isModal ? 'pr-8' : ''; 
+         return `<div class="${boxClass} flex flex-col gap-2 relative">${h.isDead ? '<div class="absolute inset-0 bg-red-900/50 pointer-events-none z-10 flex justify-center items-center rounded"><span class="text-red-500 font-bold text-2xl retro-font rotate-12">DEAD</span></div>' : ''}<div class="flex justify-between items-center border-b border-gray-600 pb-1 relative z-20 ${topRowPadding}"><div class="font-bold text-yellow-300 retro-font flex items-center gap-2">${h.name} <button onclick="openRenameModal('${h.id}')" class="text-[0.6em] text-white border border-white px-1 hover:text-black hover:bg-white transition-colors">📝</button></div><div class="text-[0.8em] text-gray-300 retro-font">HP: ${h.hp}/${h.getMaxHp()}</div></div><div class="text-[0.75em] text-gray-400 grid grid-cols-2 gap-1 retro-font relative z-20"><div>ATK: ${h.getAtk()}</div><div>DEF: ${h.getDef()}</div><div>SPD: ${h.getSpeed()}</div><div>CRT: ${Math.floor(h.getCritChance()*100)}%</div><div class="col-span-2 text-gray-400 mt-1 pt-2 border-t border-gray-700 grid grid-cols-2 gap-1"><div class="truncate ${h.equips.weapon ? 'cursor-pointer hover:text-yellow-300 transition-colors' : ''}" ${h.equips.weapon ? `onclick="showDetailsModal('weapon', '${h.equips.weapon.id}', ${idx})"` : ''}>W: ${h.equips.weapon ? h.equips.weapon.name + ' ' + formatLvl(h.cardMemory[h.equips.weapon.id]||1, 'weapon') : '無'}</div><div class="truncate ${h.equips.offhand ? 'cursor-pointer hover:text-yellow-300 transition-colors' : ''}" ${h.equips.offhand ? `onclick="showDetailsModal('offhand', '${h.equips.offhand.id}', ${idx})"` : ''}>S: ${h.equips.offhand ? h.equips.offhand.name + ' ' + formatLvl(h.cardMemory[h.equips.offhand.id]||1, 'offhand') : '無'}</div><div class="truncate ${h.equips.armor ? 'cursor-pointer hover:text-yellow-300 transition-colors' : ''}" ${h.equips.armor ? `onclick="showDetailsModal('armor', '${h.equips.armor.id}', ${idx})"` : ''}>A: ${h.equips.armor ? h.equips.armor.name + ' ' + formatLvl(h.cardMemory[h.equips.armor.id]||1, 'armor') : '無'}</div><div class="truncate ${h.equips.accessory ? 'cursor-pointer hover:text-yellow-300 transition-colors' : ''}" ${h.equips.accessory ? `onclick="showDetailsModal('accessory', '${h.equips.accessory.id}', ${idx})"` : ''}>R: ${h.equips.accessory ? h.equips.accessory.name + ' ' + formatLvl(h.cardMemory[h.equips.accessory.id]||1, 'accessory') : '無'}</div></div></div><div class="mt-2 pt-2 border-t border-gray-700 relative z-20"><div class="flex flex-col gap-1.5 mt-1"><span class="text-[0.65em] retro-font text-white">CONDITION:</span><div class="flex flex-wrap gap-1.5">${condsDisplay}</div></div><div class="flex flex-col gap-1.5 mt-2"><span class="text-[0.65em] retro-font text-blue-300">MAGIC:</span><div class="flex flex-wrap gap-1.5">${magicStr||'<span class="text-gray-500 text-[0.7em] retro-font">無</span>'}</div></div><div class="flex flex-col gap-1.5 mt-2"><span class="text-[0.65em] retro-font text-green-300">SKILLS:</span><div class="flex flex-wrap gap-1.5">${specialStr||'<span class="text-gray-500 text-[0.7em] retro-font">無</span>'}</div></div><div class="flex flex-col gap-1.5 mt-2"><span class="text-[0.65em] retro-font text-yellow-300">ITEMS:</span><div class="flex flex-wrap gap-1.5">${itemStr||'<span class="text-gray-500 text-[0.7em] retro-font">無</span>'}</div></div><div class="flex flex-col gap-1.5 mt-2"><span class="text-[0.65em] retro-font text-purple-300">PASSIVES:</span><div class="flex flex-wrap gap-1.5">${passiveStr||'<span class="text-gray-500 text-[0.7em] retro-font">無</span>'}</div></div></div></div>`;
+    }
+    function showHeroInfo(idx) { if (gameState.targetingAction || !gameState.isInputPhase) return; const h = gameState.party[idx]; if (!h || h.isDead) return; document.getElementById('hero-info-content').innerHTML = generateHeroCardHTML(h, idx, true); document.getElementById('hero-info-modal').classList.remove('hidden'); }
+    function closeHeroInfo() { document.getElementById('hero-info-modal').classList.add('hidden'); }
+
+    function showEnemyInfo(idx) {
+      if (gameState.targetingAction || !gameState.isInputPhase) return; const e = gameState.enemies[idx]; if (!e || e.isDead) return;
+      document.getElementById('enemy-info-title').className = `retro-font text-[1em] ${e.colorClass}`; document.getElementById('enemy-info-title').innerText = e.name;
+      let desc = `HP: ${e.hp} / ${e.maxHp}<br>ATK: ${e.atk}<br>DEF: ${e.def === 999 ? 'MAX' : e.def}<br>SPD: ${e.speed}<br><br><span class="text-yellow-300">行動類型: ${e.isBoss?'首領':(e.isMetal?'金屬':e.tierName)}</span><br>`;
+      let bMap = { 'attack':'攻', 'magic':'魔', 'special':'技', 'items':'道', 'fire':'火', 'ice':'冰', 'lightning':'雷', 'earth':'土', 'dark':'暗', 'holy':'聖' };
+      e.immunities.forEach(im => desc += `<span class="text-gray-400 font-bold">特性: ${bMap[im]||im}免</span><br>`);
+      e.weaknesses.forEach(wk => desc += `<span class="text-yellow-400 font-bold">特性: ${bMap[wk]||wk}弱</span><br>`);
+      if(e.imCond) desc += `<span class="text-gray-400 font-bold">抗性: 免疫${e.imCond}</span><br>`;
+      if(e.affix) desc += `<span class="text-orange-400 font-bold">特化詞綴: ${e.affix}</span><br>`;
+      if(e.assassinMarks > 0) desc += `<span class="text-yellow-500 font-bold">🎯 暗殺印記: ${e.assassinMarks} 層</span><br>`;
+      let activeConds = CONDITION_DB.filter(c => e.status[c.prop] > 0); activeConds.forEach(c => { desc += `<span class="${c.color}">異常: ${c.name} (${e.status[c.prop]}R)</span><br>`; });
+      if(e.wetTimer > 0) desc += `<span class="text-blue-400">異常: 潮濕 (雷擊感電)</span><br>`;
+      document.getElementById('enemy-info-desc').innerHTML = desc; document.getElementById('enemy-info-modal').classList.remove('hidden');
+    }
+    function closeEnemyInfo() { document.getElementById('enemy-info-modal').classList.add('hidden'); }
+
+    function applyStatusEffects(entities, isHero) {
+        for (let i = 0; i < entities.length; i++) {
+            let t = entities[i]; if (t.isDead) continue;
+            if (t.status.poison > 0) { let pd = 5 + Math.floor(gameState.floor * 1.5); t.hp = Math.max(0, t.hp - pd); animateElement(isHero ? `hero-mini-${i}` : `enemy-card-${i}`, 'animate-shake'); createFloatNum(`-${pd}`, 'text-green-500', isHero, i); t.status.poison--; if (t.hp <= 0) { t.isDead = true; if(isHero) logAndMsg(`💀 毒發！『${t.name}』陣亡`); else logAndMsg(`💀 毒發！【${t.shortName}】陣亡`); } }
+            ['blind', 'paralyze', 'sleep', 'confuse', 'silence', 'weak', 'berserk', 'reflect_buff'].forEach(s => { if (t.status[s] > 0) t.status[s]--; });
+            if (t.status.stun > 0) t.status.stun--; if (!isHero && t.stunTimer > 0) { t.stunTimer--; t.status.stun = 0; }
+            if (t.status.enchant_fire > 0) t.status.enchant_fire--;
+            let reg = 0; if (t.status.regen > 0) { reg += Math.floor((isHero?t.getMaxHp():t.maxHp) * 0.05); t.status.regen--; }
+            if (isHero) { 
+                ['weapon','armor','accessory','offhand'].forEach(eq => { if (t.equips[eq]?.regen) reg += Math.floor(t.equips[eq].regen * t.getMult(t.equips[eq].id)); }); 
+                if (t.equips.weapon?.curse) { let d = Math.floor(t.getMaxHp()*0.1); t.hp = Math.max(0, t.hp - d); createFloatNum(`-${d}`, 'text-red-500', true, i); if (t.hp<=0) { t.isDead = true; logAndMsg(`💀 噬魂！『${t.name}』陣亡`); } }
+            }
+            if (reg > 0 && !t.isDead) { t.hp = Math.min((isHero?t.getMaxHp():t.maxHp), t.hp + reg); animateElement(isHero ? `hero-mini-${i}` : `enemy-card-${i}`, 'animate-heal'); createFloatNum(`+${reg}`, 'text-green-300', isHero, i); }
+        }
+    }
+
+    function cleanDepletedItems(hero) {
+      ['magic', 'special', 'items'].forEach(cat => {
+        hero[cat] = hero[cat].filter(s => {
+          if (cat === 'items' && s.isEquipItem) return true;
+          let dbRef = DATABASE[cat].find(x => x.id === s.id);
+          return !(s.uses <= 0 && (dbRef?.isConsumable || cat === 'items'));
+        });
+      });
+    }
+
+    function triggerActionMenu(cat) {
+      if (!gameState.isBattleActive || !gameState.isInputPhase) return; cancelTargeting(); 
+      const hero = gameState.party[gameState.currentHeroIndex]; const modal = document.getElementById('action-select-modal'); const container = document.getElementById('modal-items-grid'); const equips = document.getElementById('modal-equips-bar');
+      const meta = { attack: 'ATTACK', magic: 'MAGIC', special: 'SKILL', items: 'ITEMS' };
+      document.getElementById('modal-title').innerText = `${hero.name} - ${meta[cat]}`; document.getElementById('modal-icon').innerHTML = '';
+      if (cat === 'attack') {
+          const isAoe = hero.equips.weapon?.isAoe || false;
+          let actEffect = 'damage'; let actName = '普攻';
+          if (hero.passives.some(p => p.id === 'p_18')) {
+              let rTypes = [{n:'普攻(吸血)',e:'damage_lifesteal'},{n:'普攻(毒牙)',e:'damage_poison'},{n:'普攻(重擊)',e:'damage_stun'},{n:'普攻(印記)',e:'damage_mark'}];
+              let sel = rTypes[Math.floor(Math.random() * 4)]; actName = sel.n; actEffect = sel.e;
+          }
+          const details = { type: 'attack', name: actName, power: hero.getAtk(), isAoe, actor: hero, targetFriendly: false, effect: actEffect };
+          if (isAoe) queueAction(details); else { let alives = gameState.enemies.filter(e => !e.isDead); if(alives.length === 1) { details.target = alives[0]; queueAction(details); } else initiateTargeting(details); } return;
+      }
+      container.innerHTML = '';
+      if (cat === 'items') { equips.classList.remove('hidden'); equips.innerHTML = `<div class="truncate">W:${hero.equips.weapon ? hero.equips.weapon.name : 'NONE'}</div><div class="truncate">S:${hero.equips.offhand ? hero.equips.offhand.name : 'NONE'}</div><div class="truncate">A:${hero.equips.armor ? hero.equips.armor.name : 'NONE'}</div><div class="truncate">R:${hero.equips.accessory ? hero.equips.accessory.name : 'NONE'}</div>`; } else { equips.classList.add('hidden'); }
+      if (hero[cat].length === 0) { container.innerHTML = `<div class="col-span-1 text-center text-gray-500 py-10 text-[0.85em] retro-font">EMPTY</div>`; } else {
+        hero[cat].forEach((s, idx) => {
+          if (cat === 'items' && s.isEquipItem) {
+              let dbE = DATABASE[s.equipType].find(x => x.id === s.id); let sName = dbE ? dbE.name : "裝備"; let roman = formatLvl(hero.cardMemory[s.id] || 1, s.equipType);
+              let row = document.createElement('div'); row.className = `ff-box-dark p-2 flex flex-col justify-between relative border border-gray-600 mb-2`;
+              row.innerHTML = `<div class="flex justify-between items-center w-full retro-font"><span class="text-[0.9em] text-gray-300">[裝備] ${sName} ${roman}</span></div><p class="text-[0.8em] text-gray-300 leading-relaxed font-sans font-bold tracking-wider mt-1">${dbE ? dbE.desc : "無說明"}</p><div class="flex gap-2 mt-2 h-[32px]"><button class="ff-btn flex-1 retro-font text-[0.7em] text-yellow-300" onclick="equipInventoryItem(${idx})">裝備</button><button class="ff-btn flex-1 retro-font text-[0.7em] text-red-300" onclick="throwInventoryItem(${idx})">投擲</button></div>`; container.appendChild(row);
+          } else {
+              const isUsable = s.uses > 0; const btn = document.createElement('button'); btn.disabled = !isUsable; btn.className = `ff-btn p-3 text-left flex flex-col justify-between group relative mb-1 ${isUsable ? '' : 'opacity-40'}`; btn.onclick = () => { closeActionMenu(); selectSkillLogic(s, cat, idx); };
+              const dbRef = DATABASE[cat].find(x => x.id === s.id); const sName = dbRef ? (dbRef.isConsumable ? "★" + dbRef.name : dbRef.name) : "未知"; const roman = formatLvl(hero.cardMemory[s.id] || 1, cat);
+              btn.innerHTML = `<div class="flex justify-between items-center w-full retro-font"><span class="text-[0.9em] group-hover:pl-4 transition-all relative ${dbRef && dbRef.isConsumable ? 'text-red-300' : 'text-white'}"><span class="absolute left-0 opacity-0 group-hover:opacity-100 text-yellow-300">-</span> ${sName} ${roman}</span><span class="text-[0.8em] text-yellow-300">${s.uses}/${s.maxUses}</span></div><p class="text-[0.8em] text-gray-300 leading-relaxed font-sans font-bold tracking-wider mt-1">${dbRef ? dbRef.desc : "無說明"}</p>`; container.appendChild(btn);
+          }
+        });
+      }
+      modal.classList.remove('hidden');
+    }
+
+    function getFirstAvailableHeroIndex() { for (let i = 0; i < gameState.party.length; i++) { let nH = gameState.party[i]; if (!nH.isDead && !isControlDisabled(nH) && nH.combatState.jumpTimer === 0 && nH.status.berserk <= 0 && nH.status.confuse <= 0) return i; } return -1; }
+    
+    function undoTurnInput() { 
+      if (!gameState.isInputPhase) return; 
+      gameState.party.forEach(h => { if (h.actionQueued) { let act = h.actionQueued; if (['magic', 'special', 'items'].includes(act.type)) { const m = h[act.type].find(s => s.id === act.skillId); if (m && m.uses !== undefined) { m.uses = Math.min(m.maxUses, m.uses + 1); } } h.actionQueued = null; } }); 
+      gameState.targetingAction = null; gameState.currentHeroIndex = -1; advanceTurnQueue(); 
+    }
+
+    function resetActionInput() { 
+      if (gameState.currentHeroIndex !== -1 && gameState.party[gameState.currentHeroIndex]) { let firstIdx = getFirstAvailableHeroIndex(); let undoBtn = ''; if (gameState.isInputPhase && gameState.currentHeroIndex > firstIdx && firstIdx !== -1) { undoBtn = `<button onclick="undoTurnInput()" class="ml-3 px-3 py-1 bg-gray-800 border border-gray-500 hover:bg-gray-700 hover:border-white text-white text-[1.1em] retro-font rounded shadow-md cursor-pointer transition-all active:scale-95 flex items-center justify-center"><i class="fa-solid fa-undo"></i></button>`; } document.getElementById('acting-hero-name').innerHTML = `<div class="flex items-center"><span class="text-[1.3em]">NO.${gameState.currentHeroIndex+1}</span> <span class="glow-text text-[1.8em] font-bold text-yellow-300 ml-2">${gameState.party[gameState.currentHeroIndex].name}</span>${undoBtn}</div>`; document.getElementById('turn-phase-indicator').innerText = gameState.isInputPhase ? "INPUT" : "EXECUTE"; document.getElementById('turn-phase-indicator').className = "text-white transition-all duration-200 retro-font"; } 
+      else { document.getElementById('acting-hero-name').innerHTML = ""; document.getElementById('turn-phase-indicator').innerText = "WAITING"; } 
+    }
+
+    function cancelTargeting() { if(gameState.targetingAction || gameState.isInputPhase) { gameState.targetingAction = null; resetActionInput(); renderActionHUD(); renderBattleScreen(); } }
+    function initiateTargeting(details) { gameState.targetingAction = details; document.getElementById('turn-phase-indicator').innerText = `TARGET`; document.getElementById('turn-phase-indicator').className = "text-yellow-300 animate-pulse retro-font"; renderActionHUD(); renderBattleScreen(); }
+
+    function renderActionHUD() { 
+      const container = document.getElementById('action-main-buttons'); container.className = "grid grid-cols-2 gap-1 relative min-h-[75px]"; 
+      if (!gameState.isInputPhase) { container.innerHTML = `<div class="col-span-2 flex justify-center items-center h-full w-full text-gray-400 py-2 font-bold retro-font text-[0.8em] animate-pulse">BATTLE EXECUTING...</div>`; return; } 
+      const h = gameState.party[gameState.currentHeroIndex]; if (!h) { container.innerHTML = `<div class="col-span-2 flex justify-center items-center h-full w-full text-gray-400 py-2 font-bold retro-font text-[0.8em] animate-pulse">WAITING...</div>`; return; } 
+      if (gameState.targetingAction) { container.innerHTML = `<div class="col-span-2 flex flex-col justify-center items-center gap-2 h-full w-full"><div class="text-center text-[0.75em] text-yellow-300 animate-pulse retro-font tracking-widest w-full">請選擇 [${gameState.targetingAction.name}] 的目標...</div><button onclick="cancelTargeting()" class="ff-btn w-3/4 max-w-[200px] py-1.5 text-center text-[0.8em] retro-font text-gray-400 hover:text-white transition-colors">取消</button></div>`; } 
+      else { const atkText = h.equips.weapon?.isAoe ? '全體攻擊' : '攻擊'; container.innerHTML = `<div class="flex gap-1 w-full h-full"><button onclick="triggerActionMenu('attack')" class="ff-btn flex-1 h-full flex justify-center items-center text-[0.75em] sm:text-[0.8em] retro-font relative group"><span class="absolute left-1.5 opacity-0 group-hover:opacity-100 text-yellow-300">►</span>${atkText}</button><button onclick="selectDefend()" class="ff-btn flex-1 h-full flex justify-center items-center text-[0.75em] sm:text-[0.8em] retro-font text-blue-300 relative group"><span class="absolute left-1.5 opacity-0 group-hover:opacity-100 text-yellow-300">►</span>防禦</button></div><button onclick="triggerActionMenu('magic')" class="ff-btn h-full py-1 pl-3 text-left text-[0.75em] sm:text-[0.8em] retro-font flex items-center group"><span class="opacity-0 group-hover:opacity-100 mr-1 text-yellow-300">►</span>魔法(${h.magic.length}/${h.getMaxMagic()})</button><button onclick="triggerActionMenu('special')" class="ff-btn h-full py-1 pl-3 text-left text-[0.75em] sm:text-[0.8em] retro-font flex items-center group"><span class="opacity-0 group-hover:opacity-100 mr-1 text-yellow-300">►</span>特技(${h.special.length}/${h.getMaxSpecial()})</button><button onclick="triggerActionMenu('items')" class="ff-btn h-full py-1 pl-3 text-left text-[0.75em] sm:text-[0.8em] retro-font flex items-center group"><span class="opacity-0 group-hover:opacity-100 mr-1 text-yellow-300">►</span>道具(${h.items.length}/${h.getMaxItems()})</button>`; } 
+    }
+
+    function closeActionMenu() { document.getElementById('action-select-modal').classList.add('hidden'); }
+
+    function handleInventoryOverflow(hero, pendingCards, callback) { 
+      if (!pendingCards || pendingCards.length === 0) { if (callback) callback(); return; } 
+      let card = pendingCards.shift(); let cat = card.type === 'passive' ? 'passive' : card.type; let list = cat === 'passive' ? hero.passives : hero[cat]; 
+      let maxCap = cat === 'magic' ? hero.getMaxMagic() : (cat === 'special' ? hero.getMaxSpecial() : (cat === 'items' ? hero.getMaxItems() : hero.getMaxPassives())); 
+      if (list.length >= maxCap) { showReplaceModal(hero, list, card, cat, () => { handleInventoryOverflow(hero, pendingCards, callback); }); } else { list.push(card); handleInventoryOverflow(hero, pendingCards, callback); } 
+    }
+
+    function equipInventoryItem(itemIdx) { 
+      closeActionMenu(); const hero = gameState.party[gameState.currentHeroIndex]; const equipItem = hero.items[itemIdx]; const t = equipItem.equipType; const opt = DATABASE[t].find(x => x.id === equipItem.id); 
+      let pendingCards = []; let oldEquip = hero.equips[t]; 
+      if (t === 'weapon' && opt.isTwoHanded && hero.equips.offhand) { pendingCards.push({ id: hero.equips.offhand.id, type: 'items', isEquipItem: true, equipType: 'offhand', uses: 1, maxUses: 1 }); hero.equips.offhand = null; } 
+      if (t === 'offhand' && hero.equips.weapon?.isTwoHanded) { pendingCards.push({ id: hero.equips.weapon.id, type: 'items', isEquipItem: true, equipType: 'weapon', uses: 1, maxUses: 1 }); hero.equips.weapon = null; } 
+      if (oldEquip) { pendingCards.push({ id: oldEquip.id, type: 'items', isEquipItem: true, equipType: t, uses: 1, maxUses: 1 }); } 
+      hero.items.splice(itemIdx, 1); hero.equips[t] = { ...opt }; hero.actionQueued = { effect: 'equip_change', name: `換裝 [${opt.name}]`, type: 'system', targetFriendly: true }; handleInventoryOverflow(hero, pendingCards, () => advanceTurnQueue()); 
+    }
+
+    function throwInventoryItem(itemIdx) { 
+      closeActionMenu(); const hero = gameState.party[gameState.currentHeroIndex]; const equipItem = hero.items[itemIdx]; const opt = DATABASE[equipItem.equipType].find(x => x.id === equipItem.id); 
+      let details = { type: 'throw_item', itemIdx: itemIdx, name: `投擲 [${opt.name}]`, power: (opt.val || 10) * 2, isAoe: false, actor: hero, effect: 'throw_dmg', targetFriendly: false }; 
+      let alives = gameState.enemies.filter(e => !e.isDead); if(alives.length === 1) { details.target = alives[0]; queueAction(details); } else initiateTargeting(details); 
+    }
+
+    function selectSkillLogic(sObj, cat, idx) { 
+      const h = gameState.party[gameState.currentHeroIndex]; const dbRef = DATABASE[cat].find(x => x.id === sObj.id); if (!dbRef) return; 
+      let pwr = dbRef.power || 0; let lvl = h.cardMemory[sObj.id] || 1;
+      if (cat === 'magic' && pwr > 0) {
+          if (!dbRef.isConsumable) {
+              pwr = Math.floor(pwr * (1 + 0.1 * (lvl - 1)));
+              if (pwr < h.matk) {
+                  let baseRatio = dbRef.isAoe ? 0.5 : 0.8;
+                  pwr = Math.floor(pwr + h.matk * baseRatio);
+              }
+          }
+          if (h.equips.weapon?.magBoost) pwr = Math.floor(pwr * h.equips.weapon.magBoost); if (h.equips.offhand?.magBoost) pwr = Math.floor(pwr * h.equips.offhand.magBoost); if (h.equips.armor?.magBoost) pwr = Math.floor(pwr * h.equips.armor.magBoost); 
+          if (h.equips.offhand?.healBoost && dbRef.effect === 'heal') pwr = Math.floor(pwr * (1 + h.equips.offhand.healBoost)); if (h.passives.find(x => x.id === 'p_09')) pwr = Math.floor(pwr * (1 + (h.cardMemory['p_09'] || 1) * 0.05)); 
+          if (gameState.weather && h.passives.some(p=>p.id==='p_21')) pwr = Math.floor(pwr * (1.1 + 0.03 * (h.cardMemory['p_21']||1)));
+      } else if (cat === 'items' && pwr > 0) {
+          if (h.passives.some(p=>p.id==='p_22')) pwr = Math.floor(pwr * (1.1 + 0.05 * (h.cardMemory['p_22']||1)));
+      } else if (cat === 'special' && pwr > 0) {
+          let hits = {'double_strike':2, 'triple_strike':3, 'omnislash':5, 'musou_tensei':7}[dbRef.effect] || 1;
+          if (!dbRef.isConsumable) pwr = Math.floor(pwr * (1 + 0.01 * (lvl - 1))); let hAtk = h.getAtk(); if (pwr < hAtk) { let baseRatio = dbRef.isAoe ? 0.5 : 0.8; if (hits > 1) baseRatio = 1.0 / hits; pwr = Math.floor(pwr + hAtk * baseRatio); }
+      }
+      let isAoe = dbRef.isAoe || false; if (cat === 'special' && ['s_27','s_28','s_29'].includes(sObj.id) && h.passives.some(p=>p.id==='p_20')) isAoe = true;
+      const details = { type: cat, skillId: sObj.id, itemIdx: idx, level: lvl, name: `${dbRef.name}`, power: pwr, isAoe: isAoe, actor: h, effect: dbRef.effect || 'damage', targetFriendly: dbRef.targetFriendly||false, isConsumable: dbRef.isConsumable, isSelfOnly: dbRef.isSelfOnly||false }; 
+      if (details.isAoe || details.effect === 'focus_self' || details.effect === 'charge' || details.effect === 'jump' || details.isSelfOnly || details.effect === 'mimic') { 
+          if (details.effect === 'charge' || details.isSelfOnly || details.effect === 'focus_self' || details.effect === 'mimic') details.target = h; queueAction(details); 
+      } else { if (!details.targetFriendly && details.effect !== 'revive') { let alives = gameState.enemies.filter(e => !e.isDead); if(alives.length === 1) { details.target = alives[0]; queueAction(details); return; } } initiateTargeting(details); } 
+    }
+
+    function selectDefend() { const h = gameState.party[gameState.currentHeroIndex]; queueAction({ type: 'defend', name: '防禦姿態', power: 0, isAoe: false, actor: h, effect: 'defend', targetFriendly: true, target: h }); gameState.targetingAction = null; }
+    function handleTargetClick(obj, isFriendly) { if (!gameState.targetingAction || gameState.targetingAction.targetFriendly !== isFriendly) return; if (gameState.targetingAction.effect !== 'phoenix' && gameState.targetingAction.effect === 'revive' && !obj.isDead) return; else if (gameState.targetingAction.effect !== 'phoenix' && gameState.targetingAction.effect !== 'revive' && obj.isDead) return; gameState.targetingAction.target = obj; queueAction(gameState.targetingAction); gameState.targetingAction = null; }
+    function queueAction(act) { const h = gameState.party[gameState.currentHeroIndex]; h.actionQueued = act; if (['magic','special','items'].includes(act.type)) { const m = h[act.type].find(s => s.id === act.skillId); if (m) { m.uses--; } } advanceTurnQueue(); }
+
+    function startRoom() { 
+      if(gameState.room === 1) gameState.maxRooms = Math.floor(Math.random() * 6) + 10;
+      const isBossRoom = (gameState.room === gameState.maxRooms); gameState.enemies = []; 
+      if (isBossRoom) { gameState.enemies.push(new Enemy(gameState.floor, true, "")); logAndMsg(`⚠️ 遭遇關卡霸主！`, 'text-red-400 font-bold'); } 
+      else { const count = Math.min(8, Math.floor(Math.random() * 3) + 1 + Math.floor(gameState.floor / 3)); for (let i = 0; i < count; i++) gameState.enemies.push(new Enemy(gameState.floor, false, String.fromCharCode(65 + i))); logAndMsg(`🔦 發現 ${gameState.enemies.length} 隻魔物。`, 'text-yellow-300'); } 
+      gameState.party.forEach(h => { 
+          if (h.matk < h.getAtk()) h.matk++;
+          h.shield = 0; if (h.equips.weapon?.startShield) h.shield += h.equips.weapon.startShield; if (h.equips.offhand?.startShield) h.shield += h.equips.offhand.startShield; if (h.equips.accessory?.startShield) h.shield += h.equips.accessory.startShield; 
+          h.combatState = { charging: false, jumpTimer: 0, jumpTarget: null, defending: false }; h.status = { poison: 0, blind: 0, paralyze: 0, sleep: 0, confuse: 0, silence: 0, weak: 0, bleed: 0, regen: 0, berserk: 0, reflect_buff: 0, stun: 0, enchant_fire: 0 }; 
+          h.actionQueued = null; h.lastExecutedAction = null; 
+          [h.magic, h.special, h.items].forEach(list => list.forEach(s => { 
+              if (s.isEquipItem) return; const dbRef = DATABASE[s.type].find(ref => ref.id === s.id); if (!dbRef) return; 
+              if (!dbRef.isConsumable && (s.type === 'magic' || s.type === 'special')) { let u = dbRef.maxUses; let lvl = h.cardMemory[s.id] || 1; if (!dbRef.power || dbRef.power === 0) u += Math.floor((lvl - 1) / 5); if (s.type === 'magic') { if (h.cardMemory['p_03']) u += h.cardMemory['p_03']; if (h.equips.weapon?.spellUses) u += h.equips.weapon.spellUses; } s.maxUses = u; s.uses = s.maxUses; } 
+          })); 
+          cleanDepletedItems(h);
+      }); 
+      gameState.isBattleActive = true; gameState.roundCount = 1; gameState.lastPartyAction = null; updateTopBar(); if (typeof renderPartyManagementTab === "function") renderPartyManagementTab(); startInputPhase(); 
+    }
+
+    function advanceTurnQueue() { let next = -1; for (let i = gameState.currentHeroIndex + 1; i < gameState.party.length; i++) { let nH = gameState.party[i]; if (!nH.isDead && !isControlDisabled(nH) && nH.combatState.jumpTimer === 0 && nH.status.berserk <= 0 && nH.status.confuse <= 0) { next = i; break; } } if (next !== -1) { gameState.currentHeroIndex = next; cancelTargeting(); } else { cancelTargeting(); startCombatExecution(); } }
+    function startInputPhase() { gameState.isInputPhase = true; gameState.party.forEach(h => h.actionQueued = null); gameState.currentHeroIndex = -1; advanceTurnQueue(); if(gameState.isInputPhase) { logAndMsg(`🔄 TURN ${gameState.roundCount}：請下達隊伍指令。`, 'text-yellow-300 mt-2 retro-font text-[0.8em]'); } }
+
+    function renderBattleScreen() { 
+      gameState.party.forEach((h, i) => { 
+        const c = document.getElementById(`hero-mini-${i}`); let isCur = (gameState.isBattleActive && gameState.isInputPhase && i === gameState.currentHeroIndex && !gameState.targetingAction); let border = h.isDead ? 'border-red-900 bg-gray-900 opacity-40' : (isCur ? 'border-yellow-300 bg-blue-900' : 'border-white bg-black'); let glow = ''; 
+        if (gameState.targetingAction && gameState.targetingAction.targetFriendly) { let isTargetable = false; if (gameState.targetingAction.effect === 'revive' || gameState.targetingAction.effect === 'phoenix') { if (h.isDead || !h.isDead) isTargetable = true; } else { if (!h.isDead) isTargetable = true; } if (isTargetable) { glow = 'target-glow-ally hover:bg-blue-900'; c.onclick = () => handleTargetClick(h, true); } else { c.onclick = null; } } else if (!gameState.targetingAction && gameState.isInputPhase) { glow = 'info-glow transition-all'; c.onclick = () => showHeroInfo(i); } else { c.onclick = null; } 
+        let pct = (h.hp / h.getMaxHp()) * 100; let sBadge = h.shield > 0 ? `<span class="absolute top-0 right-0 bg-white text-black font-bold px-1 py-0.5 rounded-bl text-[0.65em] z-10 retro-font border-b border-l border-black">S:${h.shield}</span>` : ''; let defBadge = h.buffs.defending ? `<span class="absolute top-0 right-8 bg-blue-500 text-white font-bold px-1 py-0.5 rounded-b text-[0.65em] z-10 retro-font border border-black">DEF</span>` : ''; if(h.combatState.jumpTimer > 0) defBadge += `<span class="absolute top-0 right-14 bg-purple-500 text-white font-bold px-1 py-0.5 rounded-b text-[0.65em] z-10 retro-font border border-black">JMP</span>`; 
+        let activeConds = CONDITION_DB.filter(cond => h.status[cond.prop] > 0); let condsHTML = ''; if(activeConds.length > 0) { condsHTML = `<span class="ml-1 text-[0.85em] font-bold tracking-widest">` + activeConds.map(cond => `<span class="${cond.color}">${cond.icon}</span>`).join('/') + `</span>`; } 
+        c.className = `p-1 sm:p-1.5 text-left relative overflow-hidden min-h-[50px] flex flex-col justify-between border-2 ${border} ${glow} ${h.combatState.jumpTimer > 0 ? 'opacity-30' : ''}`; 
+        c.innerHTML = `${sBadge}${defBadge}<div class="flex justify-between items-center w-full mb-0.5 relative z-10 pointer-events-none"><span class="text-[0.75em] sm:text-[0.8em] font-bold text-white truncate pr-5 flex items-center">${h.name}${condsHTML}</span></div><div class="w-full bg-black h-1.5 mb-0.5 border border-gray-500 relative z-10 pointer-events-none"><div class="bg-green-500 h-full transition-all" style="width:${pct}%"></div></div><div class="flex justify-between items-center text-[0.65em] retro-font text-gray-300 relative z-10 pointer-events-none"><span>HP:${h.hp}/${h.getMaxHp()}</span><span class="${h.isDead ? 'text-red-500' : (h.actionQueued ? 'text-green-400' : 'text-yellow-400')}">${h.isDead ? 'DEAD' : (h.actionQueued ? 'RDY' : 'WAIT')}</span></div>`; 
+      }); 
+      const mGrid = document.getElementById('enemies-grid'); 
+      mGrid.className = "grid grid-cols-4 gap-1 h-full w-full"; mGrid.innerHTML = ''; 
+      for (let i = 0; i < 8; i++) { 
+        const e = gameState.enemies[i]; const slot = document.createElement('div'); 
+        if (e && !e.isDead) { 
+          slot.id = `enemy-card-${i}`; 
+          let bMap = { 'attack': {n:'攻', c:'bg-red-900'}, 'magic': {n:'魔', c:'bg-purple-900'}, 'special': {n:'技', c:'bg-green-900'}, 'items': {n:'道', c:'bg-yellow-700'}, 'fire': {n:'火', c:'bg-red-700'}, 'ice': {n:'冰', c:'bg-blue-700'}, 'lightning': {n:'雷', c:'bg-yellow-600'}, 'earth': {n:'土', c:'bg-yellow-800'}, 'dark': {n:'暗', c:'bg-purple-800'}, 'holy': {n:'聖', c:'bg-yellow-200'} }; 
+          let imCondMap = { 'poison':'毒', 'stun':'暈', 'sleep':'睡' };
+          
+          let glow = e.isBoss ? 'bg-gradient-to-b from-red-900/40 to-slate-950 border-2 border-red-500 shadow-[inset_0_0_8px_rgba(255,0,0,0.4)]' : 
+                     (e.weaknesses.length > 0 ? 'bg-red-950/50 border border-red-800' : (e.immunities.length > 0 || e.imCond ? 'bg-slate-900 border border-gray-600' : 'bg-slate-950 border border-gray-800'));
+          
+          if (gameState.targetingAction && !gameState.targetingAction.targetFriendly) { glow = e.isBoss ? 'target-glow-enemy bg-red-900/50 border-2 border-red-500' : 'target-glow-enemy hover:bg-white/10'; slot.onclick = () => handleTargetClick(e, false); } else if (!gameState.targetingAction && gameState.isInputPhase) { glow += ' info-glow transition-all hover:border-yellow-300'; slot.onclick = () => showEnemyInfo(i); } else { slot.onclick = null; } 
+          slot.className = `p-1 flex flex-col justify-between items-center text-center transition-all h-full min-h-[55px] relative ${glow}`; 
+          
+          let tagsHTML = ''; let tOff = 1;
+          e.immunities.forEach(im => { tagsHTML += `<span class="absolute top-${tOff} left-1 bg-gray-800 text-white px-1 py-0.5 rounded text-[0.4em] font-bold z-40 shadow-sm">${bMap[im]?.n||im}免</span>`; tOff += 4; }); 
+          e.weaknesses.forEach(wk => { tagsHTML += `<span class="absolute top-${tOff} left-1 bg-red-900 text-yellow-300 px-1 py-0.5 rounded text-[0.4em] font-bold z-40 shadow-sm">${bMap[wk]?.n||wk}弱</span>`; tOff += 4; }); 
+          if (e.imCond) tagsHTML += `<span class="absolute top-${tOff} left-1 bg-gray-700/90 text-white px-1 py-0.5 rounded text-[0.4em] font-bold z-40 shadow-sm">${imCondMap[e.imCond]}免</span>`;
+
+          let emoji = e.isBoss ? '👿' : (e.isMetal ? '👽' : (e.s.includes('kamikaze') ? '💣' : '👾')); if (e.status.sleep > 0) emoji = '💤'; 
+          let pct = (e.hp / e.maxHp) * 100; 
+          slot.innerHTML = `<div class="w-full bg-black h-1.5 mb-0.5 border border-gray-600 pointer-events-none"><div class="bg-red-600 h-full transition-all" style="width:${pct}%"></div></div><div class="text-xl sm:text-2xl relative mb-0.5 pointer-events-none">${emoji}${e.status.poison>0?'<span class="absolute -top-1 -right-2 text-[0.35em] bg-black text-green-400 px-1 retro-font">P</span>':''}${e.status.stun>0?'<span class="absolute -top-1 -right-2 text-[0.35em] bg-black text-yellow-400 px-1 retro-font">S</span>':''}${e.status.blind>0?'<span class="absolute bottom-1 -right-2 text-[0.35em] bg-black text-gray-400 px-1 retro-font">B</span>':''}${e.status.paralyze>0?'<span class="absolute top-3 -right-2 text-[0.35em] bg-yellow-600 text-black px-1 retro-font">R</span>':''}${e.status.confuse>0?'<span class="absolute top-7 -right-2 text-[0.35em] bg-purple-600 text-white px-1 retro-font">C</span>':''}${tagsHTML}</div><div class="text-[0.55em] retro-font ${e.colorClass} truncate w-full pointer-events-none">${e.name}</div><div class="text-[0.5em] retro-font text-gray-400 leading-none mt-0.5 pointer-events-none">${e.hp}/${e.maxHp}</div>`; 
+        } else { slot.className = "h-full min-h-[55px] flex items-center justify-center opacity-10"; slot.innerHTML = ``; } mGrid.appendChild(slot); 
+      } 
+    }
+
+    async function resolveRoundEffects() { 
+      applyStatusEffects(gameState.enemies, false); applyStatusEffects(gameState.party, true); gameState.party.forEach(h => { h.buffs.dodge = 0; h.buffs.defending = false; }); 
+      if(gameState.wTimer > 0) { 
+        gameState.wTimer--; let cw = gameState.weather;
+        if(cw === 'cold') { gameState.party.forEach((h,i)=>{ if(!h.isDead){ h.hp = Math.max(0, h.hp-5); createFloatNum('-5', 'text-blue-300', true, i); }}); logAndMsg('❄️ 極寒天氣侵襲！', 'text-blue-300'); } 
+        else {
+          let wMap = { 'sand': { ids:[1,2,10], col:'text-yellow-600', m1:'🌪️ 沙塵暴讓黏液與食岩怪乾涸虛弱！', m2:'🌪️ 沙塵暴持續肆虐！' }, 'sun': { ids:[5,7,19], col:'text-red-500', m1:'☀️ 烈陽灼燒著不死族與夜行魔物！', m2:'☀️ 烈陽持續照射！' }, 'miasma': { ids:[4,8,11], col:'text-purple-500', m1:'☠️ 瘴氣毒害了亞人與野獸！', m2:'☠️ 瘴氣持續瀰漫！' } };
+          if(wMap[cw]) { let hits=0, mD=wMap[cw]; gameState.enemies.forEach((e,i)=>{ if(!e.isDead && mD.ids.includes(e.baseId)){ let d=Math.floor(e.maxHp*0.15); e.hp=Math.max(0,e.hp-d); createFloatNum(`-${d}`, mD.col, false, i); animateElement(`enemy-card-${i}`, 'animate-shake'); if(e.hp<=0) e.isDead=true; hits++; }}); logAndMsg(hits>0 ? mD.m1 : mD.m2, mD.col); }
+        }
+        if(gameState.wTimer === 0) { logAndMsg('🌤️ 天氣恢復正常。', 'text-gray-400'); gameState.weather = null; } 
+      }
+      renderBattleScreen(); await sleep(500); 
+    }
+
+    async function startCombatExecution() { gameState.isInputPhase = false; resetActionInput(); renderActionHUD(); logAndMsg(`⚔️ 戰鬥開始！`); await sleep(1000); executeRoundTurn(); }
+    
+    // Core Execute Loop
+    async function executeRoundTurn() { 
+      await resolveRoundEffects(); if (checkEnemiesWiped() || checkPartyWiped()) return;
+      const pFirst = Math.random() < 0.5; 
+      if (pFirst) { await runP(); if (checkEnemiesWiped()) return; await runE(); if (checkPartyWiped()) return; } else { await runE(); if (checkPartyWiped()) return; await runP(); if (checkEnemiesWiped()) return; } 
+      if (checkEnemiesWiped()) return; if (gameState.isBattleActive) { gameState.roundCount++; startInputPhase(); } 
+    }
+
+    async function runP() {
+      let nOrd=[], mOrd=[]; for(let i=0; i<gameState.party.length; i++) { if(gameState.party[i].actionQueued && gameState.party[i].actionQueued.effect === 'mimic') mOrd.push(i); else nOrd.push(i); }
+      for (let i of [...nOrd, ...mOrd]) {
+        let hero = gameState.party[i]; if (hero.isDead) continue;
+        if (hero.combatState.jumpTimer === 2) { hero.combatState.jumpTimer = 1; logAndMsg(`✈️ 『${hero.name}』空中滯留...`, 'text-blue-300'); await sleep(1000); continue; }
+        else if (hero.combatState.jumpTimer === 1) { hero.combatState.jumpTimer = 0; if (!hero.combatState.jumpTarget || hero.combatState.jumpTarget.isDead) { let alives = gameState.enemies.filter(e => !e.isDead); hero.combatState.jumpTarget = alives.length > 0 ? alives[Math.floor(Math.random() * alives.length)] : null; } if(hero.combatState.jumpTarget && !hero.combatState.jumpTarget.isDead) { let t = hero.combatState.jumpTarget; let eIdx = gameState.enemies.indexOf(t); if (t.immunities.includes('special') || (t.weaknesses.length>0 && !t.weaknesses.includes('special'))) { createFloatNum('IMMUNE', 'text-gray-400', false, eIdx); logAndMsg(`☄️ 『${hero.name}』落擊！【${t.shortName}】(IMMUNE)`, 'text-gray-400'); } else { let dmg = calculateDmg(hero.getAtk() * 4, t.def || 0, false, hero.status.blind > 0); t.hp = Math.max(0, t.hp - dmg); if (t.status.sleep > 0) t.status.sleep = 0; createFloatNum(`-${dmg}`, 'text-white', false, eIdx); animateElement(`enemy-card-${eIdx}`, 'animate-shake'); logAndMsg(`☄️ 『${hero.name}』落擊！【${t.shortName}】(-${formatNum(dmg)})`, 'text-yellow-400 font-bold'); if (t.hp <= 0) t.isDead = true; if(t.weaknesses.includes('special') && Math.random() < 0.5) t.weaknesses = []; } } else { logAndMsg(`☄️ 『${hero.name}』落擊失去目標！`, 'text-gray-400'); } renderBattleScreen(); await sleep(1000); continue; }
+        if (isControlDisabled(hero)) { logAndMsg(`⛔ 『${hero.name}』遭限制無法行動！`, 'text-yellow-400'); await sleep(1000); continue; }
+        if (checkEnemiesWiped()) return; if (!hero.actionQueued && hero.status.berserk <= 0 && hero.status.confuse <= 0) continue;
+        let act = hero.actionQueued;
+        if (hero.status.berserk > 0 || hero.status.confuse > 0) {
+            let possibleTargets = hero.status.berserk > 0 ? gameState.enemies.filter(e=>!e.isDead) : [...gameState.enemies.filter(e=>!e.isDead), ...gameState.party.filter(h=>!h.isDead && h.combatState.jumpTimer===0)];
+            if(possibleTargets.length === 0) continue;
+            act = { type: 'attack', name: hero.status.berserk>0?'狂暴亂擊':'混亂攻擊', power: hero.getAtk(), isAoe: false, actor: hero, targetFriendly: gameState.party.includes(possibleTargets[0]), target: possibleTargets[Math.floor(Math.random()*possibleTargets.length)] };
+            logAndMsg(hero.status.berserk>0?`😡 『${hero.name}』狂暴！`:`😵‍💫 『${hero.name}』混亂！`, 'text-red-400'); await sleep(1000);
+        }
+        if (!act) continue;
+        if (hero.status.silence > 0 && act.type === 'magic') { logAndMsg(`🔇 『${hero.name}』被沉默！`, 'text-gray-500'); await sleep(1000); continue; }
+        if (hero.status.weak > 0 && act.type === 'special') { logAndMsg(`🤒 『${hero.name}』虛弱，無法使用特技！`, 'text-orange-400'); await sleep(1000); continue; }
+        if (hero.status.blind > 0 && act.type === 'items') { logAndMsg(`👁️ 『${hero.name}』致盲，無法使用道具！`, 'text-gray-400'); await sleep(1000); continue; }
+        if (act.effect === 'equip_change') { logAndMsg(`🎒 『${hero.name}』切換裝備！`, 'text-yellow-300'); await sleep(1000); continue; }
+        if (act.effect === 'charge') { hero.combatState.charging = true; logAndMsg(`💥 『${hero.name}』蓄力！`, 'text-yellow-300'); await sleep(1000); continue; }
+        if (act.effect === 'jump') { hero.combatState.jumpTimer = 2; hero.combatState.jumpTarget = act.target; logAndMsg(`✈️ 『${hero.name}』躍向高空！`, 'text-blue-300'); renderBattleScreen(); await sleep(1000); continue; }
+        if (act.target && act.target.isDead && act.effect !== 'phoenix' && act.effect !== 'revive') { act.target = act.targetFriendly ? (gameState.party.find(x => !x.isDead) || hero) : gameState.enemies.find(e => !e.isDead); if (!act.target) continue; }
+        await rSPA(hero, act); await sleep(1000);
+      }
+    }
+
+    async function rSPA(hero, act) { 
+      let heroIdx = gameState.party.indexOf(hero); if (act.type !== 'system' && act.effect !== 'mimic' && !act.isSubAction) { gameState.lastPartyAction = { ...act }; hero.lastExecutedAction = { ...act }; }
+      if (hero.status.bleed > 0 && (act.type === 'attack' || act.type === 'special')) { let bd = Math.floor(hero.getMaxHp() * 0.1); hero.hp = Math.max(0, hero.hp - bd); createFloatNum(`-${bd}`, 'text-red-500', true, heroIdx); logAndMsg(`🩸 『${hero.name}』流血失血！`, 'text-red-400'); if(hero.hp<=0) { hero.isDead=true; return; } await sleep(1000); }
+      if (act.effect === 'defend') { hero.buffs.defending = true; logAndMsg(`🛡️ 『${hero.name}』使出 [防禦]！`, 'text-blue-300'); animateElement(`hero-mini-${heroIdx}`, 'animate-heal'); createFloatNum('防禦', 'text-blue-400', true, heroIdx); renderBattleScreen(); return; }
+      if (act.effect === 'mimic') { let prevHeroIdx = (heroIdx - 1 + gameState.party.length) % gameState.party.length; let targetHero = gameState.party[prevHeroIdx]; let actionToMimic = targetHero.lastExecutedAction; if (!actionToMimic) { logAndMsg(`❓ 『${hero.name}』無法模仿！`, 'text-gray-400'); createFloatNum('MISS', 'text-gray-400', true, heroIdx); return; } act = { ...actionToMimic, actor: hero, isSubAction: true }; logAndMsg(`🎭 『${hero.name}』使出 [模仿] (複製『${targetHero.name}』)！`); if (act.target && act.target.isDead && act.effect !== 'phoenix' && act.effect !== 'revive') { act.target = act.targetFriendly ? (gameState.party.find(x => !x.isDead) || hero) : gameState.enemies.find(e => !e.isDead); if (!act.target) return; } await sleep(1000); }
+      
+      if (act.effect === 'double_cast') { 
+        let pool = MAGIC_DB.filter(m => m.power > 0 && m.effect !== 'double_cast'); logAndMsg(`✨ 『${hero.name}』使出 [雙重施法]！`, 'text-purple-300'); await sleep(1000);
+        for(let i=0; i<2; i++) { 
+          if(gameState.enemies.filter(e => !e.isDead).length === 0) break; 
+          let isSummon = Math.random() < 0.03; let valid = pool.filter(m => isSummon ? m.isConsumable : !m.isConsumable); if(valid.length === 0) valid = pool.filter(m => !m.isConsumable); let spell = valid[Math.floor(Math.random() * valid.length)]; 
+          let subPwr = Math.floor(spell.power * (1 + 0.1 * (act.level - 1))); if (hero.equips.weapon?.magBoost) subPwr = Math.floor(subPwr * hero.equips.weapon.magBoost); if (hero.passives.find(x => x.id === 'p_09')) subPwr = Math.floor(subPwr * (1 + (hero.cardMemory['p_09'] || 1) * 0.1)); 
+          let subAct = { ...spell, type: 'magic', skillId: spell.id, level: act.level, actor: hero, power: subPwr, target: spell.isAoe?null:(spell.isSelfOnly?hero:(spell.targetFriendly?(gameState.party.filter(x=>!x.isDead)[0]||hero):(gameState.enemies.filter(x=>!x.isDead)[0]||null))) }; 
+          await rSPA(hero, { ...subAct, isSubAction: true }); await sleep(1000);
+        } return; 
+      }
+      if (act.effect === 'gamble') { let pool = SPECIAL_DB.filter(s => s.power > 0 && s.effect !== 'gamble'); let valid = pool.filter(s => (Math.random() < 0.1) ? s.isConsumable : !s.isConsumable); if(valid.length === 0) valid = pool.filter(s => !s.isConsumable); let skill = valid[Math.floor(Math.random() * valid.length)]; logAndMsg(`🎲 『${hero.name}』使出 [賭博] (擲出 ${skill.name})！`, 'text-yellow-400'); await sleep(1000); let subPwr = Math.floor(skill.power * (1 + 0.01 * (act.level - 1))); let hAtk = hero.getAtk(); if (subPwr < hAtk) subPwr = Math.floor(subPwr + hAtk * (skill.isAoe ? 0.5 : 0.8)); let subAct = { ...skill, type: 'special', skillId: skill.id, level: act.level, actor: hero, power: subPwr, target: skill.isAoe?null:(skill.isSelfOnly?hero:(skill.targetFriendly?(gameState.party.filter(x=>!x.isDead)[0]||hero):(gameState.enemies.filter(x=>!x.isDead)[0]||null))) }; await rSPA(hero, { ...subAct, isSubAction: true }); return; }
+      if (act.effect === 'tame') { let t = act.target; if (!t || t.isDead) return; let enemies = gameState.enemies.filter(e => !e.isDead); let tameTgt = enemies.length > 1 ? enemies.filter(e => e !== t)[Math.floor(Math.random()*(enemies.length-1))] : t; let d = calculateDmg(t.atk * 1.5, tameTgt.def, false, false); tameTgt.hp = Math.max(0, tameTgt.hp - d); logAndMsg(`🐾 『${hero.name}』使出 [馴獸]！【${tameTgt.shortName}】倒戈 (-${formatNum(d)})`, 'text-yellow-400'); createFloatNum(`-${d}`, 'text-red-500', false, gameState.enemies.indexOf(tameTgt)); animateElement(`enemy-card-${gameState.enemies.indexOf(tameTgt)}`, 'animate-shake'); if (tameTgt.hp <= 0) tameTgt.isDead = true; renderBattleScreen(); return; }
+
+      animateElement(`hero-mini-${heroIdx}`, 'animate-shake'); 
+      let tName = act.isAoe ? "全體" : (act.target ? (act.targetFriendly ? act.target.name : act.target.shortName) : "自己"); 
+      let baseMsg = `▶ 『${hero.name}』對【${tName}】使出 [${act.name}]`;
+      let hitDetails = ""; let logTime = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+      let actionLogObj = { msg: `[${logTime}] ${baseMsg}`, color: 'text-cyan-200' }; 
+      if (!act.isSubAction) { gameState.historyLogs.push(actionLogObj); if(gameState.historyLogs.length>200)gameState.historyLogs.shift(); } else actionLogObj = gameState.historyLogs[gameState.historyLogs.length-1] || actionLogObj;
+      const updateSyncLog = () => { let fullMsg = `${baseMsg}${hitDetails}`; updateAnimationMsg(fullMsg); actionLogObj.msg = `[${logTime}] ${fullMsg}`; if (gameState.activeTab === 'log') renderHistoryLogs(); };
+      updateSyncLog();
+      
+      let setCond = (tgt, cond, dur, txt, col) => { if(tgt.imCond===cond){ createFloatNum('GUARD', 'text-gray-400', false, gameState.enemies.indexOf(tgt)); return false; } tgt.status[cond]=dur; createFloatNum(txt, col, false, gameState.enemies.indexOf(tgt)); return true; };
+
+      let pwr = act.power; 
+      if (act.effect === 'blood_strike') { let cost = Math.floor(hero.getMaxHp()*0.2); hero.hp -= cost; createFloatNum(`-${cost}`, 'text-red-500', true, heroIdx); } // 血魔法扣血
+      if (hero.combatState.charging && (act.type === 'attack' || act.type === 'special')) { pwr = Math.floor(pwr * 2.5); hero.combatState.charging = false; hitDetails += ' (蓄力!)'; updateSyncLog(); } 
+      let isCrit = Math.random() < hero.getCritChance(); let lifestealRate = (hero.equips.weapon?.lifesteal||0) + (hero.equips.accessory?.lifesteal||0) + (hero.passives.find(p=>p.id==='p_06') ? (hero.cardMemory['p_06']||1)*0.05 : 0) + (hero.passives.find(p=>p.id==='p_18') ? (hero.cardMemory['p_18']||1)*0.03 : 0);
+
+      let actTags = [act.type];
+      let tM = {'fire':['m_01','m_08','m_15','s_27','i_12'], 'ice':['m_04','m_14','s_28'], 'lightning':['m_03','m_16','s_29','w_22'], 'earth':['m_17','m_30','i_13'], 'dark':['m_32','i_14'], 'holy':['m_10','m_19','m_31','i_05']};
+      for (let k in tM) if (tM[k].includes(act.skillId)) actTags.push(k);
+      if (act.name.includes('火') || act.name.includes('炎') || (hero.status.enchant_fire > 0 && ['attack','special'].includes(act.type))) actTags.push('fire');
+      if (act.name.includes('冰') || act.name.includes('雪') || act.effect === 'shiva') actTags.push('ice');
+      if (act.name.includes('雷') || act.name.includes('電')) actTags.push('lightning');
+      if (act.name.includes('土') || act.name.includes('沙')) actTags.push('earth');
+      if (act.name.includes('暗') || act.name.includes('死神')) actTags.push('dark');
+      if (act.name.includes('聖')) actTags.push('holy');
+      
+      let isFire = actTags.includes('fire'), isIce = actTags.includes('ice'), isLightning = actTags.includes('lightning');
+      let isOnion = hero.equips.weapon?.id === 'w_01' && hero.equips.offhand?.id === 'o_01' && hero.equips.armor?.id === 'a_01' && hero.equips.accessory?.id === 'ac_01';
+
+      let envMap = {'shiva':['cold','text-blue-300','❄️ 場地陷入極寒！'],'aoe_damage_armor_break':['wet','text-blue-300','🌧️ 場地變得潮濕！'],'aoe_damage_sand':['sand','text-yellow-600','🌪️ 場地捲起沙塵暴！'],'aoe_fixed_sand':['sand','text-yellow-600','🌪️ 場地捲起沙塵暴！'],'damage_sun':['sun','text-red-500','☀️ 烈陽高照！'],'heal_sun':['sun','text-red-500','☀️ 烈陽高照！'],'aoe_damage_miasma':['miasma','text-purple-500','☠️ 瘴氣瀰漫！'],'aoe_poison_miasma':['miasma','text-purple-500','☠️ 瘴氣瀰漫！']};
+      if (envMap[act.effect]) { gameState.weather = envMap[act.effect][0]; gameState.wTimer = 3; logAndMsg(envMap[act.effect][2], envMap[act.effect][1]); await sleep(500); }
+
+      if (act.isAoe) {
+        if (act.targetFriendly) { gameState.party.forEach((a, aIdx) => { let healP = Math.floor(pwr); if (act.effect === 'phoenix') { a.isDead = false; a.hp = a.getMaxHp(); createFloatNum(`LIFE`, 'text-yellow-400', true, aIdx); hitDetails += ' (復活)'; updateSyncLog(); } else if (!a.isDead) { if((act.effect === 'heal' || act.effect === 'heal_sun') && healP>0) { let oh = Math.floor((a.hp + healP - a.getMaxHp()) / 2); a.hp = Math.min(a.getMaxHp(), a.hp + healP); createFloatNum(`+${healP}`, 'text-green-400', true, aIdx); hitDetails += ` (+${healP})`; if(oh>0){ a.shield+=oh; hitDetails+=` (轉盾+${oh})`; } updateSyncLog(); } else if(act.effect === 'shield') { a.shield += healP; createFloatNum(`+${healP}盾`, 'text-blue-400', true, aIdx); hitDetails += ` (+${healP}盾)`; updateSyncLog(); } } animateElement(`hero-mini-${aIdx}`, 'animate-heal'); }); }
+        else { let totalActionDmg = 0; let kills = 0; gameState.enemies.forEach((e, eIdx) => { if(e.isDead) return;
+          let isImmune = actTags.some(t => e.immunities.includes(t)) || (e.weaknesses.length > 0 && !actTags.some(t => e.weaknesses.includes(t)));
+          if (isImmune) { createFloatNum('IMMUNE', 'text-gray-400', false, eIdx); hitDetails += ` (IMMUNE)`; updateSyncLog(); return; }
+          let d = 0; if (isOnion && Math.random() < 0.07) { d = 777; hero.bCrit = (hero.bCrit || 0) + 0.07; hitDetails += '【🧅洋蔥突擊!】'; updateSyncLog(); } else if (act.effect === 'metal_slash' && e.isMetal) { d = pwr + (hero.cardMemory[act.skillId]||1)*2; } else { let wBoost = (isLightning && gameState.weather==='wet')?1.5:1; d = calculateDmg(pwr, act.effect==='blood_strike'?0:e.def, isCrit, hero.status.blind > 0) * wBoost; }
+          if (isFire && e.status.poison > 0) { e.status.poison = 0; d += Math.floor(e.maxHp * 0.15); hitDetails += '【💥毒爆!】'; updateSyncLog(); }
+          if (isIce && e.status.sleep > 0) { e.status.sleep = 0; setCond(e, 'stun', 1, 'STN', 'text-blue-300'); hitDetails += '【❄️深度凍結!】'; updateSyncLog(); }
+          if (isIce) e.wetTimer = 2; if (isLightning && e.wetTimer > 0) { e.wetTimer = 0; setCond(e, 'stun', 1, 'STN', 'text-blue-300'); hitDetails += '【⚡感電!】'; updateSyncLog(); }
+          if (actTags.some(t => e.weaknesses.includes(t)) && Math.random() < 0.5) { e.weaknesses = []; createFloatNum('BREAK', 'text-yellow-300', false, eIdx); hitDetails += ` (BREAK)`; updateSyncLog(); }
+          if (e.isMetal && act.effect !== 'metal_slash' && act.type !== 'magic' && Math.random() < 0.85) { createFloatNum('MISS', 'text-gray-400', false, eIdx); hitDetails += ` (MISS)`; updateSyncLog(); return; }
+          
+          let aoeCMap = {'aoe_blind':['blind',3,'BLD','text-gray-400'], 'aoe_confuse':['confuse',2,'CNF','text-purple-400']};
+          if (aoeCMap[act.effect]) { setCond(e, aoeCMap[act.effect][0], aoeCMap[act.effect][1], aoeCMap[act.effect][2], aoeCMap[act.effect][3]); if(!pwr) return; }
+          if (d===0) { hitDetails += ` (MISS)`; updateSyncLog(); return; }
+          e.hp = Math.max(0, e.hp - d); if (e.status.sleep > 0) e.status.sleep = 0; createFloatNum(`-${Math.floor(d)}`, isCrit?'text-yellow-400':'text-white', false, eIdx); animateElement(`enemy-card-${eIdx}`, 'animate-shake');
+          if (e.status.reflect_buff > 0 && d > 0 && act.type !== 'items') { let rD = Math.floor(d * 0.8); hero.hp = Math.max(0, hero.hp - rD); createFloatNum(`反射-${rD}`, 'text-blue-300', true, heroIdx); }
+          
+          let aoeCMap2 = {'aoe_poison':['poison',3,'PSN','text-green-400'], 'aoe_poison_miasma':['poison',3,'PSN','text-green-400'], 'damage_poison':['poison',3,'PSN','text-green-400'], 'shiva':['stun',1,'STN','text-blue-300'], 'aoe_damage_stun':['stun',1,'STN','text-blue-300']};
+          if (aoeCMap2[act.effect]) setCond(e, aoeCMap2[act.effect][0], aoeCMap2[act.effect][1], aoeCMap2[act.effect][2], aoeCMap2[act.effect][3]);
+          if (act.effect === 'damage_mark') e.assassinMarks = (e.assassinMarks || 0) + 1;
+          if (act.effect === 'aoe_damage_armor_break') { e.def = Math.max(0, e.def - 5); createFloatNum(`DEF DWN`, 'text-yellow-400', false, eIdx); }
+          
+          if (lifestealRate > 0) { let hl = Math.floor(d * lifestealRate); hero.hp = Math.min(hero.getMaxHp(), hero.hp + hl); createFloatNum(`+${hl}`, 'text-green-400', true, heroIdx); }
+          totalActionDmg += d; if (e.hp <= 0) { e.isDead = true; kills++; } hitDetails = ` (-${formatNum(totalActionDmg)} total)` + (kills > 0 ? ` (${kills}殺!)` : ""); updateSyncLog();
+        }); }
+      } else {
+        let t = act.target; if(!t) return; let eIdx = gameState.enemies.indexOf(t); let aIdx = gameState.party.indexOf(t);
+        if (act.targetFriendly) {
+            let healP = Math.floor(pwr); animateElement(`hero-mini-${aIdx}`, 'animate-heal');
+            let bMap = {'regen_buff':['regen',5,'REG','text-green-300',' (再生)'],'reflect_buff':['reflect_buff',4,'REFLECT','text-blue-300',' (反射)'],'berserk':['berserk',3,'BERSERK','text-red-500',' (狂暴)'],'enchant_fire':['enchant_fire',3,'FIRE','text-red-500',' (火屬賦魔)']};
+            if (act.effect === 'heal' || act.effect === 'heal_sun') { let oh = Math.floor((t.hp + healP - t.getMaxHp()) / 2); t.hp = Math.min(t.getMaxHp(), t.hp + healP); createFloatNum(`+${healP}`, 'text-green-400', true, aIdx); hitDetails += ` (+${healP}HP)`; if(oh>0){ t.shield+=oh; hitDetails+=` (轉盾+${oh})`; } }
+            else if (act.effect === 'revive') { t.isDead = false; t.hp = Math.floor(t.getMaxHp() * 0.3); createFloatNum(`LIFE`, 'text-yellow-400', true, aIdx); hitDetails += ` (復活)`; }
+            else if (act.effect === 'shield') { t.shield += healP; createFloatNum(`+${healP}盾`, 'text-blue-400', true, aIdx); hitDetails += ` (+${healP}盾)`; }
+            else if (act.effect === 'restore_uses') { [t.magic, t.special, t.items].forEach(l => l.forEach(s => s.uses = Math.min(s.maxUses, s.uses + healP))); createFloatNum(`MP UP`, 'text-blue-400', true, aIdx); hitDetails += ` (補能)`; }
+            else if (bMap[act.effect]) { t.status[bMap[act.effect][0]] = bMap[act.effect][1]; createFloatNum(bMap[act.effect][2], bMap[act.effect][3], true, aIdx); hitDetails += bMap[act.effect][4]; }
+            else if (act.effect === 'cure_all') { t.status = { poison: 0, blind: 0, paralyze: 0, sleep: 0, confuse: 0, silence: 0, weak: 0, bleed: 0, regen: t.status.regen, stun: 0, berserk: 0, reflect_buff: t.status.reflect_buff, enchant_fire: t.status.enchant_fire }; createFloatNum(`CURE`, 'text-white', true, aIdx); hitDetails += ` (痊癒)`; }
+            updateSyncLog();
+        } else {
+            let hits = {'double_strike':2, 'triple_strike':3, 'omnislash':5, 'musou_tensei':7}[act.effect] || 1; let totalActionDmg = 0;
+            let cMap = {'sleep':['sleep',2,'SLP','text-blue-300'], 'paralyze':['paralyze',1,'PAR','text-yellow-600'], 'damage_paralyze':['paralyze',1,'PAR','text-yellow-600'], 'silence':['silence',2,'SIL','text-gray-500']};
+            for(let hit=0; hit<hits; hit++){
+                if(t.isDead) break; 
+                let isImmune = actTags.some(tag => t.immunities.includes(tag)) || (t.weaknesses.length > 0 && !actTags.some(tag => t.weaknesses.includes(tag)));
+                if (isImmune) { createFloatNum('IMMUNE', 'text-gray-400', false, eIdx); hitDetails += ` (IMMUNE)`; updateSyncLog(); break; } 
+                
+                let d = 0;
+                if (isOnion && Math.random() < 0.07) { d = 777; hero.bCrit = (hero.bCrit || 0) + 0.07; hitDetails += '【🧅洋蔥突擊!】'; updateSyncLog(); } 
+                else if (act.effect === 'metal_slash' && t.isMetal) { d = pwr + (hero.cardMemory[act.skillId]||1)*2; }
+                else { let wBoost = (isLightning && gameState.weather==='wet')?1.5:1; d = calculateDmg(pwr, act.effect==='blood_strike'?0:t.def, isCrit, hero.status.blind > 0) * wBoost; }
+
+                if (isFire && t.status.poison > 0) { t.status.poison = 0; d += Math.floor(t.maxHp * 0.15); hitDetails += '【💥毒爆!】'; updateSyncLog(); }
+                if (isIce && t.status.sleep > 0) { t.status.sleep = 0; setCond(t, 'stun', 1, 'STN', 'text-blue-300'); hitDetails += '【❄️深度凍結!】'; updateSyncLog(); }
+                if (isIce) t.wetTimer = 2; if (isLightning && t.wetTimer > 0) { t.wetTimer = 0; setCond(t, 'stun', 1, 'STN', 'text-blue-300'); hitDetails += '【⚡感電!】'; updateSyncLog(); }
+                if (act.effect === 'damage_mark' || hero.equips.weapon?.id === 'w_02' || act.skillId === 's_05') { t.assassinMarks = (t.assassinMarks || 0) + 1; hitDetails += ` (🎯印記:${t.assassinMarks}層)`; updateSyncLog(); }
+                if (act.skillId === 's_08' && t.assassinMarks > 0) { d = Math.floor(d * (1 + t.assassinMarks * 0.2)); hitDetails += ` (引爆${t.assassinMarks}層印記!)`; t.assassinMarks = 0; updateSyncLog(); }
+                if (actTags.some(tag => t.weaknesses.includes(tag)) && Math.random() < 0.5) { t.weaknesses = []; createFloatNum('BREAK', 'text-yellow-300', false, eIdx); hitDetails += ` (BREAK)`; updateSyncLog(); }
+                if (t.isMetal && act.effect !== 'metal_slash' && act.type !== 'magic' && Math.random() < 0.85) { createFloatNum('MISS', 'text-gray-400', false, eIdx); hitDetails += ` (MISS)`; updateSyncLog(); continue; }
+                if (act.effect === 'suplex' && t.isBoss) { hitDetails += ` (無法摔!)`; updateSyncLog(); break; }
+                if (cMap[act.effect]) { setCond(t, cMap[act.effect][0], cMap[act.effect][1], cMap[act.effect][2], cMap[act.effect][3]); if(!pwr) break; }
+                if (act.effect === 'zantetsuken' && !t.isBoss && Math.random() < 0.4) { t.hp = 0; t.isDead = true; createFloatNum('斬鐵劍!', 'text-purple-400', false, eIdx); hitDetails += ` (斬鐵劍!)`; updateSyncLog(); break; }
+                
+                if (d===0) { createFloatNum('MISS', 'text-gray-400', false, eIdx); hitDetails += ` (MISS)`; updateSyncLog(); } else { 
+                    if (t.hp - d < -t.maxHp && ['attack','special'].includes(act.type)) { let cleave = Math.floor((Math.abs(t.hp - d) - t.maxHp) / 2); let ots = gameState.enemies.filter(x=>x!==t && !x.isDead); if(ots.length>0 && cleave > 0){ let t2 = ots[Math.floor(Math.random()*ots.length)]; t2.hp = Math.max(0, t2.hp - cleave); createFloatNum(`-${cleave}`, 'text-red-500', false, gameState.enemies.indexOf(t2)); animateElement(`enemy-card-${gameState.enemies.indexOf(t2)}`, 'animate-shake'); hitDetails += ' (過量劈裂!)'; if (t2.hp <= 0) t2.isDead = true; } }
+                    t.hp = Math.max(0, t.hp - d); if (t.status.sleep > 0) t.status.sleep = 0; createFloatNum(`-${Math.floor(d)}`, isCrit ? 'text-yellow-400' : 'text-white', false, eIdx); animateElement(`enemy-card-${eIdx}`, 'animate-shake'); 
+                    if (t.status.reflect_buff > 0 && d > 0 && act.type !== 'items') { let rD = Math.floor(d * 0.8); hero.hp = Math.max(0, hero.hp - rD); createFloatNum(`反射-${rD}`, 'text-blue-300', true, heroIdx); } 
+                    if (act.effect === 'armor_break') { t.def = Math.max(0, t.def - 5); createFloatNum(`DEF DWN`, 'text-blue-300', false, eIdx); hitDetails += ` (防禦-5)`; }
+                    if (act.effect === 'poison' || act.effect === 'damage_poison') setCond(t, 'poison', 3, 'PSN', 'text-green-400');
+                    if (act.effect === 'damage_slow') { t.speed = Math.max(1, t.speed - 3); createFloatNum(`SLW`, 'text-blue-400', false, eIdx); }
+                    if (act.effect === 'damage_stun') setCond(t, 'stun', 1, 'STN', 'text-yellow-400');
+                    let cLS = lifestealRate + (act.effect === 'damage_lifesteal'?0.5:(act.effect === 'damage_heal'?1.0:0)); if (cLS > 0) { let hl = Math.floor(d * cLS); hero.hp = Math.min(hero.getMaxHp(), hero.hp + hl); createFloatNum(`+${hl}`, 'text-green-400', true, heroIdx); }
+                    totalActionDmg += d; if (t.hp <= 0) { t.isDead = true; hitDetails = ` (-${formatNum(totalActionDmg)} total) (擊殺!)`; } else { hitDetails = ` (-${formatNum(totalActionDmg)} total)`; } updateSyncLog();
+                } 
+                if(hits > 1) await sleep(250);
+            }
+        }
+      }
+      if (hero.hp <= 0) { hero.isDead = true; logAndMsg(`💀 『${hero.name}』遭反射擊殺！`, 'text-red-500'); } 
+      if (!act.isSubAction) { cleanDepletedItems(hero); }
+      renderBattleScreen();
+    }
+
+    async function runE() { 
+      for (let i = 0; i < gameState.enemies.length; i++) { 
+        let e = gameState.enemies[i]; if (e.isDead || checkPartyWiped() || isControlDisabled(e)) continue; 
+        if (e.wetTimer > 0) e.wetTimer--; animateElement(`enemy-card-${i}`, 'animate-shake'); 
+        let hpPct = e.hp / e.maxHp; let skChance = 0.2 + (1 - hpPct) * 0.5; let useSk = e.s.length > 0 && Math.random() < skChance;
+        let skId = useSk ? e.s[Math.floor(Math.random() * e.s.length)] : 'normal';
+        if (e.s.includes('kamikaze') && hpPct < 0.5 && Math.random() < 0.5) skId = 'kamikaze';
+        if (e.s.includes('tonberry') && Math.random() < 0.2) skId = 'tonberry'; 
+        if (e.s.includes('tonberry') && skId !== 'tonberry') { logAndMsg(`🏮 【${e.shortName}】慢慢地逼近...`, 'text-gray-400'); await sleep(1000); continue; }
+        await eSPA(e, i, skId);
+      } 
+    }
+
+    async function eSPA(e, eIdx, skId) { 
+      let sk = E_SKILLS[skId];
+      if (sk.t === 'flee') { e.isDead = true; e.hp = 0; createFloatNum('FLEE', 'text-gray-400', false, eIdx); logAndMsg(`💨 【${e.shortName}】逃離了戰場！`, 'text-gray-400'); renderBattleScreen(); await sleep(1000); return; }
+      if (sk.t === 'kami') { e.hp = 0; e.isDead = true; let dmg = Math.floor(e.maxHp * 0.6); logAndMsg(`💥 【${e.shortName}】引爆自身！`, 'text-red-500 font-bold'); gameState.party.forEach((t, tIdx) => { if(!t.isDead && t.combatState.jumpTimer === 0) { t.hp = Math.max(0, t.hp - dmg); createFloatNum(`-${dmg}`, 'text-red-500', true, tIdx); animateElement(`hero-mini-${tIdx}`, 'animate-shake'); if (t.hp <= 0) t.isDead = true; } }); renderBattleScreen(); await sleep(1000); return; }
+      if (e.status.confuse > 0) { let pt = [...gameState.enemies.filter(x=>!x.isDead), ...gameState.party.filter(h=>!h.isDead && h.combatState.jumpTimer===0)]; let tg = pt[Math.floor(Math.random()*pt.length)]; let d = calculateDmg(e.atk, tg.def||tg.getDef?.(), false, e.status.blind > 0); if(d>0) { if(gameState.party.includes(tg)) applyEDmg(e, eIdx, tg, d, false, "混亂敲擊"); else { tg.hp = Math.max(0, tg.hp - d); createFloatNum(`-${d}`, 'text-white', false, gameState.enemies.indexOf(tg)); logAndMsg(`💥 【${e.shortName}】混亂敲擊【${tg.shortName || tg.name}】！(-${formatNum(d)})`, 'text-purple-400'); if (tg.hp <= 0) tg.isDead = true; } } renderBattleScreen(); await sleep(1000); return; }
+      if (sk.t === 'heal' && e.status.silence <= 0) { let inj = gameState.enemies.filter(x => !x.isDead && x.hp < x.maxHp); if(inj.length > 0) { let hT = inj.reduce((p, c) => (p.hp < c.hp) ? p : c); let hA = Math.floor(e.atk * sk.p); hT.hp = Math.min(hT.maxHp, hT.hp + hA); createFloatNum(`+${hA}`, 'text-green-400', false, gameState.enemies.indexOf(hT)); logAndMsg(`✨ 【${e.shortName}】治癒【${hT.shortName}】 (+${hA}HP)`, 'text-green-400'); renderBattleScreen(); await sleep(1000); return; } }
+      if (sk.t === 'buff') { logAndMsg(`🎺 【${e.shortName}】咆哮增加全體魔物攻擊！`, 'text-yellow-400'); gameState.enemies.forEach((x, idx) => { if(!x.isDead) { x.atk += Math.floor(gameState.floor + 2); createFloatNum('ATK UP', 'text-red-400', false, idx); } }); renderBattleScreen(); await sleep(1000); return; }
+      
+      let alives = gameState.party.filter(h => !h.isDead && h.combatState.jumpTimer === 0); let tg = null;
+      if (alives.length > 0) { let tnt = alives.find(h => h.actionQueued?.effect === 'taunt'); if (tnt) tg = tnt; else if (sk.id === 'assassinate') tg = alives.reduce((p, c) => (p.hp < c.hp) ? p : c); else tg = alives[Math.floor(Math.random() * alives.length)]; }
+      if (!tg) { logAndMsg(`❓ 【${e.shortName}】失去了目標的蹤影...`, 'text-gray-500'); renderBattleScreen(); await sleep(1000); return; }
+      
+      let eAtk = e.status.berserk > 0 ? Math.floor(e.atk * 1.5) : e.atk;
+      let hordeCount = gameState.enemies.filter(x => !x.isDead && x.baseId === e.baseId).length; if (hordeCount >= 3) eAtk = Math.floor(eAtk * 1.5);
+
+      if (sk.t === 'aoe' && e.status.silence <= 0) { logAndMsg(`⚠️ 【${e.shortName}】發動 [${sk.n}]！`, 'text-red-500 font-bold'); alives.forEach(t => { let d = calculateDmg(eAtk * sk.p, t.getDef(), false, e.status.blind > 0); if(d > 0) { if (t.equips.offhand?.blockMagic) d = Math.floor(d * (1 - t.equips.offhand.blockMagic)); if (t.equips.armor?.blockMagic) d = Math.floor(d * (1 - t.equips.armor.blockMagic)); applyEDmg(e, eIdx, t, d, true, sk.n); } }); }
+      else if (sk.t === 'aoe') { logAndMsg(`🔇 【${e.shortName}】被沉默無法施法！`, 'text-gray-500'); }
+      else {
+        if (!sk.ign && Math.random() < tg.getDodgeChance()) { animateElement(`hero-mini-${gameState.party.indexOf(tg)}`, 'animate-dodge'); createFloatNum('MISS', 'text-gray-400', true, gameState.party.indexOf(tg)); logAndMsg(`💨 『${tg.name}』閃避了【${e.shortName}】的攻擊！`, 'text-gray-400'); }
+        else {
+          let d = sk.t === 'fixed' ? sk.v : calculateDmg(eAtk * sk.p, tg.getDef(), !!sk.ign, e.status.blind > 0);
+          if (d > 0) {
+            if (tg.equips.offhand?.blockPhys && sk.t !== 'fixed') d = Math.floor(d * (1 - tg.equips.offhand.blockPhys));
+            applyEDmg(e, eIdx, tg, d, false, sk.n);
+            if (sk.heal) { let hA = Math.floor(d * sk.heal); if (hA > 0 && !e.isDead) { e.hp = Math.min(e.maxHp, e.hp + hA); createFloatNum(`+${hA}`, 'text-green-400', false, eIdx); } }
+            let imPB = tg.equips.armor?.immunePoisonBlind;
+            if (sk.apply === 'psn' && !imPB) { tg.status.poison = 3; createFloatNum('PSN', 'text-green-500', true, gameState.party.indexOf(tg)); }
+            if (sk.apply === 'bld' && !imPB) { tg.status.blind = 2; createFloatNum('BLD', 'text-gray-400', true, gameState.party.indexOf(tg)); }
+          } else { logAndMsg(`🛡️ 『${tg.name}』防禦了【${e.shortName}】的攻擊！`, 'text-gray-400'); }
+        }
+      }
+      renderBattleScreen(); await sleep(1000);
+    }
+
+    function applyEDmg(enemy, eIdx, target, d, isMassiveAoe = false, actName = "打擊") { 
+      let tIdx = gameState.party.indexOf(target); 
+      if (target.combatState.jumpTimer > 0) { if (isMassiveAoe) { target.combatState.jumpTimer = 0; target.combatState.jumpTarget = null; } else { logAndMsg(`💨 『${target.name}』處於高空，迴避了 [${actName}]！`, 'text-gray-400'); return; } } 
+      d = Math.floor(d); if (target.buffs.defending) d = Math.floor(d * 0.5); 
+      if (target.shield > 0) { if (target.shield >= d) { target.shield -= d; d = 0; } else { d -= target.shield; target.shield = 0; } } 
+      target.hp = Math.max(0, target.hp - d); if (target.status.sleep > 0) target.status.sleep = 0; 
+      animateElement(`hero-mini-${tIdx}`, 'animate-shake'); createFloatNum(`-${d}`, 'text-red-500', true, tIdx); 
+      let msg = `💥 【${enemy.shortName}】使出 [${actName}] 擊中『${target.name}』！(-${formatNum(d)})`; if (target.hp <= 0) { target.isDead = true; msg += ' (陣亡!)'; } logAndMsg(msg, 'text-red-400');
+      if (target.status.reflect_buff > 0 && d > 0) { let refDmg = Math.floor(d * 0.8); enemy.hp = Math.max(0, enemy.hp - refDmg); createFloatNum(`反射-${refDmg}`, 'text-blue-300', false, eIdx); if (enemy.hp <= 0 && !enemy.isDead) enemy.isDead = true; } 
+    }
+
+    async function triggerVictoryFlow() { 
+      logAndMsg(`🏆 戰鬥勝利！魔物皆已伏誅。`, 'text-green-400 font-bold'); await playTransition('<span class="text-yellow-400 drop-shadow-md">VICTORY</span>', '', 1000); 
+      if (gameState.room === gameState.maxRooms) { 
+        let alives = gameState.party.filter(h => !h.isDead); 
+        if (alives.length > 0) { 
+          let lucky = alives[Math.floor(Math.random() * alives.length)]; let r = Math.random(); let typeStr = r < 0.33 ? "魔法" : (r < 0.66 ? "特技" : "道具");
+          if (r < 0.33) lucky.bMag++; else if (r < 0.66) lucky.bSpc++; else lucky.bItm++;
+          logAndMsg(`🌟 『${lucky.name}』的${typeStr}上限 +1`, 'text-yellow-300 font-bold'); renderBattleScreen(); await sleep(2000); 
+        } 
+      } 
+      gameState.pendingDrafts = gameState.party.filter(h => !h.isDead);
+      gameState.party.forEach(h => {
+          if (h.actionQueued) {
+              let act = h.actionQueued;
+              if (['magic', 'special', 'items'].includes(act.type)) {
+                  let m = h[act.type].find(s => s.id === act.skillId);
+                  if (m) m.uses++;
+              }
+              h.actionQueued = null;
+          }
+          cleanDepletedItems(h);
+          h.currentRerolls = h.getMaxRerolls();
+      });
+      gameState.draftChoiceIndex = 0; 
+      if (gameState.pendingDrafts.length > 0) { document.getElementById('draft-modal').classList.remove('hidden'); presentSingleHeroDraft(); } else { proceedToNextRoom(); } 
+    }
+    async function triggerDefeatFlow() { 
+        logAndMsg(`💀 隊伍全軍覆沒。`, 'text-red-500 font-bold'); await playTransition('<span class="text-red-600">PARTY DEFEATED</span>', '撤退修整中...', 2000); gameState.floor = Math.max(1, gameState.floor - 1); gameState.room = 1; 
+        gameState.party.forEach(h => { 
+            if (h.actionQueued) {
+                let act = h.actionQueued;
+                if (['magic', 'special', 'items'].includes(act.type)) { let m = h[act.type].find(s => s.id === act.skillId); if (m) m.uses++; }
+                h.actionQueued = null;
+            }
+            cleanDepletedItems(h);
+            h.isDead = false; h.hp = h.getMaxHp(); h.shield = 0; h.combatState = { charging: false, jumpTimer: 0, jumpTarget: null, defending: false }; h.status = { poison: 0, blind: 0, paralyze: 0, sleep: 0, confuse: 0, silence: 0, weak: 0, bleed: 0, regen: 0, berserk: 0, reflect_buff: 0, stun: 0, enchant_fire: 0 }; 
+        }); 
+        startRoom(); 
+    }
+
+    function presentSingleHeroDraft() { 
+      const idx = gameState.draftChoiceIndex; const total = gameState.pendingDrafts.length; if (idx >= total) { proceedToNextRoom(); return; } 
+      const h = gameState.pendingDrafts[idx]; gameState.activeDraftHero = h; const queueContainer = document.getElementById('draft-hero-queue'); 
+      if (queueContainer) { queueContainer.innerHTML = ''; gameState.party.forEach((hero, i) => { let isCurrent = (hero === h); let isDead = hero.isDead; let bgClass = isCurrent ? 'bg-blue-900 border-yellow-300 shadow-[0_0_8px_rgba(253,224,71,0.6)] scale-105 z-10' : 'bg-black border-gray-700 opacity-40'; let titleClass = isCurrent ? 'text-yellow-300 animate-pulse' : 'text-gray-500'; let nameClass = isCurrent ? 'text-white' : (isDead ? 'text-red-800 line-through' : 'text-gray-500'); queueContainer.innerHTML += `<div class="flex-1 flex flex-col items-center justify-center border-2 ${bgClass} py-1.5 px-1 transition-all duration-300"><span class="text-[0.55em] retro-font ${titleClass} mb-0.5">NO.${i + 1}</span><span class="text-[0.65em] font-bold ${nameClass} retro-font truncate w-full text-center">${hero.name}</span></div>`; }); } 
+      document.getElementById('reroll-count-lbl').innerText = h.currentRerolls; const container = document.getElementById('draft-cards-container'); container.innerHTML = ''; 
+      const catGroups = [ ['weapon', 'offhand'], ['armor', 'accessory'], ['items'], ['magic'], ['special'], ['passive'] ]; const shuffledGroups = catGroups.sort(() => 0.5 - Math.random()).slice(0, 3); let options = []; 
+      shuffledGroups.forEach(grp => { let validCards = ALL_CARDS_POOL.filter(c => grp.includes(c.type) && !options.some(o => o.id === c.id)); if (grp.includes('passive')) { validCards = validCards.filter(c => { let has = h.passives.find(x => x.id === c.id); return !(has && h.cardMemory[c.id] >= 6 && c.id !== 'p_10'); }); } if (validCards.length > 0) options.push(validCards[Math.floor(Math.random() * validCards.length)]); }); 
+      const typeNames = { weapon: 'WEAPON', offhand: 'OFF HAND', armor: 'ARMOR', accessory: 'RING', magic: 'MAGIC', special: 'SKILL', items: 'ITEM', passive: 'PASSIVE' }; 
+      options.forEach(o => { 
+        let cardDiv = document.createElement('div'); cardDiv.className = "ff-btn text-left p-3 flex flex-col justify-between items-start w-full relative group"; let targetProp = o.type === 'passive' ? 'passives' : o.type; let hasObj = ['magic','special','items','passive'].includes(o.type) && h[targetProp].some(x => x.id === o.id); let isEquipUpgrade = ['weapon', 'offhand', 'armor', 'accessory'].includes(o.type) && h.equips[o.type] && h.equips[o.type].id === o.id; let dupUpgradeBadge = ''; 
+        if (hasObj || isEquipUpgrade) { if (o.type === 'items') { if (!o.isConsumable) dupUpgradeBadge = '<span class="absolute top-2 right-2 text-green-300 text-[0.7em] retro-font">USES +1</span>'; } else { dupUpgradeBadge = '<span class="absolute top-2 right-2 text-yellow-300 text-[0.7em] retro-font">UPGRADE</span>'; } } cardDiv.onclick = () => { selectDraftRewardLogic(h, o); }; 
+        let currentEquipText = ""; if (['weapon', 'offhand', 'armor', 'accessory'].includes(o.type)) { let current = h.equips[o.type]; let nameDisplay = current ? current.name : "無"; if (current && current.isTwoHanded) nameDisplay += "(雙手)"; if (o.type === 'offhand' && h.equips.weapon?.isTwoHanded) { nameDisplay = `${h.equips.weapon.name}(雙手)`; } else if (o.type === 'weapon' && o.isTwoHanded) { let wName = h.equips.weapon ? h.equips.weapon.name : "無"; let oName = h.equips.offhand ? h.equips.offhand.name : "無"; if (h.equips.weapon || h.equips.offhand) nameDisplay = `${wName}/${oName}`; else nameDisplay = "無"; } currentEquipText = `<div class="text-[0.7em] text-gray-500 retro-font mt-1.5 border-t border-gray-700 pt-1.5 w-full text-right"><span class="text-gray-600">替換:</span> <span class="text-gray-400">${nameDisplay}</span></div>`; } 
+        let itemUsesStr = ''; if (o.type === 'items') { let existingItem = h.items.find(i => i.id === o.id); if (existingItem) { itemUsesStr = ` <span class="text-yellow-300 text-[0.7em]">(${existingItem.uses}/${existingItem.maxUses})</span>`; } else { let pushMax = o.isConsumable ? 1 : o.maxUses; itemUsesStr = ` <span class="text-yellow-300 text-[0.7em]">(1/${pushMax})</span>`; } } 
+        let maxStr = ""; if (o.type === 'magic') maxStr = ` (${h.magic.length}/${h.getMaxMagic()})`; else if (o.type === 'special') maxStr = ` (${h.special.length}/${h.getMaxSpecial()})`; else if (o.type === 'items') maxStr = ` (${h.items.length}/${h.getMaxItems()})`; else if (o.type === 'passive') maxStr = ` (${h.passives.length}/${h.getMaxPassives()})`; 
+        let prefix = o.isConsumable ? "★" : "►"; let colorClass = o.isConsumable ? "text-red-300" : "text-white"; let effType = o.isEquipItem ? o.equipType : o.type; let dispLvl = (h.cardMemory[o.id] || 0) + 1; if (effType === 'passive') dispLvl = Math.min(6, dispLvl); let lvlBadge = (!o.isConsumable && effType !== 'items') ? ` <span class="text-yellow-200 text-[0.8em]">${formatLvl(dispLvl, effType)}</span>` : ''; 
+        cardDiv.innerHTML = `${dupUpgradeBadge}<div class="text-[0.7em] text-gray-400 font-bold mb-1.5 retro-font">${typeNames[o.type]}${maxStr}</div><div class="text-[1em] font-bold ${colorClass} mb-2 retro-font tracking-wider"><span class="opacity-0 group-hover:opacity-100 text-yellow-300 absolute -ml-4">${prefix}</span>${o.name}${lvlBadge}${itemUsesStr}</div><div class="text-[0.8em] text-gray-300 leading-relaxed font-sans font-bold tracking-widest">${o.desc}</div>${currentEquipText}`; container.appendChild(cardDiv); 
+      }); 
+    }
+
+    function rerollDraft() { const h = gameState.activeDraftHero; if (h && h.currentRerolls > 0) { h.currentRerolls--; presentSingleHeroDraft(); } else { showSystemMessage("該角色的重抽次數不足！"); } }
+    function skipDraft() { advanceDraft(); }
+    function advanceDraft() { gameState.draftChoiceIndex++; presentSingleHeroDraft(); }
+
+    function selectDraftRewardLogic(hero, opt) { 
+      hero.cardMemory[opt.id] = (hero.cardMemory[opt.id] || 0) + 1; let t = opt.type; let pendingCards = []; 
+      if (t === 'items' && !opt.isEquipItem) { let existing = hero.items.find(i => i.id === opt.id); if (existing && !opt.isConsumable) { existing.uses = Math.min(existing.uses + 1, existing.maxUses); advanceDraft(); return; } } 
+      if (['weapon', 'offhand', 'armor', 'accessory'].includes(t)) { 
+        let oldEquip = hero.equips[t]; let isSame = oldEquip && oldEquip.id === opt.id; 
+        if (t === 'weapon') { if (opt.isTwoHanded && hero.equips.offhand) { pendingCards.push({ id: hero.equips.offhand.id, type: 'items', isEquipItem: true, equipType: 'offhand', maxUses: 1, uses: 1 }); hero.equips.offhand = null; } } 
+        else if (t === 'offhand') { if (hero.equips.weapon?.isTwoHanded) { pendingCards.push({ id: hero.equips.weapon.id, type: 'items', isEquipItem: true, equipType: 'weapon', maxUses: 1, uses: 1 }); hero.equips.weapon = null; } } 
+        if (oldEquip && !isSame) { pendingCards.push({ id: oldEquip.id, type: 'items', isEquipItem: true, equipType: t, maxUses: 1, uses: 1 }); } 
+        if (!isSame) { hero.equips[t] = { ...opt }; } handleInventoryOverflow(hero, pendingCards, () => advanceDraft()); 
+      } else if (t === 'passive') { let m = hero.passives.find(s => s.id === opt.id); if (m) advanceDraft(); else { pendingCards.push({ id: opt.id, type: t }); handleInventoryOverflow(hero, pendingCards, () => advanceDraft()); } } 
+      else { let list = hero[t]; let m = list.find(s => s.id === opt.id); if (m) advanceDraft(); else { let pushMax = DATABASE[t].find(x=>x.id===opt.id).isConsumable ? 1 : opt.maxUses; pendingCards.push({ id: opt.id, type: t, uses: 1, maxUses: pushMax }); handleInventoryOverflow(hero, pendingCards, () => advanceDraft()); } } 
+      hero.hp = Math.min(hero.getMaxHp(), hero.hp); 
+    }
+
+    let replaceTempData = null;
+    function showReplaceModal(hero, list, newOpt, cat, callback) { 
+      replaceTempData = { hero, list, newOpt, cat, callback }; let dbCat = newOpt.isEquipItem ? newOpt.equipType : (newOpt.type === 'passive' ? 'passive' : newOpt.type); let realOpt = DATABASE[dbCat].find(x => x.id === newOpt.id); let newOptName = realOpt ? realOpt.name : "未知"; let heroNum = gameState.party.indexOf(hero) + 1; 
+      document.getElementById('replace-new-skill-name').innerText = `NO.${heroNum} ${hero.name} 獲得 [${newOptName}] ${formatLvl(hero.cardMemory[newOpt.id] || 1, newOpt.type)}`; 
+      const container = document.getElementById('replace-items-grid'); container.innerHTML = ''; 
+      list.forEach((s, idx) => { let dbRef = s.isEquipItem ? DATABASE[s.equipType].find(x=>x.id===s.id) : DATABASE[cat].find(x => x.id === s.id); let sName = dbRef ? dbRef.name : "未知"; let btn = document.createElement('button'); btn.className = "ff-btn text-left p-3 flex flex-col justify-between group relative"; btn.onclick = () => { confirmReplace(idx); }; btn.innerHTML = `<div class="flex justify-between items-center w-full"><span class="text-[0.9em] text-white font-bold">遺忘/捨棄 ${sName}</span><span class="text-[0.8em] text-yellow-300">${formatLvl(hero.cardMemory[s.id]||1, s.isEquipItem?s.equipType:cat)}</span></div><p class="text-[0.7em] text-gray-400 mt-1">${dbRef ? dbRef.desc : ""}</p>`; container.appendChild(btn); }); 
+      document.getElementById('replace-modal').classList.remove('hidden'); 
+    }
+
+    function confirmReplace(index) { 
+      let data = replaceTempData; let oldObj = data.list[index]; let oldCat = oldObj.isEquipItem ? oldObj.equipType : data.cat; let oldDbRef = DATABASE[oldCat].find(x => x.id === oldObj.id); let oldName = oldDbRef ? oldDbRef.name : "舊物件"; let newCat = data.newOpt.isEquipItem ? data.newOpt.equipType : data.cat; let newDbRef = DATABASE[newCat].find(x => x.id === data.newOpt.id); let newOptName = newDbRef ? newDbRef.name : "未知"; 
+      if (data.newOpt.isEquipItem) { data.list[index] = data.newOpt; } else if (data.newOpt.type === 'passive') { data.list[index] = { id: data.newOpt.id, type: data.newOpt.type }; } else { let pushMax = newDbRef?.isConsumable ? 1 : newDbRef.maxUses; data.list[index] = { id: data.newOpt.id, type: data.newOpt.type, uses: 1, maxUses: pushMax }; } 
+      addLog(`♻️ 『${data.hero.name}』更換為 [${newOptName}]！`, 'text-cyan-300'); 
+      document.getElementById('replace-modal').classList.add('hidden'); let cb = data.callback; replaceTempData = null; if (cb) cb(); 
+    }
+    function cancelReplace() { document.getElementById('replace-modal').classList.add('hidden'); let cb = replaceTempData.callback; replaceTempData = null; if (cb) cb(); }
+
+    async function proceedToNextRoom() { 
+      document.getElementById('draft-modal').classList.add('hidden'); let isNextFloor = false; 
+      if (gameState.room === gameState.maxRooms) { gameState.floor++; gameState.room = 1; isNextFloor = true; } else { gameState.room++; } 
+      gameState.party.forEach(h => { if (h.isDead) return; let pR = h.passives.find(p => p.id === 'p_05'); let armE = h.equips.armor?.endHeal || 0; let tot = (pR ? (h.cardMemory['p_05'] || 1) * 0.08 : 0) + armE; if (tot > 0) { let r = Math.floor(h.getMaxHp() * tot); h.hp = Math.min(h.getMaxHp(), h.hp + r); } }); 
+      await playTransition(isNextFloor ? '<span class="text-red-400 drop-shadow-md">FLOOR CLEARED</span>' : '<span class="text-white drop-shadow-md">NEXT ROOM</span>', isNextFloor ? `前往 B${gameState.floor}` : `B${gameState.floor}-${gameState.room}`, 1000); startRoom(); 
+    }
+
+    function openSaveModal() { document.getElementById('save-code-area').value = ""; document.getElementById('save-modal').classList.remove('hidden'); }
+    function closeSaveModal() { document.getElementById('save-modal').classList.add('hidden'); }
+    function removeCircularRefs(key, value) { if (key === 'actionQueued' || key === 'jumpTarget' || key === 'target') return undefined; return value; }
+    function exportSaveCode() { let d = JSON.stringify({ f: gameState.floor, r: gameState.room, p: gameState.party.map(h => ({ id: h.id, name: h.name, cardMemory: h.cardMemory, equips: h.equips, magic: h.magic, special: h.special, items: h.items, passives: h.passives, hp: h.hp, currentRerolls: h.currentRerolls, bMag: h.bMag, bSpc: h.bSpc, bItm: h.bItm, matk: h.matk }))}, removeCircularRefs); document.getElementById('save-code-area').value = btoa(encodeURIComponent(d)); addLog("代碼已產生！", "text-cyan-400"); }
+    function importSaveCode() { let str = document.getElementById('save-code-area').value.trim(); if (!str) { showSystemMessage("請先貼上代碼！"); return; } try { let dec = JSON.parse(decodeURIComponent(atob(str))); gameState.floor = dec.f || 1; gameState.room = dec.r || 1; gameState.party = dec.p.map(x => { let h = new Hero(x.id || x.i, x.name || x.n); h.equips = x.equips || x.e; h.magic = x.magic || x.m; h.special = x.special || x.s; h.items = x.items || x.it; h.passives = x.passives || x.pa; h.hp = x.hp; h.currentRerolls = x.currentRerolls || x.rr || 1; h.cardMemory = x.cardMemory || x.cm || {}; h.bMag = x.bMag || 0; h.bSpc = x.bSpc || 0; h.bItm = x.bItm || 0; h.matk = x.matk || 10; return h; }); closeSaveModal(); startRoom(); } catch (e) { showSystemMessage("無法還原，請確認代碼完整度！"); } }
+    function quickSaveGame() { let d = JSON.stringify({ f: gameState.floor, r: gameState.room, p: gameState.party.map(h => ({ id: h.id, name: h.name, cardMemory: h.cardMemory, equips: h.equips, magic: h.magic, special: h.special, items: h.items, passives: h.passives, hp: h.hp, currentRerolls: h.currentRerolls, bMag: h.bMag, bSpc: h.bSpc, bItm: h.bItm, matk: h.matk })) }, removeCircularRefs); localStorage.setItem(STORAGE_KEY, d); addLog("進度已保存。", "text-cyan-400"); closeSaveModal(); }
+    function quickLoadGame() { let data = localStorage.getItem(STORAGE_KEY); if (!data) return showSystemMessage("無本機進度存檔！"); try { let dec = JSON.parse(data); gameState.floor = dec.f; gameState.room = dec.r; gameState.party = dec.p.map(x => { let h = new Hero(x.id || x.i, x.name || x.n); h.equips = x.equips || x.e; h.magic = x.magic || x.m; h.special = x.special || x.s; h.items = x.items || x.it; h.passives = x.passives || x.pa; h.hp = x.hp; h.currentRerolls = x.currentRerolls || x.rr || 1; h.cardMemory = x.cardMemory || x.cm || {}; h.bMag = x.bMag || 0; h.bSpc = x.bSpc || 0; h.bItm = x.bItm || 0; h.matk = x.matk || 10; return h; }); closeSaveModal(); startRoom(); } catch (e) { showSystemMessage("載入失敗！"); } }
+
+    let rnId = null;
+    function openRenameModal(id) { rnId = id; document.getElementById('rename-input').value = gameState.party.find(h=>h.id===id).name; document.getElementById('rename-modal').classList.remove('hidden'); }
+    function confirmRename() { let v = document.getElementById('rename-input').value.trim(); if(v) { gameState.party.find(h=>h.id===rnId).name = v; renderPartyManagementTab(); resetActionInput(); } closeRenameModal(); }
+    function closeRenameModal() { document.getElementById('rename-modal').classList.add('hidden'); rnId = null; }
+
+    function calculateDmg(basePwr, targetDef, isCrit, isBlind) { if (basePwr <= 0) return 0; if (isBlind && Math.random() < 0.5) return 0; let dmg = Math.max(1, basePwr - Math.floor(targetDef * 0.5)); if (isCrit) dmg = Math.floor(dmg * 1.5); dmg = Math.floor(dmg * (0.9 + Math.random() * 0.2)); return Math.max(1, dmg); }
+    function checkEnemiesWiped() { if (gameState.enemies.every(e => e.isDead)) { if (gameState.isBattleActive) { gameState.isBattleActive = false; setTimeout(() => triggerVictoryFlow(), 1000); } return true; } return false; }
+    function checkPartyWiped() { if (gameState.party.every(h => h.isDead)) { if (gameState.isBattleActive) { gameState.isBattleActive = false; setTimeout(() => triggerDefeatFlow(), 1000); } return true; } return false; }
+    async function playTransition(title, sub, delay) { const overlay = document.getElementById('transition-overlay'); document.getElementById('transition-title').innerHTML = title; document.getElementById('transition-sub').innerHTML = sub; overlay.classList.remove('opacity-0', 'pointer-events-none'); overlay.classList.add('opacity-100'); await sleep(delay); overlay.classList.remove('opacity-100'); overlay.classList.add('opacity-0', 'pointer-events-none'); await sleep(500); }
+
+    function renderPartyManagementTab() { const list = document.getElementById('status-full-list'); if (!list) return; list.innerHTML = ''; gameState.party.forEach((h, idx) => { list.innerHTML += generateHeroCardHTML(h, idx, false); }); }
+    function renderHistoryLogs() { const container = document.getElementById('log-history-scroll'); if (!container) return; container.innerHTML = gameState.historyLogs.map(l => `<div class="${l.color}">${l.msg}</div>`).join(''); setTimeout(() => { container.scrollTop = container.scrollHeight; }, 10); }
+    function clearHistoryLogs() { gameState.historyLogs = []; renderHistoryLogs(); }
+
+    function initGame() { gameState.party = [ new Hero('h_01', '阿爾法'), new Hero('h_02', '貝塔'), new Hero('h_03', '伽瑪'), new Hero('h_04', '德爾塔') ]; startRoom(); }
+    window.onload = () => initGame();
+  </script>
+</body>
+</html>
