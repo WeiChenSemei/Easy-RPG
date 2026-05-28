@@ -240,34 +240,35 @@
         this.atk = Math.floor((rStat.a * floor + 5) * tm);
         this.def = this.isMetal ? 999 : Math.floor((rStat.d * floor) * tm);
         this.speed = Math.floor(rStat.s * floor + 5);
-        this.imCond = null; this.affix = null;
         
-        // 菁英動態詞綴系統
-        if (floor >= 3 && !isBoss && !this.isMetal && Math.random() < 0.4) { 
-            let afx = [{s:'vampire', n:'吸血'}, {s:'poison', n:'劇毒'}, {spd:2, n:'神速'}, {imCond:'poison', n:'防毒'}, {imCond:'stun', n:'防暈'}, {imCond:'sleep', n:'防眠'}, {defM:1.5, n:'堅硬'}, {hpM:1.5, n:'強壯'}]; 
-            let af = afx[Math.floor(Math.random()*afx.length)]; this.affix = af.n;
-            if(af.s) this.s.push(af.s); if(af.spd) this.speed = Math.floor(this.speed * af.spd); 
-            if(af.imCond) this.imCond = af.imCond; if(af.defM) this.def = Math.floor(this.def * af.defM); if(af.hpM) { this.maxHp = Math.floor(this.maxHp * af.hpM); this.hp = this.maxHp; }
-        }
-
         this.hp = this.maxHp; this.isDead = false; this.status = { poison:0, blind:0, paralyze:0, sleep:0, confuse:0, silence:0, weak:0, bleed:0, regen:0, stun:0, berserk:0, reflect_buff:0, enchant_fire:0 };
         this.stunTimer = 0; this.wetTimer = 0; this.assassinMarks = 0;
-        this.immunities = []; this.weaknesses = [];
+        this.immunities = []; this.weaknesses = []; this.affixes = [];
         
-        if (floor >= 4 && !isBoss && !this.isMetal) { 
-            if (Math.random() < 0.4) {
-                if (Math.random() < 0.35) {
-                    let wP = ['attack', 'magic', 'special', 'items'];
-                    this.weaknesses.push(wP[Math.floor(Math.random() * wP.length)]);
-                } else {
-                    let iP = ['attack', 'magic', 'special', 'items', 'fire', 'ice', 'lightning', 'earth', 'dark', 'holy'];
-                    let count = Math.random() < 0.3 ? 2 : 1;
-                    for(let i=0; i<count; i++) {
-                        let idx = Math.floor(Math.random() * iP.length);
-                        if(!this.immunities.includes(iP[idx])) this.immunities.push(iP[idx]);
-                        iP.splice(idx, 1);
-                    }
-                }
+        // 菁英動態詞綴與防禦整合系統
+        if (floor >= 3 && !isBoss && !this.isMetal && Math.random() < 0.4) { 
+            let hasWk = false;
+            if (floor >= 4 && Math.random() < 0.3) {
+                let wkPool = [{n:'攻弱', val:'attack'}, {n:'魔弱', val:'magic'}, {n:'技弱', val:'special'}, {n:'道弱', val:'items'}];
+                let w = wkPool[Math.floor(Math.random() * wkPool.length)];
+                this.weaknesses.push(w.val); this.affixes.push(w.n); hasWk = true;
+            }
+            let pool = [{n:'吸血', type:'s', val:'vampire'}, {n:'劇毒', type:'s', val:'poison'}, {n:'神速', type:'spd', val:2}, {n:'堅硬', type:'defM', val:1.5}, {n:'強壯', type:'hpM', val:1.5}];
+            if (!hasWk) {
+                pool.push({n:'防毒', type:'im', val:'poison'}, {n:'防暈', type:'im', val:'stun'}, {n:'防眠', type:'im', val:'sleep'});
+                if (floor >= 4) pool.push({n:'火免', type:'im', val:'fire'}, {n:'冰免', type:'im', val:'ice'}, {n:'雷免', type:'im', val:'lightning'}, {n:'土免', type:'im', val:'earth'}, {n:'暗免', type:'im', val:'dark'}, {n:'聖免', type:'im', val:'holy'}, {n:'攻免', type:'im', val:'attack'}, {n:'魔免', type:'im', val:'magic'}, {n:'技免', type:'im', val:'special'}, {n:'道免', type:'im', val:'items'});
+            }
+            let affixCount = hasWk ? 1 : (Math.random() < 0.3 ? 2 : 1);
+            for (let i = 0; i < affixCount; i++) {
+                if (pool.length === 0) break;
+                let idx = Math.floor(Math.random() * pool.length);
+                let a = pool[idx]; pool.splice(idx, 1);
+                this.affixes.push(a.n);
+                if (a.type === 's') this.s.push(a.val);
+                if (a.type === 'spd') this.speed = Math.floor(this.speed * a.val);
+                if (a.type === 'defM') this.def = Math.floor(this.def * a.val);
+                if (a.type === 'hpM') { this.maxHp = Math.floor(this.maxHp * a.val); this.hp = this.maxHp; }
+                if (a.type === 'im') this.immunities.push(a.val);
             }
         }
       }
@@ -301,11 +302,7 @@
       if (gameState.targetingAction || !gameState.isInputPhase) return; const e = gameState.enemies[idx]; if (!e || e.isDead) return;
       document.getElementById('enemy-info-title').className = `retro-font text-[1em] ${e.colorClass}`; document.getElementById('enemy-info-title').innerText = e.name;
       let desc = `HP: ${e.hp} / ${e.maxHp}<br>ATK: ${e.atk}<br>DEF: ${e.def === 999 ? 'MAX' : e.def}<br>SPD: ${e.speed}<br><br><span class="text-yellow-300">行動類型: ${e.isBoss?'首領':(e.isMetal?'金屬':e.tierName)}</span><br>`;
-      let bMap = { 'attack':'攻', 'magic':'魔', 'special':'技', 'items':'道', 'fire':'火', 'ice':'冰', 'lightning':'雷', 'earth':'土', 'dark':'暗', 'holy':'聖' };
-      e.immunities.forEach(im => desc += `<span class="text-gray-400 font-bold">特性: ${bMap[im]||im}免</span><br>`);
-      e.weaknesses.forEach(wk => desc += `<span class="text-yellow-400 font-bold">特性: ${bMap[wk]||wk}弱</span><br>`);
-      if(e.imCond) desc += `<span class="text-gray-400 font-bold">抗性: 免疫${e.imCond}</span><br>`;
-      if(e.affix) desc += `<span class="text-orange-400 font-bold">特化詞綴: ${e.affix}</span><br>`;
+      if(e.affixes.length > 0) desc += `<span class="text-orange-400 font-bold">特化詞綴: ${e.affixes.join(', ')}</span><br>`;
       if(e.assassinMarks > 0) desc += `<span class="text-yellow-500 font-bold">🎯 暗殺印記: ${e.assassinMarks} 層</span><br>`;
       let activeConds = CONDITION_DB.filter(c => e.status[c.prop] > 0); activeConds.forEach(c => { desc += `<span class="${c.color}">異常: ${c.name} (${e.status[c.prop]}R)</span><br>`; });
       if(e.wetTimer > 0) desc += `<span class="text-blue-400">異常: 潮濕 (雷擊感電)</span><br>`;
@@ -484,23 +481,24 @@
       }); 
       const mGrid = document.getElementById('enemies-grid'); 
       mGrid.className = "grid grid-cols-4 gap-1 h-full w-full"; mGrid.innerHTML = ''; 
+      let aMap = {'吸血':'bg-red-700','劇毒':'bg-green-700','神速':'bg-blue-600','堅硬':'bg-slate-600','強壯':'bg-orange-700','防毒':'bg-gray-700','防暈':'bg-gray-700','防眠':'bg-gray-700','火免':'bg-red-800','冰免':'bg-blue-800','雷免':'bg-yellow-700','土免':'bg-yellow-900','暗免':'bg-purple-900','聖免':'bg-yellow-200 text-black','攻免':'bg-red-900','魔免':'bg-purple-900','技免':'bg-green-900','道免':'bg-yellow-700','攻弱':'bg-red-950 text-yellow-300 border border-red-800','魔弱':'bg-purple-950 text-yellow-300 border border-purple-800','技弱':'bg-green-950 text-yellow-300 border border-green-800','道弱':'bg-yellow-950 text-yellow-300 border border-yellow-800'};
       for (let i = 0; i < 8; i++) { 
         const e = gameState.enemies[i]; const slot = document.createElement('div'); 
         if (e && !e.isDead) { 
           slot.id = `enemy-card-${i}`; 
-          let bMap = { 'attack': {n:'攻', c:'bg-red-900'}, 'magic': {n:'魔', c:'bg-purple-900'}, 'special': {n:'技', c:'bg-green-900'}, 'items': {n:'道', c:'bg-yellow-700'}, 'fire': {n:'火', c:'bg-red-700'}, 'ice': {n:'冰', c:'bg-blue-700'}, 'lightning': {n:'雷', c:'bg-yellow-600'}, 'earth': {n:'土', c:'bg-yellow-800'}, 'dark': {n:'暗', c:'bg-purple-800'}, 'holy': {n:'聖', c:'bg-yellow-200'} }; 
-          let imCondMap = { 'poison':'毒', 'stun':'暈', 'sleep':'睡' };
           
           let glow = e.isBoss ? 'bg-gradient-to-b from-red-900/40 to-slate-950 border-2 border-red-500 shadow-[inset_0_0_8px_rgba(255,0,0,0.4)]' : 
-                     (e.weaknesses.length > 0 ? 'bg-red-950/50 border border-red-800' : (e.immunities.length > 0 || e.imCond ? 'bg-slate-900 border border-gray-600' : 'bg-slate-950 border border-gray-800'));
+                     (e.weaknesses.length > 0 ? 'bg-red-950/50 border border-red-800' : (e.immunities.length > 0 ? 'bg-slate-900 border border-gray-600' : 'bg-slate-950 border border-gray-800'));
           
           if (gameState.targetingAction && !gameState.targetingAction.targetFriendly) { glow = e.isBoss ? 'target-glow-enemy bg-red-900/50 border-2 border-red-500' : 'target-glow-enemy hover:bg-white/10'; slot.onclick = () => handleTargetClick(e, false); } else if (!gameState.targetingAction && gameState.isInputPhase) { glow += ' info-glow transition-all hover:border-yellow-300'; slot.onclick = () => showEnemyInfo(i); } else { slot.onclick = null; } 
           slot.className = `p-1 flex flex-col justify-between items-center text-center transition-all h-full min-h-[55px] relative ${glow}`; 
           
           let tagsHTML = ''; let tOff = 1;
-          e.immunities.forEach(im => { tagsHTML += `<span class="absolute top-${tOff} left-1 bg-gray-800 text-white px-1 py-0.5 rounded text-[0.4em] font-bold z-40 shadow-sm">${bMap[im]?.n||im}免</span>`; tOff += 4; }); 
-          e.weaknesses.forEach(wk => { tagsHTML += `<span class="absolute top-${tOff} left-1 bg-red-900 text-yellow-300 px-1 py-0.5 rounded text-[0.4em] font-bold z-40 shadow-sm">${bMap[wk]?.n||wk}弱</span>`; tOff += 4; }); 
-          if (e.imCond) tagsHTML += `<span class="absolute top-${tOff} left-1 bg-gray-700/90 text-white px-1 py-0.5 rounded text-[0.4em] font-bold z-40 shadow-sm">${imCondMap[e.imCond]}免</span>`;
+          e.affixes.forEach(af => { 
+              let c = aMap[af] || 'bg-gray-800'; if(!c.includes('text-')) c += ' text-white';
+              tagsHTML += `<span class="absolute top-${tOff} left-1 ${c} px-1 py-0.5 rounded text-[0.4em] font-bold z-40 shadow-sm">${af}</span>`; 
+              tOff += 4; 
+          });
 
           let emoji = e.isBoss ? '👿' : (e.isMetal ? '👽' : (e.s.includes('kamikaze') ? '💣' : '👾')); if (e.status.sleep > 0) emoji = '💤'; 
           let pct = (e.hp / e.maxHp) * 100; 
@@ -588,7 +586,7 @@
       const updateSyncLog = () => { let fullMsg = `${baseMsg}${hitDetails}`; updateAnimationMsg(fullMsg); actionLogObj.msg = `[${logTime}] ${fullMsg}`; if (gameState.activeTab === 'log') renderHistoryLogs(); };
       updateSyncLog();
       
-      let setCond = (tgt, cond, dur, txt, col) => { if(tgt.imCond===cond){ createFloatNum('GUARD', 'text-gray-400', false, gameState.enemies.indexOf(tgt)); return false; } tgt.status[cond]=dur; createFloatNum(txt, col, false, gameState.enemies.indexOf(tgt)); return true; };
+      let setCond = (tgt, cond, dur, txt, col) => { if(tgt.immunities.includes(cond)){ createFloatNum('GUARD', 'text-gray-400', false, gameState.enemies.indexOf(tgt)); return false; } tgt.status[cond]=dur; createFloatNum(txt, col, false, gameState.enemies.indexOf(tgt)); return true; };
 
       let pwr = act.power; 
       if (act.effect === 'blood_strike') { let cost = Math.floor(hero.getMaxHp()*0.2); hero.hp -= cost; createFloatNum(`-${cost}`, 'text-red-500', true, heroIdx); } // 血魔法扣血
@@ -620,7 +618,7 @@
           if (isFire && e.status.poison > 0) { e.status.poison = 0; d += Math.floor(e.maxHp * 0.15); hitDetails += '【💥毒爆!】'; updateSyncLog(); }
           if (isIce && e.status.sleep > 0) { e.status.sleep = 0; setCond(e, 'stun', 1, 'STN', 'text-blue-300'); hitDetails += '【❄️深度凍結!】'; updateSyncLog(); }
           if (isIce) e.wetTimer = 2; if (isLightning && e.wetTimer > 0) { e.wetTimer = 0; setCond(e, 'stun', 1, 'STN', 'text-blue-300'); hitDetails += '【⚡感電!】'; updateSyncLog(); }
-          if (actTags.some(t => e.weaknesses.includes(t)) && Math.random() < 0.5) { e.weaknesses = []; createFloatNum('BREAK', 'text-yellow-300', false, eIdx); hitDetails += ` (BREAK)`; updateSyncLog(); }
+          if (actTags.some(t => e.weaknesses.includes(t)) && Math.random() < 0.5) { e.weaknesses = []; e.affixes = e.affixes.filter(a => !a.includes('弱')); createFloatNum('BREAK', 'text-yellow-300', false, eIdx); hitDetails += ` (BREAK)`; updateSyncLog(); }
           if (e.isMetal && act.effect !== 'metal_slash' && act.type !== 'magic' && Math.random() < 0.85) { createFloatNum('MISS', 'text-gray-400', false, eIdx); hitDetails += ` (MISS)`; updateSyncLog(); return; }
           
           let aoeCMap = {'aoe_blind':['blind',3,'BLD','text-gray-400'], 'aoe_confuse':['confuse',2,'CNF','text-purple-400']};
@@ -667,7 +665,7 @@
                 if (isIce) t.wetTimer = 2; if (isLightning && t.wetTimer > 0) { t.wetTimer = 0; setCond(t, 'stun', 1, 'STN', 'text-blue-300'); hitDetails += '【⚡感電!】'; updateSyncLog(); }
                 if (act.effect === 'damage_mark' || hero.equips.weapon?.id === 'w_02' || act.skillId === 's_05') { t.assassinMarks = (t.assassinMarks || 0) + 1; hitDetails += ` (🎯印記:${t.assassinMarks}層)`; updateSyncLog(); }
                 if (act.skillId === 's_08' && t.assassinMarks > 0) { d = Math.floor(d * (1 + t.assassinMarks * 0.2)); hitDetails += ` (引爆${t.assassinMarks}層印記!)`; t.assassinMarks = 0; updateSyncLog(); }
-                if (actTags.some(tag => t.weaknesses.includes(tag)) && Math.random() < 0.5) { t.weaknesses = []; createFloatNum('BREAK', 'text-yellow-300', false, eIdx); hitDetails += ` (BREAK)`; updateSyncLog(); }
+                if (actTags.some(tag => t.weaknesses.includes(tag)) && Math.random() < 0.5) { t.weaknesses = []; t.affixes = t.affixes.filter(a => !a.includes('弱')); createFloatNum('BREAK', 'text-yellow-300', false, eIdx); hitDetails += ` (BREAK)`; updateSyncLog(); }
                 if (t.isMetal && act.effect !== 'metal_slash' && act.type !== 'magic' && Math.random() < 0.85) { createFloatNum('MISS', 'text-gray-400', false, eIdx); hitDetails += ` (MISS)`; updateSyncLog(); continue; }
                 if (act.effect === 'suplex' && t.isBoss) { hitDetails += ` (無法摔!)`; updateSyncLog(); break; }
                 if (cMap[act.effect]) { setCond(t, cMap[act.effect][0], cMap[act.effect][1], cMap[act.effect][2], cMap[act.effect][3]); if(!pwr) break; }
