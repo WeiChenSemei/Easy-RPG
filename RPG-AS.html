@@ -98,7 +98,7 @@
         <div class="p-3 border-b-2 border-white flex justify-between items-center bg-red-900"><div class="flex items-center gap-2 retro-font text-white">⚠️ 空間已滿：請選擇替換</div></div>
         <div class="p-3 text-center text-yellow-300 font-bold tracking-widest text-[0.9em] leading-relaxed"><span id="replace-new-skill-name" class="text-white"></span><br>請選擇一項覆蓋遺忘：</div>
         <div id="replace-items-grid" class="flex-1 overflow-y-auto p-2 grid grid-cols-1 gap-2 no-scrollbar"></div>
-        <div class="p-2 border-t-2 border-white"><button onclick="cancelReplace()" class="ff-btn ff-btn-danger w-full py-3 retro-font text-[0.8em] text-gray-300">放棄物品/技能</button></div>
+        <div class="p-2 border-t-2 border-white"><button onclick="cancelReplace()" class="ff-btn ff-btn-danger w-full py-3 retro-font text-[0.8em] text-gray-300">返回 (CANCEL)</button></div>
       </div>
     </div>
     <div id="hero-info-modal" class="absolute inset-0 bg-black/90 z-40 flex flex-col justify-center items-center hidden text-[0.9em] p-3 backdrop-blur-sm">
@@ -152,6 +152,9 @@
     function formatNum(num) { if(num>=1e12)return(num/1e12).toFixed(1)+'T';if(num>=1e9)return(num/1e9).toFixed(1)+'B';if(num>=1e6)return(num/1e6).toFixed(1)+'M';if(num>=1e3)return(num/1e3).toFixed(1)+'K';return num.toString();}
     function formatLvl(lvl, type) { if (type === 'passive' && lvl >= 6) return 'Lv.6 (MAX)'; if (type === 'items' || type === 'condition') return ''; return `Lv.${lvl}`; }
     
+    function snapshotHeroState(h) { return JSON.stringify({ i: h.items, m: h.magic, s: h.special, p: h.passives, e: h.equips, c: h.cardMemory, hp: h.hp, sh: h.shield }); }
+    function restoreHeroState(h, snap) { let d = JSON.parse(snap); h.items = d.i; h.magic = d.m; h.special = d.s; h.passives = d.p; h.equips = d.e; h.cardMemory = d.c; h.hp = d.hp; h.shield = d.sh; }
+    
     // Unified Logging System
     function addLog(msg, colorClass = "text-white") { gameState.historyLogs.push({ msg: `[${new Date().toLocaleTimeString('zh-TW', { hour12: false })}] ${msg}`, color: colorClass }); if (gameState.historyLogs.length > 200) gameState.historyLogs.shift(); if (gameState.activeTab === 'log') renderHistoryLogs(); }
     function updateAnimationMsg(txt) { document.getElementById('battle-latest-msg').innerText = txt; let f = document.getElementById('animation-flash-bg'); f.className = "absolute inset-0 bg-white pointer-events-none opacity-20"; setTimeout(() => f.className = "absolute inset-0 bg-white pointer-events-none transition-opacity duration-300 opacity-0", 80); }
@@ -180,6 +183,18 @@
     // M_DB
     const M_DB = [{id:1,n:"綠色黏液怪",r:"tank",s:[]},{id:2,n:"赤紅黏液怪",r:"tank",s:[]},{id:3,n:"尖耳小蝙蝠",r:"assassin",s:['vampire']},{id:4,n:"地精斥候",r:"warrior",s:['flee']},{id:5,n:"枯骨步兵",r:"warrior",s:[]},{id:6,n:"劇毒小蜘蛛",r:"assassin",s:['poison']},{id:7,n:"墓穴殭屍",r:"tank",s:['poison']},{id:8,n:"哥布林射手",r:"assassin",s:['assassinate']},{id:9,n:"瘟疫巨鼠",r:"warrior",s:['flee']},{id:10,n:"食岩幼蟲",r:"tank",s:[]},{id:11,n:"蠻族獸人",r:"warrior",s:[]},{id:12,n:"荒野幽靈",r:"mage",s:['mage_aoe']},{id:13,n:"雙翼石像鬼",r:"tank",s:['stun']},{id:14,n:"黑泥洞蛇",r:"assassin",s:['poison']},{id:15,n:"狂暴野豬",r:"tank",s:['stun']},{id:16,n:"地精薩滿",r:"mage",s:['heal']},{id:17,n:"噬血妖花",r:"mage",s:['poison']},{id:18,n:"枯骨騎兵",r:"warrior",s:[]},{id:19,n:"吸血鬼蝠",r:"assassin",s:['vampire']},{id:20,n:"微光火精靈",r:"mage",s:['mage_aoe']},{id:27,n:"死骨通靈師",r:"mage",s:['heal']},{id:29,n:"影流夜行刺",r:"assassin",s:['assassinate']},{id:34,n:"深淵魅魔",r:"assassin",s:['vampire']},{id:37,n:"極寒深淵法",r:"mage",s:['heal']},{id:38,n:"金屬史萊姆",r:"tank",s:['flee'],m:1},{id:39,n:"離散金屬",r:"tank",s:['flee'],m:1},{id:52,n:"提燈怪",r:"tank",s:['tonberry']},{id:53,n:"爆彈怪",r:"tank",s:['kamikaze']},{id:54,n:"仙人掌",r:"assassin",s:['flee']},{id:55,n:"貝希摩斯",r:"boss",s:['assassinate']},{id:41,n:"巨霸史萊姆王",r:"boss",s:['boss_aoe']},{id:42,n:"哥布林黃金王",r:"boss",s:['buff']},{id:43,n:"枯骨終焉將軍",r:"boss",s:['boss_aoe']},{id:44,n:"獸人鐵血督軍",r:"boss",s:['stun']},{id:45,n:"地精千足毒母",r:"boss",s:['poison']},{id:46,n:"猩紅吸血伯爵",r:"boss",s:['vampire']},{id:47,n:"滅世炎魔領主",r:"boss",s:['boss_aoe']},{id:48,n:"龍王",r:"boss",s:['boss_aoe']},{id:49,n:"大魔王佐瑪",r:"boss",s:['boss_aoe']},{id:50,n:"狂人卡夫卡",r:"boss",s:['mage_aoe']},{id:51,n:"片翼天使賽菲羅斯",r:"boss",s:['assassinate']},{id:56,n:"神龍",r:"boss",s:['boss_aoe']},{id:57,n:"歐米茄",r:"boss",s:['boss_aoe']},{id:58,n:"吉爾伽美什",r:"boss",s:['buff']}];
     const E_SKILLS = { 'normal':{n:'攻擊',t:'dmg',p:1}, 'flee':{n:'逃跑',t:'flee'}, 'kamikaze':{n:'自爆',t:'kami'}, 'vampire':{n:'吸血',t:'dmg',p:1.2,heal:0.5}, 'poison':{n:'毒牙',t:'dmg',p:1,apply:'psn'}, 'stun':{n:'重擊',t:'dmg',p:1,apply:'bld'}, 'heal':{n:'治癒',t:'heal',p:1.5}, 'buff':{n:'戰吼',t:'buff'}, 'assassinate':{n:'暗殺',t:'dmg',p:1.8,ign:1}, 'mage_aoe':{n:'魔彈風暴',t:'aoe',p:0.8}, 'tonberry':{n:'菜刀開膛',t:'fixed',v:999}, 'boss_aoe':{n:'毀滅攻擊',t:'aoe',p:1.5}, 'summon':{n:'呼叫同伴',t:'summon'} };
+
+    const LORE_HINTS = [
+        "火+猛毒=毒爆(15%HP)","冰+睡眠=深度凍結(暈眩)","雷+潮濕=感電(暈眩)",
+        "疊印記+致命刺殺=引爆增傷","洋蔥(劍+盾+甲+戒)=777真傷+暴擊UP","超高傷害擊殺=過量劈裂(波及全場)",
+        "空手+爆裂拳=無視防禦","沙塵暴=剋星(黏液/食岩怪)","烈陽=剋星(不死族/蝙蝠)",
+        "瘴氣=剋星(亞人/野獸)","聖耀十字架=過量治療80%轉盾+聖屬性","惡魔戒指+(流血/狂暴)=吸血率30%",
+        "疾風飛靴+龍跳躍=瞬發不滯空","獵豹指環+閃避成功=自動蓄力","紅寶石項鍊+(腥血拔刀/噬魂)=自殘減半",
+        "狂暴吊墜=永久狂暴+2倍物攻","戰神板甲+防禦=全體嘲諷+80%物反","幻影皮衣攻擊(盲目/睡眠)=100%暴擊","光之聖約劍+普攻=烈陽氣候",
+        "龍骨長槍+龍跳躍=全體空降","破甲流星鎚=命中必定永久降防5","風行輕弩=傷害看速度(速x3)","橡木法杖=治癒50%轉盾+普攻土屬性",
+        "毒蛇之牙+普攻擊殺毒怪=猛毒擴散","刺客匕首+閃避成功=反擊疊加印記","反擊圓盾+防禦=反彈50%受擊傷害",
+        "道具學徒+範圍道具=道具附魔當下氣候","火屬賦魔+烈性手雷=引燃(60真傷)","忍術投擲+投擲裝備=觸發法術或召喚"
+    ];
 
     let gameState = { floor: 1, room: 1, maxRooms: 10, roundCount: 1, historyLogs: [], party: [], enemies: [], currentHeroIndex: 0, isBattleActive: false, isInputPhase: false, pendingDrafts: [], draftChoiceIndex: 0, targetingAction: null, activeTab: 'adventure', lastPartyAction: null, weather: null, wTimer: 0 };
 
@@ -271,7 +286,7 @@
                 if (a.type === 'defM') this.def = Math.floor(this.def * a.val);
                 if (a.type === 'hpM') { this.maxHp = Math.floor(this.maxHp * a.val); this.hp = this.maxHp; }
                 if (a.type === 'im') this.immunities.push(a.val);
-                if (a.type === 'imC') { this.imCond = a.val; } // Note: simplify imCond to just store one string
+                if (a.type === 'imC') { this.imCond = a.val; } 
             }
         }
       }
@@ -361,7 +376,7 @@
           if (cat === 'items' && s.isEquipItem) {
               let dbE = DATABASE[s.equipType].find(x => x.id === s.id); let sName = dbE ? dbE.name : "裝備"; let roman = formatLvl(hero.cardMemory[s.id] || 1, s.equipType);
               let row = document.createElement('div'); row.className = `ff-box-dark p-2 flex flex-col justify-between relative border border-gray-600 mb-2`;
-              row.innerHTML = `<div class="flex justify-between items-center w-full retro-font"><span class="text-[0.9em] text-gray-300">[裝備] ${sName} ${roman}</span></div><p class="text-[0.8em] text-gray-300 leading-relaxed font-sans font-bold tracking-wider mt-1">${dbE ? dbE.desc : "無說明"}</p><div class="flex gap-2 mt-2 h-[32px]"><button class="ff-btn flex-1 retro-font text-[0.7em] text-yellow-300" onclick="equipInventoryItem(${idx})">裝備</button><button class="ff-btn flex-1 retro-font text-[0.7em] text-red-300" onclick="throwInventoryItem(${idx})">投擲</button></div>`; container.appendChild(row);
+              row.innerHTML = `<div class="flex justify-between items-center w-full retro-font"><span class="text-[0.9em] text-gray-300">[裝備] ${sName} ${roman}</span></div><p class="text-[0.8em] text-gray-300 leading-relaxed font-sans font-bold tracking-wider mt-1">${dbE ? dbE.desc : "無說明"}</p><div class="flex gap-2 mt-2 h-[32px]"><button class="ff-btn flex-1 retro-font text-[0.7em] text-yellow-300" onclick="equipInventoryItem(${idx})">裝備</button><button class="ff-btn flex-1 retro-font text-[0.7em] text-blue-300" onclick="startGiveItem(${idx})">給予</button><button class="ff-btn flex-1 retro-font text-[0.7em] text-red-300" onclick="throwInventoryItem(${idx})">投擲</button></div>`; container.appendChild(row);
           } else {
               const isUsable = s.uses > 0; const btn = document.createElement('button'); btn.disabled = !isUsable; btn.className = `ff-btn p-3 text-left flex flex-col justify-between group relative mb-1 ${isUsable ? '' : 'opacity-40'}`; btn.onclick = () => { closeActionMenu(); selectSkillLogic(s, cat, idx); };
               const dbRef = DATABASE[cat].find(x => x.id === s.id); const sName = dbRef ? (dbRef.isConsumable ? "★" + dbRef.name : dbRef.name) : "未知"; const roman = formatLvl(hero.cardMemory[s.id] || 1, cat);
@@ -398,20 +413,33 @@
 
     function closeActionMenu() { document.getElementById('action-select-modal').classList.add('hidden'); }
 
-    function handleInventoryOverflow(hero, pendingCards, callback) { 
-      if (!pendingCards || pendingCards.length === 0) { if (callback) callback(); return; } 
-      let card = pendingCards.shift(); let cat = card.type === 'passive' ? 'passive' : card.type; let list = cat === 'passive' ? hero.passives : hero[cat]; 
+    function handleInventoryOverflow(hero, pendingCards, onComplete, onCancel, snap) { 
+      if (!snap) snap = snapshotHeroState(hero);
+      if (!pendingCards || pendingCards.length === 0) { if (onComplete) onComplete(); return; } 
+      let card = pendingCards[0]; let cat = card.type === 'passive' ? 'passive' : card.type; let list = cat === 'passive' ? hero.passives : hero[cat]; 
       let maxCap = cat === 'magic' ? hero.getMaxMagic() : (cat === 'special' ? hero.getMaxSpecial() : (cat === 'items' ? hero.getMaxItems() : hero.getMaxPassives())); 
-      if (list.length >= maxCap) { showReplaceModal(hero, list, card, cat, () => { handleInventoryOverflow(hero, pendingCards, callback); }); } else { list.push(card); handleInventoryOverflow(hero, pendingCards, callback); } 
+      if (list.length >= maxCap) { 
+          showReplaceModal(hero, list, card, cat, 
+              () => { pendingCards.shift(); handleInventoryOverflow(hero, pendingCards, onComplete, onCancel, snap); }, 
+              () => { restoreHeroState(hero, snap); if(onCancel) onCancel(); }
+          ); 
+      } else { list.push(card); pendingCards.shift(); handleInventoryOverflow(hero, pendingCards, onComplete, onCancel, snap); } 
+    }
+
+    function startGiveItem(itemIdx) {
+      closeActionMenu(); const hero = gameState.party[gameState.currentHeroIndex];
+      let details = { type: 'give_item_input', itemIdx: itemIdx, name: '給予道具', effect: 'give_item_input', targetFriendly: true, isAoe: false, actor: hero };
+      initiateTargeting(details);
     }
 
     function equipInventoryItem(itemIdx) { 
-      closeActionMenu(); const hero = gameState.party[gameState.currentHeroIndex]; const equipItem = hero.items[itemIdx]; const t = equipItem.equipType; const opt = DATABASE[t].find(x => x.id === equipItem.id); 
+      closeActionMenu(); const hero = gameState.party[gameState.currentHeroIndex]; let snap = snapshotHeroState(hero); const equipItem = hero.items[itemIdx]; const t = equipItem.equipType; const opt = DATABASE[t].find(x => x.id === equipItem.id); 
       let pendingCards = []; let oldEquip = hero.equips[t]; 
       if (t === 'weapon' && opt.isTwoHanded && hero.equips.offhand) { pendingCards.push({ id: hero.equips.offhand.id, type: 'items', isEquipItem: true, equipType: 'offhand', uses: 1, maxUses: 1 }); hero.equips.offhand = null; } 
       if (t === 'offhand' && hero.equips.weapon?.isTwoHanded) { pendingCards.push({ id: hero.equips.weapon.id, type: 'items', isEquipItem: true, equipType: 'weapon', uses: 1, maxUses: 1 }); hero.equips.weapon = null; } 
       if (oldEquip) { pendingCards.push({ id: oldEquip.id, type: 'items', isEquipItem: true, equipType: t, uses: 1, maxUses: 1 }); } 
-      hero.items.splice(itemIdx, 1); hero.equips[t] = { ...opt }; hero.actionQueued = { effect: 'equip_change', name: `換裝 [${opt.name}]`, type: 'system', targetFriendly: true }; handleInventoryOverflow(hero, pendingCards, () => advanceTurnQueue()); 
+      hero.items.splice(itemIdx, 1); hero.equips[t] = { ...opt }; 
+      handleInventoryOverflow(hero, pendingCards, () => { hero.actionQueued = { effect: 'equip_change', name: `換裝 [${opt.name}]`, type: 'system', targetFriendly: true }; advanceTurnQueue(); }, () => { resetActionInput(); triggerActionMenu('items'); }, snap); 
     }
 
     function throwInventoryItem(itemIdx) { 
@@ -452,7 +480,19 @@
     }
 
     function selectDefend() { const h = gameState.party[gameState.currentHeroIndex]; queueAction({ type: 'defend', name: '防禦姿態', power: 0, isAoe: false, actor: h, effect: 'defend', targetFriendly: true, target: h }); gameState.targetingAction = null; }
-    function handleTargetClick(obj, isFriendly) { if (!gameState.targetingAction || gameState.targetingAction.targetFriendly !== isFriendly) return; if (gameState.targetingAction.effect !== 'phoenix' && gameState.targetingAction.effect === 'revive' && !obj.isDead) return; else if (gameState.targetingAction.effect !== 'phoenix' && gameState.targetingAction.effect !== 'revive' && obj.isDead) return; gameState.targetingAction.target = obj; queueAction(gameState.targetingAction); gameState.targetingAction = null; }
+    function handleTargetClick(obj, isFriendly) { 
+      if (!gameState.targetingAction || gameState.targetingAction.targetFriendly !== isFriendly) return; 
+      if (gameState.targetingAction.type === 'give_item_input') {
+          let act = gameState.targetingAction; gameState.targetingAction = null;
+          if (act.actor === obj) { resetActionInput(); triggerActionMenu('items'); return; }
+          let snap = snapshotHeroState(obj); let item = act.actor.items[act.itemIdx]; act.actor.items.splice(act.itemIdx, 1);
+          handleInventoryOverflow(obj, [{...item}], () => { act.actor.actionQueued = { effect: 'system', name: `給予道具`, type: 'system', targetFriendly: true }; advanceTurnQueue(); }, () => { act.actor.items.splice(act.itemIdx, 0, item); resetActionInput(); triggerActionMenu('items'); }, snap);
+          return;
+      }
+      if (gameState.targetingAction.effect !== 'phoenix' && gameState.targetingAction.effect === 'revive' && !obj.isDead) return; 
+      else if (gameState.targetingAction.effect !== 'phoenix' && gameState.targetingAction.effect !== 'revive' && obj.isDead) return; 
+      gameState.targetingAction.target = obj; queueAction(gameState.targetingAction); gameState.targetingAction = null; 
+    }
     function queueAction(act) { const h = gameState.party[gameState.currentHeroIndex]; h.actionQueued = act; if (['magic','special','items'].includes(act.type)) { const m = h[act.type].find(s => s.id === act.skillId); if (m) { m.uses--; } } advanceTurnQueue(); }
 
     function startRoom() { 
@@ -640,7 +680,7 @@
           if (act.skillId === 'i_02' && e.status.enchant_fire > 0) { d = 60; hitDetails += '【💥引燃!】'; }
 
           if (d===0) { hitDetails += ` (MISS)`; updateSyncLog(); return; }
-          e.hp = Math.max(0, e.hp - d); if (e.status.sleep > 0) e.status.sleep = 0; createFloatNum(`-${Math.floor(d)}`, isCritTgt?'text-yellow-400':'text-white', false, eIdx); animateElement(`enemy-card-${eIdx}`, 'animate-shake');
+          e.hp = Math.max(0, e.hp - d); if (e.status.sleep > 0) e.status.sleep = 0; createFloatNum(`-${Math.floor(d)}`, isCrit?'text-yellow-400':'text-white', false, eIdx); animateElement(`enemy-card-${eIdx}`, 'animate-shake');
           if (e.status.reflect_buff > 0 && d > 0 && act.type !== 'items') { let rD = Math.floor(d * 0.8); hero.hp = Math.max(0, hero.hp - rD); createFloatNum(`反射-${rD}`, 'text-blue-300', true, heroIdx); }
           
           let aoeCMap2 = {'aoe_poison_miasma':['poison',3,'PSN','text-green-400'], 'damage_poison':['poison',3,'PSN','text-green-400'], 'shiva':['stun',1,'STN','text-blue-300'], 'aoe_damage_stun':['stun',1,'STN','text-blue-300']};
@@ -798,6 +838,7 @@
 
     async function triggerVictoryFlow() { 
       logAndMsg(`🏆 戰鬥勝利！魔物皆已伏誅。`, 'text-green-400 font-bold'); await playTransition('<span class="text-yellow-400 drop-shadow-md">VICTORY</span>', '', 1000); 
+      if (Math.random() < 0.4) { let hint = LORE_HINTS[Math.floor(Math.random() * LORE_HINTS.length)]; logAndMsg(`📜 紙條寫著：『${hint}』`, 'text-gray-400'); }
       if (gameState.room === gameState.maxRooms) { 
         let alives = gameState.party.filter(h => !h.isDead); 
         if (alives.length > 0) { 
@@ -860,6 +901,7 @@
     function advanceDraft() { gameState.draftChoiceIndex++; presentSingleHeroDraft(); }
 
     function selectDraftRewardLogic(hero, opt) { 
+      let snap = snapshotHeroState(hero);
       hero.cardMemory[opt.id] = (hero.cardMemory[opt.id] || 0) + 1; let t = opt.type; let pendingCards = []; 
       if (t === 'items' && !opt.isEquipItem) { let existing = hero.items.find(i => i.id === opt.id); if (existing && !opt.isConsumable) { existing.uses = Math.min(existing.uses + 1, existing.maxUses); advanceDraft(); return; } } 
       if (['weapon', 'offhand', 'armor', 'accessory'].includes(t)) { 
@@ -867,15 +909,16 @@
         if (t === 'weapon') { if (opt.isTwoHanded && hero.equips.offhand) { pendingCards.push({ id: hero.equips.offhand.id, type: 'items', isEquipItem: true, equipType: 'offhand', maxUses: 1, uses: 1 }); hero.equips.offhand = null; } } 
         else if (t === 'offhand') { if (hero.equips.weapon?.isTwoHanded) { pendingCards.push({ id: hero.equips.weapon.id, type: 'items', isEquipItem: true, equipType: 'weapon', maxUses: 1, uses: 1 }); hero.equips.weapon = null; } } 
         if (oldEquip && !isSame) { pendingCards.push({ id: oldEquip.id, type: 'items', isEquipItem: true, equipType: t, maxUses: 1, uses: 1 }); } 
-        if (!isSame) { hero.equips[t] = { ...opt }; } handleInventoryOverflow(hero, pendingCards, () => advanceDraft()); 
-      } else if (t === 'passive') { let m = hero.passives.find(s => s.id === opt.id); if (m) advanceDraft(); else { pendingCards.push({ id: opt.id, type: t }); handleInventoryOverflow(hero, pendingCards, () => advanceDraft()); } } 
-      else { let list = hero[t]; let m = list.find(s => s.id === opt.id); if (m) advanceDraft(); else { let pushMax = DATABASE[t].find(x=>x.id===opt.id).isConsumable ? 1 : opt.maxUses; pendingCards.push({ id: opt.id, type: t, uses: 1, maxUses: pushMax }); handleInventoryOverflow(hero, pendingCards, () => advanceDraft()); } } 
+        if (!isSame) { hero.equips[t] = { ...opt }; } 
+      } else if (t === 'passive') { let m = hero.passives.find(s => s.id === opt.id); if (!m) pendingCards.push({ id: opt.id, type: t }); } 
+      else { let list = hero[t]; let m = list.find(s => s.id === opt.id); if (!m) { let pushMax = DATABASE[t].find(x=>x.id===opt.id).isConsumable ? 1 : opt.maxUses; pendingCards.push({ id: opt.id, type: t, uses: 1, maxUses: pushMax }); } } 
       hero.hp = Math.min(hero.getMaxHp(), hero.hp); 
+      handleInventoryOverflow(hero, pendingCards, () => advanceDraft(), () => {}, snap);
     }
 
     let replaceTempData = null;
-    function showReplaceModal(hero, list, newOpt, cat, callback) { 
-      replaceTempData = { hero, list, newOpt, cat, callback }; let dbCat = newOpt.isEquipItem ? newOpt.equipType : (newOpt.type === 'passive' ? 'passive' : newOpt.type); let realOpt = DATABASE[dbCat].find(x => x.id === newOpt.id); let newOptName = realOpt ? realOpt.name : "未知"; let heroNum = gameState.party.indexOf(hero) + 1; 
+    function showReplaceModal(hero, list, newOpt, cat, confirmCb, cancelCb) { 
+      replaceTempData = { hero, list, newOpt, cat, confirmCb, cancelCb }; let dbCat = newOpt.isEquipItem ? newOpt.equipType : (newOpt.type === 'passive' ? 'passive' : newOpt.type); let realOpt = DATABASE[dbCat].find(x => x.id === newOpt.id); let newOptName = realOpt ? realOpt.name : "未知"; let heroNum = gameState.party.indexOf(hero) + 1; 
       document.getElementById('replace-new-skill-name').innerText = `NO.${heroNum} ${hero.name} 獲得 [${newOptName}] ${formatLvl(hero.cardMemory[newOpt.id] || 1, newOpt.type)}`; 
       const container = document.getElementById('replace-items-grid'); container.innerHTML = ''; 
       list.forEach((s, idx) => { let dbRef = s.isEquipItem ? DATABASE[s.equipType].find(x=>x.id===s.id) : DATABASE[cat].find(x => x.id === s.id); let sName = dbRef ? dbRef.name : "未知"; let btn = document.createElement('button'); btn.className = "ff-btn text-left p-3 flex flex-col justify-between group relative"; btn.onclick = () => { confirmReplace(idx); }; btn.innerHTML = `<div class="flex justify-between items-center w-full"><span class="text-[0.9em] text-white font-bold">遺忘/捨棄 ${sName}</span><span class="text-[0.8em] text-yellow-300">${formatLvl(hero.cardMemory[s.id]||1, s.isEquipItem?s.equipType:cat)}</span></div><p class="text-[0.7em] text-gray-400 mt-1">${dbRef ? dbRef.desc : ""}</p>`; container.appendChild(btn); }); 
@@ -883,12 +926,15 @@
     }
 
     function confirmReplace(index) { 
-      let data = replaceTempData; let oldObj = data.list[index]; let oldCat = oldObj.isEquipItem ? oldObj.equipType : data.cat; let oldDbRef = DATABASE[oldCat].find(x => x.id === oldObj.id); let oldName = oldDbRef ? oldDbRef.name : "舊物件"; let newCat = data.newOpt.isEquipItem ? data.newOpt.equipType : data.cat; let newDbRef = DATABASE[newCat].find(x => x.id === data.newOpt.id); let newOptName = newDbRef ? newDbRef.name : "未知"; 
-      if (data.newOpt.isEquipItem) { data.list[index] = data.newOpt; } else if (data.newOpt.type === 'passive') { data.list[index] = { id: data.newOpt.id, type: data.newOpt.type }; } else { let pushMax = newDbRef?.isConsumable ? 1 : newDbRef.maxUses; data.list[index] = { id: data.newOpt.id, type: data.newOpt.type, uses: 1, maxUses: pushMax }; } 
-      addLog(`♻️ 『${data.hero.name}』更換為 [${newOptName}]！`, 'text-cyan-300'); 
-      document.getElementById('replace-modal').classList.add('hidden'); let cb = data.callback; replaceTempData = null; if (cb) cb(); 
+      let d = replaceTempData; let oldObj = d.list[index]; let nC = d.newOpt.isEquipItem ? d.newOpt.equipType : d.cat; let nD = DATABASE[nC].find(x => x.id === d.newOpt.id); 
+      if (d.newOpt.isEquipItem) { d.list[index] = d.newOpt; } else if (d.newOpt.type === 'passive') { d.list[index] = { id: d.newOpt.id, type: d.newOpt.type }; } else { let pushMax = nD?.isConsumable ? 1 : nD.maxUses; d.list[index] = { id: d.newOpt.id, type: d.newOpt.type, uses: 1, maxUses: pushMax }; } 
+      addLog(`♻️ 『${d.hero.name}』更換為 [${nD?nD.name:'未知'}]！`, 'text-cyan-300'); 
+      document.getElementById('replace-modal').classList.add('hidden'); 
+      if (d.confirmCb) d.confirmCb(); replaceTempData = null; 
     }
-    function cancelReplace() { document.getElementById('replace-modal').classList.add('hidden'); let cb = replaceTempData.callback; replaceTempData = null; if (cb) cb(); }
+    function cancelReplace() { 
+        let cb = replaceTempData?.cancelCb; document.getElementById('replace-modal').classList.add('hidden'); replaceTempData = null; if (cb) cb(); 
+    }
 
     async function proceedToNextRoom() { 
       document.getElementById('draft-modal').classList.add('hidden'); let isNextFloor = false; 
@@ -899,7 +945,7 @@
 
     function openSaveModal() { document.getElementById('save-code-area').value = ""; document.getElementById('save-modal').classList.remove('hidden'); }
     function closeSaveModal() { document.getElementById('save-modal').classList.add('hidden'); }
-    function removeCircularRefs(key, value) { if (key === 'actionQueued' || key === 'jumpTarget' || key === 'target') return undefined; return value; }
+    function removeCircularRefs(key, value) { if (key === 'actionQueued' || key === 'jumpTarget' || key === 'target' || key === 'itemInstance') return undefined; return value; }
     function exportSaveCode() { let d = JSON.stringify({ f: gameState.floor, r: gameState.room, p: gameState.party.map(h => ({ id: h.id, name: h.name, cardMemory: h.cardMemory, equips: h.equips, magic: h.magic, special: h.special, items: h.items, passives: h.passives, hp: h.hp, currentRerolls: h.currentRerolls, bMag: h.bMag, bSpc: h.bSpc, bItm: h.bItm, matk: h.matk }))}, removeCircularRefs); document.getElementById('save-code-area').value = btoa(encodeURIComponent(d)); addLog("代碼已產生！", "text-cyan-400"); }
     function importSaveCode() { let str = document.getElementById('save-code-area').value.trim(); if (!str) { showSystemMessage("請先貼上代碼！"); return; } try { let dec = JSON.parse(decodeURIComponent(atob(str))); gameState.floor = dec.f || 1; gameState.room = dec.r || 1; gameState.party = dec.p.map(x => { let h = new Hero(x.id || x.i, x.name || x.n); h.equips = x.equips || x.e; h.magic = x.magic || x.m; h.special = x.special || x.s; h.items = x.items || x.it; h.passives = x.passives || x.pa; h.hp = x.hp; h.currentRerolls = x.currentRerolls || x.rr || 1; h.cardMemory = x.cardMemory || x.cm || {}; h.bMag = x.bMag || 0; h.bSpc = x.bSpc || 0; h.bItm = x.bItm || 0; h.matk = x.matk || 10; return h; }); closeSaveModal(); startRoom(); } catch (e) { showSystemMessage("無法還原，請確認代碼完整度！"); } }
     function quickSaveGame() { let d = JSON.stringify({ f: gameState.floor, r: gameState.room, p: gameState.party.map(h => ({ id: h.id, name: h.name, cardMemory: h.cardMemory, equips: h.equips, magic: h.magic, special: h.special, items: h.items, passives: h.passives, hp: h.hp, currentRerolls: h.currentRerolls, bMag: h.bMag, bSpc: h.bSpc, bItm: h.bItm, matk: h.matk })) }, removeCircularRefs); localStorage.setItem(STORAGE_KEY, d); addLog("進度已保存。", "text-cyan-400"); closeSaveModal(); }
