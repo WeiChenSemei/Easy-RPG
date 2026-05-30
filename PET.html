@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>魔物觀察日誌</title>
+    <style>
+        :root {
+            --font-size: 18px;
+            --bg-color: #f7f1eb; /* 更加柔和的背景 */
+            --text-color: #6d5b5e;
+            --primary: #ffb7b2;
+            --secondary: #e2f0cb;
+            --accent: #ffdac1;
+            --danger: #ff9aa2;
+            --panel-bg: rgba(255, 255, 255, 0.75);
+            --border: #f0e6e0;
+            --pet-glow: rgba(92, 74, 77, 0.4);
+            --gc1: #7F7FD5;
+            --gc2: #86A8E7;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+        html, body {
+            height: 100%; overflow: hidden;
+            font-family: 'Helvetica Neue', 'Quicksand', 'Microsoft JhengHei', sans-serif;
+            font-size: var(--font-size);
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); /* 療癒漸層底色 */
+            color: var(--text-color); display: flex; justify-content: center; touch-action: pan-y;
+        }
+
+        #app {
+            width: 100%; max-width: 450px; height: 100%; display: flex;
+            flex-direction: column; background: var(--bg-color);
+            box-shadow: 0 0 30px rgba(0,0,0,0.06); position: relative;
+        }
+
+        .header {
+            display: flex; justify-content: space-between; padding: 12px 15px;
+            background: rgba(255,255,255,0.6); backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border); align-items: center; flex-shrink: 0; z-index: 10;
+        }
+        
+        .sys-btn {
+            background: #fff; border: 1px solid var(--border); border-radius: 12px;
+            padding: 8px 14px; font-size: 0.9em; color: var(--text-color);
+            font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+        }
+
+        .screen { display: none; flex: 1; flex-direction: column; padding: 15px; overflow-y: auto; }
+        .screen.active { display: flex; }
+
+        /* Main View */
+        .pet-container {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; border-radius: 24px;
+            margin-bottom: 15px; padding: 10px 20px; border: 2px dashed rgba(200,180,180,0.5);
+            text-align: center; overflow-y: auto; transition: background-color 0.8s ease;
+        }
+
+        .pet-wrapper {
+            position: relative; margin: 10px 0; display: flex;
+            align-items: center; justify-content: center; width: 120px; height: 120px;
+        }
+
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes react { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.2) translateY(-10px); } }
+        @keyframes float-trait { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(2px, -4px) rotate(10deg); } }
+        @keyframes floatUp { 0% { opacity:0; transform:translate(-50%, 10px); } 15% { opacity:1; transform:translate(-50%, 0); } 80% { opacity:1; transform:translate(-50%, -20px); } 100% { opacity:0; transform:translate(-50%, -30px); } }
+
+        .pet-face {
+            font-size: calc(var(--font-size) * 4); line-height: 1;
+            animation: float 4s ease-in-out infinite;
+            filter: drop-shadow(0 0 25px var(--pet-glow)); transition: filter 0.5s;
+        }
+        .pet-wrapper.react .pet-face { animation: react 0.4s ease-out; }
+
+        .trait-icon {
+            position: absolute; font-size: calc(var(--font-size) * 1.5);
+            animation: float-trait 3s ease-in-out infinite alternate;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); z-index: 2;
+        }
+        
+        .float-msg {
+            position: absolute; top: 12%; left: 50%; transform: translateX(-50%);
+            background: rgba(255,255,255,0.95); color: #444; padding: 10px 20px;
+            border-radius: 20px; font-size: 0.9em; width: max-content; max-width: 85%;
+            font-weight: bold; text-align: center; z-index: 150; pointer-events: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15); animation: floatUp 2s ease-out forwards;
+        }
+
+        /* 名字漸層與排版 */
+        .pet-name-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 5px; }
+        .pet-name {
+            font-size: 1.25em; font-weight: 900; line-height: 1.3;
+            background: linear-gradient(45deg, var(--gc1), var(--gc2));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            word-break: break-word; text-align: center;
+        }
+        .pet-tags { font-size: 0.8em; color: #888; margin-bottom: 10px; }
+
+        .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+        .stat-item {
+            background: rgba(255,255,255,0.6); backdrop-filter: blur(5px);
+            padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.8);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03); font-size: 0.9em; font-weight: bold;
+            display: flex; justify-content: space-between;
+        }
+
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: 10px; flex-shrink: 0; }
+        .btn {
+            background: var(--primary); color: #5c4a4d; border: none; padding: 18px 10px;
+            font-size: 1.1em; font-weight: 900; border-radius: 20px; cursor: pointer;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.06); transition: transform 0.1s;
+        }
+        .btn:active { transform: translateY(6px); box-shadow: none; }
+        .btn.explore { background: var(--secondary); }
+        .btn.rest { background: var(--accent); }
+        .btn.log { background: #b0c4de; color: white; }
+        .btn.back { background: #e0e0e0; grid-column: span 2; margin-top: auto; flex-shrink: 0;}
+        
+        .list-btn {
+            background: var(--panel-bg); border: 2px solid var(--border); padding: 15px;
+            margin-bottom: 10px; border-radius: 16px; font-size: 1em; font-weight: bold;
+            color: var(--text-color); display: flex; justify-content: space-between; cursor: pointer;
+        }
+        .list-btn:active { background: var(--bg-color); transform: scale(0.98); }
+
+        .log-entry { background: rgba(255,255,255,0.8); padding: 15px; border-radius: 16px; margin-bottom: 10px; border-left: 6px solid var(--primary); line-height: 1.5; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+        .log-date { font-size: 0.8em; color: #aaa; margin-bottom: 5px; }
+
+        #alertBox {
+            position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); color: white; padding: 12px 24px;
+            border-radius: 30px; font-size: 0.9em; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s; z-index: 100; white-space: nowrap; backdrop-filter: blur(5px);
+        }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 15px; background: var(--panel-bg); border-radius: 16px; }
+        input[type="text"] { width: 100%; padding: 12px; font-size: 1em; border: 2px solid var(--border); border-radius: 12px; margin-top: 5px; outline:none; }
+        
+        .ending-box { text-align: center; margin-top: 50px; line-height: 1.6; }
+        .ending-title { 
+            font-size: 2.2em; font-weight: 900; margin-bottom: 20px;
+            background: linear-gradient(45deg, var(--gc1), var(--gc2));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+        
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); z-index: 200; align-items: center; justify-content: center;
+        }
+        .modal-box {
+            background: #fff; color: var(--text-color); padding: 30px 25px;
+            border-radius: 24px; width: 85%; max-width: 320px; text-align: center;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div class="header">
+        <button class="sys-btn" onclick="UI.changeFont(-1)">A-</button>
+        <div style="font-weight:bold; letter-spacing: 1px;">📖 魔物觀察日誌</div>
+        <button class="sys-btn" onclick="UI.changeFont(1)">A+</button>
+    </div>
+
+    <!-- Main Screen -->
+    <div id="screen-main" class="screen active">
+        <div class="header" style="padding:0 0 10px 0; border:none; justify-content: flex-end; background:transparent; box-shadow:none;">
+            <button class="sys-btn" onclick="UI.nav('sys')">⚙️ 系統</button>
+        </div>
+        <div class="pet-container" id="pet-display"></div>
+        <div class="controls">
+            <button class="btn" onclick="Game.doAction('feed')">🍖 餵食</button>
+            <button class="btn explore" onclick="Game.doAction('explore')">🗺️ 探索</button>
+            <button class="btn rest" onclick="Game.doAction('rest')">💤 休息</button>
+            <button class="btn log" onclick="UI.nav('log')">📋 日誌</button>
+        </div>
+    </div>
+
+    <!-- Feed Screen -->
+    <div id="screen-feed" class="screen">
+        <h2 style="margin-bottom:15px; text-align:center; flex-shrink:0;">要餵什麼呢？</h2>
+        <div id="food-list" style="flex:1; overflow-y:auto; margin-bottom:10px; padding:5px;"></div>
+        <button class="btn back" onclick="UI.nav('main')">返回</button>
+    </div>
+
+    <!-- Log Screen -->
+    <div id="screen-log" class="screen">
+        <h2 style="margin-bottom:15px; text-align:center; flex-shrink:0;">觀察日誌</h2>
+        <div id="log-list" style="flex:1; overflow-y:auto; margin-bottom:10px; padding:5px;"></div>
+        <button class="btn back" onclick="UI.nav('main')">返回</button>
+    </div>
+
+    <!-- System Screen -->
+    <div id="screen-sys" class="screen">
+        <h2 style="margin-bottom:15px; text-align:center;">系統設定</h2>
+        <div class="setting-row">
+            <span>本地存檔</span>
+            <div><button class="sys-btn" onclick="Save.save()">存檔</button> <button class="sys-btn" onclick="Save.load()">讀檔</button></div>
+        </div>
+        <div class="setting-row" style="flex-direction:column; align-items:stretch;">
+            <span>繼承碼 (匯出/匯入)</span>
+            <input type="text" id="saveCode" placeholder="貼上代碼或點擊匯出">
+            <div style="display:flex; gap:10px; margin-top:10px; justify-content: flex-end;">
+                <button class="sys-btn" onclick="Save.exportCode()">匯出</button>
+                <button class="sys-btn" onclick="Save.importCode()">匯入</button>
+            </div>
+        </div>
+        <button class="btn" style="background:var(--danger); color:white; flex-shrink:0;" onclick="Game.reset()">⚠️ 放棄本代並重來</button>
+        <button class="btn back" onclick="UI.nav('main')" style="margin-top:15px;">返回</button>
+    </div>
+
+    <!-- Ending Screen -->
+    <div id="screen-ending" class="screen" style="background: #2a2a35; color: white;">
+        <div class="ending-box" id="ending-content"></div>
+        <button class="btn" style="margin-top:40px; background:var(--accent); flex-shrink:0;" onclick="Game.startNew()">開啟新輪迴</button>
+    </div>
+
+    <!-- Modal Alerts -->
+    <div id="alertBox"></div>
+    <div id="confirmBox" class="modal-overlay">
+        <div class="modal-box">
+            <p id="confirmText" style="margin-bottom:20px; font-weight:bold; font-size:1.1em;"></p>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button class="sys-btn" onclick="UI.closeConfirm()" style="flex:1;">取消</button>
+                <button class="sys-btn" id="confirmYes" style="flex:1; background:var(--danger); color:white; border-color:var(--danger);">確定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ================= EMOJI & DATA DICTIONARIES ================= */
+
+const FOODS = {
+    meat: { n: '🍖 神秘肉塊', d: '增加野性', full: 25, m: 5, hp: 10, g: { beast: 3, holy: -1 } },
+    fruit: { n: '🍎 發光水果', d: '微量魔法', full: 15, m: 10, hp: 5, g: { magic: 2, holy: 1 } },
+    metal: { n: '⚙️ 廢棄金屬', d: '難以消化', full: 35, m: -5, hp: 0, g: { machine: 3, beast: -1 } },
+    venom: { n: '🧪 可疑毒液', d: '劇毒!', full: 10, m: -15, hp: -10, g: { toxic: 4, holy: -2 } },
+    crystal: { n: '💎 魔晶石', d: '純粹能量', full: 5, m: 20, hp: 5, g: { magic: 4, machine: -1 } },
+    soul: { n: '👻 幽靈碎片', d: '冰涼口感', full: 10, m: -5, hp: -5, g: { magic: 3, toxic: 2 } },
+    battery: { n: '🔋 舊電池', d: '酥脆帶電', full: 20, m: 0, hp: -5, g: { machine: 4, toxic: 1 } },
+    star: { n: '⭐ 隕石糖', d: '宇宙的甜味', full: 15, m: 25, hp: 15, g: { holy: 4, magic: 1 } }
+};
+
+const PERSONALITIES = [
+    { id: 'timid', n: '膽小', t: '總在發抖。', fx: { risk: 0.5 } },
+    { id: 'curious', n: '好奇', t: '四處張望。', fx: { rare: 1.5 } },
+    { id: 'gluttonous', n: '貪吃', t: '口水流不停。', fx: { fDecay: 1.5 } },
+    { id: 'fierce', n: '兇暴', t: '眼神凶惡。', fx: { hpGain: 1.2 } },
+    { id: 'kind', n: '善良', t: '喜歡蹭人。', fx: { mDecay: 0.5 } },
+    { id: 'lazy', n: '懶惰', t: '完全不想動。', fx: { fDecay: 0.6, risk: 0.2 } }
+];
+
+const MUTATIONS = {
+    twoHeaded: { n: '雙頭', p: '👯', c: 0.05, g: { beast: 5 } },
+    mechanized: { n: '機械甲', p: '⚙️', c: 0.05, g: { machine: 5 } },
+    wings: { n: '羽翼', p: '🕊️', c: 0.04, g: { holy: 5 } },
+    fire: { n: '烈焰', p: '🔥', c: 0.05, g: { magic: 3, beast: 2 } },
+    spikes: { n: '尖刺', p: '🌵', c: 0.05, g: { toxic: 2, beast: 3 } },
+    horns: { n: '長角', p: '😈', c: 0.06, g: { beast: 3, magic: 2 } },
+    multiEyes: { n: '多眼', p: '👁️', c: 0.04, g: { toxic: 4, magic: 2 } },
+    tentacles: { n: '觸手', p: '🦑', c: 0.04, g: { toxic: 3, beast: 3 } }
+};
+
+const GN = { beast: '狂野', magic: '魔幻', machine: '合金', toxic: '劇毒', holy: '神聖', normal: '普通' };
+
+const FACES = {
+    baby: [['🥚','卵'], ['🦠','孢子'], ['💧','水滴'], ['🌱','幼苗'], ['☁️','雲團'], ['🧶','毛球']],
+    child: [['🐛','幼蟲'], ['🦎','幼蜥'], ['🐸','幼蛙'], ['🐟','稚魚'], ['🦇','小蝠'], ['🐌','蝸牛']],
+    adult: {
+        beast: [['🐺','野狼'], ['🦁','巨獅'], ['🐻','暴熊'], ['🐅','猛虎'], ['🦍','巨猿'], ['🐗','魔豬']],
+        magic: [['🦄','幻獸'], ['🦉','靈梟'], ['🦋','魔蝶'], ['🔮','星靈'], ['🧞','魔神'], ['🎭','千面']],
+        machine: [['🤖','機甲'], ['🛸','浮游炮'], ['🛰️','衛星'], ['🕹️','終端機'], ['📺','螢幕頭'], ['🗜️','粉碎機']],
+        toxic: [['🦂','毒蠍'], ['🕷️','寡婦蛛'], ['🐍','毒牙'], ['🍄','腐菇'], ['🧟','食屍鬼'], ['🦠','母體']],
+        holy: [['🌞','陽炎'], ['👼','智天使'], ['👁️‍🗨️','全知眼'], ['👑','聖王'], ['🦢','光翼'], ['🗿','神像']],
+        normal: [['🐷','貪吃豬'], ['🐹','巨鼠'], ['🐰','迅捷兔'], ['🦝','浣熊'], ['🐨','無尾熊'], ['🐼','胖達']]
+    }
+};
+
+// 新增彩色漸層：s為陰影光暈，g1與g2為名字的漸層色
+const GENE_COLORS = {
+    beast: { s: 'rgba(160,82,45,0.7)', g1: '#e65c00', g2: '#F9D423' },
+    magic: { s: 'rgba(147,112,219,0.7)', g1: '#8e2de2', g2: '#4a00e0' },
+    machine: { s: 'rgba(70,130,180,0.7)', g1: '#00c6ff', g2: '#0072ff' },
+    toxic: { s: 'rgba(34,139,34,0.7)', g1: '#11998e', g2: '#38ef7d' },
+    holy: { s: 'rgba(218,165,32,0.8)', g1: '#f12711', g2: '#f5af19' },
+    normal: { s: 'rgba(92,74,77,0.2)', g1: '#7F7FD5', g2: '#86A8E7' }
+};
+
+const TRAIT_POSITIONS = [
+    { top: '-10%', left: '-10%' }, { top: '-10%', right: '-10%' },
+    { bottom: '0%', left: '-15%' }, { bottom: '0%', right: '-15%' },
+    { top: '30%', left: '-25%' }, { top: '30%', right: '-25%' },
+    { top: '-25%', left: '40%' }, { bottom: '-20%', right: '40%' }
+];
+
+const EXPLORE_EVENTS = [
+    { w: 30, n: '散步', txt: '在草地上打滾，心情變好了。', m: 15, hp: 5, item: '', bg: '#f2f8eb' },
+    { w: 20, n: '受傷', txt: '遇到了野生魔物，被打傷了逃跑。', m: -20, hp: -20, item: '', bg: '#ffebe6' },
+    { w: 15, n: '發現', txt: '在樹叢裡找到了一些能吃的東西。', m: 5, hp: 0, item: 'full', bg: '#ffffff' },
+    { w: 10, n: '奇遇', txt: '吸收了古代遺跡的輻射...', m: 0, hp: -10, item: 'mutate', bg: '#f4ebf8' },
+    { w: 10, n: '寶藏', txt: '撿到了一塊純淨的魔晶石！', m: 20, hp: 0, item: 'crystal', bg: '#ebf4f8' },
+    { w: 10, n: '天氣', txt: '突然下起了酸雨，感覺有點刺痛。', m: -10, hp: -15, item: 'toxic', bg: '#eef2e6' },
+    { w: 5, n: '神蹟', txt: '沐浴在從天而降的溫暖光芒中。', m: 30, hp: 30, item: 'holy', bg: '#fffce6' }
+];
+
+const LOG_PARTS = {
+    time: ['清晨的微光中', '日正當中時', '寂靜的深夜', '逢魔之時', '下著酸雨的午後', '起大霧的早晨', '血月升起時'],
+    act: ['盯著牆壁發呆', '發出令人不安的低鳴', '試圖啃咬金屬籠', '在原地瘋狂轉圈', '睡得四腳朝天', '對著空氣揮舞', '突然凝視著遠方', '試圖模仿人類的語言', '分泌出奇怪的黏液', '把食物藏了起來'],
+    feel: ['似乎心情愉悅', '看起來非常暴躁', '眼神中閃過一絲智慧', '彷彿在思考宇宙的真理', '令人感到毛骨悚然', '發出微弱的光芒', '周圍的空氣變冷了']
+};
+
+const ENDINGS = [
+    { req: (g) => g.holy > 30 && g.magic > 30, t: '飛升成神', d: '牠化作純粹的光芒，離開了這個維度。你感到無比平靜。' },
+    { req: (g) => g.beast > 40 && g.toxic > 20, t: '深淵霸主', d: '牠突破了收容，成為了周遭生態系的頂點。' },
+    { req: (g) => g.machine > 40, t: '無機質永生', d: '牠徹底捨棄了肉體，與基地的超級電腦融為一體。' },
+    { req: (g) => g.magic > 50, t: '大賢者', d: '牠學會了人類的語言，留下了一本魔法書後飄然離去。' },
+    { req: (g) => g.toxic > 50, t: '異變源頭', d: '牠散發的毒氣將整個觀察站化為無人能進的死域。' },
+    { req: (g) => true, t: '繁衍後代', d: '牠留下了一顆蛋，結束了短暫但充實的一生。' } 
+];
+
+const RND = {
+    i: (arr) => arr[Math.floor(Math.random() * arr.length)],
+    w: (arr) => { let s = arr.reduce((a, b) => a + b.w, 0), r = Math.random() * s; return arr.find(x => (r -= x.w) < 0); },
+    c: (prob) => Math.random() < prob
+};
+
+/* ================= GAME LOGIC ================= */
+
+let state = {};
+
+const Game = {
+    init: () => {
+        let f = RND.i(FACES.baby);
+        state = {
+            id: Date.now(), age: 0, day: 1,
+            hp: 100, maxHp: 100, full: 80, maxFull: 100, mood: 80, maxMood: 100,
+            genes: { beast: 0, magic: 0, machine: 0, toxic: 0, holy: 0 },
+            traits: [], face: f[0], bName: f[1], stage: 'baby',
+            pers: RND.i(PERSONALITIES), logs: [], bg: 'var(--panel-bg)'
+        };
+        Game.addLog(`新個體誕生。表現出【${state.pers.n}】的特質。`);
+    },
+    
+    startNew: () => { Game.init(); UI.nav('main'); UI.update(); Save.saveLocal(); },
+    reset: () => { UI.showConfirm('確定要放棄這隻魔物，開啟新輪迴嗎？', Game.startNew); },
+
+    tick: (cost = 1) => {
+        state.age += cost;
+        if(state.age % 3 === 0) state.day++;
+        
+        let md = 5 * (state.pers.fx.mDecay || 1), fd = 8 * (state.pers.fx.fDecay || 1);
+        state.mood = Math.max(0, Math.round(state.mood - md));
+        state.full = Math.max(0, Math.round(state.full - fd));
+        if (state.full === 0) state.hp = Math.round(state.hp - 10);
+        
+        if (state.age % 5 === 0) Game.autoLog();
+        Game.checkEvo();
+        Game.checkEnd();
+        
+        UI.update();
+        Save.saveLocal();
+    },
+
+    doAction: (type, pay) => {
+        if(state.hp <= 0 || state.stage === 'end') return;
+        
+        if(type === 'feed' && !pay) return UI.nav('feed');
+
+        let msg = "";
+        const ACT = {
+            feed: (fId) => {
+                let f = FOODS[fId];
+                state.full = Math.min(state.maxFull, Math.round(state.full + f.full));
+                state.mood = Math.min(state.maxMood, Math.round(state.mood + f.m));
+                state.hp = Math.min(state.maxHp, Math.round(state.hp + f.hp));
+                for(let k in f.g) state.genes[k] += f.g[k];
+                Game.checkMut(); return `餵食了 ${f.n}`;
+            },
+            explore: () => {
+                if(state.full < 20) return "!肚子太餓了不想動..."; // 驚嘆號開頭代表錯誤不tick
+                state.full = Math.round(state.full - 15);
+                let ev = RND.w(EXPLORE_EVENTS), ex = "";
+                
+                state.mood = Math.min(state.maxMood, Math.max(0, Math.round(state.mood + ev.m)));
+                state.hp = Math.min(state.maxHp, Math.max(0, Math.round(state.hp + ev.hp)));
+                state.bg = ev.bg || 'var(--panel-bg)'; 
+                
+                if(ev.item==='full') { state.full = state.maxFull; ex = "(飽食滿!)"; }
+                if(ev.item==='mutate') { Game.forceMut(); ex = "(變異!)"; }
+                if(ev.item==='crystal') { state.genes.magic += 5; ex = "(魔力↑)"; }
+                if(ev.item==='toxic') { state.genes.toxic += 5; ex = "(毒性↑)"; }
+                if(ev.item==='holy') { state.genes.holy += 5; ex = "(神聖↑)"; }
+                
+                Game.addLog(`【探索】${ev.txt} ${ex}`); return `${ev.txt} ${ex}`;
+            },
+            rest: () => {
+                state.hp = Math.min(state.maxHp, Math.round(state.hp + 30));
+                state.mood = Math.min(state.maxMood, Math.round(state.mood + 10));
+                return "呼嚕呼嚕睡了一覺...";
+            }
+        };
+
+        msg = ACT[type](pay);
+        
+        if(msg.startsWith('!')) return UI.floatMsg(msg.substring(1)); // 不執行 tick，直接顯示錯誤
+        
+        if(type === 'feed') UI.nav('main');
+        
+        Game.tick(); // 這裡會呼叫 UI.update() 重繪畫面
+        
+        // 確保畫面重繪完畢後，再把動畫與飄字加上去 (修正 BUG 關鍵)
+        UI.anim(); 
+        UI.floatMsg(msg);
+    },
+
+    checkMut: () => {
+        Object.keys(MUTATIONS).forEach(k => {
+            if(!state.traits.includes(k) && RND.c(MUTATIONS[k].c)) {
+                state.traits.push(k);
+                Game.addLog(`【突變】獲得特徵：${MUTATIONS[k].n}！`);
+            }
+        });
+    },
+    
+    forceMut: () => {
+        let a = Object.keys(MUTATIONS).filter(k => !state.traits.includes(k));
+        if(a.length > 0) {
+            let m = RND.i(a); state.traits.push(m);
+            for(let g in MUTATIONS[m].g) state.genes[g] += MUTATIONS[m].g[g];
+        }
+    },
+
+    getTopGene: () => {
+        let t = Object.keys(state.genes).reduce((a, b) => state.genes[a] > state.genes[b] ? a : b);
+        return state.genes[t] < 10 ? 'normal' : t;
+    },
+
+    getName: () => {
+        let tr = state.traits.map(t => `[${MUTATIONS[t].n}]`).join('');
+        let top = Game.getTopGene();
+        let gn = state.stage === 'adult' && top !== 'normal' ? `[${GN[top]}]` : '';
+        return `${tr}${tr ? '的' : ''}${gn}${state.bName || '未知魔物'}`;
+    },
+
+    checkEvo: () => {
+        if (state.age === 10 && state.stage === 'baby') {
+            let f = RND.i(FACES.child);
+            state.stage = 'child'; state.face = f[0]; state.bName = f[1];
+            Game.addLog("【成長】體型變大了。");
+        } else if (state.age === 20 && state.stage === 'child') {
+            state.stage = 'adult';
+            let top = Game.getTopGene();
+            let f = RND.i(FACES.adult[top]);
+            state.face = f[0]; state.bName = f[1];
+            Game.addLog(`【進化】呈現出強烈的 [${top}] 屬性。`);
+        }
+    },
+
+    checkEnd: () => {
+        if (state.hp <= 0) {
+            state.stage = 'end'; Game.addLog("【警告】生命徵象消失。");
+            UI.showEnd("實驗失敗", "個體生命力耗盡死亡。");
+        } else if (state.age >= 35) {
+            state.stage = 'end';
+            let end = ENDINGS.find(e => e.req(state.genes));
+            Game.addLog(`【終局】${end.t}`);
+            UI.showEnd(end.t, end.d);
+        }
+    },
+
+    autoLog: () => Game.addLog(`${RND.i(LOG_PARTS.time)}，牠${RND.i(LOG_PARTS.act)}，${RND.i(LOG_PARTS.feel)}。`),
+    
+    addLog: (txt) => {
+        state.logs.unshift({ d: state.day, t: txt });
+        if(state.logs.length > 40) state.logs.pop();
+    }
+};
+
+/* ================= UI SYSTEM ================= */
+
+const UI = {
+    fSz: 18,
+    
+    init: () => {
+        document.getElementById('food-list').innerHTML = Object.keys(FOODS).map(k => `
+            <div class="list-btn" onclick="Game.doAction('feed', '${k}')">
+                <div>${FOODS[k].n}<br><small style="color:#888">${FOODS[k].d}</small></div>
+                <div style="text-align:right">
+                    <span style="color:var(--danger)">+${FOODS[k].full}飽</span><br>
+                    <span style="color:#bbb; font-size:0.8em">餵食</span>
+                </div>
+            </div>
+        `).join('');
+    },
+
+    nav: (id) => {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(`screen-${id}`).classList.add('active');
+        if(id === 'log') UI.renderLogs();
+    },
+
+    update: () => {
+        if(state.stage === 'end') return;
+        
+        let top = Game.getTopGene();
+        let c = GENE_COLORS[top];
+        document.documentElement.style.setProperty('--pet-glow', c.s);
+        document.documentElement.style.setProperty('--gc1', c.g1);
+        document.documentElement.style.setProperty('--gc2', c.g2);
+        
+        let traitsHtml = state.traits.map((t, i) => {
+            let pos = TRAIT_POSITIONS[i % TRAIT_POSITIONS.length];
+            let posStr = Object.keys(pos).map(k => `${k}:${pos[k]}`).join(';');
+            let delay = (i * 0.3).toFixed(1);
+            let sz = 1 + ((t.charCodeAt(0) + i) % 4) * 0.3;
+            return `<div class="trait-icon" style="${posStr}; animation-delay: ${delay}s; font-size: calc(var(--font-size) * ${sz});">${MUTATIONS[t].p}</div>`;
+        }).join('');
+
+        const container = document.getElementById('pet-display');
+        // 柔和探索背景色 (放射漸層)
+        container.style.background = `radial-gradient(circle at center, rgba(255,255,255,0.6), ${state.bg || 'var(--panel-bg)'})`;
+        
+        container.innerHTML = `
+            <div class="pet-wrapper" id="pet-wrapper">
+                <div class="pet-face">${state.face}</div>
+                ${traitsHtml}
+            </div>
+            <div class="pet-info" style="width:100%;">
+                <div class="pet-name-wrap">
+                    <span style="font-size:0.8em; color:#999; font-weight:bold;">No.${state.id.toString().slice(-4)} (${state.pers.n})</span>
+                    <div class="pet-name">${Game.getName()}</div>
+                </div>
+                <div class="pet-tags">第 ${state.day} 天 | 階段: ${state.stage === 'baby'?'幼體':state.stage==='child'?'成長體':'完全體'}</div>
+                <div class="status-grid">
+                    <div class="stat-item"><span>❤️ HP</span> <span style="color:${state.hp<30?'var(--danger)':'inherit'}">${state.hp}/${state.maxHp}</span></div>
+                    <div class="stat-item"><span>🍖 飽食</span> <span style="color:${state.full<30?'var(--danger)':'inherit'}">${state.full}/${state.maxFull}</span></div>
+                    <div class="stat-item"><span>✨ 心情</span> <span>${state.mood}/${state.maxMood}</span></div>
+                    <div class="stat-item"><span>⏳ 週期</span> <span>${state.age}</span></div>
+                </div>
+            </div>`;
+    },
+
+    renderLogs: () => document.getElementById('log-list').innerHTML = state.logs.map(l => `<div class="log-entry"><div class="log-date">Day ${l.d}</div>${l.t}</div>`).join(''),
+
+    showEnd: (t, d) => {
+        UI.nav('ending');
+        document.getElementById('ending-content').innerHTML = `
+            <div class="pet-face" style="font-size:5em; margin-bottom:20px; filter: drop-shadow(0 0 40px ${GENE_COLORS[Game.getTopGene()].s});">${state.face}</div>
+            <div class="ending-title">${t}</div>
+            <div class="pet-name-wrap"><div class="pet-name" style="font-size:1.4em;">${Game.getName()}</div></div>
+            <p style="margin-top:15px;">${d}</p>
+            <p style="margin-top:30px; font-size:0.9em; color:#888;">存活週期: ${state.age} | 最高基因: ${Math.max(...Object.values(state.genes))}</p>`;
+    },
+
+    floatMsg: (t) => {
+        let d = document.createElement('div');
+        d.className = 'float-msg'; d.innerText = t;
+        document.getElementById('app').appendChild(d);
+        setTimeout(() => d.remove(), 2000); 
+    },
+
+    msg: (t) => {
+        const b = document.getElementById('alertBox');
+        b.innerText = t; b.style.opacity = 1; setTimeout(() => b.style.opacity = 0, 2000);
+    },
+
+    anim: () => {
+        const w = document.getElementById('pet-wrapper');
+        if(w) { w.classList.remove('react'); void w.offsetWidth; w.classList.add('react'); }
+    },
+
+    changeFont: (d) => {
+        UI.fSz = Math.max(12, Math.min(26, UI.fSz + d * 2));
+        document.documentElement.style.setProperty('--font-size', `${UI.fSz}px`);
+    },
+    
+    showConfirm: (msg, cb) => {
+        document.getElementById('confirmText').innerText = msg;
+        document.getElementById('confirmYes').onclick = () => { UI.closeConfirm(); cb(); };
+        document.getElementById('confirmBox').style.display = 'flex';
+    },
+    closeConfirm: () => document.getElementById('confirmBox').style.display = 'none'
+};
+
+/* ================= SAVE / LOAD SYSTEM ================= */
+
+const Save = {
+    saveLocal: () => localStorage.setItem('mon_log_save', JSON.stringify(state)),
+    save: () => { Save.saveLocal(); UI.msg('已保存。'); },
+    load: () => {
+        let s = localStorage.getItem('mon_log_save');
+        if(s) { 
+            state = JSON.parse(s); 
+            if (state.face && state.face.length > 4) { Game.init(); UI.msg('偵測到舊版存檔，已自動重生。'); } 
+            else { UI.msg('讀檔成功。'); }
+            UI.update(); UI.nav('main'); 
+        } else UI.msg('無本地存檔。');
+    },
+    exportCode: () => {
+        document.getElementById('saveCode').value = btoa(encodeURIComponent(JSON.stringify(state)));
+        UI.msg('代碼已生成，請複製保存。');
+    },
+    importCode: () => {
+        try {
+            state = JSON.parse(decodeURIComponent(atob(document.getElementById('saveCode').value)));
+            if (state.face && state.face.length > 4) Game.init(); 
+            Save.saveLocal(); UI.update(); UI.nav('main'); UI.msg('繼承成功！');
+        } catch(e) { UI.msg('代碼無效！'); }
+    }
+};
+
+/* ================= BOOTSTRAP ================= */
+window.onload = () => {
+    UI.init();
+    let saved = localStorage.getItem('mon_log_save');
+    if (saved) {
+        state = JSON.parse(saved);
+        if(state.stage === 'end' || (state.face && state.face.length > 4)) Game.init();
+    } else Game.init();
+    
+    if(state.stage === 'end') Game.checkEnd(); 
+    else { UI.nav('main'); UI.update(); }
+};
+</script>
+</body>
+</html>
