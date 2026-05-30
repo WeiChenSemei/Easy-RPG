@@ -155,6 +155,7 @@
     function snapshotHeroState(h) { return JSON.stringify({ i: h.items, m: h.magic, s: h.special, p: h.passives, e: h.equips, c: h.cardMemory, hp: h.hp, sh: h.shield }); }
     function restoreHeroState(h, snap) { let d = JSON.parse(snap); h.items = d.i; h.magic = d.m; h.special = d.s; h.passives = d.p; h.equips = d.e; h.cardMemory = d.c; h.hp = d.hp; h.shield = d.sh; }
     
+    // Unified Logging System
     function addLog(msg, colorClass = "text-white") { gameState.historyLogs.push({ msg: `[${new Date().toLocaleTimeString('zh-TW', { hour12: false })}] ${msg}`, color: colorClass }); if (gameState.historyLogs.length > 200) gameState.historyLogs.shift(); if (gameState.activeTab === 'log') renderHistoryLogs(); }
     function updateAnimationMsg(txt) { document.getElementById('battle-latest-msg').innerText = txt; let f = document.getElementById('animation-flash-bg'); f.className = "absolute inset-0 bg-white pointer-events-none opacity-20"; setTimeout(() => f.className = "absolute inset-0 bg-white pointer-events-none transition-opacity duration-300 opacity-0", 80); }
     function logAndMsg(msg, colorClass = "text-white") { addLog(msg, colorClass); updateAnimationMsg(msg); }
@@ -571,7 +572,7 @@
           
           let stars = e.affixes.map(af => `<span class="${sMap[af]||'text-gray-300'}">★</span>`).join('');
 
-          let emoji = e.isBoss ? '👿' : (e.isMetal ? '👽' : (e.s.includes('kamikaze') ? '💣' : '👾')); if (e.status.sleep > 0) emoji = '💤'; 
+          let emoji = e.status.sleep > 0 ? '💤' : [{c:e.isBoss,v:'👿'},{c:e.s.includes('tonberry'),v:'💀'},{c:e.isMetal,v:'🫠'},{c:e.s.includes('kamikaze'),v:'💣'}].find(x=>x.c)?.v || '👾'; 
           let pct = (e.hp / e.maxHp) * 100; 
           slot.innerHTML = `<div class="w-full bg-black h-1.5 mb-0.5 border border-gray-600 pointer-events-none"><div class="bg-red-600 h-full transition-all" style="width:${pct}%"></div></div><div class="text-xl sm:text-2xl relative mb-0.5 pointer-events-none">${emoji}${e.status.poison>0?'<span class="absolute -top-1 -right-2 text-[0.35em] bg-black text-green-400 px-1 retro-font">P</span>':''}${e.status.stun>0?'<span class="absolute -top-1 -right-2 text-[0.35em] bg-black text-yellow-400 px-1 retro-font">S</span>':''}${e.status.blind>0?'<span class="absolute bottom-1 -right-2 text-[0.35em] bg-black text-gray-400 px-1 retro-font">B</span>':''}${e.status.paralyze>0?'<span class="absolute top-3 -right-2 text-[0.35em] bg-yellow-600 text-black px-1 retro-font">R</span>':''}${e.status.confuse>0?'<span class="absolute top-7 -right-2 text-[0.35em] bg-purple-600 text-white px-1 retro-font">C</span>':''}</div><div class="text-[0.55em] retro-font ${e.colorClass} truncate w-full pointer-events-none">${stars}${e.name}</div><div class="text-[0.5em] retro-font text-gray-400 leading-none mt-0.5 pointer-events-none">${e.hp}/${e.maxHp}</div>`; 
         } else { slot.className = "h-full min-h-[55px] flex items-center justify-center opacity-10"; slot.innerHTML = ``; } mGrid.appendChild(slot); 
