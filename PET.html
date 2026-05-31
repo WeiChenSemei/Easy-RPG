@@ -109,12 +109,17 @@
         .pet-tags { font-size: 0.8em; color: #888; margin-bottom: 10px; }
 
         .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+        
+        /* 升級：適應血條 UI 的狀態欄佈局 */
         .stat-item {
             background: rgba(255,255,255,0.6); backdrop-filter: blur(5px);
             padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.8);
             box-shadow: 0 4px 10px rgba(0,0,0,0.03); font-size: 0.9em; font-weight: bold;
-            display: flex; justify-content: space-between;
+            display: flex; flex-direction: column; justify-content: center; gap: 6px;
         }
+        .stat-header { display: flex; justify-content: space-between; width: 100%; }
+        .bar-bg { width: 100%; height: 10px; background: rgba(0,0,0,0.1); border-radius: 5px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 5px; transition: width 0.3s ease; }
 
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: 10px; flex-shrink: 0; }
         .btn {
@@ -421,10 +426,16 @@ const Game = {
     forceMut: () => { let a = Object.keys(MUTATIONS).filter(k => !state.traits.includes(k)); if(a.length > 0) { let m = RND.i(a); state.traits.push(m); for(let g in MUTATIONS[m].g) state.genes[g] += MUTATIONS[m].g[g]; } },
     getTopGene: () => { let t = Object.keys(state.genes).reduce((a, b) => state.genes[a] > state.genes[b] ? a : b); return state.genes[t] < 10 ? 'normal' : t; },
     getName: () => { let tr = state.traits.map(t => `[${MUTATIONS[t].n}]`).join(''); let top = Game.getTopGene(); let gn = state.stage === 'adult' && top !== 'normal' ? `[${GN[top]}]` : ''; return `${tr}${tr ? '的' : ''}${gn}${state.bName || '未知魔物'}`; },
+    
+    // 升級：利用 Object Mapping 完全取代原本的 if/else if 判斷進化階段
     checkEvo: () => {
-        if (state.age === 10 && state.stage === 'baby') { let f = RND.i(FACES.child); state.stage = 'child'; state.face = f[0]; state.bName = f[1]; Game.addLog("【成長】體型變大了。"); } 
-        else if (state.age === 20 && state.stage === 'child') { state.stage = 'adult'; let top = Game.getTopGene(); let f = RND.i(FACES.adult[top]); state.face = f[0]; state.bName = f[1]; Game.addLog(`【進化】呈現出 [${top}] 屬性。`); }
+        const EVO_MAP = {
+            10: () => { if(state.stage === 'baby') { let f = RND.i(FACES.child); state.stage = 'child'; state.face = f[0]; state.bName = f[1]; Game.addLog("【成長】體型變大了。"); } },
+            20: () => { if(state.stage === 'child') { state.stage = 'adult'; let top = Game.getTopGene(); let f = RND.i(FACES.adult[top]); state.face = f[0]; state.bName = f[1]; Game.addLog(`【進化】呈現出 [${top}] 屬性。`); } }
+        };
+        if(EVO_MAP[state.age]) EVO_MAP[state.age]();
     },
+
     checkEnd: () => {
         if (state.hp <= 0) { state.stage = 'end'; Game.addLog("生命徵象消失。"); UI.showEnd("實驗失敗", "個體生命力耗盡死亡。"); } 
         else if (state.age >= 35) { state.stage = 'end'; let end = ENDINGS.find(e => e.req(state.genes)); Game.addLog(`【終局】${end.t}`); UI.showEnd(end.t, end.d); }
@@ -516,10 +527,10 @@ const UI = {
                 <div class="pet-name-wrap"><span style="font-size:0.8em; color:#999; font-weight:bold;">No.${state.id.toString().slice(-4)} (${state.pers.n})</span><div class="pet-name">${Game.getName()}</div></div>
                 <div class="pet-tags">第 ${state.day} 天 | 階段: ${state.stage === 'baby'?'幼體':state.stage==='child'?'成長體':'完全體'}</div>
                 <div class="status-grid">
-                    <div class="stat-item"><span>❤️ HP</span> <span style="color:${state.hp<30?'var(--danger)':'inherit'}">${state.hp}/${state.maxHp}</span></div>
-                    <div class="stat-item"><span>🍖 飽食</span> <span style="color:${state.full<30?'var(--danger)':'inherit'}">${state.full}/${state.maxFull}</span></div>
-                    <div class="stat-item"><span>✨ 心情</span> <span>${state.mood}/${state.maxMood}</span></div>
-                    <div class="stat-item"><span>🏆 傳承</span> <span>${state.heritage.length}</span></div>
+                    <div class="stat-item"><div class="stat-header"><span>❤️ HP</span></div><div class="bar-bg"><div class="bar-fill" style="width:${(state.hp/state.maxHp)*100}%; background:var(--danger);"></div></div></div>
+                    <div class="stat-item"><div class="stat-header"><span>🍖 飽食</span></div><div class="bar-bg"><div class="bar-fill" style="width:${(state.full/state.maxFull)*100}%; background:#f9a826;"></div></div></div>
+                    <div class="stat-item"><div class="stat-header"><span>✨ 心情</span></div><div class="bar-bg"><div class="bar-fill" style="width:${(state.mood/state.maxMood)*100}%; background:#56ccf2;"></div></div></div>
+                    <div class="stat-item"><div class="stat-header"><span>🏆 傳承</span><span>${state.heritage.length}</span></div></div>
                 </div>
             </div>`;
     },
@@ -542,6 +553,16 @@ const UI = {
         pEl.innerText = pFace; eEl.innerText = eFace;
         pEl.className = ''; eEl.className = '';
 
+        // 升級：利用 Object Mapping 完全取代原本的 if/else if 判斷動畫播放
+        const ANIM_MAP = {
+            'p-atk': () => { pEl.classList.add('anim-atk'); eEl.classList.add('anim-dmg'); },
+            'e-atk': () => { eEl.classList.add('anim-atk'); pEl.classList.add('anim-dmg'); },
+            'clash': () => { pEl.classList.add('anim-atk'); eEl.classList.add('anim-atk'); },
+            'p-buff': () => { pEl.classList.add('anim-jump'); },
+            'p-win': () => { pEl.classList.add('anim-jump'); eEl.classList.add('anim-faint'); },
+            'e-win': () => { eEl.classList.add('anim-jump'); pEl.classList.add('anim-faint'); }
+        };
+
         logs.forEach((l, i) => {
             setTimeout(() => {
                 // 文字新增
@@ -555,12 +576,8 @@ const UI = {
                 eEl.classList.remove('anim-atk', 'anim-dmg', 'anim-jump', 'anim-faint');
                 void pEl.offsetWidth; void eEl.offsetWidth; // 強制重繪
 
-                if(l.a === 'p-atk') { pEl.classList.add('anim-atk'); eEl.classList.add('anim-dmg'); }
-                else if(l.a === 'e-atk') { eEl.classList.add('anim-atk'); pEl.classList.add('anim-dmg'); }
-                else if(l.a === 'clash') { pEl.classList.add('anim-atk'); eEl.classList.add('anim-atk'); }
-                else if(l.a === 'p-buff') { pEl.classList.add('anim-jump'); }
-                else if(l.a === 'p-win') { pEl.classList.add('anim-jump'); eEl.classList.add('anim-faint'); }
-                else if(l.a === 'e-win') { eEl.classList.add('anim-jump'); pEl.classList.add('anim-faint'); }
+                // 直接從字典中調出對應的函式並執行
+                if(ANIM_MAP[l.a]) ANIM_MAP[l.a]();
 
                 if(i === logs.length - 1) btn.style.display = 'block';
             }, i * 1100); 
