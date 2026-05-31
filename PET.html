@@ -353,18 +353,22 @@ let state = {};
 const Game = {
     init: () => {
         let f = RND.i(FACES.baby);
-        let oldHeritage = state.heritage || []; // 繼承祖先基因
+        // 相容舊存檔轉換：如果是舊陣列則取長度，加上上一代獲得的獎盃
+        let oldHeritage = typeof state.heritage === 'number' ? state.heritage : (Array.isArray(state.heritage) ? state.heritage.length : 0);
+        oldHeritage += (state.trophies ? state.trophies.length : 0);
+
         state = {
             id: Date.now(), age: 0, day: 1, hp: 100, maxHp: 100, full: 80, maxFull: 100, mood: 80, maxMood: 100,
             genes: { beast: 0, magic: 0, machine: 0, toxic: 0, holy: 0 },
-            traits: [], face: f[0], bName: f[1], stage: 'baby', heritage: oldHeritage,
+            traits: [], face: f[0], bName: f[1], stage: 'baby', 
+            heritage: oldHeritage, trophies: [], // heritage:累積總數, trophies:本代獲得
             pers: RND.i(PERSONALITIES), logs: [], bg: 'var(--panel-bg)'
         };
         Game.addLog(`新個體誕生。帶有【${state.pers.n}】特質。`);
     },
     
     startNew: () => { Game.init(); UI.nav('main'); UI.update(); Save.saveLocal(); },
-    reset: () => { UI.showConfirm('確定要放棄這隻魔物，開啟新輪迴嗎？\n(冠軍基因會保留)', Game.startNew); },
+    reset: () => { UI.showConfirm('確定要放棄這隻魔物，開啟新輪迴嗎？\n(本代已獲獎盃將化為傳承)', Game.startNew); },
 
     tick: (cost = 1) => {
         state.age += cost;
@@ -453,10 +457,10 @@ const Arena = {
         let a = ARENAS[aId], pTags = Game.getTags(), logs = [];
         let eTags = [...new Set([RND.i(Object.keys(TAG_ADV)), RND.i(Object.keys(TAG_ADV))])];
         
-        // 隨機抽取所有成體外觀的陣列來當作敵人頭像
         let eFace = RND.i(Object.values(FACES.adult).flat())[0];
         
-        let pScore = state.age * 2 + (state.heritage.length * 15) + (state.pers.fx.bScore || 0);
+        // 分數加成：世代累積總和加成 + 本代當前獎盃
+        let pScore = state.age * 2 + (state.heritage * 15) + (state.trophies.length * 15) + (state.pers.fx.bScore || 0);
         let eScore = a.diff;
 
         logs.push({ t: `🏆 【${a.n}】正式開始！`, a: 'clash' });
@@ -468,7 +472,6 @@ const Arena = {
 
         pTags.forEach(t => { if(a.fav.includes(t)) { pScore += 30; logs.push({ t: `主場優勢！${TAG_N[t]}特徵在這裡如魚得水！`, a: 'p-buff' }); } });
 
-        // 更新：將生硬的剋制文字換成動態招式與弱點組合
         pTags.forEach(pt => eTags.forEach(et => {
             if(TAG_ADV[pt].includes(et)) { 
                 pScore += 40; 
@@ -485,9 +488,10 @@ const Arena = {
         let win = pScore >= eScore;
         logs.push({ t: win ? '🎉 壓倒性的勝利！' : '💀 遺憾地敗北了...', a: win ? 'p-win' : 'e-win' });
 
-        if(win && !state.heritage.includes(a.win)) {
-            state.heritage.push(a.win);
-            logs.push({ t: `🌟 獲得了傳奇基因：【${a.win}】！`, a: 'p-buff' });
+        // 改為檢查 state.trophies
+        if(win && !state.trophies.includes(a.win)) {
+            state.trophies.push(a.win);
+            logs.push({ t: `🌟 獲得了本代冠軍基因：【${a.win}】！`, a: 'p-buff' });
         }
 
         UI.renderBattle(logs, state.face, eFace);
@@ -509,7 +513,11 @@ const UI = {
     },
     update: () => {
         if(state.stage === 'end') return;
-        state.heritage = state.heritage || []; // 防舊版錯誤
+        
+        // 舊版存檔修復
+        state.trophies = state.trophies || [];
+        state.heritage = typeof state.heritage === 'number' ? state.heritage : (Array.isArray(state.heritage) ? state.heritage.length : 0);
+        
         let top = Game.getTopGene(), c = GENE_COLORS[top];
         document.documentElement.style.setProperty('--pet-glow', c.s); document.documentElement.style.setProperty('--gc1', c.g1); document.documentElement.style.setProperty('--gc2', c.g2);
         
@@ -530,18 +538,18 @@ const UI = {
                     <div class="stat-item"><div class="stat-header"><span>❤️ HP</span></div><div class="bar-bg"><div class="bar-fill" style="width:${(state.hp/state.maxHp)*100}%; background:var(--danger);"></div></div></div>
                     <div class="stat-item"><div class="stat-header"><span>🍖 飽食</span></div><div class="bar-bg"><div class="bar-fill" style="width:${(state.full/state.maxFull)*100}%; background:#f9a826;"></div></div></div>
                     <div class="stat-item"><div class="stat-header"><span>✨ 心情</span></div><div class="bar-bg"><div class="bar-fill" style="width:${(state.mood/state.maxMood)*100}%; background:#56ccf2;"></div></div></div>
-                    <div class="stat-item"><div class="stat-header"><span>🏆 傳承</span><span>${state.heritage.length}</span></div></div>
+                    <div class="stat-item"><div class="stat-header"><span>🏆 傳承總數</span><span>${state.heritage + state.trophies.length}</span></div></div>
                 </div>
             </div>`;
     },
     renderLogs: () => document.getElementById('log-list').innerHTML = state.logs.map(l => `<div class="log-entry"><div class="log-date">Day ${l.d}</div>${l.t}</div>`).join(''),
     renderArena: () => {
         let pTags = Game.getTags().map(t => TAG_N[t]).join('、') || '無';
-        document.getElementById('arena-tags').innerHTML = `<span style="font-size:0.9em;color:#777">消耗 20 HP 進行一場全自動戰鬥。勝負取決於特徵相剋！</span><br><br><b>當前特徵：</b><span style="color:var(--primary)">${pTags}</span><br><b>冠軍基因：</b>${state.heritage.join('、') || '無'}`;
+        document.getElementById('arena-tags').innerHTML = `<span style="font-size:0.9em;color:#777">消耗 20 HP 進行一場自動戰鬥。祖先累積：${state.heritage} 點血統加成！</span><br><br><b>當前特徵：</b><span style="color:var(--primary)">${pTags}</span><br><b>本代獎盃：</b>${state.trophies.join('、') || '無'}`;
         document.getElementById('arena-list').innerHTML = Object.keys(ARENAS).map(k => `
             <div class="list-btn" onclick="Arena.fight('${k}')">
                 <div>${ARENAS[k].n}<br><small style="color:#888">優勢：${ARENAS[k].fav.map(t=>TAG_N[t]).join(', ')}</small></div>
-                <div style="text-align:right"><span style="color:var(--accent)">🏆 ${ARENAS[k].win}</span></div>
+                <div style="text-align:right"><span style="color:var(--accent)">🏆 ${state.trophies.includes(ARENAS[k].win) ? '✅已稱霸' : ARENAS[k].win}</span></div>
             </div>`).join('');
     },
     renderBattle: (logs, pFace, eFace) => {
@@ -589,7 +597,7 @@ const UI = {
             <div class="pet-face" style="font-size:5em; margin-bottom:20px; filter: drop-shadow(0 0 40px ${GENE_COLORS[Game.getTopGene()].s});">${state.face}</div>
             <div class="ending-title">${t}</div><div class="pet-name-wrap"><div class="pet-name" style="font-size:1.4em;">${Game.getName()}</div></div>
             <p style="margin-top:15px;">${d}</p>
-            <p style="margin-top:30px; font-size:0.9em; color:#888;">存活週期: ${state.age} | 冠軍基因: ${state.heritage.length}</p>`;
+            <p style="margin-top:30px; font-size:0.9em; color:#888;">存活週期: ${state.age} | 本代獲得獎盃: ${state.trophies.length} (將轉為傳承)</p>`;
     },
     floatMsg: (t) => { let d = document.createElement('div'); d.className = 'float-msg'; d.innerText = t; document.getElementById('app').appendChild(d); setTimeout(() => d.remove(), 2000); },
     msg: (t) => { const b = document.getElementById('alertBox'); b.innerText = t; b.style.opacity = 1; setTimeout(() => b.style.opacity = 0, 2000); },
@@ -605,10 +613,24 @@ const Save = {
     save: () => { Save.saveLocal(); UI.msg('已保存。'); },
     load: () => {
         let s = localStorage.getItem('mon_log_save');
-        if(s) { state = JSON.parse(s); if (state.face && state.face.length > 4) { Game.init(); UI.msg('舊存檔自動重生。'); } else { UI.msg('讀檔成功。'); } UI.update(); UI.nav('main'); } else UI.msg('無本地存檔。');
+        if(s) { 
+            state = JSON.parse(s); 
+            state.trophies = state.trophies || [];
+            state.heritage = typeof state.heritage === 'number' ? state.heritage : (Array.isArray(state.heritage) ? state.heritage.length : 0);
+            if (state.face && state.face.length > 4) { Game.init(); UI.msg('舊存檔自動重生。'); } else { UI.msg('讀檔成功。'); } 
+            UI.update(); UI.nav('main'); 
+        } else UI.msg('無本地存檔。');
     },
     exportCode: () => { document.getElementById('saveCode').value = btoa(encodeURIComponent(JSON.stringify(state))); UI.msg('代碼已生成，請複製保存。'); },
-    importCode: () => { try { state = JSON.parse(decodeURIComponent(atob(document.getElementById('saveCode').value))); if (state.face && state.face.length > 4) Game.init(); Save.saveLocal(); UI.update(); UI.nav('main'); UI.msg('繼承成功！'); } catch(e) { UI.msg('代碼無效！'); } }
+    importCode: () => { 
+        try { 
+            state = JSON.parse(decodeURIComponent(atob(document.getElementById('saveCode').value))); 
+            state.trophies = state.trophies || [];
+            state.heritage = typeof state.heritage === 'number' ? state.heritage : (Array.isArray(state.heritage) ? state.heritage.length : 0);
+            if (state.face && state.face.length > 4) Game.init(); 
+            Save.saveLocal(); UI.update(); UI.nav('main'); UI.msg('繼承成功！'); 
+        } catch(e) { UI.msg('代碼無效！'); } 
+    }
 };
 
 window.onload = () => {
