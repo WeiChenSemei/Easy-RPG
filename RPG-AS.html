@@ -155,7 +155,6 @@
     function snapshotHeroState(h) { return JSON.stringify({ i: h.items, m: h.magic, s: h.special, p: h.passives, e: h.equips, c: h.cardMemory, hp: h.hp, sh: h.shield }); }
     function restoreHeroState(h, snap) { let d = JSON.parse(snap); h.items = d.i; h.magic = d.m; h.special = d.s; h.passives = d.p; h.equips = d.e; h.cardMemory = d.c; h.hp = d.hp; h.shield = d.sh; }
     
-    // Unified Logging System
     function addLog(msg, colorClass = "text-white") { gameState.historyLogs.push({ msg: `[${new Date().toLocaleTimeString('zh-TW', { hour12: false })}] ${msg}`, color: colorClass }); if (gameState.historyLogs.length > 200) gameState.historyLogs.shift(); if (gameState.activeTab === 'log') renderHistoryLogs(); }
     function updateAnimationMsg(txt) { document.getElementById('battle-latest-msg').innerText = txt; let f = document.getElementById('animation-flash-bg'); f.className = "absolute inset-0 bg-white pointer-events-none opacity-20"; setTimeout(() => f.className = "absolute inset-0 bg-white pointer-events-none transition-opacity duration-300 opacity-0", 80); }
     function logAndMsg(msg, colorClass = "text-white") { addLog(msg, colorClass); updateAnimationMsg(msg); }
@@ -166,14 +165,13 @@
     function switchTab(tabId) { gameState.activeTab = tabId; ['adventure', 'status', 'log'].forEach(id => { document.getElementById(`tab-${id}`).className = `flex-1 py-2 sm:py-3 transition-all border-2 border-white ${tabId === id ? 'text-black bg-white' : 'text-gray-400 bg-black hover:text-white border-transparent border-b-white/20'}`; document.getElementById(`panel-${id}`).classList.toggle('hidden', tabId !== id); }); if (tabId === 'status') renderPartyManagementTab(); if (tabId === 'log') renderHistoryLogs(); }
     function adjustFontSize(dir) { baseFontSize = Math.max(12, Math.min(24, baseFontSize + dir)); document.getElementById('game-container').style.fontSize = `${baseFontSize}px`; }
 
-    // 極限解碼與資料庫壓縮
     const decD = (arr, t) => arr.map(s => { let p = s.split('|'); if(['magic','special','items'].includes(t)) return {id:p[0], name:p[1], desc:p[2], type:t, maxUses:+p[3], power:+p[4], effect:p[5], isAoe:p[6]?.includes('A'), targetFriendly:p[6]?.includes('F'), isConsumable:p[6]?.includes('C'), isSelfOnly:p[6]?.includes('S')}; if(t==='passive') return {id:p[0], name:p[1], desc:p[2], type:t}; let o = {id:p[0], name:p[1], desc:p[2], type:t, val:+p[3]}; if(p[4]) p[4].split(',').forEach(kv => { let [k,v] = kv.split(':'); o[k] = isNaN(v)?(v==='true'):+v; }); return o; });
     const CONDITION_DB=[{id:'c_poison',prop:'poison',name:'猛毒',desc:'每回合中毒',type:'condition',icon:'毒',color:'text-green-400'},{id:'c_blind',prop:'blind',name:'盲目',desc:'物攻命中下降',type:'condition',icon:'盲',color:'text-gray-400'},{id:'c_paralyze',prop:'paralyze',name:'麻痺',desc:'無法行動',type:'condition',icon:'痺',color:'text-yellow-500'},{id:'c_sleep',prop:'sleep',name:'睡眠',desc:'沉睡,受擊驚醒',type:'condition',icon:'眠',color:'text-blue-300'},{id:'c_confuse',prop:'confuse',name:'混亂',desc:'隨機攻擊',type:'condition',icon:'亂',color:'text-purple-400'},{id:'c_silence',prop:'silence',name:'封咒',desc:'無法施法',type:'condition',icon:'默',color:'text-gray-500'},{id:'c_weak',prop:'weak',name:'衰弱',desc:'攻防降30%',type:'condition',icon:'弱',color:'text-orange-400'},{id:'c_bleed',prop:'bleed',name:'流血',desc:'動則失血10%',type:'condition',icon:'血',color:'text-red-500'},{id:'c_regen',prop:'regen',name:'再生',desc:'回血5%',type:'condition',icon:'再',color:'text-green-300'},{id:'c_berserk',prop:'berserk',name:'狂暴',desc:'攻速升防降,亂擊',type:'condition',icon:'狂',color:'text-red-400'},{id:'c_reflect',prop:'reflect_buff',name:'反射',desc:'反彈80%傷害',type:'condition',icon:'反',color:'text-blue-400'},{id:'c_stun',prop:'stun',name:'暈眩',desc:'無法行動',type:'condition',icon:'暈',color:'text-yellow-300'}];
     const MAGIC_DB=decD(["m_01|火球術|[火]單體火傷|3|25|damage|","m_02|治癒術|單體恢復|4|22|heal|F","m_03|閃電鏈|[雷]全體雷傷|2|15|damage|A","m_04|冰凍術|[冰]單體傷降速|3|20|damage_slow|","m_05|聖盾庇護|單體30盾|3|30|shield|F","m_06|群體治癒|全體15HP|2|15|heal|AF","m_07|神聖復活|復活30%|1|0|revive|F","m_08|隕石風暴|[消散/火]全體火傷|1|45|damage|AC","m_09|吸血鬼吻|單體吸血|3|18|damage_heal|","m_10|聖光閃耀|全體25HP|2|25|heal|AF","m_11|劇毒新星|全體毒傷|2|8|aoe_poison|A","m_12|巴哈姆特|[消散]全體絕傷|1|80|megaflare|AC","m_13|奧丁|[消散]機率秒殺|1|60|zantetsuken|AC","m_14|希瓦|[消散/冰]全體冰傷|1|30|shiva|AC","m_15|伊弗利特|[消散/火]全體火傷|1|35|damage|AC","m_16|拉姆|[消散/雷]全體雷暈|1|20|aoe_damage_stun|AC","m_17|泰坦|[消散]全體土傷|1|35|damage|AC","m_18|利維坦|[消散]全體破甲|1|25|aoe_damage_armor_break|AC","m_19|亞歷山大|[消散]全體聖傷|1|45|damage|AC","m_20|鳳凰|[消散]全體復活|1|50|phoenix|AFC","m_21|催眠術|單體睡眠|3|0|sleep|","m_22|閃光爆彈|全體盲目|2|0|aoe_blind|A","m_23|沉默術|單體封咒|3|0|silence|","m_24|再生術|單體5回血|2|0|regen_buff|F","m_27|反射光環|單體反射80%|2|0|reflect_buff|F","m_28|狂暴術|單體狂暴|2|0|berserk|F","m_29|雙重施法|連續施法|2|0|double_cast|","m_30|沙塵暴|[氣候]全體土傷加沙塵|2|20|aoe_damage_sand|A","m_31|大晴明術|[氣候]全體回10HP加烈陽|2|10|heal_sun|AF","m_32|惡魔吐息|[氣候]全體暗傷加瘴氣|2|22|aoe_damage_miasma|A"], 'magic');
     const SPECIAL_DB=decD(["s_01|奮力劈斬|單體大傷|4|24|damage|","s_02|橫掃|全體物理|2|14|damage|A","s_03|極速雙擊|單體2連斬|3|13|double_strike|","s_04|戰盾嘲諷|嘲諷+25盾|3|0|taunt|A","s_05|劇毒割喉|單體毒傷並疊印記|3|18|poison|","s_06|盾牌猛擊|單體傷暈|3|15|damage_stun|","s_07|旋風斬|全體物理|3|12|damage|A","s_08|致命刺殺|高傷可引爆印記|2|30|damage|","s_09|嗜血狂斬|50%吸血|3|25|damage_lifesteal|","s_10|金屬斬|剋金屬|5|3|metal_slash|","s_11|超究武神霸斬|[消散]5連亂斬|1|20|omnislash|AC","s_12|無想轉生|[消散]單體7連擊|1|15|musou_tensei|C","s_13|氣功波|無視防禦|3|20|pierce_damage|","s_14|破甲斬|傷加永久降防|3|15|armor_break|","s_15|麻痺打擊|傷加麻痺|3|10|damage_paralyze|","s_16|蓄力|下擊2.5倍|4|0|charge|F","s_17|龍跳躍|騰空落擊|2|0|jump|","s_18|爆裂拳|單體3快拳|3|10|triple_strike|","s_19|過肩摔|巨傷(非首領)|2|35|suplex|","s_20|狂暴化|自身狂暴|3|0|berserk|FS","s_21|鏡面架勢|自身反射80%|2|0|reflect_buff|FS","s_22|模仿|複製前隊友|3|0|mimic|S","s_23|馴獸|魔物倒戈|2|0|tame|","s_24|賭博|隨機特技|4|0|gamble|","s_25|腥血拔刀|扣20%HP無視防禦巨傷|99|40|blood_strike|","s_26|日輪斬|[氣候]單體斬擊加烈陽|3|25|damage_sun|","s_27|火焰劍|[火]單體火物傷|3|30|damage|","s_28|冰凍劍|[冰]單體傷降速|3|25|damage_slow|","s_29|閃電劍|[雷]單體雷麻痺|3|25|damage_paralyze|"], 'special');
     const ITEMS_DB=decD(["i_01|急救傷藥|單體30HP|10|30|heal|F","i_02|烈性手雷|全體20真傷|10|20|fixed_damage|A","i_03|甦醒針劑|復活20HP|3|20|revive|F","i_04|補能晶石|全技次數+1|3|1|restore_uses|F","i_05|聖靈藥|[消散]全員全滿|1|999|phoenix|FC","i_06|麻痺毒藥|[雷]25傷加麻痺|5|25|damage_paralyze|","i_07|萬能藥|解全異常|3|0|cure_all|F","i_08|混亂毒氣|20傷全體混亂|5|20|aoe_confuse|A","i_09|止血繃帶|解流血|3|0|cure_bleed|F","i_10|狂暴藥劑|單體狂暴|3|0|berserk|F","i_11|反射鏡|鏡面護盾|3|0|reflect_buff|F","i_12|火炎塗劑|單體火屬賦魔3回|3|0|enchant_fire|F","i_13|風化砂瓶|[氣候]全體15傷加沙塵|3|15|aoe_fixed_sand|A","i_14|腐敗孢子|[氣候]全體毒傷加瘴氣|3|10|aoe_poison_miasma|A","i_15|手裏劍|單10傷附加攻|5|10|throw_shuriken|"], 'items');
     const PASSIVES_DB=decD(["p_01|生命強壯|HP+15","p_02|力量怪手|攻+8%","p_03|魔力泉源|魔法次數上限+1","p_04|神速身法|速+2","p_05|光之庇護|戰後回復+8%","p_06|嗜血渴望|吸血+5%","p_07|鋼鐵之軀|防+5","p_08|靈巧本能|閃+3%","p_09|奧術精通|魔傷+5%","p_10|命運之手|重抽次數+1","p_13|不屈意志|防+3,免疫暈/眠/痺/亂","p_14|狂戰士之魂|普攻傷害+15%，速度+1，但物理防禦降低5點","p_17|空手搏擊|空手攻大增","p_18|怪物魔導士|攻/特技隨機異常,升級吸血+3%","p_19|重甲防禦陣|重甲加盾防+50%閃歸零,每級HP+8","p_20|魔法劍士|元素劍轉全體,每級攻+2%","p_21|氣象共鳴|氣候中魔傷+10%,每級+3%","p_22|道具學徒|道具效能+10%,每級+5%","p_23|忍術投擲|投擲效能+(級+1)x50%"], 'passive');
-    const WEAPONS_DB=decD(["w_01|洋蔥劍|洋蔥組件其一|12|isTwoHanded:false","w_02|刺客匕首|物暴+20%,普攻疊印記|9|isTwoHanded:false,crit:0.2","w_03|誓約巨劍|雙手大劍|26|isTwoHanded:true","w_04|橡木法杖|魔效+20%|6|isTwoHanded:false,magBoost:1.2","w_05|風行輕弩|速+4|11|isTwoHanded:false,speed:4","w_06|死神大鐮刀|普攻全體|14|isTwoHanded:true,isAoe:true","w_07|嗜血短刃|吸血15%|10|isTwoHanded:false,lifesteal:0.15","w_08|賢者魔杖|魔次+1|8|isTwoHanded:false,spellUses:1","w_09|破甲流星鎚|穿甲15%|13|isTwoHanded:false,pierce:0.15","w_10|光之聖約劍|回3HP|18|isTwoHanded:false,regen:3","w_11|雷霆戰斧|雙手,暴率+10%|28|isTwoHanded:true,crit:0.1","w_12|冰霜法杖|魔+30%,速+2|8|isTwoHanded:false,magBoost:1.3,speed:2","w_13|龍骨長槍|穿甲10%|15|isTwoHanded:false,pierce:0.1","w_14|毒蛇之牙|20%毒|11|isTwoHanded:false,poisonChance:0.2","w_15|幻影雙刃|閃10%,速+6|22|isTwoHanded:true,dodge:0.1,speed:6","w_16|守護者之劍|開場15盾|14|isTwoHanded:false,startShield:15","w_17|狂戰士大劍|雙手,防-5|32|isTwoHanded:true,def:-5","w_18|正宗|雙手,暴+40%|25|isTwoHanded:true,crit:0.4","w_19|石中劍|回5HP|35|isTwoHanded:false,regen:5","w_20|諸神黃昏|穿甲25%|28|isTwoHanded:false,pierce:0.25","w_21|睡魔之劍|20%眠|16|isTwoHanded:false,sleepChance:0.2","w_22|雷神之鎚|20%痺|19|isTwoHanded:false,paralyzeChance:0.2","w_23|血腥魔爪|30%流血|23|isTwoHanded:false,bleedChance:0.3","w_24|魔劍・噬魂|攻+50,每回扣10%HP|50|isTwoHanded:false,curse:true"], 'weapon');
+    const WEAPONS_DB=decD(["w_01|洋蔥劍|洋蔥組件其一|12|isTwoHanded:false","w_02|刺客匕首|物暴+20%,普攻疊印記|9|isTwoHanded:false,crit:0.2","w_03|誓巨劍|雙大劍|26|isTwoHanded:true","w_04|橡木法杖|魔效+20%|6|isTwoHanded:false,magBoost:1.2","w_05|風行輕弩|速+4|11|isTwoHanded:false,speed:4","w_06|死神大鐮刀|普攻全體|14|isTwoHanded:true,isAoe:true","w_07|嗜血短刃|吸血15%|10|isTwoHanded:false,lifesteal:0.15","w_08|賢者魔杖|魔次+1|8|isTwoHanded:false,spellUses:1","w_09|破甲流星鎚|穿甲15%|13|isTwoHanded:false,pierce:0.15","w_10|光聖劍|回3HP|18|isTwoHanded:false,regen:3","w_11|雷霆戰斧|雙手,暴率+10%|28|isTwoHanded:true,crit:0.1","w_12|冰霜法杖|魔+30%,速+2|8|isTwoHanded:false,magBoost:1.3,speed:2","w_13|龍骨長槍|穿甲10%|15|isTwoHanded:false,pierce:0.1","w_14|毒蛇之牙|20%毒|11|isTwoHanded:false,poisonChance:0.2","w_15|幻影雙刃|閃10%,速+6|22|isTwoHanded:true,dodge:0.1,speed:6","w_16|守護者劍|開場15盾|14|isTwoHanded:false,startShield:15","w_17|狂戰大劍|雙手,防-5|32|isTwoHanded:true,def:-5","w_18|正宗|雙手,暴+40%|25|isTwoHanded:true,crit:0.4","w_19|石中劍|回5HP|35|isTwoHanded:false,regen:5","w_20|諸神黃昏|穿甲25%|28|isTwoHanded:false,pierce:0.25","w_21|睡魔之劍|20%眠|16|isTwoHanded:false,sleepChance:0.2","w_22|雷神之鎚|20%痺|19|isTwoHanded:false,paralyzeChance:0.2","w_23|血腥魔爪|30%流血|23|isTwoHanded:false,bleedChance:0.3","w_24|噬魂劍|攻+50,每回扣10%HP|50|isTwoHanded:false,curse:true"], 'weapon');
     const OFFHANDS_DB=decD(["o_01|洋蔥盾|防+3,洋蔥組件其二|3|","o_02|鋼鐵大盾|物減12%|6|blockPhys:0.12","o_03|暗影副刃|追加隨機斬擊|5|isWeapon:true","o_04|治癒法典|治癒+20%|1|healBoost:0.2","o_05|抗魔護符|魔減15%|4|blockMagic:0.15","o_06|獅子巨盾|開場20盾|7|startShield:20","o_07|毒刺袖匕|追加30%毒|4|isWeapon:true,poisonChance:0.3","o_08|反擊圓盾|反4真傷|4|reflect:4","o_09|魔法水晶|魔+15%|2|magBoost:1.15","o_10|招架短刀|閃+8%|3|dodge:0.08","o_11|生命寶珠|回2HP|1|regen:2","o_12|源氏之盾|防10,閃15%|10|dodge:0.15","o_13|埃癸斯神盾|魔減25%|8|blockMagic:0.25","o_14|防禦壁壘|物減20%,速-2|12|blockPhys:0.2,speed:-2"], 'offhand');
     const ARMORS_DB=decD(["a_01|洋蔥服|HP+15,洋蔥組件其三|4|hp:15","a_02|鐵衛鎧甲|HP+50,速-2,重甲|15|hp:50,speed:-2,isHeavy:true","a_03|秘法編織袍|魔+10%,HP+20|6|hp:20,magBoost:1.1","a_04|幻影皮衣|閃暴+8%|7|hp:25,crit:0.08,dodge:0.08","a_05|荊棘反甲|反6物傷,重甲|11|hp:35,reflect:6,isHeavy:true","a_06|天使庇護衣|戰後回15%|9|hp:40,endHeal:0.15","a_07|龍鱗重甲|反5傷,速-3,重甲|18|hp:40,speed:-3,reflect:5,isHeavy:true","a_08|刺客夜行衣|閃12%,暴5%|8|hp:15,dodge:0.12,crit:0.05","a_09|戰神板甲|攻+3,重甲|14|hp:60,atk:3,isHeavy:true","a_10|聖光法袍|回3HP|7|hp:30,regen:3","a_11|巨獸皮甲|HP+80|10|hp:80","a_12|源氏之鎧|HP+100,速-1,重甲|25|hp:100,speed:-1,isHeavy:true","a_13|緞帶|魔+30%,回5HP|5|magBoost:1.3,regen:5","a_14|防毒面具|免毒盲|6|hp:10,immunePoisonBlind:true"], 'armor');
     const ACCESSORIES_DB=decD(["ac_01|洋蔥戒指|攻+4,洋蔥組件其四|0|bonusAtk:4","ac_02|紅寶石項鍊|HP+30|0|bonusHp:30","ac_03|疾風飛靴|速+5|0|bonusSpeed:5","ac_04|聖耀十字架|開場25盾|0|startShield:25","ac_05|惡魔戒指|吸血10%|0|lifesteal:0.1","ac_06|吸血鬼印記|吸血15%|0|lifesteal:0.15","ac_07|獵豹指環|速+8,閃5%|0|bonusSpeed:8,bonusDodge:0.05","ac_08|狂暴吊墜|防-2,攻+8|0|bonusAtk:8,def:-2","ac_09|守護石|開場40盾|0|startShield:40","ac_10|龍之血滴|HP+50,回2HP|0|bonusHp:50,regen:2","ac_11|赫耳墨斯之靴|速+12,閃10%|0|bonusSpeed:12,bonusDodge:0.1","ac_12|英雄之證|攻5,HP50,速5|0|bonusAtk:5,bonusHp:50,bonusSpeed:5","ac_13|鎮靜之戒|免混亂封咒|0|immuneMental:true"], 'accessory');
@@ -207,7 +205,7 @@
     const LORE_HINTS = Object.entries(HINTS_DB).map(([k, v]) => { if (k.startsWith('sys_')) return `『${v}』`; let obj = ALL_CARDS_POOL.find(x => x.id === k); return obj ? `【${obj.name}】隱藏著『${v}』的能力` : `『${v}』`; });
     ALL_CARDS_POOL.forEach(item => { if (HINTS_DB[item.id]) item.desc += ` | 隱藏: ${HINTS_DB[item.id]}`; });
 
-    const M_DB = [{id:1,n:"綠色黏液怪",r:"tank",s:[]},{id:2,n:"赤紅黏液怪",r:"tank",s:[]},{id:3,n:"尖耳小蝙蝠",r:"assassin",s:['vampire']},{id:4,n:"地精斥候",r:"warrior",s:['flee']},{id:5,n:"枯骨步兵",r:"warrior",s:[]},{id:6,n:"劇毒小蜘蛛",r:"assassin",s:['poison']},{id:7,n:"墓穴殭屍",r:"tank",s:['poison']},{id:8,n:"哥布林射手",r:"assassin",s:['assassinate']},{id:9,n:"瘟疫巨鼠",r:"warrior",s:['flee']},{id:10,n:"食岩幼蟲",r:"tank",s:[]},{id:11,n:"蠻族獸人",r:"warrior",s:[]},{id:12,n:"荒野幽靈",r:"mage",s:['mage_aoe']},{id:13,n:"雙翼石像鬼",r:"tank",s:['stun']},{id:14,n:"黑泥洞蛇",r:"assassin",s:['poison']},{id:15,n:"狂暴野豬",r:"tank",s:['stun']},{id:16,n:"地精薩滿",r:"mage",s:['heal']},{id:17,n:"噬血妖花",r:"mage",s:['poison']},{id:18,n:"枯骨騎兵",r:"warrior",s:[]},{id:19,n:"吸血鬼蝠",r:"assassin",s:['vampire']},{id:20,n:"微光火精靈",r:"mage",s:['mage_aoe']},{id:27,n:"死骨通靈師",r:"mage",s:['heal']},{id:29,n:"影流夜行刺",r:"assassin",s:['assassinate']},{id:34,n:"深淵魅魔",r:"assassin",s:['vampire']},{id:37,n:"極寒深淵法",r:"mage",s:['heal']},{id:38,n:"金屬史萊姆",r:"tank",s:['flee'],m:1},{id:39,n:"離散金屬",r:"tank",s:['flee'],m:1},{id:52,n:"提燈死神",r:"tank",s:['tonberry']},{id:53,n:"爆彈怪",r:"tank",s:['kamikaze']},{id:54,n:"仙人掌",r:"assassin",s:['flee']},{id:55,n:"貝希摩斯",r:"boss",s:['assassinate']},{id:41,n:"巨霸史萊姆王",r:"boss",s:['boss_aoe']},{id:42,n:"哥布林黃金王",r:"boss",s:['buff']},{id:43,n:"枯骨終焉將軍",r:"boss",s:['boss_aoe']},{id:44,n:"獸人鐵血督軍",r:"boss",s:['stun']},{id:45,n:"地精千足毒母",r:"boss",s:['poison']},{id:46,n:"猩紅吸血伯爵",r:"boss",s:['vampire']},{id:47,n:"滅世炎魔領主",r:"boss",s:['boss_aoe']},{id:48,n:"龍王",r:"boss",s:['boss_aoe']},{id:49,n:"大魔王佐瑪",r:"boss",s:['boss_aoe']},{id:50,n:"狂人卡夫卡",r:"boss",s:['mage_aoe']},{id:51,n:"片翼天使賽菲羅斯",r:"boss",s:['assassinate']},{id:56,n:"神龍",r:"boss",s:['boss_aoe']},{id:57,n:"歐米茄",r:"boss",s:['boss_aoe']},{id:58,n:"吉爾伽美什",r:"boss",s:['buff']},{id:60,n:"歧路旅人",r:"traveler",s:['traveler_random']}];
+    const M_DB = [{id:1,n:"綠色黏液怪",r:"tank",s:[]},{id:2,n:"赤紅黏液怪",r:"tank",s:[]},{id:3,n:"尖耳小蝙蝠",r:"assassin",s:['vampire']},{id:4,n:"地精斥候",r:"warrior",s:['flee']},{id:5,n:"枯骨步兵",r:"warrior",s:[]},{id:6,n:"劇毒小蜘蛛",r:"assassin",s:['poison']},{id:7,n:"墓穴殭屍",r:"tank",s:['poison']},{id:8,n:"哥布林射手",r:"assassin",s:['assassinate']},{id:9,n:"瘟疫巨鼠",r:"warrior",s:['flee']},{id:10,n:"食岩幼蟲",r:"tank",s:[]},{id:11,n:"蠻族獸人",r:"warrior",s:[]},{id:12,n:"荒野幽靈",r:"mage",s:['mage_aoe']},{id:13,n:"雙翼石像鬼",r:"tank",s:['stun']},{id:14,n:"黑泥洞蛇",r:"assassin",s:['poison']},{id:15,n:"狂暴野豬",r:"tank",s:['stun']},{id:16,n:"地精薩滿",r:"mage",s:['heal']},{id:17,n:"噬血妖花",r:"mage",s:['poison']},{id:18,n:"枯骨騎兵",r:"warrior",s:[]},{id:19,n:"吸血鬼蝠",r:"assassin",s:['vampire']},{id:20,n:"微光火精靈",r:"mage",s:['mage_aoe']},{id:27,n:"死骨通靈師",r:"mage",s:['heal']},{id:29,n:"影流夜行刺",r:"assassin",s:['assassinate']},{id:34,n:"深淵魅魔",r:"assassin",s:['vampire']},{id:37,n:"極寒深淵法",r:"mage",s:['heal']},{id:38,n:"金屬史萊姆",r:"tank",s:['flee'],m:1},{id:39,n:"離散金屬",r:"tank",s:['flee'],m:1},{id:52,n:"提燈死神",r:"tank",s:['tonberry']},{id:53,n:"爆彈怪",r:"tank",s:['kamikaze']},{id:54,n:"仙人掌",r:"assassin",s:['flee']},{id:55,n:"貝希摩斯",r:"boss",s:['assassinate']},{id:41,n:"巨霸史萊姆王",r:"boss",s:['boss_aoe']},{id:42,n:"哥布林黃金王",r:"boss",s:['buff']},{id:43,n:"枯骨終焉將軍",r:"boss",s:['boss_aoe']},{id:44,n:"獸人鐵血督軍",r:"boss",s:['stun']},{id:45,n:"地精千足毒母",r:"boss",s:['poison']},{id:46,n:"猩紅吸血伯爵",r:"boss",s:['vampire']},{id:47,n:"滅世炎魔領主",r:"boss",s:['boss_aoe']},{id:48,n:"龍王",r:"boss",s:['boss_aoe']},{id:49,n:"大魔王佐瑪",r:"boss",s:['boss_aoe']},{id:50,n:"狂人卡夫卡",r:"boss",s:['mage_aoe']},{id:51,n:"片翼天使賽菲羅斯",r:"boss",s:['assassinate']},{id:56,n:"神龍",r:"boss",s:['boss_aoe']},{id:57,n:"歐米茄",r:"boss",s:['boss_aoe']},{id:58,n:"吉爾伽美什",r:"boss",s:['buff']},{id:60,n:"歧路旅人",r:"traveler",s:['traveler_random']},{id:99,n:"寶箱怪",r:"chest",s:['flee']}];
     const E_SKILLS = { 'normal':{n:'攻擊',t:'dmg',p:1}, 'flee':{n:'逃跑',t:'flee'}, 'kamikaze':{n:'自爆',t:'kami'}, 'vampire':{n:'吸血',t:'dmg',p:1.2,heal:0.5}, 'poison':{n:'毒牙',t:'dmg',p:1,apply:'psn'}, 'stun':{n:'重擊',t:'dmg',p:1,apply:'bld'}, 'heal':{n:'治癒',t:'heal',p:1.5}, 'buff':{n:'戰吼',t:'buff'}, 'assassinate':{n:'暗殺',t:'dmg',p:1.8,ign:1}, 'mage_aoe':{n:'魔彈風暴',t:'aoe',p:0.8}, 'tonberry':{n:'菜刀開膛',t:'fixed',v:999}, 'boss_aoe':{n:'毀滅攻擊',t:'aoe',p:1.5}, 'summon':{n:'呼叫同伴',t:'summon'}, 'traveler_random':{n:'旅人隨機',t:'trnd'} };
 
     let gameState = { floor: 1, room: 1, maxRooms: 10, roundCount: 1, historyLogs: [], party: [], enemies: [], currentHeroIndex: 0, isBattleActive: false, isInputPhase: false, pendingDrafts: [], draftChoiceIndex: 0, targetingAction: null, activeTab: 'adventure', lastPartyAction: null, weather: null, wTimer: 0 };
@@ -218,14 +216,14 @@
       constructor(id, name) {
         this.id = id; this.name = name; this.baseMaxHp = 100; this.baseAtk = 10; this.baseDef = 4; this.baseSpeed = 10;
         this.equips = { weapon: null, offhand: null, armor: null, accessory: null }; this.magic = []; this.special = []; this.items = []; this.passives = [];
-        this.cardMemory = {}; this.bMag = 0; this.bSpc = 0; this.bItm = 0; this.hp = 100; this.shield = 0; this.bCrit = 0;
+        this.cardMemory = {}; this.bMag = 0; this.bSpc = 0; this.bItm = 0; this.hp = 100; this.shield = 0; this.bCrit = 0; this.bPas = 0;
         this.status = { poison: 0, blind: 0, paralyze: 0, sleep: 0, confuse: 0, silence: 0, weak: 0, bleed: 0, regen: 0, berserk: 0, reflect_buff: 0, stun: 0, enchant_fire: 0 };
         this.matk = 10;
         this.combatState = { charging: false, jumpTimer: 0, jumpTarget: null, defending: false };
         this.buffs = { defending: false, taunt: false, reflectPhys: 0, dodge: 0, berserk: false }; this.isDead = false; this.actionQueued = null; this.currentRerolls = 1; this.lastExecutedAction = null;
       }
       getEquipLvl(id) { return this.cardMemory[id] || 1; } getMult(id) { return 1.0 + ((this.cardMemory[id] || 1) - 1) * 0.2; }
-      getMaxMagic() { return 5 + this.bMag; } getMaxSpecial() { return 5 + this.bSpc; } getMaxItems() { return 10 + this.bItm; } getMaxPassives() { return 5; } getMaxRerolls() { return 1 + (this.cardMemory['p_10'] || 0); }
+      getMaxMagic() { return 5 + this.bMag; } getMaxSpecial() { return 5 + this.bSpc; } getMaxItems() { return 10 + this.bItm; } getMaxPassives() { return 5 + (this.bPas || 0); } getMaxRerolls() { return 1 + (this.cardMemory['p_10'] || 0); }
       getMaxHp() { let val = this.baseMaxHp + getGearBonus(this, 'hp') + (this.equips.accessory?.bonusHp || 0); if (this.cardMemory['p_01']) val += this.cardMemory['p_01'] * 15; if (this.cardMemory['p_19']) val += this.cardMemory['p_19'] * 8; return val; }
       getAtk() { 
         let val = this.baseAtk; if (this.equips.weapon) val += getGearBonus(this, 'val'); else if (this.cardMemory['p_17']) val += 10 + this.cardMemory['p_17'] * 5;
@@ -248,24 +246,25 @@
 
     class Enemy {
       constructor(floor, isBoss = false, indexStr = "A") {
-        this.isBoss = isBoss; let pool = M_DB.filter(m => isBoss ? m.r === "boss" : m.r !== "boss");
-        if (!isBoss && Math.random() > 0.08) pool = pool.filter(m => !m.m);
+        this.isBoss = isBoss; let pool = M_DB.filter(m => isBoss ? m.r === "boss" : (m.r !== "boss" && m.r !== "chest"));
+        if (!isBoss && Math.random() < 0.03) pool = M_DB.filter(m => m.r === "chest");
+        else if (!isBoss && Math.random() > 0.08) pool = pool.filter(m => !m.m);
         let base = pool[Math.floor(Math.random() * pool.length)]; 
         this.tierName = "普通"; this.colorClass = "text-white"; this.isMetal = base.m || false; this.baseId = base.id;
         
         let tm = 1.0; 
-        if (!isBoss && !this.isMetal) {
+        if (!isBoss && !this.isMetal && this.baseId !== 99) {
           let tr = Math.random();
           if (floor >= 4) { if (tr < 0.05) { this.tierName = "傳奇"; this.colorClass = "text-purple-400"; tm = 2.0; } else if (tr < 0.15) { this.tierName = "稀有"; this.colorClass = "text-yellow-400"; tm = 1.5; } else if (tr < 0.40) { this.tierName = "菁英"; this.colorClass = "text-blue-300"; tm = 1.2; } }
           else if (floor >= 3) { if (tr < 0.1) { this.tierName = "稀有"; this.colorClass = "text-yellow-400"; tm = 1.5; } else if (tr < 0.3) { this.tierName = "菁英"; this.colorClass = "text-blue-300"; tm = 1.2; } }
           else if (floor >= 2 && tr < 0.2) { this.tierName = "菁英"; this.colorClass = "text-blue-300"; tm = 1.2; }
-        } else if (isBoss) { this.tierName = "霸主"; this.colorClass = "text-red-500"; tm = 1.0; } else if (this.isMetal) { this.tierName = "稀有"; this.colorClass = "text-yellow-400"; tm = 1.0; }
+        } else if (isBoss) { this.tierName = "霸主"; this.colorClass = "text-red-500"; tm = 1.0; } else if (this.isMetal || this.baseId === 99) { this.tierName = "稀有"; this.colorClass = "text-yellow-400"; tm = 1.0; }
         
-        this.name = isBoss || this.isMetal ? `${base.n}` : `${base.n} ${indexStr}`; 
+        this.name = isBoss || this.isMetal || this.baseId === 99 ? `${base.n}` : `${base.n} ${indexStr}`; 
         this.shortName = isBoss ? '魔王' : `怪物${indexStr}`;
         this.s = base.s ? [...base.s] : []; 
-        if (Math.random() < 0.1) this.s.push('summon');
-        let rStat = { 'tank':{h:35,a:3,d:2,s:0.5}, 'warrior':{h:25,a:4,d:1,s:1}, 'assassin':{h:15,a:5,d:0.5,s:2}, 'mage':{h:18,a:4,d:0.5,s:1.5}, 'boss':{h:150,a:10,d:5,s:1.5}, 'traveler':{h:0,a:0,d:0,s:0} }[base.r || 'warrior'];
+        if (Math.random() < 0.1 && this.baseId !== 99) this.s.push('summon');
+        let rStat = { 'tank':{h:35,a:3,d:2,s:0.5}, 'warrior':{h:25,a:4,d:1,s:1}, 'assassin':{h:15,a:5,d:0.5,s:2}, 'mage':{h:18,a:4,d:0.5,s:1.5}, 'boss':{h:150,a:10,d:5,s:1.5}, 'traveler':{h:0,a:0,d:0,s:0}, 'chest':{h:10,a:1,d:10,s:0.5} }[base.r || 'warrior'];
         
         let fLvl = Math.pow(floor, 0.7);
         this.maxHp = this.isMetal ? 4 + Math.floor(floor*0.5) : Math.floor((rStat.h * fLvl + 20) * tm);
@@ -286,8 +285,7 @@
         this.stunTimer = 0; this.wetTimer = 0; this.assassinMarks = 0;
         this.immunities = []; this.weaknesses = []; this.affixes = [];
         
-        // 菁英動態詞綴與防禦整合系統
-        if (floor >= 3 && !isBoss && !this.isMetal && Math.random() < 0.4) { 
+        if (floor >= 3 && !isBoss && !this.isMetal && this.baseId !== 99 && Math.random() < 0.4) { 
             let hasWk = false;
             if (floor >= 4 && Math.random() < 0.3) {
                 let wkPool = [{n:'攻弱', val:'attack'}, {n:'魔弱', val:'magic'}, {n:'技弱', val:'special'}, {n:'道弱', val:'items'}];
@@ -342,7 +340,7 @@
     function showEnemyInfo(idx) {
       if (gameState.targetingAction || !gameState.isInputPhase) return; const e = gameState.enemies[idx]; if (!e || e.isDead) return;
       document.getElementById('enemy-info-title').className = `retro-font text-[1em] ${e.colorClass}`; document.getElementById('enemy-info-title').innerText = e.name;
-      let desc = `HP: ${e.hp} / ${e.maxHp}<br>ATK: ${e.atk}<br>DEF: ${e.def === 999 ? 'MAX' : e.def}<br>SPD: ${e.speed}<br><br><span class="text-yellow-300">行動類型: ${e.isBoss?'首領':(e.isMetal?'金屬':e.tierName)}</span><br>`;
+      let desc = `HP: ${e.hp} / ${e.maxHp}<br>ATK: ${e.atk}<br>DEF: ${e.def === 999 ? 'MAX' : e.def}<br>SPD: ${e.speed}<br><br><span class="text-yellow-300">行動類型: ${e.isBoss?'首領':(e.baseId===99?'寶箱':(e.isMetal?'金屬':e.tierName))}</span><br>`;
       if(e.affixes.length > 0) desc += `<span class="text-orange-400 font-bold">特化詞綴: ${e.affixes.join(', ')}</span><br>`;
       if(e.assassinMarks > 0) desc += `<span class="text-yellow-500 font-bold">🎯 暗殺印記: ${e.assassinMarks} 層</span><br>`;
       let activeConds = CONDITION_DB.filter(c => e.status[c.prop] > 0); activeConds.forEach(c => { desc += `<span class="${c.color}">異常: ${c.name} (${e.status[c.prop]}R)</span><br>`; });
@@ -521,6 +519,21 @@
     }
     function queueAction(act) { const h = gameState.party[gameState.currentHeroIndex]; h.actionQueued = act; if (['magic','special','items'].includes(act.type)) { const m = h[act.type].find(s => s.id === act.skillId); if (m) { m.uses--; } } advanceTurnQueue(); }
 
+    async function triggerChestReward(h) {
+        let rMap = [{k:'bMag',n:'魔法'},{k:'bSpc',n:'特技'},{k:'bItm',n:'道具'}];
+        let sMap = [{k:'baseMaxHp',v:5,n:'生命種子',d:'生命+5'},{k:'baseAtk',v:1,n:'力量種子',d:'攻擊力+1'},{k:'baseDef',v:1,n:'防禦種子',d:'防禦力+1'},{k:'baseSpeed',v:1,n:'速度種子',d:'速度+1'},{k:'bCrit',v:0.01,n:'會心種子',d:'爆擊率+1%'},{k:'bDodge',v:0.01,n:'閃避種子',d:'閃躲率+1%'}];
+        let p = [
+            { c: ()=>Object.values(h.equips).some(e=>e), e: ()=>{ let eqs=Object.values(h.equips).filter(e=>e); let eq=eqs[Math.floor(Math.random()*eqs.length)]; h.cardMemory[eq.id]=(h.cardMemory[eq.id]||1)+1; return `💎 裝備強化石，『${h.name}』的 [${eq.name}] 等級提升 1！`; } },
+            { c: ()=>[...h.magic,...h.special].some(s=>{let db=DATABASE[s.type].find(x=>x.id===s.id); return db&&!db.isConsumable;}), e: ()=>{ let sks=[...h.magic,...h.special].filter(s=>{let db=DATABASE[s.type].find(x=>x.id===s.id); return db&&!db.isConsumable;}); let sk=sks[Math.floor(Math.random()*sks.length)]; h.cardMemory[sk.id]=(h.cardMemory[sk.id]||1)+1; let db=DATABASE[sk.type].find(x=>x.id===sk.id); return `📘 技能書，『${h.name}』的 [${db.name}] 等級提升 1！`; } },
+            { c: ()=>h.items.length<h.getMaxItems(), e: ()=>{ let iD=ITEMS_DB[Math.floor(Math.random()*ITEMS_DB.length)]; h.items.push({id:iD.id,type:'items',uses:1,maxUses:iD.isConsumable?1:iD.maxUses}); return `🎁 獲得道具 [${iD.name}]！`; } },
+            { c: ()=>true, e: ()=>{ let sel=rMap[Math.floor(Math.random()*rMap.length)]; h[sel.k]++; return `✨ ${sel.n}擴充石，『${h.name}』的${sel.n}最大欄位 +1！`; } },
+            { c: ()=>true, e: ()=>{ let sel=sMap[Math.floor(Math.random()*sMap.length)]; h[sel.k]+=sel.v; if(sel.k==='baseMaxHp') h.hp+=5; return `🌱 ${sel.n}，『${h.name}』的${sel.d}！`; } },
+            { c: ()=>true, e: ()=>`💨 空無一物...` }
+        ];
+        let msg = (Math.random() < 0.01) ? (++h.bPas, `🔮 能力擴充石，『${h.name}』的被動能力最大欄位 +1！`) : p.filter(x=>x.c())[Math.floor(Math.random()*p.filter(x=>x.c()).length)].e();
+        logAndMsg(msg, 'text-yellow-400 font-bold'); renderBattleScreen();
+    }
+
     function startRoom() { 
       if(gameState.room === 1) gameState.maxRooms = Math.floor(Math.random() * 6) + 10;
       const isBossRoom = (gameState.room >= gameState.maxRooms || gameState.room >= 15); gameState.enemies = []; 
@@ -572,7 +585,7 @@
           
           let stars = e.affixes.map(af => `<span class="${sMap[af]||'text-gray-300'}">★</span>`).join('');
 
-          let emoji = e.status.sleep > 0 ? '💤' : [{c:e.isBoss,v:'👿'},{c:e.s.includes('tonberry'),v:'💀'},{c:e.isMetal,v:'🫠'},{c:e.s.includes('kamikaze'),v:'💣'}].find(x=>x.c)?.v || '👾'; 
+          let emoji = e.status.sleep > 0 ? '💤' : [{c:e.isBoss,v:'👿'},{c:e.baseId===99,v:'📦'},{c:e.s.includes('tonberry'),v:'💀'},{c:e.isMetal,v:'🫠'},{c:e.s.includes('kamikaze'),v:'💣'}].find(x=>x.c)?.v || '👾'; 
           let pct = (e.hp / e.maxHp) * 100; 
           slot.innerHTML = `<div class="w-full bg-black h-1.5 mb-0.5 border border-gray-600 pointer-events-none"><div class="bg-red-600 h-full transition-all" style="width:${pct}%"></div></div><div class="text-xl sm:text-2xl relative mb-0.5 pointer-events-none">${emoji}${e.status.poison>0?'<span class="absolute -top-1 -right-2 text-[0.35em] bg-black text-green-400 px-1 retro-font">P</span>':''}${e.status.stun>0?'<span class="absolute -top-1 -right-2 text-[0.35em] bg-black text-yellow-400 px-1 retro-font">S</span>':''}${e.status.blind>0?'<span class="absolute bottom-1 -right-2 text-[0.35em] bg-black text-gray-400 px-1 retro-font">B</span>':''}${e.status.paralyze>0?'<span class="absolute top-3 -right-2 text-[0.35em] bg-yellow-600 text-black px-1 retro-font">R</span>':''}${e.status.confuse>0?'<span class="absolute top-7 -right-2 text-[0.35em] bg-purple-600 text-white px-1 retro-font">C</span>':''}</div><div class="text-[0.55em] retro-font ${e.colorClass} truncate w-full pointer-events-none">${stars}${e.name}</div><div class="text-[0.5em] retro-font text-gray-400 leading-none mt-0.5 pointer-events-none">${e.hp}/${e.maxHp}</div>`; 
         } else { slot.className = "h-full min-h-[55px] flex items-center justify-center opacity-10"; slot.innerHTML = ``; } mGrid.appendChild(slot); 
@@ -714,7 +727,7 @@
               }
           });
       } else {
-          let totalActionDmg = 0; let kills = 0;
+          let totalActionDmg = 0; let kills = 0; let chests = 0;
           for (let t of targets) {
               if(!t || t.isDead) continue; let eIdx = gameState.enemies.indexOf(t);
               for(let hit=0; hit<hits; hit++){
@@ -757,6 +770,7 @@
                       
                       if (t.hp <= 0) { 
                           t.isDead = true; kills++;
+                          if (t.baseId === 99) chests++;
                           let dK = { details: "" };
                           if (hero.hooks?.onKill) hero.hooks.onKill.forEach(hk => hk(hero, t, act, dK));
                           hitDetails += dK.details;
@@ -767,6 +781,7 @@
                   if(hits > 1) await sleep(250);
               }
           }
+          while(chests-- > 0) { logAndMsg(`📦 『${hero.name}』發現寶箱裡面是:`, 'text-yellow-300'); await sleep(1000); triggerChestReward(hero); }
       }
       if (hero.hp <= 0) { hero.isDead = true; logAndMsg(`💀 『${hero.name}』遭反射擊殺！`, 'text-red-500'); } 
       
@@ -864,7 +879,8 @@
       animateElement(`hero-mini-${tIdx}`, 'animate-shake'); createFloatNum(`-${d}`, 'text-red-500', true, tIdx); 
       let msg = `💥 【${enemy.shortName}】使出 [${actName}] 擊中『${target.name}』！(-${formatNum(d)})`; if (target.hp <= 0) { target.isDead = true; msg += ' (陣亡!)'; } logAndMsg(msg, 'text-red-400');
       if (target.status.reflect_buff > 0 && dPre > 0) { let refDmg = Math.floor(dPre * 0.8); enemy.hp = Math.max(0, enemy.hp - refDmg); createFloatNum(`反射-${refDmg}`, 'text-blue-300', false, eIdx); if (enemy.hp <= 0 && !enemy.isDead) enemy.isDead = true; } 
-      if (target.hooks?.onHitTaken) target.hooks.onHitTaken.forEach(hk => hk(target, enemy, dPre, {isMassiveAoe}));
+      if (target.buffs.defending && target.equips.armor?.id === 'a_09' && dPre > 0) { let refDmg = Math.floor(dPre * 0.8); enemy.hp = Math.max(0, enemy.hp - refDmg); createFloatNum(`反彈-${refDmg}`, 'text-blue-300', false, eIdx); if (enemy.hp <= 0 && !enemy.isDead) enemy.isDead = true; } 
+      if (target.buffs.defending && target.equips.offhand?.id === 'o_08' && dPre > 0) { let refDmg = Math.floor(dPre * 0.5); enemy.hp = Math.max(0, enemy.hp - refDmg); createFloatNum(`反擊-${refDmg}`, 'text-blue-300', false, eIdx); if (enemy.hp <= 0 && !enemy.isDead) enemy.isDead = true; } 
     }
 
     async function triggerVictoryFlow() { 
@@ -979,10 +995,10 @@
     function openSaveModal() { document.getElementById('save-code-area').value = ""; document.getElementById('save-modal').classList.remove('hidden'); }
     function closeSaveModal() { document.getElementById('save-modal').classList.add('hidden'); }
     function removeCircularRefs(key, value) { if (key === 'actionQueued' || key === 'jumpTarget' || key === 'target' || key === 'itemInstance') return undefined; return value; }
-    function exportSaveCode() { let d = JSON.stringify({ f: gameState.floor, r: gameState.room, mr: gameState.maxRooms, p: gameState.party.map(h => ({ id: h.id, name: h.name, cardMemory: h.cardMemory, equips: h.equips, magic: h.magic, special: h.special, items: h.items, passives: h.passives, hp: h.hp, currentRerolls: h.currentRerolls, bMag: h.bMag, bSpc: h.bSpc, bItm: h.bItm, matk: h.matk }))}, removeCircularRefs); document.getElementById('save-code-area').value = btoa(encodeURIComponent(d)); addLog("代碼已產生！", "text-cyan-400"); }
-    function importSaveCode() { let str = document.getElementById('save-code-area').value.trim(); if (!str) { showSystemMessage("請先貼上代碼！"); return; } try { let dec = JSON.parse(decodeURIComponent(atob(str))); gameState.floor = dec.f || 1; gameState.room = dec.r || 1; gameState.maxRooms = dec.mr || 10; gameState.party = dec.p.map(x => { let h = new Hero(x.id || x.i, x.name || x.n); h.equips = x.equips || x.e; h.magic = x.magic || x.m; h.special = x.special || x.s; h.items = x.items || x.it; h.passives = x.passives || x.pa; h.hp = x.hp; h.currentRerolls = x.currentRerolls || x.rr || 1; h.cardMemory = x.cardMemory || x.cm || {}; h.bMag = x.bMag || 0; h.bSpc = x.bSpc || 0; h.bItm = x.bItm || 0; h.matk = x.matk || 10; rebuildHooks(h); return h; }); closeSaveModal(); startRoom(); } catch (e) { showSystemMessage("無法還原，請確認代碼完整度！"); } }
-    function quickSaveGame() { let d = JSON.stringify({ f: gameState.floor, r: gameState.room, mr: gameState.maxRooms, p: gameState.party.map(h => ({ id: h.id, name: h.name, cardMemory: h.cardMemory, equips: h.equips, magic: h.magic, special: h.special, items: h.items, passives: h.passives, hp: h.hp, currentRerolls: h.currentRerolls, bMag: h.bMag, bSpc: h.bSpc, bItm: h.bItm, matk: h.matk })) }, removeCircularRefs); localStorage.setItem(STORAGE_KEY, d); addLog("進度已保存。", "text-cyan-400"); closeSaveModal(); }
-    function quickLoadGame() { let data = localStorage.getItem(STORAGE_KEY); if (!data) return showSystemMessage("無本機進度存檔！"); try { let dec = JSON.parse(data); gameState.floor = dec.f; gameState.room = dec.r; gameState.maxRooms = dec.mr || 10; gameState.party = dec.p.map(x => { let h = new Hero(x.id || x.i, x.name || x.n); h.equips = x.equips || x.e; h.magic = x.magic || x.m; h.special = x.special || x.s; h.items = x.items || x.it; h.passives = x.passives || x.pa; h.hp = x.hp; h.currentRerolls = x.currentRerolls || x.rr || 1; h.cardMemory = x.cardMemory || x.cm || {}; h.bMag = x.bMag || 0; h.bSpc = x.bSpc || 0; h.bItm = x.bItm || 0; h.matk = x.matk || 10; rebuildHooks(h); return h; }); closeSaveModal(); startRoom(); } catch (e) { showSystemMessage("載入失敗！"); } }
+    function exportSaveCode() { let d = JSON.stringify({ f: gameState.floor, r: gameState.room, mr: gameState.maxRooms, p: gameState.party.map(h => ({ id: h.id, name: h.name, cardMemory: h.cardMemory, equips: h.equips, magic: h.magic, special: h.special, items: h.items, passives: h.passives, hp: h.hp, currentRerolls: h.currentRerolls, bMag: h.bMag, bSpc: h.bSpc, bItm: h.bItm, bPas: h.bPas, matk: h.matk }))}, removeCircularRefs); document.getElementById('save-code-area').value = btoa(encodeURIComponent(d)); addLog("代碼已產生！", "text-cyan-400"); }
+    function importSaveCode() { let str = document.getElementById('save-code-area').value.trim(); if (!str) { showSystemMessage("請先貼上代碼！"); return; } try { let dec = JSON.parse(decodeURIComponent(atob(str))); gameState.floor = dec.f || 1; gameState.room = dec.r || 1; gameState.maxRooms = dec.mr || 10; gameState.party = dec.p.map(x => { let h = new Hero(x.id || x.i, x.name || x.n); h.equips = x.equips || x.e; h.magic = x.magic || x.m; h.special = x.special || x.s; h.items = x.items || x.it; h.passives = x.passives || x.pa; h.hp = x.hp; h.currentRerolls = x.currentRerolls || x.rr || 1; h.cardMemory = x.cardMemory || x.cm || {}; h.bMag = x.bMag || 0; h.bSpc = x.bSpc || 0; h.bItm = x.bItm || 0; h.bPas = x.bPas || 0; h.matk = x.matk || 10; rebuildHooks(h); return h; }); closeSaveModal(); startRoom(); } catch (e) { showSystemMessage("無法還原，請確認代碼完整度！"); } }
+    function quickSaveGame() { let d = JSON.stringify({ f: gameState.floor, r: gameState.room, mr: gameState.maxRooms, p: gameState.party.map(h => ({ id: h.id, name: h.name, cardMemory: h.cardMemory, equips: h.equips, magic: h.magic, special: h.special, items: h.items, passives: h.passives, hp: h.hp, currentRerolls: h.currentRerolls, bMag: h.bMag, bSpc: h.bSpc, bItm: h.bItm, bPas: h.bPas, matk: h.matk })) }, removeCircularRefs); localStorage.setItem(STORAGE_KEY, d); addLog("進度已保存。", "text-cyan-400"); closeSaveModal(); }
+    function quickLoadGame() { let data = localStorage.getItem(STORAGE_KEY); if (!data) return showSystemMessage("無本機進度存檔！"); try { let dec = JSON.parse(data); gameState.floor = dec.f; gameState.room = dec.r; gameState.maxRooms = dec.mr || 10; gameState.party = dec.p.map(x => { let h = new Hero(x.id || x.i, x.name || x.n); h.equips = x.equips || x.e; h.magic = x.magic || x.m; h.special = x.special || x.s; h.items = x.items || x.it; h.passives = x.passives || x.pa; h.hp = x.hp; h.currentRerolls = x.currentRerolls || x.rr || 1; h.cardMemory = x.cardMemory || x.cm || {}; h.bMag = x.bMag || 0; h.bSpc = x.bSpc || 0; h.bItm = x.bItm || 0; h.bPas = x.bPas || 0; h.matk = x.matk || 10; rebuildHooks(h); return h; }); closeSaveModal(); startRoom(); } catch (e) { showSystemMessage("載入失敗！"); } }
 
     let rnId = null;
     function openRenameModal(id) { rnId = id; document.getElementById('rename-input').value = gameState.party.find(h=>h.id===id).name; document.getElementById('rename-modal').classList.remove('hidden'); }
