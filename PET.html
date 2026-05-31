@@ -459,9 +459,9 @@ const Arena = {
         
         let eFace = RND.i(Object.values(FACES.adult).flat())[0];
         
-        // 分數加成：世代累積總和加成 + 本代當前獎盃
-        let pScore = state.age * 2 + (state.heritage * 15) + (state.trophies.length * 15) + (state.pers.fx.bScore || 0);
-        let eScore = a.diff;
+        // 平衡修正：大幅降低傳承係數(15->2)，並加入雙方亂數(Dice)，避免幼體靠血統無敵
+        let pScore = state.age * 1.5 + (state.heritage * 2) + (state.trophies.length * 5) + (state.pers.fx.bScore || 0) + (Math.random() * 15);
+        let eScore = a.diff + (Math.random() * 15);
 
         logs.push({ t: `🏆 【${a.n}】正式開始！`, a: 'clash' });
         logs.push({ t: `⚡ ${Game.getName()} VS 野生${TAG_N[eTags[0]]}${eTags[1]?TAG_N[eTags[1]]:''}巨獸`, a: '' });
@@ -488,7 +488,6 @@ const Arena = {
         let win = pScore >= eScore;
         logs.push({ t: win ? '🎉 壓倒性的勝利！' : '💀 遺憾地敗北了...', a: win ? 'p-win' : 'e-win' });
 
-        // 改為檢查 state.trophies
         if(win && !state.trophies.includes(a.win)) {
             state.trophies.push(a.win);
             logs.push({ t: `🌟 獲得了本代冠軍基因：【${a.win}】！`, a: 'p-buff' });
@@ -514,7 +513,6 @@ const UI = {
     update: () => {
         if(state.stage === 'end') return;
         
-        // 舊版存檔修復
         state.trophies = state.trophies || [];
         state.heritage = typeof state.heritage === 'number' ? state.heritage : (Array.isArray(state.heritage) ? state.heritage.length : 0);
         
@@ -538,14 +536,14 @@ const UI = {
                     <div class="stat-item"><div class="stat-header"><span>❤️ HP</span></div><div class="bar-bg"><div class="bar-fill" style="width:${(state.hp/state.maxHp)*100}%; background:var(--danger);"></div></div></div>
                     <div class="stat-item"><div class="stat-header"><span>🍖 飽食</span></div><div class="bar-bg"><div class="bar-fill" style="width:${(state.full/state.maxFull)*100}%; background:#f9a826;"></div></div></div>
                     <div class="stat-item"><div class="stat-header"><span>✨ 心情</span></div><div class="bar-bg"><div class="bar-fill" style="width:${(state.mood/state.maxMood)*100}%; background:#56ccf2;"></div></div></div>
-                    <div class="stat-item"><div class="stat-header"><span>🏆 傳承總數</span><span>${state.heritage + state.trophies.length}</span></div></div>
+                    <div class="stat-item"><div class="stat-header"><span>🏆 獎盃</span><span>${state.heritage + state.trophies.length}</span></div></div>
                 </div>
             </div>`;
     },
     renderLogs: () => document.getElementById('log-list').innerHTML = state.logs.map(l => `<div class="log-entry"><div class="log-date">Day ${l.d}</div>${l.t}</div>`).join(''),
     renderArena: () => {
         let pTags = Game.getTags().map(t => TAG_N[t]).join('、') || '無';
-        document.getElementById('arena-tags').innerHTML = `<span style="font-size:0.9em;color:#777">消耗 20 HP 進行一場自動戰鬥。祖先累積：${state.heritage} 點血統加成！</span><br><br><b>當前特徵：</b><span style="color:var(--primary)">${pTags}</span><br><b>本代獎盃：</b>${state.trophies.join('、') || '無'}`;
+        document.getElementById('arena-tags').innerHTML = `<span style="font-size:0.9em;color:#777">消耗 20 HP 進行戰鬥。祖先血統帶來微幅加成！</span><br><br><b>當前特徵：</b><span style="color:var(--primary)">${pTags}</span><br><b>本代獎盃：</b>${state.trophies.join('、') || '無'}`;
         document.getElementById('arena-list').innerHTML = Object.keys(ARENAS).map(k => `
             <div class="list-btn" onclick="Arena.fight('${k}')">
                 <div>${ARENAS[k].n}<br><small style="color:#888">優勢：${ARENAS[k].fav.map(t=>TAG_N[t]).join(', ')}</small></div>
