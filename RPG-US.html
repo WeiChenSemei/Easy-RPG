@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>《未知宙域》Unknown Space</title>
+    <style>
+        :root {
+            --bg-color: #050510;
+            --text-color: #00ffcc;
+            --border-color: #0088aa;
+            --danger-color: #ff3366;
+            --safe-color: #33cc33;
+            --ui-bg: rgba(0, 20, 40, 0.8);
+            --font-size: 16px;
+        }
+        * { box-sizing: border-box; touch-action: manipulation; }
+        body {
+            margin: 0; padding: 0; background: var(--bg-color); color: var(--text-color);
+            font-family: "Courier New", Courier, monospace; font-size: var(--font-size);
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+            background-image: radial-gradient(circle at center, #112 0%, #000 100%);
+        }
+        button, input, select {
+            font-family: inherit; font-size: 1.1em; background: var(--ui-bg); color: var(--text-color);
+            border: 1px solid var(--border-color); padding: 10px; margin: 5px 0; border-radius: 5px;
+            cursor: pointer; text-align: center;
+        }
+        button:active { background: var(--text-color); color: var(--bg-color); }
+        .screen { display: none; flex-direction: column; height: 100%; width: 100%; max-width: 600px; margin: 0 auto; padding: 10px; }
+        .active-screen { display: flex; }
+        
+        /* Header */
+        header { display: flex; justify-content: space-between; padding: 8px 5px; border-bottom: 2px solid var(--border-color); font-size: 1.05em; flex-wrap: wrap; background: rgba(0, 20, 40, 0.95); }
+        .stat-bar { margin: 3px 2px; font-weight: bold; }
+        .val-hp { color: var(--safe-color); } .val-sp { color: #cc33ff; }
+        
+        /* Grid Map */
+        #map-grid {
+            display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; flex-grow: 1; margin: 10px 0;
+        }
+        .cell {
+            background: #112233; border: 1px solid #224455; display: flex; justify-content: center; align-items: center;
+            font-size: 1.5em; border-radius: 4px; font-weight: bold;
+        }
+        .cell.revealed { background: #0a1122; border-color: #112233; }
+        .cell.danger-1 { color: #88ccff; } .cell.danger-2 { color: #ffdd55; } .cell.danger-3 { color: #ff8833; } .cell.danger-4 { color: #ff3333; }
+        
+        /* Log */
+        .log-box { flex: 1 1 0; height: 0; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; background: rgba(0,0,0,0.5); font-size: 0.9em; white-space: pre-wrap; word-break: break-word;}
+        
+        /* Controls */
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .controls.full { grid-template-columns: 1fr; }
+        
+        h1, h2 { text-align: center; margin: 10px 0; text-shadow: 0 0 5px var(--text-color); }
+        .blink { animation: blinker 1.5s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0.3; } }
+        
+        /* 終結技專屬特效 */
+        @keyframes rainbowText {
+            0% { color: #ff3366; text-shadow: 0 0 8px #ff3366, 0 0 2px #fff; }
+            25% { color: #ffdd55; text-shadow: 0 0 8px #ffdd55, 0 0 2px #fff; }
+            50% { color: #33cc33; text-shadow: 0 0 8px #33cc33, 0 0 2px #fff; }
+            75% { color: #88ccff; text-shadow: 0 0 8px #88ccff, 0 0 2px #fff; }
+            100% { color: #ff3366; text-shadow: 0 0 8px #ff3366, 0 0 2px #fff; }
+        }
+        .rainbow-text { animation: rainbowText 1s linear infinite; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="sys-toast" style="display:none; position:fixed; top:10%; left:50%; transform:translateX(-50%); background:rgba(0,136,170,0.9); padding:10px 20px; border-radius:5px; z-index:999; box-shadow:0 0 10px #000;"></div>
+
+<header id="top-bar" style="display:none;">
+    <div class="stat-bar" onclick="SYS.showStatus()" style="cursor:pointer; background:rgba(0,136,170,0.3); padding:2px 5px; border-radius:3px; border: 1px solid var(--border-color);">👤<span id="ui-name"></span> L<span id="ui-lv"></span> 🔍</div>
+    <div class="stat-bar">宙域:NO. <span id="ui-floor"></span></div>
+    <div class="stat-bar">機體: <span id="ui-hp" class="val-hp"></span></div>
+    <div class="stat-bar">精神: <span id="ui-sp" class="val-sp"></span></div>
+    <button onclick="SYS.nav('settings')" style="padding:2px 10px; margin:0;">⚙️</button>
+</header>
+
+<!-- Title Screen -->
+<div id="scr-title" class="screen active-screen" style="justify-content: center;">
+    <h1 class="blink">《未知宙域》<br>Unknown Space</h1>
+    <p style="text-align: center;">Roguelite 戰棋探索</p>
+    <div class="controls full" style="margin-top: 50px;">
+        <button onclick="SYS.el('ui-gen').innerText = (STATE.legacy.gen || 1); SYS.nav('create');">🚀 開始新任務</button>
+        <button onclick="SYS.nav('settings')">💾 存檔/設定</button>
+    </div>
+</div>
+
+<!-- Creation Screen -->
+<div id="scr-create" class="screen">
+    <h2>🧬 建立 第 <span id="ui-gen"></span> 代駕駛員</h2>
+    <input type="text" id="inp-name" value="新人駕駛員" placeholder="輸入代號" maxlength="8">
+    <label>選擇出身勢力：</label>
+    <select id="sel-faction"></select>
+    <div id="faction-desc" style="margin: 10px 0; font-size: 0.9em; min-height: 50px;"></div>
+    <div class="controls full" style="margin-top: auto;">
+        <button onclick="GAME.start()">啟動傳送程序</button>
+    </div>
+</div>
+
+<!-- Map Screen -->
+<div id="scr-map" class="screen">
+    <div style="display:flex; justify-content: space-between; font-size: 0.8em; margin-bottom: 5px;">
+        <span id="world-news" style="color:#ffdd55;"></span>
+    </div>
+    <div id="map-grid"></div>
+    <div class="controls full" style="margin-top: 10px;">
+        <button id="btn-next-floor" onclick="GAME.nextFloor()" style="display:none;">進入下一宙域 🌌</button>
+    </div>
+</div>
+
+<!-- Combat Screen -->
+<div id="scr-combat" class="screen">
+    <h2 id="combat-title" class="val-hp"></h2>
+    <div id="combat-log" class="log-box"></div>
+    <div id="combat-spirits" class="controls" style="margin-top: 5px; display: none;"></div>
+    <div class="controls" style="margin-top: 10px;">
+        <button onclick="COMBAT.act('attack')">⚔️ 攻擊</button>
+        <button onclick="COMBAT.act('defend')">🛡️ 防禦</button>
+        <button onclick="COMBAT.showSpirits()">🔥 精神</button>
+        <button onclick="COMBAT.act('retreat')">💨 撤退</button>
+    </div>
+</div>
+
+<!-- Event/Loot Screen -->
+<div id="scr-event" class="screen">
+    <h2 id="event-title"></h2>
+    <div id="event-desc" class="log-box" style="text-align: center; display: flex; flex-direction: column; justify-content: center; font-size: 1.1em;"></div>
+    <div id="event-choices" class="controls full" style="margin-top: 10px;"></div>
+</div>
+
+<!-- Game Over Screen -->
+<div id="scr-gameover" class="screen">
+    <h2 style="color:var(--danger-color); text-align:center;">☠️ 機體大破</h2>
+    <div id="go-desc" class="log-box" style="text-align: center; justify-content: center; display: flex; flex-direction: column; font-size:1.2em;"></div>
+    <div class="controls full" style="margin-top:10px;">
+        <button onclick="SYS.nav('title')">接受傳承，返回標題</button>
+    </div>
+</div>
+
+<!-- Status Screen -->
+<div id="scr-status" class="screen">
+    <h2>📊 駕駛員與機體情報</h2>
+    <div class="controls full">
+        <button onclick="SYS.back()">返回</button>
+    </div>
+    <div class="controls full">
+        <input type="text" id="stat-name" onchange="STATE.pilot.name=this.value; SYS.updateUI();" placeholder="修改代號 (自動儲存)" maxlength="10">
+        <input type="text" id="stat-mech-name" onchange="STATE.mech.name=this.value; SYS.updateUI();" placeholder="修改機體名稱 (自動儲存)" maxlength="12">
+    </div>
+    <div id="stat-details" class="log-box" style="margin: 10px 0; font-size: 0.95em; text-align: left; line-height: 1.4;"></div>
+</div>
+
+<!-- Settings Screen -->
+<div id="scr-settings" class="screen">
+    <h2>⚙️ 系統設定</h2>
+    <div class="controls">
+        <button onclick="SYS.adjFont(2)">A+</button>
+        <button onclick="SYS.adjFont(-2)">A-</button>
+    </div>
+    <hr style="border-color: var(--border-color); width: 100%;">
+    <div class="controls full">
+        <button onclick="SYS.saveLocal()">💾 儲存本機存檔</button>
+        <button onclick="SYS.loadLocal()">📂 讀取本機存檔</button>
+        <button onclick="SYS.exportData()">📤 匯出繼承碼</button>
+        <button onclick="SYS.importData()">📥 匯入繼承碼</button>
+        <button onclick="SYS.back()">返回</button>
+    </div>
+    <textarea id="save-code" placeholder="此處顯示/輸入繼承碼..." style="margin-top:10px; height: 100px; background: #000; color:#fff;"></textarea>
+</div>
+
+<script>
+/** * 資料驅動設計核心：所有邏輯依賴資料字典
+ */
+const DB = {
+    Factions: {
+        '地球聯邦': { desc: '平衡型。初始 HP+20, 射擊+5', bonus: {hp:20, shoot:5, melee:0, react:0, luck:0}, wTag: '實彈' },
+        '火星同盟': { desc: '近戰特化。初始 格鬥+10, 反應+2', bonus: {hp:0, shoot:0, melee:10, react:2, luck:0}, wTag: '近戰' },
+        'AI軍團': { desc: '高運算。初始 精神+10, 反應+5', bonus: {hp:0, shoot:2, melee:0, react:5, luck:0}, spBonus: 10, wTag: '光束' },
+        '宇宙海盜': { desc: '高風險。初始 運氣+15, 射擊+2', bonus: {hp:-10, shoot:2, melee:5, react:0, luck:15}, wTag: '導彈' },
+        '異星蟲族': { desc: '生命力極強。初始 HP+50', bonus: {hp:50, shoot:0, melee:0, react:-2, luck:0}, wTag: '重力' }
+    },
+    MechTypes: {
+        '突擊': { stats: {hp:1, shoot:1.2, melee:1.2, react:1} },
+        '重裝': { stats: {hp:1.5, shoot:1, melee:1.2, react:0.8} },
+        '狙擊': { stats: {hp:0.8, shoot:1.5, melee:0.5, react:1.2} },
+        '高速': { stats: {hp:0.8, shoot:1, melee:1, react:1.5} },
+        '特裝': { stats: {hp:1.1, shoot:1.1, melee:1.1, react:1.1} }
+    },
+    Prefixes: ['試作型', '量產型', '王牌專用', '古代', '深淵', '次世代'],
+    FinPre: ['次元', '究極', '必殺', '超絕', '真・', '爆裂', '閃光', '暗黑', '神聖', '無限', '虛空', '星爆'],
+    FinMid: ['毀滅', '螺旋', '霸王', '烈風', '碎星', '波動', '天罰', '隕石', '幻影', '崩星', '超重', '狂亂'],
+    FinSuf: ['光束', '刀', '擊', '咆哮', '突刺', '拳', '砲', '劍', '爆', '舞', '斬', '陣'],
+    Tags: {
+        Weapon: ['實彈', '光束', '導彈', '近戰', '重力', '精神'],
+        Enemy: ['機械', '生體', '護盾', '巨大', '高速', 'AI']
+    },
+    WepTxt: {
+        '實彈': ['穿甲彈撕裂了真空！', '重型機砲發出震耳欲聾的咆哮！', '密集的實彈幕覆蓋了目標！'],
+        '光束': ['高能米加粒子砲劃破暗空！', '灼熱的光束瞬間蒸發了裝甲！', '光束步槍精準貫穿核心！'],
+        '導彈': ['微型導彈群如蜂群般湧出！', '追蹤導彈畫出致命的死亡軌跡！', '反艦飛彈直接命中爆發！'],
+        '近戰': ['推進器超載，高周波劍斬斷裝甲！', '零距離突擊，動力臂粉碎目標！', '光束軍刀劃出致命的弧線！'],
+        '重力': ['空間扭曲，重力子放射引發坍縮！', '引力震盪波粉碎了敵方的結構！', '微型黑洞吞噬了前方的物質！'],
+        '精神': ['念動力化為實體衝擊，粉碎敵人！', '精神感應框架閃耀，釋放毀滅能量！', '腦量子波鎖定，發動無死角攻擊！']
+    },
+    EnemyTxt: ['敵機猛烈開火，裝甲火花四濺！', '遭受突襲，機體發出刺耳警報！', '敵方光束擦過駕駛艙，溫度驟升！', '巨大的質量衝擊，全機劇烈震動！'],
+    DodgeTxt: ['推進器急轉，驚險擦彈迴避！', '雷達預警發揮作用，機體留下殘影閃過！', '直感啟動，以不可思議的角度閃避！', '敵方火控系統丟失目標，攻擊落空！'],
+    StatDesc: {
+        '機體': '機體裝甲與耐久，歸零則Game Over。',
+        '精神': '駕駛員精神力，用於發動強大的精神指令。',
+        '射擊 (Shoot)': '影響實彈、光束、導彈等遠程武器傷害。',
+        '格鬥 (Melee)': '影響近戰武器傷害與格鬥判定。',
+        '反應 (React)': '機體機動性，顯著提升迴避率與命中率。',
+        '運氣 (Luck)': '提升暴擊率、獲得經驗值，以及遭遇好事件的機率。'
+    },
+    // 屬性相剋表： 攻擊Tag -> 防禦Tag = 傷害倍率
+    TagMatrix: {
+        '實彈': { '高速': 1.5, '護盾': 0.5 },
+        '光束': { '生體': 1.5, '護盾': 0.5 },
+        '導彈': { '巨型': 1.5, '高速': 0.5 },
+        '近戰': { '機械': 1.5, '巨型': 0.5 },
+        '重力': { '高速': 0.5, '巨型': 1.5 },
+        '精神': { 'AI': 1.5, '生體': 0.5 }
+    },
+    Spirits: {
+        '集中': { cost: 10, desc: '本回合命中/閃避大增', tag: 'focus' },
+        '熱血': { cost: 20, desc: '本回合傷害 x2', tag: 'valor' },
+        '直感': { cost: 15, desc: '必定閃避一次攻擊', tag: 'intuition' },
+        '幸運': { cost: 10, desc: '戰鬥後獲得經驗/道具加倍', tag: 'luck' },
+        '魂':   { cost: 40, desc: '本回合傷害 x3', tag: 'soul' },
+        '愛':   { cost: 60, desc: '完全回復，並賦予熱血+直感', tag: 'love' }
+    },
+    Cells: { // 網格內容映射
+        0: { icon: '', type: 'empty' },
+        1: { icon: '👾', type: 'enemy', name: '敵軍部隊' },
+        2: { icon: '🤖', type: 'enemy', name: '失控AI兵器' },
+        3: { icon: '🦖', type: 'enemy', name: '宇宙巨獸' },
+        4: { icon: '🏴‍☠️', type: 'enemy', name: '海盜艦隊' },
+        5: { icon: '📦', type: 'event', name: '補給站' },
+        6: { icon: '🏛️', type: 'event', name: '古代遺跡' },
+        7: { icon: '🆘', type: 'event', name: '求救訊號' },
+        8: { icon: '🌌', type: 'exit', name: '空間跳躍點' },
+        9: { icon: '☠️', type: 'boss', name: '首領' }
+    },
+    WorldStates: {
+        0: { msg: "【和平】各方勢力暫時休兵。", spawn: {} },
+        1: { msg: "【戰爭】聯邦與火星爆發激戰！", spawn: {1: 0.3} },
+        2: { msg: "【危機】AI軍團開始同化邊境。", spawn: {2: 0.3} },
+        3: { msg: "【震盪】超空間風暴肆虐。", spawn: {7: 0.2} },
+        4: { msg: "【結盟】海盜與蟲族達成詭異共識！", spawn: {4: 0.2, 3: 0.2} },
+        5: { msg: "【崛起】古代遺跡大量現世！", spawn: {6: 0.3} }
+    },
+    Events: {
+        5: [ // 補給站事件庫
+            { d: "發現一艘漂流的聯邦運輸艦，似乎還有能源反應。", c: [
+                { l: '對接搜刮', f: (p) => { p.hp = Math.min(p.maxHp, p.hp+40); return "找到大量奈米修復劑，裝甲大幅修復(HP+40)！"; } },
+                { l: '提取資料', f: (p) => { p.exp+=30; return "下載了航行日誌，獲得寶貴的宙域資訊(Exp+30)。"; } }
+            ]},
+            { d: "一座廢棄的星際中繼站，系統仍在待機狀態。", c: [
+                { l: '連接充能', f: (p) => { p.sp=p.maxSp; return "成功接入主能源，精神與系統完全充能(SP全滿)！"; } },
+                { l: '謹慎離開', f: () => "你選擇不冒風險，繼續航行。" }
+            ]},
+            { d: "遭遇一支正與不明生物交戰的【地球聯邦】小隊。", c: [
+                { l: '協助聯邦', f: (p) => { STATE.reps['地球聯邦']+=10; p.exp+=20; return "聯邦好感提升！獲取了戰鬥數據(Exp+20)。"; } },
+                { l: '趁火打劫', f: (p) => { STATE.reps['地球聯邦']-=20; p.sp=p.maxSp; return "搶走聯邦物資箱，SP全滿，但被聯邦列入黑名單！"; } }
+            ]},
+            { d: "一片神秘的星雲物質，蘊含著奇異的能量波動。", c: [
+                { l: '吸收能量', f: (p) => { p.maxHp+=15; p.hp+=15; return "機體裝甲被能量永久強化了(MaxHP+15)！"; } },
+                { l: '遠離', f: () => "未知總是伴隨著危險，你避開了星雲。" }
+            ]}
+        ],
+        6: [ // 遺跡事件庫
+            { d: "巨大的環狀古代遺跡，散發著幽幽藍光。", c: [
+                { l: '強行探勘 (運氣檢定)', f: (p) => { if(Math.random()<0.5+(p.luck*0.01)){ p.react+=5; return "取得古代操縱模組，反應力永久+5！"; } else { p.hp-=30; return "觸發古代防衛機制，遭受重創(HP-30)！"; } } },
+                { l: '紀錄座標', f: (p) => { p.exp+=15; return "將遺跡外觀記錄並發送回本部，獲得經驗(Exp+15)。"; } }
+            ]},
+            { d: "遺跡深處漂浮著一塊散發思維波動的黑色石碑。", c: [
+                { l: '精神連結', f: (p) => { 
+                    if(Math.random()<0.6) {
+                        let sp = GAME.rnd(Object.keys(DB.Spirits));
+                        if(!p.spirits.includes(sp)) p.spirits.push(sp);
+                        return `大腦湧入龐大知識，領悟新精神【${sp}】！`;
+                    } else {
+                        p.sp = Math.max(0, p.sp-20); return "精神遭到反噬，大腦劇烈疼痛(SP-20)！";
+                    }
+                }},
+                { l: '切斷感測', f: () => "這東西太邪門了，你決定不碰為妙。" }
+            ]}
+        ],
+        7: [ // 求救訊號事件庫
+            { d: "收到微弱的求救訊號，頻段顯示為民用客船。", c: [
+                { l: '前往救援', f: (p) => {
+                    if(Math.random()<0.6){ p.luck+=3; return "成功救出客船，乘客們的感激讓你的運氣提升了(Luck+3)！"; } 
+                    else { return "海盜的陷阱！戰鬥無可避免！"; }
+                }},
+                { l: '無視', f: () => "在這個殘酷的宇宙中，自保才是第一要務。" }
+            ]},
+            { d: "訊號來自一架大破的同盟機甲，駕駛員似乎還活著。", c: [
+                { l: '緊急回收', f: (p) => { p.shoot+=2; p.melee+=2; return "救出駕駛員，他將戰鬥數據傳給了你，射擊與格鬥提升(+2)！"; } },
+                { l: '發送座標', f: () => "你將座標發給了救援隊，祝他好運。" }
+            ]},
+            { d: "發現【AI軍團】的廢棄終端機，正發送著無意義的亂碼。", c: [
+                { l: '駭入核心', f: (p) => { 
+                    if(Math.random()<0.5){ p.react+=5; return "成功破解AI神經網路，反應力大幅優化(React+5)！"; } 
+                    else { return "海盜的陷阱！原來是電子誘餌！"; }
+                }},
+                { l: '摧毀終端', f: () => { STATE.reps['AI軍團']-=10; return "你一砲轟了終端機，AI軍團對你的敵意增加了。"; } }
+            ]}
+        ],
+        'levelUp': [
+            { d: "歷經戰火洗禮，駕駛員與機體的同步率達到了新的境界。請選擇強化方向：", c: [
+                { l: '提升射擊 (+3)', f: (p) => { p.shoot += 3; return "火控系統升級，射擊能力顯著提升。"; } },
+                { l: '提升格鬥 (+3)', f: (p) => { p.melee += 3; return "推進器微調，格鬥爆發力提升。"; } },
+                { l: '提升反應 (+3)', f: (p) => { p.react += 3; return "神經連結優化，機體反應速度提升。"; } },
+                { l: '擴充核心 (MaxHP+20)', f: (p) => { p.maxHp += 20; p.hp += 20; return "機體裝甲與動力核心強化完成。"; } },
+                { l: '精神強化 (MaxSP+15)', f: (p) => { p.maxSp += 15; p.sp += 15; return "大腦皮層開發，精神力閾值擴展。"; } }
+            ]}
+        ],
+        'baseResupply': [
+            { d: "抵達中繼基地。獲得補給與短暫的休整，請選擇資源分配方式：", c: [
+                { l: '機體維護 (HP/SP全滿, MaxHP+10)', f: (p) => { p.maxHp += 10; p.hp = p.maxHp; p.sp = p.maxSp; return "裝甲修復完畢，機體煥然一新。"; } },
+                { l: '火控升級 (射擊/格鬥+5)', f: (p) => { p.shoot += 5; p.melee += 5; return "武器系統輸出功率永久提升。"; } },
+                { l: '次世代改裝 (隨機獲得強大新機體)', f: (p) => {
+                    let nType = GAME.rnd(Object.keys(DB.MechTypes));
+                    STATE.mech.name = `次世代${nType}機`; STATE.mech.type = nType;
+                    STATE.mech.finisher = [1,2,3].map(()=>GAME.rnd(DB.FinPre)+GAME.rnd(DB.FinMid)+GAME.rnd(DB.FinSuf));
+                    p.react += 5; p.maxHp += 20; p.hp += 20;
+                    return `成功換乘【${STATE.mech.name}】，性能大幅躍升！`;
+                }}
+            ]}
+        ]
+    }
+};
+
+/** 全局狀態 */
+let STATE = {
+    legacy: { statBonus: 0, gen: 1 }, currScreen: 'title', inCombat: false,
+    inGame: false,
+    pilot: { name: '', lv: 1, exp: 0, hp: 100, maxHp: 100, sp: 50, maxSp: 50, shoot: 10, melee: 10, react: 10, luck: 10, spirits: ['集中', '熱血'] },
+    mech: { name: '', type: '', wTag: '實彈' },
+    reps: { '地球聯邦': 0, '火星同盟': 0, 'AI軍團': 0, '宇宙海盜': 0, '異星蟲族': 0 },
+    floor: 1, worldState: 0,
+    map: { grid: [], width: 6, height: 8, currCell: null },
+    combat: { enemy: null, buff: null, isEnding: false }
+};
+
+/** 系統與UI工具 */
+let _uiLock = false;
+document.addEventListener('click', (e) => {
+    let btn = e.target.closest('button');
+    if(btn) {
+        if(_uiLock) { e.stopPropagation(); e.preventDefault(); return; }
+        _uiLock = true;
+        setTimeout(() => _uiLock = false, 350); // 350ms 全局防連點冷卻
+    }
+}, true);
+
+const SYS = {
+    el: (id) => document.getElementById(id),
+    nav: (screen) => {
+        STATE.currScreen = screen;
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
+        SYS.el(`scr-${screen}`).classList.add('active-screen');
+        SYS.el('top-bar').style.display = (screen === 'title' || screen === 'create' || screen === 'gameover') ? 'none' : 'flex';
+        if (STATE.inGame) SYS.updateUI();
+    },
+    back: () => {
+        if (!STATE.inGame) return SYS.nav('title');
+        if (STATE.inCombat) return SYS.nav('combat');
+        SYS.nav('map');
+    },
+    toast: (msg) => {
+        let t = SYS.el('sys-toast');
+        t.innerText = msg; t.style.display = 'block';
+        setTimeout(() => t.style.display = 'none', 2000);
+    },
+    updateUI: () => {
+        ['name', 'lv', 'floor', 'hp', 'sp'].forEach(k => SYS.el(`ui-${k}`).innerText = STATE.pilot[k] !== undefined ? STATE.pilot[k] : STATE[k]);
+        SYS.el('ui-hp').style.color = STATE.pilot.hp < STATE.pilot.maxHp * 0.3 ? 'var(--danger-color)' : '#33cc33';
+    },
+    rnd: (arr) => arr[Math.floor(Math.random() * arr.length)],
+    rndInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+    adjFont: (val) => {
+        let root = document.documentElement;
+        let curr = parseInt(getComputedStyle(root).getPropertyValue('--font-size')) || 16;
+        root.style.setProperty('--font-size', `${Math.max(12, Math.min(24, curr + val))}px`);
+    },
+    saveLocal: (silent = false) => { localStorage.setItem('US_SAVE', JSON.stringify(STATE)); if(!silent) SYS.toast('💾 本機儲存成功'); },
+    loadLocal: () => { 
+        let s = localStorage.getItem('US_SAVE'); 
+        if(s) { STATE = JSON.parse(s); SYS.back(); MAP.render(); SYS.toast('📂 讀取成功'); } 
+    },
+    exportData: () => SYS.el('save-code').value = btoa(encodeURIComponent(JSON.stringify(STATE))),
+    importData: () => {
+        try { STATE = JSON.parse(decodeURIComponent(atob(SYS.el('save-code').value))); SYS.back(); MAP.render(); SYS.toast('📥 繼承成功！'); } 
+        catch(e) { SYS.toast('❌ 繼承碼無效'); }
+    },
+    log: (targetId, msg, isClear = false) => {
+        let el = SYS.el(targetId);
+        if (isClear) el.innerHTML = '';
+        el.innerHTML += `<div>${msg}</div>`;
+        el.scrollTop = el.scrollHeight;
+    },
+    showStatus: () => {
+        SYS.el('stat-name').value = STATE.pilot.name;
+        SYS.el('stat-mech-name').value = STATE.mech.name;
+        let d = SYS.el('stat-details');
+        let fins = Array.isArray(STATE.mech.finisher) ? STATE.mech.finisher.join(' / ') : STATE.mech.finisher;
+        d.innerHTML = `
+            <p><strong>武裝屬性:</strong> ${STATE.mech.wTag} &nbsp;|&nbsp; <strong>終結技:</strong><br><span style="color:#ff33ff; font-size:0.9em;">${fins}</span></p>
+            <p><strong>等級:</strong> ${STATE.pilot.lv} (Exp: ${STATE.pilot.exp}/${STATE.pilot.lv*20})</p>
+            <hr style="border-color:#0088aa; margin:5px 0;">
+            <p><strong>機體 (${STATE.pilot.hp}/${STATE.pilot.maxHp}):</strong> <br><span style="color:#aaa; font-size:0.8em">${DB.StatDesc['機體']}</span></p>
+            <p><strong>精神 (${STATE.pilot.sp}/${STATE.pilot.maxSp}):</strong> <br><span style="color:#aaa; font-size:0.8em">${DB.StatDesc['精神']}</span></p>
+            <p><strong>射擊 (${STATE.pilot.shoot}):</strong> <br><span style="color:#aaa; font-size:0.8em">${DB.StatDesc['射擊 (Shoot)']}</span></p>
+            <p><strong>格鬥 (${STATE.pilot.melee}):</strong> <br><span style="color:#aaa; font-size:0.8em">${DB.StatDesc['格鬥 (Melee)']}</span></p>
+            <p><strong>反應 (${STATE.pilot.react}):</strong> <br><span style="color:#aaa; font-size:0.8em">${DB.StatDesc['反應 (React)']}</span></p>
+            <p><strong>運氣 (${STATE.pilot.luck}):</strong> <br><span style="color:#aaa; font-size:0.8em">${DB.StatDesc['運氣 (Luck)']}</span></p>
+            <hr style="border-color:#0088aa; margin:5px 0;">
+            <p><strong>精神指令:</strong> ${STATE.pilot.spirits.join(', ')}</p>
+        `;
+        SYS.nav('status');
+    }
+};
+
+/** 遊戲主邏輯 */
+const GAME = {
+    init: () => {
+        let sel = SYS.el('sel-faction');
+        Object.keys(DB.Factions).forEach(f => sel.innerHTML += `<option value="${f}">${f}</option>`);
+        sel.onchange = (e) => SYS.el('faction-desc').innerText = DB.Factions[e.target.value].desc;
+        sel.onchange({target:sel}); // trigger initial
+        if(SYS.el('ui-gen')) SYS.el('ui-gen').innerText = (STATE.legacy.gen || 1);
+    },
+    start: () => {
+        let fac = SYS.el('sel-faction').value;
+        let facData = DB.Factions[fac];
+        let lb = STATE.legacy.statBonus || 0; // 繼承點數加成
+        
+        STATE.pilot = {
+            name: SYS.el('inp-name').value || '新人駕駛員', lv: 1, exp: 0,
+            hp: 100 + facData.bonus.hp + (lb * 2), maxHp: 100 + facData.bonus.hp + (lb * 2),
+            sp: 50 + (facData.spBonus||0) + lb, maxSp: 50 + (facData.spBonus||0) + lb,
+            shoot: 10 + facData.bonus.shoot + Math.floor(lb/2), melee: 10 + facData.bonus.melee + Math.floor(lb/2),
+            react: 10 + facData.bonus.react + Math.floor(lb/2), luck: 10 + facData.bonus.luck + Math.floor(lb/2),
+            spirits: ['集中', '熱血']
+        };
+        
+        let mType = GAME.rnd(Object.keys(DB.MechTypes));
+        STATE.mech = { 
+            name: `${GAME.rnd(DB.Prefixes)}${mType}機`, 
+            type: mType, wTag: facData.wTag, 
+            finisher: [1,2,3].map(()=>GAME.rnd(DB.FinPre)+GAME.rnd(DB.FinMid)+GAME.rnd(DB.FinSuf)) 
+        };
+        STATE.reps[fac] += 20;
+        STATE.floor = 1;
+        STATE.inGame = true;
+        
+        GAME.genFloor();
+        SYS.nav('map');
+    },
+    genFloor: () => {
+        STATE.worldState = (STATE.floor % 5 === 0) ? GAME.rnd(Object.keys(DB.WorldStates)) : STATE.worldState;
+        SYS.el('world-news').innerText = DB.WorldStates[STATE.worldState].msg;
+        SYS.el('btn-next-floor').style.display = 'none';
+        MAP.gen();
+    },
+    nextFloor: () => {
+        STATE.floor++;
+        EVENT.init('baseResupply'); // 進入基地補給事件
+    },
+    rnd: SYS.rnd
+};
+
+/** 地圖邏輯 (踩地雷) */
+const MAP = {
+    gen: () => {
+        let size = STATE.map.width * STATE.map.height;
+        let grid = Array(size).fill({v:0, rev:false, num:0}); // 0: empty
+        
+        // 分配內容 (機率映射)
+        let isBoss = STATE.floor % 10 === 0;
+        let pool = [];
+        if (isBoss) pool.push(9); // 1 Boss
+        else pool.push(8); // 1 Exit
+        
+        // 依照世界局勢增加特定敵人
+        let wSpawn = DB.WorldStates[STATE.worldState].spawn;
+        
+        for(let i=0; i<12; i++) { // Enemies
+            let type = GAME.rnd([1,2,3,4]);
+            if(wSpawn[type] && Math.random() < wSpawn[type]) pool.push(type, type); else pool.push(type);
+        }
+        for(let i=0; i<4; i++) pool.push(GAME.rnd([5,6,7])); // Events
+
+        // 放置
+        while(pool.length > 0) {
+            let idx = SYS.rndInt(0, size-1);
+            if(grid[idx].v === 0) grid[idx] = {v: pool.pop(), rev:false, num:0};
+        }
+
+        // 計算周圍危險值 (Minesweeper logic)
+        const getAdj = (i) => {
+            let res = [], x = i % STATE.map.width, y = Math.floor(i / STATE.map.width);
+            for(let dy=-1; dy<=1; dy++) {
+                for(let dx=-1; dx<=1; dx++) {
+                    if(dx===0 && dy===0) continue;
+                    let nx = x+dx, ny = y+dy;
+                    if(nx>=0 && nx<STATE.map.width && ny>=0 && ny<STATE.map.height) res.push(ny*STATE.map.width + nx);
+                }
+            }
+            return res;
+        };
+
+        grid = grid.map((cell, i) => {
+            if(cell.v !== 0) return cell;
+            let dCount = getAdj(i).reduce((acc, adjI) => acc + (grid[adjI].v >= 1 && grid[adjI].v <= 4 ? 1 : 0), 0);
+            return {...cell, num: dCount};
+        });
+
+        STATE.map.grid = grid;
+        MAP.render();
+    },
+    render: () => {
+        let g = SYS.el('map-grid');
+        g.innerHTML = '';
+        STATE.map.grid.forEach((c, i) => {
+            let div = document.createElement('div');
+            div.className = `cell ${c.rev ? 'revealed' : ''} ${c.rev && c.v === 0 && c.num > 0 ? 'danger-'+c.num : ''}`;
+            if(c.rev) {
+                if(c.v === 0) div.innerText = c.num > 0 ? c.num : '';
+                else div.innerText = DB.Cells[c.v].icon;
+            } else {
+                div.innerText = '❓';
+            }
+            div.onclick = () => MAP.click(i);
+            g.appendChild(div);
+        });
+    },
+    click: (i) => {
+        let cell = STATE.map.grid[i];
+        if(cell.rev) return;
+        cell.rev = true;
+        MAP.render();
+        
+        let cData = DB.Cells[cell.v];
+        
+        // Action Mapping based on cell type
+        const cellActions = {
+            'empty': () => { if(cell.num===0) MAP.floodFill(i); MAP.render(); },
+            'enemy': () => { STATE.map.currCell = i; COMBAT.init(cData, false); },
+            'boss':  () => { STATE.map.currCell = i; COMBAT.init(cData, true); },
+            'event': () => { STATE.map.currCell = i; EVENT.init(cell.v); },
+            'exit':  () => { SYS.el('btn-next-floor').style.display = 'block'; }
+        };
+        
+        if(cellActions[cData.type]) cellActions[cData.type]();
+    },
+    floodFill: (startI) => {
+        let stack = [startI], w = STATE.map.width, h = STATE.map.height;
+        while(stack.length > 0) {
+            let i = stack.pop();
+            let x = i % w, y = Math.floor(i / w);
+            [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]].forEach(([dx, dy]) => {
+                let nx = x+dx, ny = y+dy, ni = ny*w + nx;
+                if(nx>=0 && nx<w && ny>=0 && ny<h) {
+                    let nc = STATE.map.grid[ni];
+                    if(!nc.rev && nc.v === 0) {
+                        nc.rev = true;
+                        if(nc.num === 0) stack.push(ni);
+                    }
+                }
+            });
+        }
+    }
+};
+
+/** 戰鬥邏輯 */
+const COMBAT = {
+    init: (cellData, isBoss) => {
+        STATE.inCombat = true;
+        STATE.combat.isEnding = false;
+        STATE.combat.buff = null;
+        let lvMulti = 1 + (STATE.floor * 0.1);
+        let eTag = GAME.rnd(DB.Tags.Enemy);
+        
+        STATE.combat.enemy = {
+            name: `${isBoss ? '【首領】' : ''}${eTag}型${cellData.name}`,
+            hp: Math.floor((isBoss ? 200 : 50) * lvMulti),
+            maxHp: Math.floor((isBoss ? 200 : 50) * lvMulti),
+            atk: Math.floor((isBoss ? 25 : 10) * lvMulti),
+            tag: eTag,
+            icon: cellData.icon
+        };
+        
+        SYS.nav('combat');
+        SYS.el('combat-title').innerText = `${STATE.combat.enemy.icon} 遭遇 ${STATE.combat.enemy.name}!`;
+        SYS.log('combat-log', `戰鬥開始！\n我方機體：${STATE.mech.name} [武裝:${STATE.mech.wTag}]\n敵方屬性：[${eTag}]`, true);
+        COMBAT.updateHP();
+    },
+    updateHP: () => {
+        let log = SYS.el('combat-title');
+        log.innerText = `${STATE.combat.enemy.icon} ${STATE.combat.enemy.name} (HP: ${STATE.combat.enemy.hp})`;
+        SYS.updateUI();
+    },
+    act: (type) => {
+        if (STATE.combat.isEnding) return; // 終極防連點鎖定
+
+        let p = STATE.pilot, m = STATE.mech, e = STATE.combat.enemy;
+        let buff = STATE.combat.buff || {};
+        STATE.combat.buff = null; // consume buff
+        SYS.el('combat-spirits').style.display = 'none';
+
+        let pDmg = 0, eDmg = 0, pMsg = '', eMsg = '';
+
+        // Player Phase
+        const pActions = {
+            'attack': () => {
+                let base = p.shoot + p.melee; // 簡化
+                let multi = (DB.TagMatrix[m.wTag] && DB.TagMatrix[m.wTag][e.tag]) ? DB.TagMatrix[m.wTag][e.tag] : 1;
+                let hitRate = 0.8 + (p.react - STATE.floor) * 0.01;
+                let isCrit = Math.random() < (p.luck * 0.01);
+                if(buff.tag === 'focus') hitRate = 1.0;
+                
+                if (Math.random() < hitRate) {
+                    pDmg = Math.floor(base * multi * (isCrit ? 1.5 : 1) * (buff.tag === 'valor' ? 2 : buff.tag === 'soul' ? 3 : 1) * SYS.rndInt(8,12)/10);
+                    let multiStr = multi > 1 ? '<span style="color:#ffdd55">【屬性克制】</span>' : multi < 1 ? '<span style="color:#888">【屬性抵抗】</span>' : '';
+                    let critStr = isCrit ? '<span style="color:#ff3366">【會心一擊】</span>' : '';
+                    let atkTxt = GAME.rnd(DB.WepTxt[m.wTag] || DB.WepTxt['實彈']);
+                    let scale = Math.min(2.5, Math.max(1.1, 1 + (pDmg / e.maxHp))); // 動態字體大小
+                    pMsg = `${atkTxt} ${multiStr}${critStr}<br>對敵方造成 <span style="font-size:${scale.toFixed(1)}em; color:var(--danger-color); text-shadow:0 0 5px #f00;">${pDmg}</span> 點傷害！`;
+                } else {
+                    pMsg = `敵方機動規避，你的攻擊落空了！`;
+                }
+            },
+            'defend': () => { pMsg = `啟動防護力場，採取防禦姿態。`; buff.defend = true; },
+            'retreat': () => { pMsg = `引擎全開，試圖脫離戰區...`; }
+        };
+        pActions[type]();
+        e.hp = Math.max(0, e.hp - pDmg);
+        
+        if (e.hp <= 0 && type === 'attack') {
+            let fin = Array.isArray(m.finisher) ? GAME.rnd(m.finisher) : m.finisher;
+            pMsg += `<br><br><span style="display:block; margin-top:8px; font-size:1.1em; color:#fff; text-shadow:1px 1px 2px #000;">💥你看準對手弱點，使出終結技：<br><span class="rainbow-text" style="font-size:1.8em; display:inline-block; margin:8px 0; text-align:center; width:100%;">【${fin}】</span><br>將對手徹底毀滅。</span>`;
+        }
+        SYS.log('combat-log', `> ${pMsg}`);
+
+        if (e.hp <= 0) { STATE.combat.isEnding = true; return COMBAT.win(); }
+
+        // Enemy Phase (If player didn't retreat)
+        if (type === 'retreat' && Math.random() < 0.5) {
+            SYS.log('combat-log', `> 成功擺脫敵軍追擊！`);
+            STATE.map.grid[STATE.map.currCell].rev = false; // reset cell
+            setTimeout(() => SYS.nav('map'), 1000);
+            return;
+        } else if (type === 'retreat') {
+            SYS.log('combat-log', `> 航線被封鎖！撤退失敗！`);
+        }
+
+        let eHitRate = 0.7 + (STATE.floor * 0.02) - (p.react * 0.01);
+        if (buff.tag === 'intuition' || buff.tag === 'focus') eHitRate = 0; // Guaranteed dodge
+        
+        if (Math.random() < eHitRate) {
+            eDmg = Math.floor(e.atk * (buff.defend ? 0.3 : 1) * SYS.rndInt(8,12)/10);
+            p.hp -= eDmg;
+            let eTxt = GAME.rnd(DB.EnemyTxt);
+            let eScale = Math.min(2.5, Math.max(1.1, 1 + (eDmg / p.maxHp))); // 動態字體大小
+            eMsg = `${eTxt}<br>機甲受到 <span class="val-hp" style="font-size:${eScale.toFixed(1)}em; color:var(--danger-color); text-shadow:0 0 5px #f00;">${eDmg}</span> 點裝甲損傷。`;
+        } else {
+            eMsg = `<span style="color:var(--safe-color)">${GAME.rnd(DB.DodgeTxt)}</span>`;
+        }
+        SYS.log('combat-log', `> ${eMsg}\n---`);
+        COMBAT.updateHP();
+
+        if (p.hp <= 0) { STATE.combat.isEnding = true; return COMBAT.lose(); }
+    },
+    showSpirits: () => {
+        let div = SYS.el('combat-spirits');
+        div.innerHTML = '';
+        div.style.display = div.style.display === 'grid' ? 'none' : 'grid';
+        STATE.pilot.spirits.forEach(sp => {
+            let sData = DB.Spirits[sp];
+            let btn = document.createElement('button');
+            btn.innerHTML = `${sp}(${sData.cost})`;
+            btn.disabled = STATE.pilot.sp < sData.cost;
+            btn.onclick = () => {
+                STATE.pilot.sp -= sData.cost;
+                STATE.combat.buff = {tag: sData.tag};
+                SYS.log('combat-log', `> 使用精神【${sp}】! ${sData.desc}`);
+                SYS.updateUI();
+                div.style.display = 'none';
+            };
+            div.appendChild(btn);
+        });
+    },
+    win: () => {
+        STATE.inCombat = false;
+        let expGain = 10 + STATE.floor * 2;
+        if(STATE.combat.buff && STATE.combat.buff.tag === 'luck') expGain *= 2;
+        STATE.pilot.exp += expGain;
+        STATE.map.grid[STATE.map.currCell].v = 0; // clear map
+        
+        SYS.log('combat-log', `\n🏆 戰鬥勝利！獲得 ${expGain} 經驗值。`);
+        
+        if (STATE.pilot.exp >= STATE.pilot.lv * 20) {
+            STATE.pilot.lv++;
+            STATE.pilot.exp = 0;
+            setTimeout(() => EVENT.init('levelUp'), 1000);
+        } else {
+            setTimeout(() => { SYS.nav('map'); MAP.render(); }, 1500);
+        }
+    },
+    lose: () => {
+        SYS.log('combat-log', `\n☠️ 機體大破...駕駛員啟動逃生艙。`);
+        let legacyPts = Math.floor(STATE.floor * 2 + STATE.pilot.lv); // 計算傳承點數
+        STATE.legacy.statBonus = (STATE.legacy.statBonus || 0) + legacyPts;
+        STATE.legacy.gen = (STATE.legacy.gen || 1) + 1;
+        SYS.saveLocal(true); // 死亡自動背景存檔保留繼承點
+        setTimeout(() => { 
+            SYS.el('go-desc').innerHTML = `任務失敗。<br><br>獲得傳承點數：<span style="color:#ffdd55; font-size:1.5em;">${legacyPts}</span><br>下一代駕駛員將獲得先天的能力強化。`;
+            STATE.inGame = false; STATE.inCombat = false; 
+            SYS.nav('gameover'); 
+        }, 2000);
+    }
+};
+
+/** 事件邏輯 (資料映射取代 if/else，加入結果介面) */
+const EVENT = {
+    init: (v) => {
+        SYS.nav('event');
+        let div = SYS.el('event-choices');
+        div.innerHTML = '';
+        
+        let evPool = DB.Events[v];
+        let evData = (v === 'levelUp' || v === 'baseResupply') ? evPool[0] : GAME.rnd(evPool); 
+        
+        let titleTxt = v === 'levelUp' ? `✨ 駕駛員升級 (Lv.${STATE.pilot.lv})` : v === 'baseResupply' ? `🏪 抵達中繼基地 (第${STATE.floor}宙域)` : `${DB.Cells[v]?.icon||'❓'} 宙域探索事件`;
+        SYS.el('event-title').innerText = titleTxt;
+        SYS.el('event-desc').innerHTML = evData.d;
+        
+        let choices = (v === 'levelUp') ? [...evData.c].sort(()=>0.5-Math.random()).slice(0,3) : evData.c;
+        
+        choices.forEach(ch => {
+            let btn = document.createElement('button');
+            btn.innerText = ch.l;
+            btn.onclick = () => {
+                let resultMsg = ch.f(STATE.pilot);
+                EVENT.showResult(resultMsg, ch.l, v);
+            };
+            div.appendChild(btn);
+        });
+    },
+    showResult: (msg, choiceLabel, eventId) => {
+        SYS.el('event-desc').innerHTML += `<br><br><span style="color:#88ccff">▶ 執行：${choiceLabel}</span><br><span style="color:#ffdd55; font-size:1.1em;">${msg}</span>`;
+        let div = SYS.el('event-choices');
+        div.innerHTML = '';
+        
+        let isTrap = msg.includes("海盜的陷阱");
+        let btn = document.createElement('button');
+        btn.innerText = isTrap ? '迎擊！' : (eventId === 'baseResupply' ? '出發前往下個宙域' : '繼續航行');
+        
+        btn.onclick = () => {
+            if(isTrap) {
+                STATE.map.grid[STATE.map.currCell].v = 4; // 轉為遭遇戰
+                COMBAT.init(DB.Cells[4], false); // 正確觸發戰鬥
+            } else if (eventId === 'baseResupply') {
+                GAME.genFloor();
+                SYS.nav('map');
+            } else {
+                if(eventId !== 'levelUp' && STATE.map.currCell !== null) {
+                    STATE.map.grid[STATE.map.currCell].v = 0; // 事件處理完畢清空地圖格
+                }
+                SYS.nav('map');
+                MAP.render();
+            }
+        };
+        div.appendChild(btn);
+    }
+};
+
+// Initialize app
+window.onload = GAME.init;
+
+</script>
+</body>
+</html>
