@@ -38,15 +38,27 @@
 
         .header {
             display: flex; justify-content: space-between; padding: 12px 15px;
-            background: rgba(255,255,255,0.6); backdrop-filter: blur(10px);
+            background: rgba(255,255,255,0.85); backdrop-filter: blur(10px);
             border-bottom: 1px solid var(--border); align-items: center; flex-shrink: 0; z-index: 10;
         }
         
         .sys-btn {
             background: #fff; border: 1px solid var(--border); border-radius: 12px;
             padding: 8px 14px; font-size: 0.9em; color: var(--text-color);
-            font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+            font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.03); transition: transform 0.1s;
         }
+        .sys-btn:active { transform: scale(0.95); }
+
+        /* 置頂全域狀態列與共用進度條 (極簡無數字版) */
+        #pinned-status {
+            padding: 12px 15px; background: rgba(255,255,255,0.6); backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 5;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .pin-row { display: flex; align-items: center; gap: 12px; }
+        .pin-label { font-size: 0.8em; font-weight: 900; width: 65px; letter-spacing: 1px; }
+        .bar-bg { width: 100%; height: 10px; background: rgba(0,0,0,0.08); border-radius: 5px; overflow: hidden; flex: 1; }
+        .bar-fill { height: 100%; border-radius: 5px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 
         .screen { display: none; flex: 1; flex-direction: column; padding: 15px; overflow-y: auto; }
         .screen.active { display: flex; }
@@ -66,7 +78,7 @@
         @keyframes floatUp { 0% { opacity:0; transform:translate(-50%, 10px); } 15% { opacity:1; transform:translate(-50%, 0); } 80% { opacity:1; transform:translate(-50%, -20px); } 100% { opacity:0; transform:translate(-50%, -30px); } }
         @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 
-        /* 新增戰鬥動畫 */
+        /* 戰鬥動畫 */
         @keyframes anim-atk { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(40px) scale(1.2); } }
         @keyframes anim-dmg { 0%, 100% { filter: brightness(1); transform: translateX(0); } 20%, 60% { filter: brightness(1.5) drop-shadow(0 0 15px red); transform: translateX(-5px); } 40%, 80% { filter: brightness(1.5) drop-shadow(0 0 15px red); transform: translateX(5px); } }
         @keyframes anim-jump { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-30px) scale(1.1); } }
@@ -78,7 +90,7 @@
         .anim-faint { animation: anim-faint 0.8s forwards; }
         
         .sprite-wrap { display:inline-block; font-size:4em; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.1)); }
-        .sprite-wrap.flip { transform: scaleX(-1); } /* 翻轉容器，讓動畫共用同一套座標系 */
+        .sprite-wrap.flip { transform: scaleX(-1); } 
 
         .pet-face {
             font-size: calc(var(--font-size) * 4); line-height: 1;
@@ -93,11 +105,11 @@
         }
         
         .float-msg {
-            position: absolute; top: 12%; left: 50%; transform: translateX(-50%);
+            position: absolute; top: 18%; left: 50%; transform: translateX(-50%);
             background: rgba(255,255,255,0.95); color: #444; padding: 10px 20px;
             border-radius: 20px; font-size: 0.9em; width: max-content; max-width: 85%;
             font-weight: bold; text-align: center; z-index: 150; pointer-events: none;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.15); animation: floatUp 2s ease-out forwards;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15); animation: floatUp 2.5s ease-out forwards;
         }
 
         .pet-name-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 5px; }
@@ -107,19 +119,6 @@
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; word-break: break-word; text-align: center;
         }
         .pet-tags { font-size: 0.8em; color: #888; margin-bottom: 10px; }
-
-        .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
-        
-        /* 升級：適應血條 UI 的狀態欄佈局 */
-        .stat-item {
-            background: rgba(255,255,255,0.6); backdrop-filter: blur(5px);
-            padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.8);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.03); font-size: 0.9em; font-weight: bold;
-            display: flex; flex-direction: column; justify-content: center; gap: 6px;
-        }
-        .stat-header { display: flex; justify-content: space-between; width: 100%; }
-        .bar-bg { width: 100%; height: 10px; background: rgba(0,0,0,0.1); border-radius: 5px; overflow: hidden; }
-        .bar-fill { height: 100%; border-radius: 5px; transition: width 0.3s ease; }
 
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-bottom: 10px; flex-shrink: 0; }
         .btn {
@@ -136,20 +135,19 @@
         .list-btn {
             background: var(--panel-bg); border: 2px solid var(--border); padding: 15px;
             margin-bottom: 10px; border-radius: 16px; font-size: 1em; font-weight: bold;
-            color: var(--text-color); display: flex; justify-content: space-between; cursor: pointer;
+            color: var(--text-color); display: flex; justify-content: space-between; cursor: pointer; transition: transform 0.1s;
         }
         .list-btn:active { background: var(--bg-color); transform: scale(0.98); }
 
         .log-entry { background: rgba(255,255,255,0.8); padding: 15px; border-radius: 16px; margin-bottom: 10px; border-left: 6px solid var(--primary); line-height: 1.5; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
         .log-date { font-size: 0.8em; color: #aaa; margin-bottom: 5px; }
-
         .battle-entry { background: #fff; padding: 12px; border-radius: 12px; margin-bottom: 8px; border-left: 5px solid var(--accent); box-shadow: 0 2px 5px rgba(0,0,0,0.05); font-weight:bold; }
 
         #alertBox {
-            position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+            position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.7); color: white; padding: 12px 24px;
             border-radius: 30px; font-size: 0.9em; opacity: 0; pointer-events: none;
-            transition: opacity 0.3s; z-index: 100; white-space: nowrap; backdrop-filter: blur(5px);
+            transition: opacity 0.3s; z-index: 250; white-space: nowrap; backdrop-filter: blur(5px);
         }
         .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 15px; background: var(--panel-bg); border-radius: 16px; }
         input[type="text"] { width: 100%; padding: 12px; font-size: 1em; border: 2px solid var(--border); border-radius: 12px; margin-top: 5px; outline:none; }
@@ -161,7 +159,7 @@
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
         }
         
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); z-index: 200; align-items: center; justify-content: center; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); z-index: 300; align-items: center; justify-content: center; }
         .modal-box { background: #fff; color: var(--text-color); padding: 30px 25px; border-radius: 24px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.2); }
     </style>
 </head>
@@ -170,8 +168,20 @@
 <div id="app">
     <div class="header">
         <button class="sys-btn" onclick="UI.nav('arena')">⚔️ 競技</button>
-        <div style="font-weight:bold; letter-spacing: 1px;">📖魔物觀察日誌📖</div>
+        <div style="font-weight:900; letter-spacing: 2px;">📖魔物觀察日誌📖</div>
         <button class="sys-btn" onclick="UI.nav('sys')">⚙️ 系統</button>
+    </div>
+
+    <!-- 置頂全域血條/壽命條 (純進度條無數字，療癒設計) -->
+    <div id="pinned-status">
+        <div class="pin-row">
+            <span class="pin-label" style="color:var(--danger);">♥️ 體力</span>
+            <div class="bar-bg"><div id="pin-hp-bar" class="bar-fill" style="background:var(--danger); width:100%;"></div></div>
+        </div>
+        <div class="pin-row">
+            <span class="pin-label" style="color:var(--gc1);">⌛ 時間</span>
+            <div class="bar-bg"><div id="pin-age-bar" class="bar-fill" style="background:linear-gradient(90deg, var(--gc1), var(--gc2)); width:0%;"></div></div>
+        </div>
     </div>
 
     <!-- Main Screen -->
@@ -194,9 +204,8 @@
     </div>
 
     <!-- Battle Screen -->
-    <div id="screen-battle" class="screen" style="background:#f4f4f4;">
+    <div id="screen-battle" class="screen" style="background:#fdfdfd;">
         <h2 style="text-align:center; margin-bottom:10px;">⚔️ 戰況實況</h2>
-        <!-- 新增戰鬥舞台 -->
         <div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:var(--panel-bg); border-radius:20px; box-shadow:0 4px 10px rgba(0,0,0,0.05); margin-bottom:15px;">
             <div class="sprite-wrap"><div id="battle-p"></div></div>
             <div style="font-size:1.5em; font-weight:900; color:var(--danger); font-style:italic;">VS</div>
@@ -206,7 +215,7 @@
         <button id="battle-back" class="btn back" style="display:none;" onclick="UI.nav('arena')">離開</button>
     </div>
 
-    <!-- Feed / Log / Sys / Ending Screens -->
+    <!-- Screens -->
     <div id="screen-feed" class="screen"><h2 style="margin-bottom:15px; text-align:center; flex-shrink:0;">要餵什麼呢？</h2><div id="food-list" style="flex:1; overflow-y:auto; margin-bottom:10px; padding:5px;"></div><button class="btn back" onclick="UI.nav('main')">返回</button></div>
     <div id="screen-log" class="screen"><h2 style="margin-bottom:15px; text-align:center; flex-shrink:0;">觀察日誌</h2><div id="log-list" style="flex:1; overflow-y:auto; margin-bottom:10px; padding:5px;"></div><button class="btn back" onclick="UI.nav('main')">返回</button></div>
     <div id="screen-sys" class="screen">
@@ -216,14 +225,22 @@
         <button class="btn" style="background:var(--danger); color:white; flex-shrink:0;" onclick="Game.reset()">⚠️ 放棄本代並重來</button><button class="btn back" onclick="UI.nav('main')" style="margin-top:15px;">返回</button>
     </div>
     <div id="screen-ending" class="screen" style="background: #2a2a35; color: white;"><div class="ending-box" id="ending-content"></div><button class="btn" style="margin-top:40px; background:var(--accent); flex-shrink:0;" onclick="Game.startNew()">開啟新輪迴(繼承冠軍基因)</button></div>
-
+    
     <!-- Modals -->
     <div id="alertBox"></div>
     <div id="confirmBox" class="modal-overlay"><div class="modal-box"><p id="confirmText" style="margin-bottom:20px; font-weight:bold; font-size:1.1em;"></p><div style="display:flex; gap:10px; justify-content:center;"><button class="sys-btn" onclick="UI.closeConfirm()" style="flex:1;">取消</button><button class="sys-btn" id="confirmYes" style="flex:1; background:var(--danger); color:white; border-color:var(--danger);">確定</button></div></div></div>
 </div>
 
 <script>
-/* ================= EMOJI & DATA DICTIONARIES ================= */
+const MAX_AGE = 35; 
+
+// 數值縮寫化 (k, m, b, t) 防止獎盃破表
+const fmtN = (n) => {
+    if (n < 1000) return n;
+    let e = Math.floor(Math.log10(n) / 3);
+    return (n / Math.pow(1000, e)).toFixed(1).replace(/\.0$/, '') + ['','k','m','b','t'][e];
+};
+
 const FOODS = {
     meat: { n: '🍖 神秘肉塊', d: '增加野性', full: 25, m: 5, hp: 10, g: { beast: 3, holy: -1 } },
     fruit: { n: '🍎 發光水果', d: '微量魔法', full: 15, m: 10, hp: 5, g: { magic: 2, holy: 1 } },
@@ -266,14 +283,12 @@ const TAG_ADV = {
     abyss: ['holy', 'dragon']
 };
 
-// 新增：特徵對應的招式庫與弱點部位
 const TAG_SK = {
     flying: ['高空俯衝', '暴風羽刃'], toxic: ['猛毒噴射', '腐蝕酸液'], machine: ['雷射掃射', '追蹤飛彈'],
     dragon: ['龍之咆哮', '毀滅龍息'], giant: ['巨大化踐踏', '泰坦重擊'], nocturnal: ['暗夜潛襲', '黑影突刺'],
     swarm: ['群體圍剿', '瘋狂吞噬'], predator: ['致命撲殺', '血腥撕裂'], holy: ['神聖光束', '制裁之光'],
     abyss: ['深淵吞噬', '虛空之握']
 };
-
 const TAG_WK = {
     flying: '空中死角', toxic: '毒囊核心', machine: '機械弱點', dragon: '逆鱗',
     giant: '遲緩死角', nocturnal: '畏光盲區', swarm: '陣型破綻', predator: '狩獵盲區',
@@ -290,12 +305,7 @@ const ARENAS = {
 
 const BATTLE_EVENTS = {
     normal: ['雙方在競技場中激烈交鋒！', '會場沙塵飛揚，戰況膠著！', '觀眾席爆發出震耳欲聾的歡呼聲！', '一記精彩的閃避化解了危機！', '雙方互相試探，不分軒輊！'],
-    rare: [
-        { c: 0.08, t: '【突發】亂入的深奇怪獸被雙方聯手擊退！' },
-        { c: 0.08, t: '【突發】觀眾席發生暴動，但比賽硬是繼續進行！' },
-        { c: 0.08, t: '【突發】天氣異變，狂風暴雨席捲了競技場！' },
-        { c: 0.08, t: '【突發】裁判被嚇得逃離了現場，現在是無規則亂鬥！' }
-    ]
+    rare: [{ c: 0.08, t: '【突發】亂入的深奇怪獸被雙方聯手擊退！' }, { c: 0.08, t: '【突發】觀眾席發生暴動，比賽硬是繼續進行！' }, { c: 0.08, t: '【突發】天氣異變，狂風暴雨席捲了競技場！' }, { c: 0.08, t: '【突發】裁判被嚇得逃離現場，現在是無規則亂鬥！' }]
 };
 
 const GN = { beast: '狂野', magic: '魔幻', machine: '合金', toxic: '劇毒', holy: '神聖', normal: '普通' };
@@ -321,13 +331,21 @@ const GENE_COLORS = {
 const TRAIT_POSITIONS = [{ top: '-10%', left: '-10%' }, { top: '-10%', right: '-10%' }, { bottom: '0%', left: '-15%' }, { bottom: '0%', right: '-15%' }, { top: '30%', left: '-25%' }, { top: '30%', right: '-25%' }, { top: '-25%', left: '40%' }, { bottom: '-20%', right: '40%' }];
 
 const EXPLORE_EVENTS = [
-    { w: 30, n: '散步', txt: '在草地上打滾，心情變好了。', m: 15, hp: 5, item: '', bg: '#f2f8eb' },
-    { w: 20, n: '受傷', txt: '遇到了野生魔物，被打傷了逃跑。', m: -20, hp: -20, item: '', bg: '#ffebe6' },
-    { w: 15, n: '發現', txt: '在樹叢裡找到了一些能吃的東西。', m: 5, hp: 0, item: 'full', bg: '#ffffff' },
-    { w: 10, n: '奇遇', txt: '吸收了古代遺跡的輻射...', m: 0, hp: -10, item: 'mutate', bg: '#f4ebf8' },
-    { w: 10, n: '寶藏', txt: '撿到了一塊純淨的魔晶石！', m: 20, hp: 0, item: 'crystal', bg: '#ebf4f8' },
-    { w: 10, n: '天氣', txt: '突然下起了酸雨，感覺有點刺痛。', m: -10, hp: -15, item: 'toxic', bg: '#eef2e6' },
-    { w: 5, n: '神蹟', txt: '沐浴在從天而降的溫暖光芒中。', m: 30, hp: 30, item: 'holy', bg: '#fffce6' }
+    { w: 30, txt: '在草地上打滾，心情變好了。', m: 15, hp: 5, f: 0, item: '', bg: '#f2f8eb' },
+    { w: 20, txt: '遇到了野生魔物，被打傷了逃跑。', m: -20, hp: -20, f: 0, item: '', bg: '#ffebe6' },
+    { w: 15, txt: '在樹叢裡找到了一些能吃的東西。', m: 5, hp: 0, f: 999, item: 'full', bg: '#ffffff' },
+    { w: 10, txt: '吸收了古代遺跡的輻射...', m: 0, hp: -10, f: 0, item: 'mutate', bg: '#f4ebf8' },
+    { w: 10, txt: '撿到了一塊純淨的魔晶石！', m: 20, hp: 0, f: 0, item: 'crystal', bg: '#ebf4f8' },
+    { w: 10, txt: '突然下起了酸雨，感覺有點刺痛。', m: -10, hp: -15, f: 0, item: 'toxic', bg: '#eef2e6' },
+    { w: 5, txt: '沐浴在從天而降的溫暖光芒中。', m: 30, hp: 30, f: 0, item: 'holy', bg: '#fffce6' }
+];
+
+const REST_EVENTS = [
+    { w: 40, txt: '呼嚕呼嚕睡了一覺...', hp: 30, m: 10, f: -5 },
+    { w: 20, txt: '做了一個香甜的美夢。', hp: 20, m: 25, f: -10 },
+    { w: 15, txt: '睡夢中似乎在咀嚼什麼，流滿了口水。', hp: 25, m: 15, f: 5 },
+    { w: 15, txt: '半夜被冷醒，沒有睡好...', hp: 10, m: -5, f: -10 },
+    { w: 10, txt: '進入深層休眠，身體獲得快速修復！', hp: 50, m: 10, f: -15 }
 ];
 
 const LOG_PARTS = {
@@ -347,13 +365,11 @@ const ENDINGS = [
 
 const RND = { i: (a) => a[Math.floor(Math.random() * a.length)], w: (a) => { let s = a.reduce((x, y) => x + y.w, 0), r = Math.random() * s; return a.find(v => (r -= v.w) < 0); }, c: (p) => Math.random() < p };
 
-/* ================= GAME LOGIC ================= */
 let state = {};
 
 const Game = {
     init: () => {
         let f = RND.i(FACES.baby);
-        // 相容舊存檔轉換：如果是舊陣列則取長度，加上上一代獲得的獎盃
         let oldHeritage = typeof state.heritage === 'number' ? state.heritage : (Array.isArray(state.heritage) ? state.heritage.length : 0);
         oldHeritage += (state.trophies ? state.trophies.length : 0);
 
@@ -361,7 +377,7 @@ const Game = {
             id: Date.now(), age: 0, day: 1, hp: 100, maxHp: 100, full: 80, maxFull: 100, mood: 80, maxMood: 100,
             genes: { beast: 0, magic: 0, machine: 0, toxic: 0, holy: 0 },
             traits: [], face: f[0], bName: f[1], stage: 'baby', 
-            heritage: oldHeritage, trophies: [], // heritage:累積總數, trophies:本代獲得
+            heritage: oldHeritage, trophies: [],
             pers: RND.i(PERSONALITIES), logs: [], bg: 'var(--panel-bg)'
         };
         Game.addLog(`新個體誕生。帶有【${state.pers.n}】特質。`);
@@ -382,15 +398,17 @@ const Game = {
     },
 
     doAction: (type, pay) => {
-        if(state.hp <= 0 || state.stage === 'end') return;
+        if(UI.isLocked || state.hp <= 0 || state.stage === 'end') return;
+        UI.lock(500); 
         if(type === 'feed' && !pay) return UI.nav('feed');
+        
         let msg = "";
         const ACT = {
             feed: (fId) => {
                 let f = FOODS[fId];
-                state.full = Math.min(state.maxFull, Math.round(state.full + f.full));
-                state.mood = Math.min(state.maxMood, Math.round(state.mood + f.m));
-                state.hp = Math.min(state.maxHp, Math.round(state.hp + f.hp));
+                state.full = Math.min(state.maxFull || 100, Math.round(state.full + f.full));
+                state.mood = Math.min(state.maxMood || 100, Math.round(state.mood + f.m));
+                state.hp = Math.min(state.maxHp || 100, Math.round(state.hp + f.hp));
                 for(let k in f.g) state.genes[k] += f.g[k];
                 Game.checkMut(); return `餵食了 ${f.n}`;
             },
@@ -398,10 +416,10 @@ const Game = {
                 if(state.full < 20) return "!肚子太餓了不想動..."; 
                 state.full = Math.round(state.full - 15);
                 let ev = RND.w(EXPLORE_EVENTS), ex = "";
-                state.mood = Math.min(state.maxMood, Math.max(0, Math.round(state.mood + ev.m)));
-                state.hp = Math.min(state.maxHp, Math.max(0, Math.round(state.hp + ev.hp)));
+                state.mood = Math.min(state.maxMood || 100, Math.max(0, Math.round(state.mood + ev.m)));
+                state.hp = Math.min(state.maxHp || 100, Math.max(0, Math.round(state.hp + ev.hp)));
                 state.bg = ev.bg || 'var(--panel-bg)'; 
-                if(ev.item==='full') { state.full = state.maxFull; ex = "(飽食滿!)"; }
+                if(ev.item==='full') { state.full = state.maxFull || 100; ex = "(飽食滿!)"; }
                 if(ev.item==='mutate') { Game.forceMut(); ex = "(變異!)"; }
                 if(ev.item==='crystal') { state.genes.magic += 5; ex = "(魔力↑)"; }
                 if(ev.item==='toxic') { state.genes.toxic += 5; ex = "(毒性↑)"; }
@@ -409,9 +427,11 @@ const Game = {
                 Game.addLog(`【探索】${ev.txt} ${ex}`); return `${ev.txt} ${ex}`;
             },
             rest: () => {
-                state.hp = Math.min(state.maxHp, Math.round(state.hp + 30));
-                state.mood = Math.min(state.maxMood, Math.round(state.mood + 10));
-                return "呼嚕呼嚕睡了一覺...";
+                let ev = RND.w(REST_EVENTS);
+                state.hp = Math.min(state.maxHp || 100, Math.round(state.hp + ev.hp));
+                state.mood = Math.min(state.maxMood || 100, Math.max(0, Math.round(state.mood + ev.m)));
+                state.full = Math.max(0, Math.round(state.full + ev.f));
+                return ev.txt;
             }
         };
 
@@ -421,17 +441,12 @@ const Game = {
         Game.tick(); UI.anim(); UI.floatMsg(msg);
     },
 
-    getTags: () => {
-        let t = state.traits.map(k => MUTATIONS[k].tag);
-        t.push(GENE_TAG[Game.getTopGene()]);
-        return [...new Set(t)]; // 移除重複Tag
-    },
+    getTags: () => { let t = state.traits.map(k => MUTATIONS[k].tag); t.push(GENE_TAG[Game.getTopGene()]); return [...new Set(t)]; },
     checkMut: () => { Object.keys(MUTATIONS).forEach(k => { if(!state.traits.includes(k) && RND.c(MUTATIONS[k].c)) { state.traits.push(k); Game.addLog(`【突變】獲得：${MUTATIONS[k].n}`); } }); },
     forceMut: () => { let a = Object.keys(MUTATIONS).filter(k => !state.traits.includes(k)); if(a.length > 0) { let m = RND.i(a); state.traits.push(m); for(let g in MUTATIONS[m].g) state.genes[g] += MUTATIONS[m].g[g]; } },
     getTopGene: () => { let t = Object.keys(state.genes).reduce((a, b) => state.genes[a] > state.genes[b] ? a : b); return state.genes[t] < 10 ? 'normal' : t; },
     getName: () => { let tr = state.traits.map(t => `[${MUTATIONS[t].n}]`).join(''); let top = Game.getTopGene(); let gn = state.stage === 'adult' && top !== 'normal' ? `[${GN[top]}]` : ''; return `${tr}${tr ? '的' : ''}${gn}${state.bName || '未知魔物'}`; },
     
-    // 升級：利用 Object Mapping 完全取代原本的 if/else if 判斷進化階段
     checkEvo: () => {
         const EVO_MAP = {
             10: () => { if(state.stage === 'baby') { let f = RND.i(FACES.child); state.stage = 'child'; state.face = f[0]; state.bName = f[1]; Game.addLog("【成長】體型變大了。"); } },
@@ -442,24 +457,21 @@ const Game = {
 
     checkEnd: () => {
         if (state.hp <= 0) { state.stage = 'end'; Game.addLog("生命徵象消失。"); UI.showEnd("實驗失敗", "個體生命力耗盡死亡。"); } 
-        else if (state.age >= 35) { state.stage = 'end'; let end = ENDINGS.find(e => e.req(state.genes)); Game.addLog(`【終局】${end.t}`); UI.showEnd(end.t, end.d); }
+        else if (state.age >= MAX_AGE) { state.stage = 'end'; let end = ENDINGS.find(e => e.req(state.genes)); Game.addLog(`【終局】${end.t}`); UI.showEnd(end.t, end.d); }
     },
     autoLog: () => Game.addLog(`${RND.i(LOG_PARTS.time)}，牠${RND.i(LOG_PARTS.act)}，${RND.i(LOG_PARTS.feel)}。`),
     addLog: (txt) => { state.logs.unshift({ d: state.day, t: txt }); if(state.logs.length > 40) state.logs.pop(); }
 };
 
-/* ================= ARENA LOGIC ================= */
 const Arena = {
     fight: (aId) => {
-        if(state.hp < 20) return UI.msg('HP太低，無法參賽！(需20)');
+        if(UI.isLocked || state.hp < 20) return UI.msg(state.hp < 20 ? '♥️體力不足，無法參賽！' : '');
         state.hp -= 20; UI.nav('battle');
         
         let a = ARENAS[aId], pTags = Game.getTags(), logs = [];
         let eTags = [...new Set([RND.i(Object.keys(TAG_ADV)), RND.i(Object.keys(TAG_ADV))])];
-        
         let eFace = RND.i(Object.values(FACES.adult).flat())[0];
         
-        // 平衡修正：大幅降低傳承係數(15->2)，並加入雙方亂數(Dice)，避免幼體靠血統無敵
         let pScore = state.age * 1.5 + (state.heritage * 2) + (state.trophies.length * 5) + (state.pers.fx.bScore || 0) + (Math.random() * 15);
         let eScore = a.diff + (Math.random() * 15);
 
@@ -473,14 +485,8 @@ const Arena = {
         pTags.forEach(t => { if(a.fav.includes(t)) { pScore += 30; logs.push({ t: `主場優勢！${TAG_N[t]}特徵在這裡如魚得水！`, a: 'p-buff' }); } });
 
         pTags.forEach(pt => eTags.forEach(et => {
-            if(TAG_ADV[pt].includes(et)) { 
-                pScore += 40; 
-                logs.push({ t: `💥 施展【${RND.i(TAG_SK[pt])}】，摧毀了對手的${TAG_WK[et]}！`, a: 'p-atk' }); 
-            }
-            if(TAG_ADV[et].includes(pt)) { 
-                eScore += 40; 
-                logs.push({ t: `⚠️ 糟糕！對手的【${RND.i(TAG_SK[et])}】，直擊了我們的${TAG_WK[pt]}！`, a: 'e-atk' }); 
-            }
+            if(TAG_ADV[pt].includes(et)) { pScore += 40; logs.push({ t: `💥 施展【${RND.i(TAG_SK[pt])}】，摧毀了對手的${TAG_WK[et]}！`, a: 'p-atk' }); }
+            if(TAG_ADV[et].includes(pt)) { eScore += 40; logs.push({ t: `⚠️ 糟糕！對手的【${RND.i(TAG_SK[et])}】，直擊了我們的${TAG_WK[pt]}！`, a: 'e-atk' }); }
         }));
 
         if(logs.length < 5) logs.push({ t: RND.i(BATTLE_EVENTS.normal), a: RND.i(['p-atk', 'e-atk', 'clash']) });
@@ -488,37 +494,49 @@ const Arena = {
         let win = pScore >= eScore;
         logs.push({ t: win ? '🎉 壓倒性的勝利！' : '💀 遺憾地敗北了...', a: win ? 'p-win' : 'e-win' });
 
-        if(win && !state.trophies.includes(a.win)) {
-            state.trophies.push(a.win);
-            logs.push({ t: `🌟 獲得了本代冠軍基因：【${a.win}】！`, a: 'p-buff' });
-        }
+        if(win && !state.trophies.includes(a.win)) { state.trophies.push(a.win); logs.push({ t: `🌟 獲得了本代冠軍基因：【${a.win}】！`, a: 'p-buff' }); }
 
+        UI.lock(logs.length * 1100 + 500); 
         UI.renderBattle(logs, state.face, eFace);
         Game.tick();
     }
 };
 
-/* ================= UI SYSTEM ================= */
 const UI = {
     fSz: 18,
+    isLocked: false,
+    lock: (ms) => { UI.isLocked = true; setTimeout(() => UI.isLocked = false, ms); },
     init: () => {
         document.getElementById('food-list').innerHTML = Object.keys(FOODS).map(k => `<div class="list-btn" onclick="Game.doAction('feed', '${k}')"><div>${FOODS[k].n}<br><small style="color:#888">${FOODS[k].d}</small></div><div style="text-align:right"><span style="color:var(--danger)">+${FOODS[k].full}飽</span></div></div>`).join('');
     },
     nav: (id) => {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(`screen-${id}`).classList.add('active');
+        document.getElementById('pinned-status').style.display = (id === 'sys' || id === 'ending') ? 'none' : 'flex';
         if(id === 'log') UI.renderLogs();
         if(id === 'arena') UI.renderArena();
     },
     update: () => {
         if(state.stage === 'end') return;
         
+        state.maxFull = state.maxFull || 100;
+        state.maxMood = state.maxMood || 100;
+        state.maxHp = state.maxHp || 100;
         state.trophies = state.trophies || [];
         state.heritage = typeof state.heritage === 'number' ? state.heritage : (Array.isArray(state.heritage) ? state.heritage.length : 0);
         
         let top = Game.getTopGene(), c = GENE_COLORS[top];
         document.documentElement.style.setProperty('--pet-glow', c.s); document.documentElement.style.setProperty('--gc1', c.g1); document.documentElement.style.setProperty('--gc2', c.g2);
         
+        let hpPct = Math.max(0, Math.min(100, (state.hp / state.maxHp) * 100));
+        let agePct = Math.max(0, Math.min(100, (state.age / MAX_AGE) * 100));
+        let fullPct = Math.max(0, Math.min(100, (state.full / state.maxFull) * 100));
+        let moodPct = Math.max(0, Math.min(100, (state.mood / state.maxMood) * 100));
+
+        // 置頂全域狀態列 (極簡無數字版)
+        document.getElementById('pin-hp-bar').style.width = `${hpPct}%`;
+        document.getElementById('pin-age-bar').style.width = `${agePct}%`;
+
         let traitsHtml = state.traits.map((t, i) => {
             let pos = TRAIT_POSITIONS[i % TRAIT_POSITIONS.length], posStr = Object.keys(pos).map(k => `${k}:${pos[k]}`).join(';');
             let delay = (i * 0.3).toFixed(1), sz = 1 + ((t.charCodeAt(0) + i) % 4) * 0.3;
@@ -526,24 +544,26 @@ const UI = {
         }).join('');
 
         const container = document.getElementById('pet-display');
+        if(!container) return; 
         container.style.background = `radial-gradient(circle at center, rgba(255,255,255,0.6), ${state.bg || 'var(--panel-bg)'})`;
+        
+        // 柔和地將飽食、心情、獎盃整合至怪物框內
         container.innerHTML = `
             <div class="pet-wrapper" id="pet-wrapper"><div class="pet-face">${state.face}</div>${traitsHtml}</div>
             <div class="pet-info" style="width:100%;">
                 <div class="pet-name-wrap"><span style="font-size:0.8em; color:#999; font-weight:bold;">No.${state.id.toString().slice(-4)} (${state.pers.n})</span><div class="pet-name">${Game.getName()}</div></div>
                 <div class="pet-tags">第 ${state.day} 天 | 階段: ${state.stage === 'baby'?'幼體':state.stage==='child'?'成長體':'完全體'}</div>
-                <div class="status-grid">
-                    <div class="stat-item"><div class="stat-header"><span>❤️ HP</span></div><div class="bar-bg"><div class="bar-fill" style="width:${(state.hp/state.maxHp)*100}%; background:var(--danger);"></div></div></div>
-                    <div class="stat-item"><div class="stat-header"><span>🍖 飽食</span></div><div class="bar-bg"><div class="bar-fill" style="width:${(state.full/state.maxFull)*100}%; background:#f9a826;"></div></div></div>
-                    <div class="stat-item"><div class="stat-header"><span>✨ 心情</span></div><div class="bar-bg"><div class="bar-fill" style="width:${(state.mood/state.maxMood)*100}%; background:#56ccf2;"></div></div></div>
-                    <div class="stat-item"><div class="stat-header"><span>🏆 獎盃</span><span>${state.heritage + state.trophies.length}</span></div></div>
+                <div style="display:flex; flex-direction:column; gap:12px; width:100%; padding:12px 15px; background:rgba(255,255,255,0.6); border-radius:16px; border:1px solid rgba(255,255,255,0.8); box-shadow:0 4px 10px rgba(0,0,0,0.03);">
+                    <div class="pin-row"><span class="pin-label" style="color:#e67e22;">🍖 飽食</span><div class="bar-bg"><div class="bar-fill" style="width:${fullPct}%; background:#ffd6a5;"></div></div></div>
+                    <div class="pin-row"><span class="pin-label" style="color:#3498db;">✨ 心情</span><div class="bar-bg"><div class="bar-fill" style="width:${moodPct}%; background:#9bf6ff;"></div></div></div>
+                    <div style="font-size:0.9em; font-weight:bold; color:#666; margin-top:4px;">🏆 獎盃  ${fmtN(state.heritage + state.trophies.length)}</div>
                 </div>
             </div>`;
     },
     renderLogs: () => document.getElementById('log-list').innerHTML = state.logs.map(l => `<div class="log-entry"><div class="log-date">Day ${l.d}</div>${l.t}</div>`).join(''),
     renderArena: () => {
         let pTags = Game.getTags().map(t => TAG_N[t]).join('、') || '無';
-        document.getElementById('arena-tags').innerHTML = `<span style="font-size:0.9em;color:#777">消耗 20 HP 進行戰鬥。祖先血統帶來微幅加成！</span><br><br><b>當前特徵：</b><span style="color:var(--primary)">${pTags}</span><br><b>本代獎盃：</b>${state.trophies.join('、') || '無'}`;
+        document.getElementById('arena-tags').innerHTML = `<span style="font-size:0.9em;color:#777">消耗 ♥️體力 進行戰鬥。祖先血統帶來微幅加成！</span><b>當前特徵：</b><span style="color:var(--primary)">${pTags}</span><b>本代獎盃：</b>${state.trophies.join('、') || '無'}`;
         document.getElementById('arena-list').innerHTML = Object.keys(ARENAS).map(k => `
             <div class="list-btn" onclick="Arena.fight('${k}')">
                 <div>${ARENAS[k].n}<br><small style="color:#888">優勢：${ARENAS[k].fav.map(t=>TAG_N[t]).join(', ')}</small></div>
@@ -555,11 +575,9 @@ const UI = {
         let pEl = document.getElementById('battle-p'), eEl = document.getElementById('battle-e');
         box.innerHTML = ''; btn.style.display = 'none';
         
-        // 初始化舞台表情
         pEl.innerText = pFace; eEl.innerText = eFace;
         pEl.className = ''; eEl.className = '';
 
-        // 升級：利用 Object Mapping 完全取代原本的 if/else if 判斷動畫播放
         const ANIM_MAP = {
             'p-atk': () => { pEl.classList.add('anim-atk'); eEl.classList.add('anim-dmg'); },
             'e-atk': () => { eEl.classList.add('anim-atk'); pEl.classList.add('anim-dmg'); },
@@ -571,20 +589,15 @@ const UI = {
 
         logs.forEach((l, i) => {
             setTimeout(() => {
-                // 文字新增
-                let d = document.createElement('div');
-                d.className = 'battle-entry'; d.innerText = l.t;
+                let d = document.createElement('div'); d.className = 'battle-entry'; d.innerText = l.t;
                 d.style.animation = 'fadeIn 0.5s ease-out forwards';
                 box.appendChild(d); box.scrollTop = box.scrollHeight;
                 
-                // 觸發動畫
                 pEl.classList.remove('anim-atk', 'anim-dmg', 'anim-jump', 'anim-faint');
                 eEl.classList.remove('anim-atk', 'anim-dmg', 'anim-jump', 'anim-faint');
-                void pEl.offsetWidth; void eEl.offsetWidth; // 強制重繪
+                void pEl.offsetWidth; void eEl.offsetWidth; 
 
-                // 直接從字典中調出對應的函式並執行
                 if(ANIM_MAP[l.a]) ANIM_MAP[l.a]();
-
                 if(i === logs.length - 1) btn.style.display = 'block';
             }, i * 1100); 
         });
@@ -597,15 +610,14 @@ const UI = {
             <p style="margin-top:15px;">${d}</p>
             <p style="margin-top:30px; font-size:0.9em; color:#888;">存活週期: ${state.age} | 本代獲得獎盃: ${state.trophies.length} (將轉為傳承)</p>`;
     },
-    floatMsg: (t) => { let d = document.createElement('div'); d.className = 'float-msg'; d.innerText = t; document.getElementById('app').appendChild(d); setTimeout(() => d.remove(), 2000); },
-    msg: (t) => { const b = document.getElementById('alertBox'); b.innerText = t; b.style.opacity = 1; setTimeout(() => b.style.opacity = 0, 2000); },
+    floatMsg: (t) => { let d = document.createElement('div'); d.className = 'float-msg'; d.innerText = t; document.getElementById('app').appendChild(d); setTimeout(() => d.remove(), 2500); },
+    msg: (t) => { if(!t) return; const b = document.getElementById('alertBox'); b.innerText = t; b.style.opacity = 1; setTimeout(() => b.style.opacity = 0, 2000); },
     anim: () => { const w = document.getElementById('pet-wrapper'); if(w) { w.classList.remove('react'); void w.offsetWidth; w.classList.add('react'); } },
     changeFont: (d) => { UI.fSz = Math.max(12, Math.min(26, UI.fSz + d * 2)); document.documentElement.style.setProperty('--font-size', `${UI.fSz}px`); },
     showConfirm: (msg, cb) => { document.getElementById('confirmText').innerText = msg; document.getElementById('confirmYes').onclick = () => { UI.closeConfirm(); cb(); }; document.getElementById('confirmBox').style.display = 'flex'; },
     closeConfirm: () => document.getElementById('confirmBox').style.display = 'none'
 };
 
-/* ================= SAVE / LOAD SYSTEM ================= */
 const Save = {
     saveLocal: () => localStorage.setItem('mon_log_save', JSON.stringify(state)),
     save: () => { Save.saveLocal(); UI.msg('已保存。'); },
