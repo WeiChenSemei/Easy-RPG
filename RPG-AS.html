@@ -308,7 +308,7 @@
         if (Math.random() < 0.1 && this.baseId !== 99) this.s.push('summon');
         let rStat = { 'tank':{h:35,a:3,d:2,s:0.5}, 'warrior':{h:25,a:4,d:1,s:1}, 'assassin':{h:15,a:5,d:0.5,s:2}, 'mage':{h:18,a:4,d:0.5,s:1.5}, 'boss':{h:150,a:10,d:5,s:1.5}, 'traveler':{h:0,a:0,d:0,s:0}, 'chest':{h:15,a:8,d:8,s:2} }[base.r || 'warrior'];
         
-        let fLvl = Math.pow(floor, floor > 30 ? 1 : 0.8);//let fLvl = Math.pow(floor, 0.8);
+        let fLvl = Math.pow(floor, floor > 30 ? 1.1 : 0.8);//let fLvl = Math.pow(floor, 0.8);
         this.maxHp = this.isMetal ? 4 + Math.floor(floor*0.5) : Math.floor((rStat.h * fLvl + 20) * tm);
         this.atk = Math.floor((rStat.a * fLvl + 5) * tm);
         this.def = this.isMetal ? 999 : Math.floor((rStat.d * fLvl) * tm);
@@ -766,8 +766,6 @@
       let tName = act.isAoe ? "全體" : (act.target ? (act.targetFriendly ? act.target.name : act.target.shortName) : "自己"); 
       let baseMsg = `▶ 『${hero.name}』對【${tName}】使出 [${act.name}]`;
       let hitDetails = ""; let logTime = new Date().toLocaleTimeString('zh-TW', { hour12: false });
-      //let actionLogObj = { msg: `[${logTime}] ${baseMsg}`, color: 'text-cyan-200' }; 
-      //if (!act.isSubAction) { gameState.historyLogs.push(actionLogObj); if(gameState.historyLogs.length>200)gameState.historyLogs.shift(); } else actionLogObj = gameState.historyLogs[gameState.historyLogs.length-1] || actionLogObj;
       let actionLogObj = { msg: `[${logTime}] ${baseMsg}`, color: 'text-cyan-200' };
       gameState.historyLogs.push(actionLogObj);
       if(gameState.historyLogs.length > 200) gameState.historyLogs.shift();
@@ -1069,7 +1067,8 @@
 
       shuffledGroups.forEach(grp => { 
         let validCards = ALL_CARDS_POOL.filter(c => grp.includes(c.type) && !options.some(o => o.id === c.id)); 
-        if (grp.includes('passive')) { validCards = validCards.filter(c => { let has = h.passives.find(x => x.id === c.id); return !(has && h.cardMemory[c.id] >= 6 && c.id !== 'p_10'); }); } 
+        //這段會自動把滿等的被動能力過濾掉
+        //if (grp.includes('passive')) { validCards = validCards.filter(c => { let has = h.passives.find(x => x.id === c.id); return !(has && h.cardMemory[c.id] >= 6 && c.id !== 'p_10'); }); } 
         if (validCards.length > 0) {
             if (Math.random() < 0.33) { let ownedValid = validCards.filter(c => ownedIds.includes(c.id)); if (ownedValid.length > 0) validCards = ownedValid; }
             options.push(validCards[Math.floor(Math.random() * validCards.length)]); 
@@ -1079,7 +1078,15 @@
       const typeNames = { weapon: 'WEAPON', offhand: 'OFF HAND', armor: 'ARMOR', accessory: 'ACCESSORY', magic: 'MAGIC', special: 'SKILL', items: 'ITEM', passive: 'PASSIVE' }; 
       options.forEach(o => { 
         let cardDiv = document.createElement('div'); cardDiv.className = "ff-btn text-left p-3 flex flex-col justify-between items-start w-full relative group"; let targetProp = o.type === 'passive' ? 'passives' : o.type; let hasObj = ['magic','special','items','passive'].includes(o.type) && h[targetProp].some(x => x.id === o.id); let isEquipUpgrade = ['weapon', 'offhand', 'armor', 'accessory'].includes(o.type) && h.equips[o.type] && h.equips[o.type].id === o.id; let dupUpgradeBadge = ''; 
-        if (hasObj || isEquipUpgrade) { dupUpgradeBadge = `<span class="absolute top-2 right-2 ${o.type==='items'&&!o.isEquipItem?'text-green-300':'text-yellow-300'} text-[0.7em] retro-font">${o.type==='items'&&!o.isEquipItem?'USES +1':'UPGRADE'}</span>`; } 
+        if (hasObj || isEquipUpgrade) { 
+          // 1. 狀態檢測：是否為滿等被動？是否為滿次數道具？
+          let isMaxItm = o.type === 'items' && !o.isEquipItem && h.items.find(i=>i.id===o.id)?.uses >= (o.isConsumable ? 1 : o.maxUses);
+          let isMaxPas = o.type === 'passive' && h.cardMemory[o.id] >= 6;
+          // 2. 動態決定文字與顏色 (利用三元運算子保持極簡)
+          let bTxt = isMaxPas ? '無法提升' : (isMaxItm ? '數量已滿' : (o.type==='items'&&!o.isEquipItem ? 'USES +1' : 'UPGRADE'));
+          let bCol = (isMaxPas || isMaxItm) ? 'text-red-400 font-bold bg-black/80 px-1 rounded' : (o.type==='items'&&!o.isEquipItem ? 'text-green-300' : 'text-yellow-300');
+          dupUpgradeBadge = `<span class="absolute top-2 right-2 ${bCol} text-[0.7em] retro-font z-20">${bTxt}</span>`;
+        }
         cardDiv.onclick = () => { selectDraftRewardLogic(h, o); }; 
         let currentEquipText = ""; if (['weapon', 'offhand', 'armor', 'accessory'].includes(o.type)) { let current = h.equips[o.type]; let nameDisplay = current ? current.name : "無"; if (current && current.isTwoHanded) nameDisplay += "(雙手)"; if (o.type === 'offhand' && h.equips.weapon?.isTwoHanded) { nameDisplay = `${h.equips.weapon.name}(雙手)`; } else if (o.type === 'weapon' && o.isTwoHanded) { let wName = h.equips.weapon ? h.equips.weapon.name : "無"; let oName = h.equips.offhand ? h.equips.offhand.name : "無"; nameDisplay = (h.equips.weapon || h.equips.offhand) ? `${wName}/${oName}` : "無"; } currentEquipText = `<div class="text-[0.7em] text-gray-500 retro-font mt-1.5 border-t border-gray-700 pt-1.5 w-full text-right"><span class="text-gray-600">替換:</span> <span class="text-gray-400">${nameDisplay}</span></div>`; } 
         let itemUsesStr = ''; if (o.type === 'items') { let existingItem = h.items.find(i => i.id === o.id); itemUsesStr = ` <span class="text-yellow-300 text-[0.7em]">(${existingItem ? `${existingItem.uses}/${existingItem.maxUses}` : `1/${o.isConsumable ? 1 : o.maxUses}`})</span>`; } 
