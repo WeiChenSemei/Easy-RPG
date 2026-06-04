@@ -18,7 +18,7 @@
         body {
             margin: 0; padding: 0; background: var(--bg-color); color: var(--text-color);
             font-family: "Courier New", Courier, monospace; font-size: var(--font-size);
-            display: flex; flex-direction: column; height: 85vh; sm: h-[720px]; overflow: hidden;
+            display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden;
             background-image: radial-gradient(circle at center, #112 0%, #000 100%);
         }
         button, input, select {
@@ -236,7 +236,7 @@ const DB = {
         '魂':   { cost: 40, desc: '本回合傷害 x3', tag: 'soul' },
         '愛':   { cost: 60, desc: '完全回復，並賦予熱血+直感', tag: 'love' }
     },
-    Cells: { // 網格內容映射
+     Cells: { // 網格內容映射
         0: { icon: '', type: 'empty' },
         1: { icon: '👾', type: 'enemy', name: '敵軍部隊' },
         2: { icon: '🤖', type: 'enemy', name: '失控AI兵器' },
@@ -246,7 +246,37 @@ const DB = {
         6: { icon: '🏛️', type: 'event', name: '古代遺跡' },
         7: { icon: '🆘', type: 'event', name: '求救訊號' },
         8: { icon: '🌌', type: 'exit', name: '空間跳躍點' },
-        9: { icon: '☠️', type: 'boss', name: '首領' }
+        9: { icon: '☠️', type: 'boss', name: '首領' },
+        10: { icon: '📜', type: 'quest', name: '連鎖事件' }
+    },
+    E: { // 統一因果事件庫 (S:補給, R:遺跡, D:求救, Q:連鎖) -> p:指向下一節點, m:結果訊息, e:觸發敵人ID, b:觸發Boss
+        'S1_0':{d:"發現漂流的聯邦運輸艦。",c:[{l:"搜刮",p:"S1_1",f:(p)=>p.hp+=40,m:"獲物資(HP+40)，但艦內警報大作！"},{l:"提取資料",p:null,f:(p)=>p.exp+=30,m:"獲宙域資訊(Exp+30)。"}]},
+        'S1_1':{d:"聯邦巡邏隊躍傳而至，指控你為海盜！",c:[{l:"武力突圍",e:1,p:null,f:()=>STATE.reps['地球聯邦']-=20,m:"與聯邦交火！(聲望-20)"},{l:"賠償",p:null,f:(p)=>p.hp-=40,m:"被迫挨打(HP-40)。"}]},
+        'R1_0':{d:"發現巨大的古代遺跡，散發幽光。",c:[{l:"探勘",p:"R1_1",f:(p)=>p.react+=5,m:"取得古代模組(React+5)！"},{l:"離開",p:null,m:"安全第一。"}]},
+        'R1_1':{d:"遺跡守衛啟動，並向全區發送了古老訊號！",c:[{l:"迎擊守衛",b:true,p:"R1_2",m:"古代兵器來襲！"}]},
+        'R1_2':{d:"戰鬥引來AI軍團，他們要求交出古代殘骸。",c:[{l:"交出",p:null,f:()=>STATE.reps['AI軍團']+=30,m:"AI滿意(聲望+30)。"},{l:"拒絕",e:2,p:null,f:()=>STATE.reps['AI軍團']-=20,m:"AI發起攻擊！(聲望-20)"}]},
+        'D1_0':{d:"收到民用客船求救訊號。",c:[{l:"救援",p:"D1_1",f:(p)=>p.luck+=5,m:"救出客船(Luck+5)，得知被火星軍襲擊。"},{l:"無視",p:null,m:"宇宙很殘酷。"}]},
+        'D1_1':{d:"火星同盟的滅口艦隊出現了。",c:[{l:"保護客船",e:4,p:"D1_2",f:()=>STATE.reps['火星同盟']-=30,m:"與火星開戰！"},{l:"交出",p:null,f:()=>STATE.reps['火星同盟']+=10,m:"選擇妥協。"}]},
+        'D1_2':{d:"拯救了客船，聯邦高層大加讚賞。",c:[{l:"接受表揚",p:null,f:(p)=>{p.maxHp+=20;STATE.reps['地球聯邦']+=30;},m:"成為英雄(MaxHp+20,聲望+30)！"}]},
+        
+        'Q1_0':{d:"發現被海盜襲擊的聯邦高官。",c:[{l:"捨命救援",p:"Q1A_1",f:(p)=>p.hp-=20,m:"受傷(HP-20)但救出官員。"},{l:"冷眼旁觀",p:"Q1B_1",m:"官員死亡，星區陷入混亂。"}]},
+        'Q1A_1':{d:"高官大難不死，掌控後勤部。",c:[{l:"索賄",p:"Q1A_2",f:(p)=>{p.maxHp+=20;p.hp+=20;},m:"獲得裝甲(MaxHP+20)！但官員語氣變冷。"},{l:"暗中調查",p:"Q1B_2",f:(p)=>p.exp+=50,m:"發現聯邦內部貪腐網絡(Exp+50)！"}]},
+        'Q1B_1':{d:"官員死後，權力真空引發軍閥內戰。",c:[{l:"武力介入",p:"Q1C_2",m:"捲入危險的派系鬥爭。"},{l:"遠離",p:null,m:"避開麻煩。"}]},
+        'Q1A_2':{d:"貪腐暴露，高官派兵滅口！",c:[{l:"迎擊",e:1,p:"Q1A_3",m:"大批聯邦軍逼近！"}]},
+        'Q1B_2':{d:"你成為吹哨人，遭聯邦全境通緝。",c:[{l:"殺出重圍",e:1,p:"Q1A_3",m:"沒有退路，只能戰鬥！"}]},
+        'Q1C_2':{d:"你成功扶植新傀儡，準備收割利益。",c:[{l:"收網",p:"Q1B_3",m:"前往秘密金庫！"}]},
+        'Q1A_3':{d:"高官的精銳私兵部隊襲來！",c:[{l:"決戰",b:true,f:()=>STATE.reps['地球聯邦']+=30,m:"平息叛亂！(聯邦聲望大增)"}]},
+        'Q1B_3':{d:"敵對派系殘黨瘋狂反撲！",c:[{l:"鎮壓",b:true,f:()=>STATE.reps['地球聯邦']-=30,m:"徹底掌控星區！(與聯邦交惡)"}]},
+
+        'Q2_0':{d:"打撈到奇異的AI核心，閃爍著微光。",c:[{l:"接入系統",p:"Q2A_1",f:(p)=>p.react+=5,m:"系統流暢(React+5)！"},{l:"銷毀",p:null,f:(p)=>p.exp+=30,m:"提煉數據(Exp+30)。"}]},
+        'Q2A_1':{d:"AI自我擴張並改寫機體代碼。",c:[{l:"解除限制",p:"Q2A_2",m:"機體發出轟鳴。"},{l:"強制隔離",p:"Q2B_2",m:"AI產生敵意。"}]},
+        'Q2A_2':{d:"AI解鎖了深淵宙域的古代機體座標。",c:[{l:"前往探索",p:"Q2A_3",m:"發現巨大能量反應！"}]},
+        'Q2B_2':{d:"AI突破隔離網，意圖奪取機體控制權！",c:[{l:"手動模式",e:2,p:"Q2B_3",m:"系統鎖死，硬拚！"}]},
+        'Q2A_3':{d:"古代機甲啟動，AI請求融合。",c:[{l:"允許融合",p:null,f:(p)=>{p.shoot+=10;p.melee+=10;p.react+=10;},m:"神機降臨！全屬性狂飆！"},{l:"拒絕",b:true,m:"AI化為怪物！"}]},
+        'Q2B_3':{d:"AI控制防衛兵器殺來！",c:[{l:"迎擊",b:true,m:"徹底摧毀危險程式！"}]},
+
+        'sys_lv':{d:"歷經戰火洗禮，駕駛員與機體的同步率達到新境界。選擇強化：",c:[{l:'射擊 (+3)',f:(p)=>p.shoot+=3},{l:'格鬥 (+3)',f:(p)=>p.melee+=3},{l:'反應 (+3)',f:(p)=>p.react+=3},{l:'核心 (MaxHP+20)',f:(p)=>{p.maxHp+=20;p.hp+=20;}},{l:'精神 (MaxSP+15)',f:(p)=>{p.maxSp+=15;p.sp+=15;}}]},
+        'sys_base':{d:"抵達中繼基地。獲得補給與短暫休整，請分配資源：",c:[{l:'維護 (HP/SP滿, MaxHP+10)',f:(p)=>{p.maxHp+=10;p.hp=p.maxHp;p.sp=p.maxSp;},m:"裝甲修復完畢。"},{l:'火控 (射/格+5)',f:(p)=>{p.shoot+=5;p.melee+=5;},m:"武器輸出提升。"},{l:'次世代改裝 (隨機換機)',f:(p)=>{let n=GAME.rnd(Object.keys(DB.MechTypes));STATE.mech.name=`次世代${n}機`;STATE.mech.type=n;STATE.mech.finisher=[1,2,3].map(()=>GAME.rnd(DB.FinPre)+GAME.rnd(DB.FinMid)+GAME.rnd(DB.FinSuf));p.react+=5;p.maxHp+=20;p.hp+=20;},m:"換乘新機，性能躍升！"}]}
     },
     WorldStates: {
         0: { msg: "【和平】各方勢力暫時休兵。", spawn: {} },
@@ -255,93 +285,13 @@ const DB = {
         3: { msg: "【震盪】超空間風暴肆虐。", spawn: {7: 0.2} },
         4: { msg: "【結盟】海盜與蟲族達成詭異共識！", spawn: {4: 0.2, 3: 0.2} },
         5: { msg: "【崛起】古代遺跡大量現世！", spawn: {6: 0.3} }
-    },
-    Events: {
-        5: [ // 補給站事件庫
-            { d: "發現一艘漂流的聯邦運輸艦，似乎還有能源反應。", c: [
-                { l: '對接搜刮', f: (p) => { p.hp = Math.min(p.maxHp, p.hp+40); return "找到大量奈米修復劑，裝甲大幅修復(HP+40)！"; } },
-                { l: '提取資料', f: (p) => { p.exp+=30; return "下載了航行日誌，獲得寶貴的宙域資訊(Exp+30)。"; } }
-            ]},
-            { d: "一座廢棄的星際中繼站，系統仍在待機狀態。", c: [
-                { l: '連接充能', f: (p) => { p.sp=p.maxSp; return "成功接入主能源，精神與系統完全充能(SP全滿)！"; } },
-                { l: '謹慎離開', f: () => "你選擇不冒風險，繼續航行。" }
-            ]},
-            { d: "遭遇一支正與不明生物交戰的【地球聯邦】小隊。", c: [
-                { l: '協助聯邦', f: (p) => { STATE.reps['地球聯邦']+=10; p.exp+=20; return "聯邦好感提升！獲取了戰鬥數據(Exp+20)。"; } },
-                { l: '趁火打劫', f: (p) => { STATE.reps['地球聯邦']-=20; p.sp=p.maxSp; return "搶走聯邦物資箱，SP全滿，但被聯邦列入黑名單！"; } }
-            ]},
-            { d: "一片神秘的星雲物質，蘊含著奇異的能量波動。", c: [
-                { l: '吸收能量', f: (p) => { p.maxHp+=15; p.hp+=15; return "機體裝甲被能量永久強化了(MaxHP+15)！"; } },
-                { l: '遠離', f: () => "未知總是伴隨著危險，你避開了星雲。" }
-            ]}
-        ],
-        6: [ // 遺跡事件庫
-            { d: "巨大的環狀古代遺跡，散發著幽幽藍光。", c: [
-                { l: '強行探勘 (運氣檢定)', f: (p) => { if(Math.random()<0.5+(p.luck*0.01)){ p.react+=5; return "取得古代操縱模組，反應力永久+5！"; } else { p.hp-=30; return "觸發古代防衛機制，遭受重創(HP-30)！"; } } },
-                { l: '紀錄座標', f: (p) => { p.exp+=15; return "將遺跡外觀記錄並發送回本部，獲得經驗(Exp+15)。"; } }
-            ]},
-            { d: "遺跡深處漂浮著一塊散發思維波動的黑色石碑。", c: [
-                { l: '精神連結', f: (p) => { 
-                    if(Math.random()<0.6) {
-                        let sp = GAME.rnd(Object.keys(DB.Spirits));
-                        if(!p.spirits.includes(sp)) p.spirits.push(sp);
-                        return `大腦湧入龐大知識，領悟新精神【${sp}】！`;
-                    } else {
-                        p.sp = Math.max(0, p.sp-20); return "精神遭到反噬，大腦劇烈疼痛(SP-20)！";
-                    }
-                }},
-                { l: '切斷感測', f: () => "這東西太邪門了，你決定不碰為妙。" }
-            ]}
-        ],
-        7: [ // 求救訊號事件庫
-            { d: "收到微弱的求救訊號，頻段顯示為民用客船。", c: [
-                { l: '前往救援', f: (p) => {
-                    if(Math.random()<0.6){ p.luck+=3; return "成功救出客船，乘客們的感激讓你的運氣提升了(Luck+3)！"; } 
-                    else { return "海盜的陷阱！戰鬥無可避免！"; }
-                }},
-                { l: '無視', f: () => "在這個殘酷的宇宙中，自保才是第一要務。" }
-            ]},
-            { d: "訊號來自一架大破的同盟機甲，駕駛員似乎還活著。", c: [
-                { l: '緊急回收', f: (p) => { p.shoot+=2; p.melee+=2; return "救出駕駛員，他將戰鬥數據傳給了你，射擊與格鬥提升(+2)！"; } },
-                { l: '發送座標', f: () => "你將座標發給了救援隊，祝他好運。" }
-            ]},
-            { d: "發現【AI軍團】的廢棄終端機，正發送著無意義的亂碼。", c: [
-                { l: '駭入核心', f: (p) => { 
-                    if(Math.random()<0.5){ p.react+=5; return "成功破解AI神經網路，反應力大幅優化(React+5)！"; } 
-                    else { return "海盜的陷阱！原來是電子誘餌！"; }
-                }},
-                { l: '摧毀終端', f: () => { STATE.reps['AI軍團']-=10; return "你一砲轟了終端機，AI軍團對你的敵意增加了。"; } }
-            ]}
-        ],
-        'levelUp': [
-            { d: "歷經戰火洗禮，駕駛員與機體的同步率達到了新的境界。請選擇強化方向：", c: [
-                { l: '提升射擊 (+3)', f: (p) => { p.shoot += 3; return "火控系統升級，射擊能力顯著提升。"; } },
-                { l: '提升格鬥 (+3)', f: (p) => { p.melee += 3; return "推進器微調，格鬥爆發力提升。"; } },
-                { l: '提升反應 (+3)', f: (p) => { p.react += 3; return "神經連結優化，機體反應速度提升。"; } },
-                { l: '擴充核心 (MaxHP+20)', f: (p) => { p.maxHp += 20; p.hp += 20; return "機體裝甲與動力核心強化完成。"; } },
-                { l: '精神強化 (MaxSP+15)', f: (p) => { p.maxSp += 15; p.sp += 15; return "大腦皮層開發，精神力閾值擴展。"; } }
-            ]}
-        ],
-        'baseResupply': [
-            { d: "抵達中繼基地。獲得補給與短暫的休整，請選擇資源分配方式：", c: [
-                { l: '機體維護 (HP/SP全滿, MaxHP+10)', f: (p) => { p.maxHp += 10; p.hp = p.maxHp; p.sp = p.maxSp; return "裝甲修復完畢，機體煥然一新。"; } },
-                { l: '火控升級 (射擊/格鬥+5)', f: (p) => { p.shoot += 5; p.melee += 5; return "武器系統輸出功率永久提升。"; } },
-                { l: '次世代改裝 (隨機獲得強大新機體)', f: (p) => {
-                    let nType = GAME.rnd(Object.keys(DB.MechTypes));
-                    STATE.mech.name = `次世代${nType}機`; STATE.mech.type = nType;
-                    STATE.mech.finisher = [1,2,3].map(()=>GAME.rnd(DB.FinPre)+GAME.rnd(DB.FinMid)+GAME.rnd(DB.FinSuf));
-                    p.react += 5; p.maxHp += 20; p.hp += 20;
-                    return `成功換乘【${STATE.mech.name}】，性能大幅躍升！`;
-                }}
-            ]}
-        ]
     }
 };
 
 /** 全局狀態 */
 let STATE = {
     legacy: { statBonus: 0, gen: 1 }, currScreen: 'title', inCombat: false,
-    inGame: false,
+    inGame: false, quest: {}, // 紀錄各類因果事件進度
     pilot: { name: '', lv: 1, exp: 0, hp: 100, maxHp: 100, sp: 50, maxSp: 50, shoot: 10, melee: 10, react: 10, luck: 10, spirits: ['集中', '熱血'] },
     mech: { name: '', type: '', wTag: '實彈' },
     reps: { '地球聯邦': 0, '火星同盟': 0, 'AI軍團': 0, '宇宙海盜': 0, '異星蟲族': 0 },
@@ -416,7 +366,7 @@ const SYS = {
         
         d.innerHTML = `
             <p><strong>等級: </strong>${STATE.pilot.lv} (Exp: ${STATE.pilot.exp}/${STATE.pilot.lv*20})</p>
-            <p><strong>武裝屬性: </strong>${STATE.mech.wTag} </p>
+            <p><strong>武裝屬性: </strong> ${STATE.mech.wTag} </p>
             <p><strong>終結技: </strong><span style="color:#ff33ff; font-size:0.9em;">${fins}</span></p>
             <hr style="border-color:#0088aa;">
             <p><strong>機體 (${STATE.pilot.hp}/${STATE.pilot.maxHp}):</strong> <span style="color:#aaa; font-size:0.8em">${DB.StatDesc['機體']}</span></p>
@@ -476,7 +426,7 @@ const GAME = {
     },
     nextFloor: () => {
         STATE.floor++;
-        EVENT.init('baseResupply'); // 進入基地補給事件
+        EVENT.init('sys_base'); // 進入基地補給事件
     },
     rnd: SYS.rnd
 };
@@ -490,6 +440,8 @@ const MAP = {
         // 分配內容 (機率映射)
         let isBoss = STATE.floor % 10 === 0;
         let pool = [];
+        pool.push(10); // 確保每個宙域都會推進一次「連鎖事件」進度
+        
         if (isBoss) pool.push(9); // 1 Boss
         else pool.push(8); // 1 Exit
         
@@ -560,6 +512,7 @@ const MAP = {
             'enemy': () => { STATE.map.currCell = i; COMBAT.init(cData, false); },
             'boss':  () => { STATE.map.currCell = i; COMBAT.init(cData, true); },
             'event': () => { STATE.map.currCell = i; EVENT.init(cell.v); },
+            'quest': () => { STATE.map.currCell = i; EVENT.init('quest'); },
             'exit':  () => { SYS.el('btn-next-floor').style.display = 'block'; }
         };
         
@@ -714,7 +667,7 @@ const COMBAT = {
         if (STATE.pilot.exp >= STATE.pilot.lv * 20) {
             STATE.pilot.lv++;
             STATE.pilot.exp = 0;
-            setTimeout(() => EVENT.init('levelUp'), 1000);
+            setTimeout(() => EVENT.init('sys_lv'), 1000);
         } else {
             setTimeout(() => { SYS.nav('map'); MAP.render(); }, 1500);
         }
@@ -740,44 +693,57 @@ const EVENT = {
         let div = SYS.el('event-choices');
         div.innerHTML = '';
         
-        let evPool = DB.Events[v];
-        let evData = (v === 'levelUp' || v === 'baseResupply') ? evPool[0] : GAME.rnd(evPool); 
+        let evData, titleTxt, choices;
+        let pfx = {5:'S', 6:'R', 7:'D', 10:'Q'}[v]; // 因果事件字首對映
         
-        let titleTxt = v === 'levelUp' ? `✨ 駕駛員升級 (Lv.${STATE.pilot.lv})` : v === 'baseResupply' ? `🏪 抵達中繼基地 (第${STATE.floor}宙域)` : `${DB.Cells[v]?.icon||'❓'} 宙域探索事件`;
+        if (pfx) {
+            // 如果該類別沒有正在進行的事件鏈，隨機抽取一個該字首的起點(_0)
+            if (!STATE.quest[pfx]) STATE.quest[pfx] = GAME.rnd(Object.keys(DB.E).filter(k => k.startsWith(pfx) && k.endsWith('_0')));
+            evData = DB.E[STATE.quest[pfx]];
+            titleTxt = `${DB.Cells[v].icon} 因果事件：${DB.Cells[v].name}`;
+            choices = evData.c;
+        } else {
+            // 處理系統保留事件 (sys_lv, sys_base)
+            evData = DB.E[v];
+            titleTxt = v === 'sys_lv' ? `✨ 駕駛員升級 (Lv.${STATE.pilot.lv})` : `🏪 抵達中繼基地 (第${STATE.floor}宙域)`;
+            choices = v === 'sys_lv' ? [...evData.c].sort(()=>0.5-Math.random()).slice(0,3) : evData.c;
+        }
+        
         SYS.el('event-title').innerText = titleTxt;
         SYS.el('event-desc').innerHTML = evData.d;
-        
-        let choices = (v === 'levelUp') ? [...evData.c].sort(()=>0.5-Math.random()).slice(0,3) : evData.c;
         
         choices.forEach(ch => {
             let btn = document.createElement('button');
             btn.innerText = ch.l;
             btn.onclick = () => {
-                let resultMsg = ch.f(STATE.pilot);
-                EVENT.showResult(resultMsg, ch.l, v);
+                let msg = ch.m || "";
+                if (ch.f) { let fMsg = ch.f(STATE.pilot); msg = msg || fMsg || "屬性已更新。"; }
+                if (pfx) STATE.quest[pfx] = ch.p; // 推進因果進度 (若為null則下次重新抽取)
+                EVENT.showResult(msg, ch.l, v, ch);
             };
             div.appendChild(btn);
         });
     },
-    showResult: (msg, choiceLabel, eventId) => {
+    showResult: (msg, choiceLabel, eventId, chData = {}) => {
         SYS.el('event-desc').innerHTML += `<br><br><span style="color:#88ccff">▶ 執行：${choiceLabel}</span><br><span style="color:#ffdd55; font-size:1.1em;">${msg}</span>`;
         let div = SYS.el('event-choices');
         div.innerHTML = '';
         
-        let isTrap = msg.includes("海盜的陷阱");
+        let isCombat = chData.e || chData.b;
         let btn = document.createElement('button');
-        btn.innerText = isTrap ? '迎擊！' : (eventId === 'baseResupply' ? '出發前往下個宙域' : '繼續航行');
+        btn.innerText = isCombat ? '迎擊！' : (eventId === 'sys_base' ? '出發前往下個宙域' : '繼續航行');
         
         btn.onclick = () => {
-            if(isTrap) {
-                STATE.map.grid[STATE.map.currCell].v = 4; // 轉為遭遇戰
-                COMBAT.init(DB.Cells[4], false); // 正確觸發戰鬥
-            } else if (eventId === 'baseResupply') {
+            if(isCombat) {
+                let eType = chData.b ? 9 : (chData.e === true ? 1 : chData.e); // 若指定了特定敵人ID則採用，否則預設為1(敵軍)
+                STATE.map.grid[STATE.map.currCell].v = eType;
+                COMBAT.init(DB.Cells[eType], chData.b);
+            } else if (eventId === 'sys_base') {
                 GAME.genFloor();
                 SYS.nav('map');
             } else {
-                if(eventId !== 'levelUp' && STATE.map.currCell !== null) {
-                    STATE.map.grid[STATE.map.currCell].v = 0; // 事件處理完畢清空地圖格
+                if(eventId !== 'sys_lv' && STATE.map.currCell !== null) {
+                    STATE.map.grid[STATE.map.currCell].v = 0; 
                 }
                 SYS.nav('map');
                 MAP.render();
