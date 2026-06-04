@@ -236,62 +236,46 @@ const DB = {
         '魂':   { cost: 40, desc: '本回合傷害 x3', tag: 'soul' },
         '愛':   { cost: 60, desc: '完全回復，並賦予熱血+直感', tag: 'love' }
     },
-     Cells: { // 網格內容映射
+    PM: { // 五大世界壓力與動態生成映射矩陣 (Pressure Map)
+        chaos: { n: '混亂', adj: '狂暴', mob: '掠奪者', boss: '海盜王', icon: '🏴‍☠️' },
+        wealth: { n: '繁榮', adj: '重裝', mob: '傭兵', boss: '財閥旗艦', icon: '💰' },
+        tech: { n: '科技', adj: '機械', mob: '無人機', boss: '主宰機神', icon: '🤖' },
+        faith: { n: '信仰', adj: '狂信', mob: '聖堂軍', boss: '虛空救世主', icon: '✝️' },
+        alien: { n: '未知', adj: '異星', mob: '突變獸', boss: '深淵吞噬者', icon: '🦑' }
+    },
+    Cells: { // 網格內容映射 (大幅簡化，怪物外觀由戰鬥動態賦予)
         0: { icon: '', type: 'empty' },
-        1: { icon: '👾', type: 'enemy', name: '敵軍部隊' },
-        2: { icon: '🤖', type: 'enemy', name: '失控AI兵器' },
-        3: { icon: '🦖', type: 'enemy', name: '宇宙巨獸' },
-        4: { icon: '🏴‍☠️', type: 'enemy', name: '海盜艦隊' },
+        1: { icon: '⚠️', type: 'enemy', name: '未知威脅' },
         5: { icon: '📦', type: 'event', name: '補給站' },
         6: { icon: '🏛️', type: 'event', name: '古代遺跡' },
         7: { icon: '🆘', type: 'event', name: '求救訊號' },
         8: { icon: '🌌', type: 'exit', name: '空間跳躍點' },
         9: { icon: '☠️', type: 'boss', name: '首領' },
-        10: { icon: '📜', type: 'quest', name: '連鎖事件' }
+        10: { icon: '📜', type: 'event', name: '因果事件' }
     },
-    E: { // 統一因果事件庫 (S:補給, R:遺跡, D:求救, Q:連鎖) -> p:指向下一節點, m:結果訊息, e:觸發敵人ID, b:觸發Boss
-        'S1_0':{d:"發現漂流的聯邦運輸艦。",c:[{l:"搜刮",p:"S1_1",f:(p)=>p.hp+=40,m:"獲物資(HP+40)，但艦內警報大作！"},{l:"提取資料",p:null,f:(p)=>p.exp+=30,m:"獲宙域資訊(Exp+30)。"}]},
-        'S1_1':{d:"聯邦巡邏隊躍傳而至，指控你為海盜！",c:[{l:"武力突圍",e:1,p:null,f:()=>STATE.reps['地球聯邦']-=20,m:"與聯邦交火！(聲望-20)"},{l:"賠償",p:null,f:(p)=>p.hp-=40,m:"被迫挨打(HP-40)。"}]},
-        'R1_0':{d:"發現巨大的古代遺跡，散發幽光。",c:[{l:"探勘",p:"R1_1",f:(p)=>p.react+=5,m:"取得古代模組(React+5)！"},{l:"離開",p:null,m:"安全第一。"}]},
-        'R1_1':{d:"遺跡守衛啟動，並向全區發送了古老訊號！",c:[{l:"迎擊守衛",b:true,p:"R1_2",m:"古代兵器來襲！"}]},
-        'R1_2':{d:"戰鬥引來AI軍團，他們要求交出古代殘骸。",c:[{l:"交出",p:null,f:()=>STATE.reps['AI軍團']+=30,m:"AI滿意(聲望+30)。"},{l:"拒絕",e:2,p:null,f:()=>STATE.reps['AI軍團']-=20,m:"AI發起攻擊！(聲望-20)"}]},
-        'D1_0':{d:"收到民用客船求救訊號。",c:[{l:"救援",p:"D1_1",f:(p)=>p.luck+=5,m:"救出客船(Luck+5)，得知被火星軍襲擊。"},{l:"無視",p:null,m:"宇宙很殘酷。"}]},
-        'D1_1':{d:"火星同盟的滅口艦隊出現了。",c:[{l:"保護客船",e:4,p:"D1_2",f:()=>STATE.reps['火星同盟']-=30,m:"與火星開戰！"},{l:"交出",p:null,f:()=>STATE.reps['火星同盟']+=10,m:"選擇妥協。"}]},
-        'D1_2':{d:"拯救了客船，聯邦高層大加讚賞。",c:[{l:"接受表揚",p:null,f:(p)=>{p.maxHp+=20;STATE.reps['地球聯邦']+=30;},m:"成為英雄(MaxHp+20,聲望+30)！"}]},
+    E: [ // 動態種子事件庫 -> req:條件, w:改變壓力, s:埋下種子, e:戰鬥
+        { req: s=>true, d:"遭遇受損的海盜艦。", c:[{l:"放過", w:{chaos:1}, s:{n:"海盜首領",t:"chaos"}, m:"放虎歸山，埋下了混亂的種子。"}, {l:"擊毀", w:{wealth:1}, m:"獲得走私資金。"}] },
+        { req: s=>true, d:"拾獲未知AI殘骸。", c:[{l:"研究", w:{tech:1}, s:{n:"AI殘骸",t:"tech"}, m:"AI代碼開始在系統中自我演化。"}, {l:"賣掉", w:{wealth:1}, m:"換取了大量資金。"}] },
+        { req: s=>true, d:"發現古代頻段的異常訊號。", c:[{l:"解讀", w:{alien:1}, s:{n:"古代訊號",t:"alien"}, m:"某種古老意志似乎被喚醒了..."}, {l:"阻斷", w:{tech:1}, m:"利用科技壓制了異常干擾。"}] },
+        { req: s=>true, d:"遇到迷航的難民船。", c:[{l:"護送", w:{faith:1}, s:{n:"神秘傳教士",t:"faith"}, m:"難民中似乎有位影響力極大的人物。"}, {l:"掠奪", w:{chaos:1,wealth:1}, m:"道德淪喪，物資入手。"}] },
+        { req: s=>true, d:"邊境殖民地遭到襲擊。", c:[{l:"支援", w:{wealth:1}, s:{n:"殖民英雄",t:"wealth"}, m:"你的事蹟傳開，成為了當地的傳奇。"}, {l:"無視", w:{chaos:1}, m:"殖民地化為焦土，難民四散。"}] },
         
-        'Q1_0':{d:"發現被海盜襲擊的聯邦高官。",c:[{l:"捨命救援",p:"Q1A_1",f:(p)=>p.hp-=20,m:"受傷(HP-20)但救出官員。"},{l:"冷眼旁觀",p:"Q1B_1",m:"官員死亡，星區陷入混亂。"}]},
-        'Q1A_1':{d:"高官大難不死，掌控後勤部。",c:[{l:"索賄",p:"Q1A_2",f:(p)=>{p.maxHp+=20;p.hp+=20;},m:"獲得裝甲(MaxHP+20)！但官員語氣變冷。"},{l:"暗中調查",p:"Q1B_2",f:(p)=>p.exp+=50,m:"發現聯邦內部貪腐網絡(Exp+50)！"}]},
-        'Q1B_1':{d:"官員死後，權力真空引發軍閥內戰。",c:[{l:"武力介入",p:"Q1C_2",m:"捲入危險的派系鬥爭。"},{l:"遠離",p:null,m:"避開麻煩。"}]},
-        'Q1A_2':{d:"貪腐暴露，高官派兵滅口！",c:[{l:"迎擊",e:1,p:"Q1A_3",m:"大批聯邦軍逼近！"}]},
-        'Q1B_2':{d:"你成為吹哨人，遭聯邦全境通緝。",c:[{l:"殺出重圍",e:1,p:"Q1A_3",m:"沒有退路，只能戰鬥！"}]},
-        'Q1C_2':{d:"你成功扶植新傀儡，準備收割利益。",c:[{l:"收網",p:"Q1B_3",m:"前往秘密金庫！"}]},
-        'Q1A_3':{d:"高官的精銳私兵部隊襲來！",c:[{l:"決戰",b:true,f:()=>STATE.reps['地球聯邦']+=30,m:"平息叛亂！(聯邦聲望大增)"}]},
-        'Q1B_3':{d:"敵對派系殘黨瘋狂反撲！",c:[{l:"鎮壓",b:true,f:()=>STATE.reps['地球聯邦']-=30,m:"徹底掌控星區！(與聯邦交惡)"}]},
-
-        'Q2_0':{d:"打撈到奇異的AI核心，閃爍著微光。",c:[{l:"接入系統",p:"Q2A_1",f:(p)=>p.react+=5,m:"系統流暢(React+5)！"},{l:"銷毀",p:null,f:(p)=>p.exp+=30,m:"提煉數據(Exp+30)。"}]},
-        'Q2A_1':{d:"AI自我擴張並改寫機體代碼。",c:[{l:"解除限制",p:"Q2A_2",m:"機體發出轟鳴。"},{l:"強制隔離",p:"Q2B_2",m:"AI產生敵意。"}]},
-        'Q2A_2':{d:"AI解鎖了深淵宙域的古代機體座標。",c:[{l:"前往探索",p:"Q2A_3",m:"發現巨大能量反應！"}]},
-        'Q2B_2':{d:"AI突破隔離網，意圖奪取機體控制權！",c:[{l:"手動模式",e:2,p:"Q2B_3",m:"系統鎖死，硬拚！"}]},
-        'Q2A_3':{d:"古代機甲啟動，AI請求融合。",c:[{l:"允許融合",p:null,f:(p)=>{p.shoot+=10;p.melee+=10;p.react+=10;},m:"神機降臨！全屬性狂飆！"},{l:"拒絕",b:true,m:"AI化為怪物！"}]},
-        'Q2B_3':{d:"AI控制防衛兵器殺來！",c:[{l:"迎擊",b:true,m:"徹底摧毀危險程式！"}]},
-
-        'sys_lv':{d:"歷經戰火洗禮，駕駛員與機體的同步率達到新境界。選擇強化：",c:[{l:'射擊 (+3)',f:(p)=>p.shoot+=3},{l:'格鬥 (+3)',f:(p)=>p.melee+=3},{l:'反應 (+3)',f:(p)=>p.react+=3},{l:'核心 (MaxHP+20)',f:(p)=>{p.maxHp+=20;p.hp+=20;}},{l:'精神 (MaxSP+15)',f:(p)=>{p.maxSp+=15;p.sp+=15;}}]},
-        'sys_base':{d:"抵達中繼基地。獲得補給與短暫休整，請分配資源：",c:[{l:'維護 (HP/SP滿, MaxHP+10)',f:(p)=>{p.maxHp+=10;p.hp=p.maxHp;p.sp=p.maxSp;},m:"裝甲修復完畢。"},{l:'火控 (射/格+5)',f:(p)=>{p.shoot+=5;p.melee+=5;},m:"武器輸出提升。"},{l:'次世代改裝 (隨機換機)',f:(p)=>{let n=GAME.rnd(Object.keys(DB.MechTypes));STATE.mech.name=`次世代${n}機`;STATE.mech.type=n;STATE.mech.finisher=[1,2,3].map(()=>GAME.rnd(DB.FinPre)+GAME.rnd(DB.FinMid)+GAME.rnd(DB.FinSuf));p.react+=5;p.maxHp+=20;p.hp+=20;},m:"換乘新機，性能躍升！"}]}
-    },
-    WorldStates: {
-        0: { msg: "【和平】各方勢力暫時休兵。", spawn: {} },
-        1: { msg: "【戰爭】聯邦與火星爆發激戰！", spawn: {1: 0.3} },
-        2: { msg: "【危機】AI軍團開始同化邊境。", spawn: {2: 0.3} },
-        3: { msg: "【震盪】超空間風暴肆虐。", spawn: {7: 0.2} },
-        4: { msg: "【結盟】海盜與蟲族達成詭異共識！", spawn: {4: 0.2, 3: 0.2} },
-        5: { msg: "【崛起】古代遺跡大量現世！", spawn: {6: 0.3} }
+        // 臨界值(參數)動態事件
+        { req: s=>s.w.chaos>=5, d:"星域邊境出現無法無天的黑市。", c:[{l:"秘密交易", f:p=>p.shoot+=3, w:{wealth:-1}, m:"買到了黑市的高級武器。"}, {l:"強行掃蕩", e:true, w:{chaos:-1}, m:"迎擊黑市守衛！"}] },
+        { req: s=>s.w.tech>=5, d:"無人機群開始無差別攻擊所有船隻。", c:[{l:"駭入控制", f:p=>p.react+=3, w:{tech:1}, m:"成功奪取了敵方的火控數據。"}, {l:"硬碰硬", e:true, m:"正面交鋒！"}] },
+        { req: s=>s.w.alien>=5, d:"周遭空間發生奇異的幾何扭曲。", c:[{l:"觀測", f:p=>p.luck+=5, w:{alien:1}, m:"運氣變得詭異地好。"}, {l:"逃離", f:p=>p.sp-=10, m:"消耗精神力強行躍遷。"}] },
+        { req: s=>s.w.faith>=5, d:"狂熱份子在隕石帶建立了祭壇。", c:[{l:"摧毀", e:true, w:{faith:-1}, m:"異端必須死！"}, {l:"獻祭", f:p=>p.sp=p.maxSp, w:{faith:1}, m:"精神獲得詭異的平靜。"}] }
+    ],
+    SysE: { // 系統保留事件
+        'sys_lv':{d:"歷經戰火洗禮，同步率達到新境界。選擇強化：",c:[{l:'射擊 (+3)',f:(p)=>p.shoot+=3},{l:'格鬥 (+3)',f:(p)=>p.melee+=3},{l:'反應 (+3)',f:(p)=>p.react+=3},{l:'核心 (MaxHP+20)',f:(p)=>{p.maxHp+=20;p.hp+=20;}},{l:'精神 (MaxSP+15)',f:(p)=>{p.maxSp+=15;p.sp+=15;}}]},
+        'sys_base':{d:"抵達中繼基地。獲得補給與休整，請分配資源：",c:[{l:'維護 (HP/SP滿, MaxHP+10)',f:(p)=>{p.maxHp+=10;p.hp=p.maxHp;p.sp=p.maxSp;},m:"裝甲修復完畢。"},{l:'火控 (射/格+5)',f:(p)=>{p.shoot+=5;p.melee+=5;},m:"武器輸出提升。"},{l:'次世代改裝 (隨機換機)',f:(p)=>{let n=GAME.rnd(Object.keys(DB.MechTypes));STATE.mech.name=`次世代${n}機`;STATE.mech.type=n;STATE.mech.finisher=[1,2,3].map(()=>GAME.rnd(DB.FinPre)+GAME.rnd(DB.FinMid)+GAME.rnd(DB.FinSuf));p.react+=5;p.maxHp+=20;p.hp+=20;},m:"換乘新機，性能躍升！"}]}
     }
 };
 
 /** 全局狀態 */
 let STATE = {
     legacy: { statBonus: 0, gen: 1 }, currScreen: 'title', inCombat: false,
-    inGame: false, quest: {}, // 紀錄各類因果事件進度
+    inGame: false, w: { chaos: 0, wealth: 0, tech: 0, faith: 0, alien: 0 }, seeds: [], fusions: [], 
     pilot: { name: '', lv: 1, exp: 0, hp: 100, maxHp: 100, sp: 50, maxSp: 50, shoot: 10, melee: 10, react: 10, luck: 10, spirits: ['集中', '熱血'] },
     mech: { name: '', type: '', wTag: '實彈' },
     reps: { '地球聯邦': 0, '火星同盟': 0, 'AI軍團': 0, '宇宙海盜': 0, '異星蟲族': 0 },
@@ -363,11 +347,14 @@ const SYS = {
         let d = SYS.el('stat-details');
         let fins = Array.isArray(STATE.mech.finisher) ? STATE.mech.finisher.join(' / ') : STATE.mech.finisher;
         let spHtml = STATE.pilot.spirits.map(s => `<span style="color:#ffdd55">${s}</span>: <span style="color:#aaa; font-size:0.85em">${DB.Spirits[s].desc}</span>`).join('<br>');
+        let ws = STATE.w;
         
         d.innerHTML = `
             <p><strong>等級: </strong>${STATE.pilot.lv} (Exp: ${STATE.pilot.exp}/${STATE.pilot.lv*20})</p>
             <p><strong>武裝屬性: </strong> ${STATE.mech.wTag} </p>
             <p><strong>終結技: </strong><span style="color:#ff33ff; font-size:0.9em;">${fins}</span></p>
+            <hr style="border-color:#0088aa;">
+            <p><strong>世界壓力:</strong> <br><span style="color:#88ccff; font-size:0.85em">混亂:${ws.chaos} | 繁榮:${ws.wealth} | 科技:${ws.tech} | 信仰:${ws.faith} | 未知:${ws.alien}</span></p>
             <hr style="border-color:#0088aa;">
             <p><strong>機體 (${STATE.pilot.hp}/${STATE.pilot.maxHp}):</strong> <span style="color:#aaa; font-size:0.8em">${DB.StatDesc['機體']}</span></p>
             <p><strong>精神 (${STATE.pilot.sp}/${STATE.pilot.maxSp}):</strong> <span style="color:#aaa; font-size:0.8em">${DB.StatDesc['精神']}</span></p>
@@ -411,22 +398,46 @@ const GAME = {
             type: mType, wTag: facData.wTag, 
             finisher: [1,2,3].map(()=>GAME.rnd(DB.FinPre)+GAME.rnd(DB.FinMid)+GAME.rnd(DB.FinSuf)) 
         };
-        STATE.reps[fac] += 20;
         STATE.floor = 1;
         STATE.inGame = true;
+        STATE.w = { chaos: 0, wealth: 0, tech: 0, faith: 0, alien: 0 }; 
+        STATE.seeds = []; STATE.fusions = []; // 重置世界與因果種子
         
         GAME.genFloor();
         SYS.nav('map');
     },
+    processWorld: () => { // 宇宙因果演化引擎
+        let msg = "";
+        STATE.seeds.forEach(s => {
+            s.age++;
+            if (s.age === 2) msg = `【徵兆】星海間流傳著「${s.n}」的蹤跡...`;
+            if (s.age === 4) msg = `【異象】「${s.n}」似乎正在引發某種變化...`;
+        });
+        
+        let mature = STATE.seeds.filter(s => s.age >= 5);
+        if (mature.length >= 2) {
+            let s1 = mature.pop(), s2 = mature.pop();
+            STATE.seeds = STATE.seeds.filter(s => s !== s1 && s !== s2);
+            let fName = DB.PM[s1.t].adj + DB.PM[s2.t].boss; // 融合詞綴
+            STATE.fusions.push({ n: fName, t: s1.t });
+            msg = `【因果收束】${s1.n}與${s2.n}融合，誕生了特異點「${fName}」！`;
+        } else if (mature.length === 1 && Math.random() < 0.4) {
+            let s1 = mature.pop();
+            STATE.seeds = STATE.seeds.filter(s => s !== s1);
+            STATE.fusions.push({ n: DB.PM[s1.t].adj + DB.PM[s1.t].boss, t: s1.t });
+            msg = `【因果收束】「${s1.n}」已徹底成熟！`;
+        }
+        if(msg) { SYS.toast(msg); SYS.el('world-news').innerText = msg; }
+    },
     genFloor: () => {
-        STATE.worldState = (STATE.floor % 5 === 0) ? GAME.rnd(Object.keys(DB.WorldStates)) : STATE.worldState;
-        SYS.el('world-news').innerText = DB.WorldStates[STATE.worldState].msg;
+        SYS.el('world-news').innerText = `第 ${STATE.floor} 宙域探索中...`;
         SYS.el('btn-next-floor').style.display = 'none';
         MAP.gen();
     },
     nextFloor: () => {
         STATE.floor++;
-        EVENT.init('sys_base'); // 進入基地補給事件
+        GAME.processWorld(); // 每層推進因果
+        EVENT.init('sys_base');
     },
     rnd: SYS.rnd
 };
@@ -437,22 +448,13 @@ const MAP = {
         let size = STATE.map.width * STATE.map.height;
         let grid = Array(size).fill({v:0, rev:false, num:0}); // 0: empty
         
-        // 分配內容 (機率映射)
         let isBoss = STATE.floor % 10 === 0;
         let pool = [];
-        pool.push(10); // 確保每個宙域都會推進一次「連鎖事件」進度
-        
         if (isBoss) pool.push(9); // 1 Boss
         else pool.push(8); // 1 Exit
         
-        // 依照世界局勢增加特定敵人
-        let wSpawn = DB.WorldStates[STATE.worldState].spawn;
-        
-        for(let i=0; i<12; i++) { // Enemies
-            let type = GAME.rnd([1,2,3,4]);
-            if(wSpawn[type] && Math.random() < wSpawn[type]) pool.push(type, type); else pool.push(type);
-        }
-        for(let i=0; i<4; i++) pool.push(GAME.rnd([5,6,7])); // Events
+        for(let i=0; i<12; i++) pool.push(1); // 統一產生未知威脅，戰鬥時再動態賦予屬性
+        for(let i=0; i<5; i++) pool.push(GAME.rnd([5,6,7,10])); // Events
 
         // 放置
         while(pool.length > 0) {
@@ -475,7 +477,8 @@ const MAP = {
 
         grid = grid.map((cell, i) => {
             if(cell.v !== 0) return cell;
-            let dCount = getAdj(i).reduce((acc, adjI) => acc + (grid[adjI].v >= 1 && grid[adjI].v <= 4 ? 1 : 0), 0);
+            // 周圍危險計算，包含所有怪物(1)與Boss(9)
+            let dCount = getAdj(i).reduce((acc, adjI) => acc + (grid[adjI].v === 1 || grid[adjI].v === 9 ? 1 : 0), 0);
             return {...cell, num: dCount};
         });
 
@@ -509,10 +512,9 @@ const MAP = {
         // Action Mapping based on cell type
         const cellActions = {
             'empty': () => { if(cell.num===0) MAP.floodFill(i); MAP.render(); },
-            'enemy': () => { STATE.map.currCell = i; COMBAT.init(cData, false); },
-            'boss':  () => { STATE.map.currCell = i; COMBAT.init(cData, true); },
+            'enemy': () => { STATE.map.currCell = i; COMBAT.init(false); },
+            'boss':  () => { STATE.map.currCell = i; COMBAT.init(true); },
             'event': () => { STATE.map.currCell = i; EVENT.init(cell.v); },
-            'quest': () => { STATE.map.currCell = i; EVENT.init(cell.v); },
             'exit':  () => { SYS.el('btn-next-floor').style.display = 'block'; }
         };
         
@@ -539,25 +541,37 @@ const MAP = {
 
 /** 戰鬥邏輯 */
 const COMBAT = {
-    init: (cellData, isBoss) => {
+    init: (isBoss) => {
         STATE.inCombat = true;
         STATE.combat.isEnding = false;
         STATE.combat.buff = null;
         let lvMulti = 1 + (STATE.floor * 0.1);
-        let eTag = GAME.rnd(DB.Tags.Enemy);
+        
+        // 動態怪物生態系生成 (根據世界壓力權重)
+        let ws = STATE.w;
+        let pPool = []; 
+        Object.keys(DB.PM).forEach(k => { for(let i=0; i<Math.max(1, ws[k]); i++) pPool.push(k); });
+        
+        let topP = Object.keys(ws).reduce((a, b) => ws[a] > ws[b] ? a : b); // 尋找最高壓力
+        let eType = isBoss ? topP : GAME.rnd(pPool); // Boss必為最高壓力，小怪則加權隨機
+        let pData = DB.PM[eType];
+        
+        // 因果融合詞綴影響 (蝴蝶效應)
+        let fusionTag = STATE.fusions.length > 0 && Math.random() < 0.4 ? GAME.rnd(STATE.fusions).n + "旗下的" : "";
+        let bossName = STATE.fusions.length > 0 && isBoss ? GAME.rnd(STATE.fusions).n : `${pData.adj}${pData.boss}`;
         
         STATE.combat.enemy = {
-            name: `${isBoss ? '【首領】' : ''}${eTag}型${cellData.name}`,
+            name: isBoss ? `【首領】${bossName}` : `${fusionTag}${pData.adj}${pData.mob}`,
             hp: Math.floor((isBoss ? 200 : 50) * lvMulti),
             maxHp: Math.floor((isBoss ? 200 : 50) * lvMulti),
             atk: Math.floor((isBoss ? 25 : 10) * lvMulti),
-            tag: eTag,
-            icon: cellData.icon
+            tag: GAME.rnd(DB.Tags.Enemy),
+            icon: isBoss ? '☠️' : pData.icon
         };
         
         SYS.nav('combat');
         SYS.el('combat-title').innerText = `${STATE.combat.enemy.icon} 遭遇 ${STATE.combat.enemy.name}!`;
-        SYS.log('combat-log', `戰鬥開始！\n我方機體：${STATE.mech.name} [武裝:${STATE.mech.wTag}]\n敵方屬性：[${eTag}]`, true);
+        SYS.log('combat-log', `戰鬥開始！\n我方機體：${STATE.mech.name} [武裝:${STATE.mech.wTag}]\n敵方屬性：[${STATE.combat.enemy.tag}]`, true);
         COMBAT.updateHP();
     },
     updateHP: () => {
@@ -694,19 +708,18 @@ const EVENT = {
         div.innerHTML = '';
         
         let evData, titleTxt, choices;
-        let pfx = {5:'S', 6:'R', 7:'D', 10:'Q'}[v]; // 因果事件字首對映
+        let isSys = (v === 'sys_lv' || v === 'sys_base');
         
-        if (pfx) {
-            // 如果該類別沒有正在進行的事件鏈，隨機抽取一個該字首的起點(_0)
-            if (!STATE.quest[pfx]) STATE.quest[pfx] = GAME.rnd(Object.keys(DB.E).filter(k => k.startsWith(pfx) && k.endsWith('_0')));
-            evData = DB.E[STATE.quest[pfx]];
-            titleTxt = `${DB.Cells[v].icon} 因果事件：${DB.Cells[v].name}`;
-            choices = evData.c;
-        } else {
-            // 處理系統保留事件 (sys_lv, sys_base)
-            evData = DB.E[v];
+        if (isSys) {
+            evData = DB.SysE[v];
             titleTxt = v === 'sys_lv' ? `✨ 駕駛員升級 (Lv.${STATE.pilot.lv})` : `🏪 抵達中繼基地 (第${STATE.floor}宙域)`;
             choices = v === 'sys_lv' ? [...evData.c].sort(()=>0.5-Math.random()).slice(0,3) : evData.c;
+        } else {
+            // 動態從因果池中過濾符合條件的事件
+            let validEvents = DB.E.filter(e => e.req(STATE));
+            evData = validEvents.length > 0 ? GAME.rnd(validEvents) : DB.E[0];
+            titleTxt = `${DB.Cells[v].icon} 宙域探索：未知事件`;
+            choices = evData.c;
         }
         
         SYS.el('event-title').innerText = titleTxt;
@@ -717,14 +730,22 @@ const EVENT = {
             btn.innerText = ch.l;
             btn.onclick = () => {
                 let msg = ch.m || "";
-                if (ch.f) { let fMsg = ch.f(STATE.pilot); msg = msg || fMsg || "屬性已更新。"; }
-                if (pfx) STATE.quest[pfx] = ch.p; // 推進因果進度 (若為null則下次重新抽取)
+                if (ch.f) { let fMsg = ch.f(STATE.pilot); msg = msg || fMsg || "狀態已更新。"; }
                 EVENT.showResult(msg, ch.l, v, ch);
             };
             div.appendChild(btn);
         });
     },
     showResult: (msg, choiceLabel, eventId, chData = {}) => {
+        // 處理世界壓力與因果種子 (蝴蝶效應核心)
+        if (chData.w) {
+            Object.entries(chData.w).forEach(([k, v]) => STATE.w[k] = Math.max(0, Math.min(20, STATE.w[k] + v)));
+        }
+        if (chData.s) {
+            STATE.seeds.push({ n: chData.s.n, t: chData.s.t, age: 0 });
+            SYS.toast(`🌱 種下了因果：${chData.s.n}`);
+        }
+
         SYS.el('event-desc').innerHTML += `<br><br><span style="color:#88ccff">▶ 執行：${choiceLabel}</span><br><span style="color:#ffdd55; font-size:1.1em;">${msg}</span>`;
         let div = SYS.el('event-choices');
         div.innerHTML = '';
@@ -735,9 +756,8 @@ const EVENT = {
         
         btn.onclick = () => {
             if(isCombat) {
-                let eType = chData.b ? 9 : (chData.e === true ? 1 : chData.e); // 若指定了特定敵人ID則採用，否則預設為1(敵軍)
-                STATE.map.grid[STATE.map.currCell].v = eType;
-                COMBAT.init(DB.Cells[eType], chData.b);
+                STATE.map.grid[STATE.map.currCell].v = chData.b ? 9 : 1; 
+                COMBAT.init(chData.b);
             } else if (eventId === 'sys_base') {
                 GAME.genFloor();
                 SYS.nav('map');
