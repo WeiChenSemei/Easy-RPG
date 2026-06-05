@@ -160,8 +160,20 @@
         f.className = `absolute inset-0 ${bgClass} pointer-events-none opacity-50 transition-none`;
         setTimeout(() => f.className = `absolute inset-0 ${bgClass} pointer-events-none transition-opacity duration-500 opacity-0`, 50);
     }
-    function addLog(msg, colorClass = "text-white") { gameState.historyLogs.push({ msg: `[${new Date().toLocaleTimeString('zh-TW', { hour12: false })}] ${msg}`, color: colorClass }); if (gameState.historyLogs.length > 200) gameState.historyLogs.shift(); if (gameState.activeTab === 'log') renderHistoryLogs(); }
-    function logAndMsg(msg, colorClass = "text-white", bgClass = 'bg-white') { addLog(msg, colorClass); updateAnimationMsg(msg, bgClass); }
+    function logAndMsg(msg, colorClass = "text-white", bgClass = 'bg-white') { 
+        let logTime = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+        let actionLogObj = { msg: `[${logTime}] ${msg}`, color: colorClass }; 
+        gameState.historyLogs.push(actionLogObj);
+        if(gameState.historyLogs.length > 200) gameState.historyLogs.shift();
+        if (gameState.activeTab === 'log') renderHistoryLogs();
+        updateAnimationMsg(msg, bgClass); 
+    }
+    function addLog(msg, colorClass = "text-white") { 
+        let logTime = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+        gameState.historyLogs.push({ msg: `[${logTime}] ${msg}`, color: colorClass }); 
+        if (gameState.historyLogs.length > 200) gameState.historyLogs.shift(); 
+        if (gameState.activeTab === 'log') renderHistoryLogs(); 
+    }
     
     function isControlDisabled(char) { return char.status.paralyze > 0 || char.status.sleep > 0 || char.status.stun > 0; }
     function animateElement(id, cls) { let e = document.getElementById(id); if(e){ e.classList.add(cls); setTimeout(()=>e.classList.remove(cls), 400); } }
@@ -175,9 +187,9 @@
     const MAGIC_DB=decD(["m_01|火球術|[火]單體火傷|3|25|damage|","m_02|治癒術|單體恢復|4|22|heal|F","m_03|閃電鏈|[雷]全體雷傷|2|15|damage|A","m_04|冰凍術|[冰]單體傷降速|3|20|damage_slow|","m_05|聖盾庇護|單體30盾|3|30|shield|F","m_06|群體治癒|全體15HP|2|15|heal|AF","m_07|神聖復活|復活30%|1|0|revive|F","m_08|隕石風暴|[單次/火]全體火傷|1|45|damage|AC","m_09|吸血鬼吻|單體吸血|3|18|damage_heal|","m_10|聖光閃耀|全體25HP|2|25|heal|AF","m_11|劇毒新星|全體毒傷|2|8|aoe_poison|A","m_12|巴哈姆特|[單次]全體絕傷|1|80|megaflare|AC","m_13|奧丁|[單次]機率秒殺|1|60|zantetsuken|AC","m_14|希瓦|[單次/冰]全體冰傷|1|30|shiva|AC","m_15|伊弗利特|[單次/火]全體火傷|1|35|damage|AC","m_16|拉姆|[單次/雷]全體雷暈|1|20|aoe_damage_stun|AC","m_17|泰坦|[單次]全體土傷|1|35|damage|AC","m_18|利維坦|[單次]全體破甲|1|25|aoe_damage_armor_break|AC","m_19|亞歷山大|[單次]全體聖傷|1|45|damage|AC","m_20|鳳凰|[單次]全體復活|1|50|phoenix|AFC","m_21|催眠術|單體睡眠|3|0|sleep|","m_22|閃光爆彈|全體盲目|2|0|aoe_blind|A","m_23|沉默術|單體封咒|3|0|silence|","m_24|再生術|單體5回血|2|0|regen_buff|F","m_27|反射光環|單體反射80%|2|0|reflect_buff|F","m_28|狂暴術|單體狂暴|2|0|berserk|F","m_29|雙重施法|連續施法|2|0|double_cast|FS","m_30|沙塵暴|[氣候]全體土傷加沙塵|2|20|aoe_damage_sand|A","m_31|大晴明術|[氣候]全體回10HP加烈陽|2|10|heal_sun|AF","m_32|惡魔吐息|[氣候]全體暗傷加瘴氣|2|22|aoe_damage_miasma|A","m_33|圓桌武士|[單次/物]全體巨傷加流血|1|100|kotr|AC"], 'magic');
     const SPECIAL_DB=decD(["s_01|奮力劈斬|單體大傷|4|24|damage|","s_02|橫掃|全體物理|2|14|damage|A","s_03|極速雙擊|單體2連斬|3|13|double_strike|","s_04|戰盾嘲諷|嘲諷+25盾|3|0|taunt|A","s_05|劇毒割喉|單體毒傷|3|18|poison|","s_06|盾牌猛擊|單體傷暈|3|15|damage_stun|","s_07|旋風斬|全體物理|3|12|damage|A","s_08|致命刺殺|高傷可引爆印記|2|30|damage|","s_09|嗜血狂斬|50%吸血|3|25|damage_lifesteal|","s_10|金屬斬|剋金屬|5|3|metal_slash|","s_11|超究武神霸斬|[單次]5連亂斬|1|20|omnislash|AC","s_12|無想轉生|[單次]單體7連擊|1|15|musou_tensei|C","s_13|氣功波|無視防禦|3|20|pierce_damage|","s_14|破甲斬|傷加永久降防|3|15|armor_break|","s_15|麻痺打擊|傷加麻痺|3|10|damage_paralyze|","s_16|蓄力|下擊2.5倍|4|0|charge|FS","s_17|龍跳躍|騰空落擊|2|0|jump|","s_18|爆裂拳|單體3快拳|3|10|triple_strike|","s_19|過肩摔|巨傷(非首領)|2|35|suplex|","s_20|狂暴化|自身狂暴|3|0|berserk|FS","s_21|鏡面架勢|自身反射80%|2|0|reflect_buff|FS","s_22|模仿|複製前隊友|3|0|mimic|S","s_23|馴獸|魔物倒戈|2|0|tame|","s_24|賭博|隨機特技|4|0|gamble|S","s_25|腥血拔刀|扣20%HP無視防禦巨傷|99|40|blood_strike|","s_26|日輪斬|[氣候]單體斬擊加烈陽|3|25|damage_sun|","s_27|火焰劍|[火]單體火物傷|3|30|damage|","s_28|冰凍劍|[冰]單體傷降速|3|25|damage_slow|","s_29|閃電劍|[雷]單體雷麻痺|3|25|damage_paralyze|","s_30|保護隊友|替隊友擋單體傷|5|0|protect_buff|FS"], 'special');
     const ITEMS_DB=decD(["i_01|急救傷藥|單體30HP|10|30|heal|F","i_02|烈性手雷|全體20真傷|10|20|fixed_damage|A","i_03|甦醒針劑|復活20HP|3|20|revive|F","i_04|補能晶石|全技次數+1|3|1|restore_uses|F","i_05|聖靈藥|[單次]全員全滿|1|999|phoenix|AFC","i_06|麻痺毒藥|[雷]25傷加麻痺|5|25|damage_paralyze|","i_07|萬能藥|解全異常|3|0|cure_all|F","i_08|混亂毒氣|20傷全體混亂|5|20|aoe_confuse|A","i_09|止血繃帶|解流血|3|0|cure_bleed|F","i_10|狂暴藥劑|單體狂暴|3|0|berserk|F","i_11|反射鏡|鏡面護盾|3|0|reflect_buff|F","i_12|火炎塗劑|單體火屬賦魔3回|3|0|enchant_fire|F","i_13|風化砂瓶|[氣候]全體15傷加沙塵|3|15|aoe_fixed_sand|A","i_14|腐敗孢子|[氣候]全體毒傷加瘴氣|3|10|aoe_poison_miasma|A","i_15|手裏劍|單10傷附加攻|5|10|throw_shuriken|"], 'items');
-    const PASSIVES_DB=decD(["p_01|生命強壯|HP+15","p_02|力量怪手|攻+8%","p_03|魔力泉源|魔法次數上限+1","p_04|神速身法|速+2","p_05|光之庇護|戰後回復+8%","p_06|嗜血渴望|吸血+5%","p_07|鋼鐵之軀|防+5","p_08|靈巧本能|閃+3%","p_09|奧術精通|魔傷+5%","p_10|命運之手|重抽次數+1","p_13|不屈意志|防+3,免疫暈/眠/痺/亂","p_14|狂戰士之魂|普攻傷害+15%，速度+1，但物理防禦降低5點","p_17|空手搏擊|空手攻大增","p_18|怪物魔導士|攻擊或特技附加隨機異常,升級吸血+3%","p_19|重甲防禦陣|重甲加盾防+50%閃歸零,每級HP+8","p_20|魔法劍士|元素劍轉全體,每級攻+2%","p_21|氣象共鳴|氣候中魔傷+10%,每級+3%","p_22|道具學徒|道具效能+10%,每級+5%","p_23|忍術投擲|投擲變全體傷害"], 'passive');
-    const WEAPONS_DB=decD(["w_01|洋蔥劍|洋蔥組件其一|12|isTwoHanded:false","w_02|刺客匕首|物暴+20%|9|isTwoHanded:false,crit:0.2","w_03|誓言巨劍|雙手大劍|26|isTwoHanded:true","w_04|橡木法杖|魔效+20%|6|isTwoHanded:false,magBoost:1.2","w_05|風行輕弩|速+4|11|isTwoHanded:false,speed:4","w_06|死神大鐮刀|普攻全體|14|isTwoHanded:true,isAoe:true","w_07|嗜血短刃|吸血15%|10|isTwoHanded:false,lifesteal:0.15","w_08|賢者魔杖|魔次+1|8|isTwoHanded:false,spellUses:1","w_09|破甲流星鎚|命中必定永久降防5|13|isTwoHanded:false,pierce:0.15","w_10|聖光劍|回3HP|18|isTwoHanded:false,regen:3","w_11|雷霆戰斧|雙手,暴率+10%|28|isTwoHanded:true,crit:0.1","w_12|冰霜法杖|魔+30%,速+2|8|isTwoHanded:false,magBoost:1.3,speed:2","w_13|龍骨長槍|穿甲10%|15|isTwoHanded:false,pierce:0.1","w_14|毒蛇之牙|20%毒|11|isTwoHanded:false,poisonChance:0.2","w_15|幻影雙刃|閃10%,速+6|22|isTwoHanded:true,dodge:0.1,speed:6","w_16|守護之劍|開場15盾|14|isTwoHanded:false,startShield:15","w_17|狂戰大劍|雙手,防-5|32|isTwoHanded:true,def:-5","w_18|妖刀正宗|雙手,暴+40%|25|isTwoHanded:true,crit:0.4","w_19|石中劍|回5HP|35|isTwoHanded:false,regen:5","w_20|諸神黃昏|穿甲25%|28|isTwoHanded:false,pierce:0.25","w_21|睡魔之劍|20%眠|16|isTwoHanded:false,sleepChance:0.2","w_22|雷神之鎚|20%痺|19|isTwoHanded:false,paralyzeChance:0.2","w_23|血腥魔爪|30%流血|23|isTwoHanded:false,bleedChance:0.3","w_24|噬魂劍|攻+50,每回扣10%HP|50|isTwoHanded:false,curse:true"], 'weapon');
-    const OFFHANDS_DB=decD(["o_01|洋蔥盾|防+3,洋蔥組件其二|3|","o_02|鋼鐵大盾|物減12%|6|blockPhys:0.12","o_03|暗影副刃|追加隨機斬擊|5|isWeapon:true","o_04|治癒法典|治癒+20%|1|healBoost:0.2","o_05|抗魔護符|魔減15%|4|blockMagic:0.15","o_06|獅子巨盾|開場20盾|7|startShield:20","o_07|毒刺袖匕|追加30%毒|4|isWeapon:true,poisonChance:0.3","o_08|反擊圓盾|反4真傷|4|reflect:4","o_09|魔法水晶|魔+15%|2|magBoost:1.15","o_10|招架短刀|閃+8%|3|dodge:0.08","o_11|生命寶珠|回2HP|1|regen:2","o_12|源氏之盾|防10,閃15%|10|dodge:0.15","o_13|埃癸斯神盾|魔減25%|8|blockMagic:0.25","o_14|防禦壁壘|物減20%,速-2|12|blockPhys:0.2,speed:-2"], 'offhand');
+    const PASSIVES_DB=decD(["p_01|生命強壯|HP+10%/級","p_02|力量怪手|攻+6%/級","p_03|魔力泉源|魔法次數上限+1/級","p_04|神速身法|速+2/級","p_05|光之庇護|戰後回復+8%/級","p_06|嗜血渴望|吸血+6%/級","p_07|鋼鐵之軀|防+6%/級","p_08|靈巧本能|閃+3%/級","p_09|奧術精通|魔傷+5%/級","p_10|命運之手|重抽次數+1/級","p_13|不屈意志|防+3%/級,免疫暈/眠/痺/亂","p_14|狂戰士之魂|攻+10%，速度+1，防禦-10%/級","p_17|空手搏擊|空手攻15，+5/級","p_18|怪物魔導士|攻/技+異常,吸血+3%/級","p_19|重甲防禦陣|重甲加盾防+50%閃歸零,HP+5%/級","p_20|魔法劍士|元素劍轉全體,攻+2%/級","p_21|氣象共鳴|氣候中魔傷+10%,+3%/級","p_22|道具學徒|道具效能+10%,+5%/級","p_23|忍術投擲|投擲裝備變全體，+20%/級"], 'passive');
+    const WEAPONS_DB=decD(["w_01|洋蔥劍|洋蔥組件其一|12|isTwoHanded:false","w_02|刺客匕首|物暴+20%|9|isTwoHanded:false,crit:0.2","w_03|誓言巨劍|雙手大劍|26|isTwoHanded:true","w_04|橡木法杖|魔效+20%|6|isTwoHanded:false,magBoost:1.2","w_05|風行輕弩|速+4|11|isTwoHanded:false,speed:4","w_06|死神大鐮刀|普攻全體|14|isTwoHanded:true,isAoe:true","w_07|嗜血短刃|吸血15%|10|isTwoHanded:false,lifesteal:0.15","w_08|賢者魔杖|魔次+1|8|isTwoHanded:false,spellUses:1","w_09|破甲流星鎚|穿甲15%|13|isTwoHanded:false,pierce:0.15","w_10|聖光劍|回3HP|18|isTwoHanded:false,regen:3","w_11|雷霆戰斧|雙手,暴率+10%|28|isTwoHanded:true,crit:0.1","w_12|冰霜法杖|魔+30%,速+2|8|isTwoHanded:false,magBoost:1.3,speed:2","w_13|龍骨長槍|穿甲10%|15|isTwoHanded:false,pierce:0.1","w_14|毒蛇之牙|20%毒|11|isTwoHanded:false,poisonChance:0.2","w_15|幻影雙刃|閃10%,速+6|22|isTwoHanded:true,dodge:0.1,speed:6","w_16|守護之劍|開場15盾|14|isTwoHanded:false,startShield:15","w_17|狂戰大劍|雙手,防-5|32|isTwoHanded:true,def:-5","w_18|妖刀正宗|雙手,暴+40%|25|isTwoHanded:true,crit:0.4","w_19|石中劍|回5HP|35|isTwoHanded:false,regen:5","w_20|諸神黃昏|穿甲25%|28|isTwoHanded:false,pierce:0.25","w_21|睡魔之劍|20%眠|16|isTwoHanded:false,sleepChance:0.2","w_22|雷神之鎚|20%痺|19|isTwoHanded:false,paralyzeChance:0.2","w_23|血腥魔爪|30%流血|23|isTwoHanded:false,bleedChance:0.3","w_24|噬魂劍|攻+50,每回扣10%HP|50|isTwoHanded:false,curse:true"], 'weapon');
+    const OFFHANDS_DB=decD(["o_01|洋蔥盾|防+3,洋蔥組件其二|3|","o_02|鋼鐵大盾|物減12%|6|blockPhys:0.12","o_03|暗影副刃|追加隨機斬擊|5|isWeapon:true","o_04|治癒法典|治癒+20%|1|healBoost:0.2","o_05|抗魔護符|魔減15%|4|blockMagic:0.15","o_06|獅巨盾|開場20盾|7|startShield:20","o_07|毒刺袖匕|追加30%毒|4|isWeapon:true,poisonChance:0.3","o_08|反擊圓盾|反4真傷|4|reflect:4","o_09|魔法水晶|魔+15%|2|magBoost:1.15","o_10|招架短刀|閃+8%|3|dodge:0.08","o_11|生命寶珠|回2HP|1|regen:2","o_12|源氏之盾|防10,閃15%|10|dodge:0.15","o_13|埃癸斯神盾|魔減25%|8|blockMagic:0.25","o_14|防禦壁壘|物減20%,速-2|12|blockPhys:0.2,speed:-2"], 'offhand');
     const ARMORS_DB=decD(["a_01|洋蔥服|HP+15,洋蔥組件其三|4|hp:15","a_02|鐵衛鎧甲|HP+50,速-2,重甲|15|hp:50,speed:-2,isHeavy:true","a_03|秘法編織袍|魔+10%,HP+20|6|hp:20,magBoost:1.1","a_04|幻影皮衣|閃暴+8%|7|hp:25,crit:0.08,dodge:0.08","a_05|荊棘反甲|反6物傷,重甲|11|hp:35,reflect:6,isHeavy:true","a_06|天使庇護衣|戰後回15%|9|hp:40,endHeal:0.15","a_07|龍鱗重甲|反5傷,速-3,重甲|18|hp:40,speed:-3,reflect:5,isHeavy:true","a_08|刺客夜行衣|閃12%,暴5%|8|hp:15,dodge:0.12,crit:0.05","a_09|戰神板甲|攻+3,重甲|14|hp:60,atk:3,isHeavy:true","a_10|聖光法袍|回3HP|7|hp:30,regen:3","a_11|巨獸皮甲|HP+80|10|hp:80","a_12|源氏之鎧|HP+100,速-1,重甲|25|hp:100,speed:-1,isHeavy:true","a_13|緞帶|魔+30%,回5HP|5|magBoost:1.3,regen:5","a_14|防毒面具|免毒盲|6|hp:10,immunePoisonBlind:true"], 'armor');
     const ACCESSORIES_DB=decD(["ac_01|洋蔥戒指|攻+4,洋蔥組件其四|0|bonusAtk:4","ac_02|紅寶石項鍊|HP+30|0|bonusHp:30","ac_03|疾風飛靴|速+5|0|bonusSpeed:5","ac_04|聖耀十字架|開場25盾|0|startShield:25","ac_05|惡魔戒指|吸血10%|0|lifesteal:0.1","ac_06|吸血鬼印記|吸血15%|0|lifesteal:0.15","ac_07|獵豹指環|速+8,閃5%|0|bonusSpeed:8,bonusDodge:0.05","ac_08|狂暴吊墜|防-2,攻+8|0|bonusAtk:8,def:-2","ac_09|守護石|開場40盾|0|startShield:40","ac_10|龍之血滴|HP+50,回2HP|0|bonusHp:50,regen:2","ac_11|赫耳墨斯之靴|速+12,閃10%|0|bonusSpeed:12,bonusDodge:0.1","ac_12|英雄之證|攻5,HP50,速5|0|bonusAtk:5,bonusHp:50,bonusSpeed:5","ac_13|鎮靜之戒|免混亂封咒|0|immuneMental:true"], 'accessory');
 
@@ -222,16 +234,15 @@
     'ac_11':{onAttack:(a,t,ac,d)=>{if(ac.skillId==='s_07'){d.mult*=2;d.details+='【颶風斬!】';}}},
     'ac_12':{onAttack:(a,t,ac,d)=>{if(ac.skillId==='s_11'){d.mult*=2;d.details+='【霸王斬!】';}}},
     'p_07':{onTurnStart:(h)=>{if(h.cardMemory['p_13']){h.shield+=5;createFloatNum('+5盾','text-blue-300',true,gameState.party.indexOf(h));}}},
-    'p_10':{onAttack:(a,t,ac,d)=>{if(ac.skillId==='s_24'){let sk=a.special.find(x=>x.id==='s_24');if(sk)sk.uses++;d.details+='【千王之王!】';}}},
+    'p_10':{onAttack:(a,t,ac,d)=>{if(ac.skillId==='s_24'){d.details+='【千王之王!】';}}},
     'p_13':{onStatusReceive:(s)=>!['stun','sleep','paralyze','confuse'].includes(s)},
     'ac_13':{onStatusReceive:(s)=>!['confuse','silence'].includes(s)},
     'a_14':{onStatusReceive:(s)=>!['poison','blind'].includes(s)},
-    'p_18':{onAttack:(a,t,ac,d)=>{if(ac.type==='attack'||ac.type==='special'){let c=[['poison',3,'PSN','text-green-400'],['blind',2,'BLD','text-gray-400'],['stun',1,'STN','text-yellow-400'],['paralyze',1,'PAR','text-yellow-600'],['sleep',2,'SLP','text-blue-300'],['confuse',2,'CNF','text-purple-400'],['silence',2,'SIL','text-gray-500'],['weak',3,'WEAK','text-orange-400'],['bleed',3,'BLEED','text-red-500']];let s=c[Math.floor(Math.random()*c.length)];if(applyStatusCond(t,s[0],s[1],s[2],s[3])){d.details+=` (附加${s[2]})`;}}}},
     'onion_set':{onAttack:(a,t,ac,d)=>{if(Math.random()<0.07){d.d=777;a.bCrit=(a.bCrit||0)+0.07;d.details+='【🧅洋蔥突擊!】';}}}
     };
     function rebuildHooks(e){e.hooks={onAttack:[],onHitTaken:[],onDodge:[],onKill:[],onStatusReceive:[],onTurnStart:[]};if(e instanceof Hero){let aK=[];Object.values(e.equips).forEach(eq=>{if(eq&&HOOK_LOGIC_DB[eq.id])aK.push(eq.id);});e.passives.forEach(p=>{if(HOOK_LOGIC_DB[p.id])aK.push(p.id);});if(e.equips.weapon?.id==='w_01'&&e.equips.offhand?.id==='o_01'&&e.equips.armor?.id==='a_01'&&e.equips.accessory?.id==='ac_01')aK.push('onion_set');aK.forEach(k=>{let l=HOOK_LOGIC_DB[k];for(let ev in l)e.hooks[ev].push(l[ev]);});}}
 
-    const HINTS_DB = {'sys_fire':"火+猛毒=毒爆(15%HP)",'sys_ice':"冰+睡眠=深度凍結(暈)",'sys_thunder':"雷+潮濕=感電(暈)",'sys_cleave':"超高傷=過量劈裂全場",'s_08':"疊印記+致命=引爆增傷",'w_01':"套裝=777真傷+暴擊UP",'w_02':"閃避成功=反擊疊印記",'w_03':"奮力劈斬=傷害2倍",'w_04':"治癒50%轉盾+普攻土屬",'w_05':"傷害看速度(速x3)",'w_06':"敵流血=全隊回血",'w_07':"嗜血渴望=吸血倍增",'w_08':"治癒魔法=回復1.5倍",'w_10':"普攻=烈陽氣候",'w_11':"敵麻痺=必定暴擊",'w_12':"聖盾庇護=護盾2倍",'w_13':"龍跳躍=全體空降",'w_14':"擊殺毒怪=猛毒擴散",'w_15':"靈巧本能=閃避+20%",'w_16':"盾牌猛擊=傷2倍必暈",'w_17':"敵暈/麻=傷2倍無視防",'w_18':"無想轉生=打擊數+3",'w_19':"聖光閃耀=溢補轉盾",'w_20':"巴哈姆特=傷害2倍",'w_21':"催眠術=全體化",'w_22':"拉姆=暈眩回合+1",'w_23':"嗜血狂斬=附加流血",'w_24':"召喚魔法=耗HP傷2倍",'o_02':"戰盾嘲諷=全隊+10盾",'o_03':"致命刺殺=傷害1.5倍",'o_04':"防禦受擊=回復全隊50%受傷",'o_05':"反射光環=反擊真傷2倍",'o_06':"保護隊友=自身受反射",'o_07':"劇毒割喉=毒素引爆",'o_08':"防禦=反彈50%受傷",'o_09':"雙重施法=次數不減",'o_10':"空手搏擊=閃避+20%",'o_11':"再生術=回合數+3",'o_12':"源氏之鎧=全異常免疫",'o_13':"聖盾庇護=全體化",'o_14':"防禦=受擊得20盾",'a_02':"重甲防禦陣=免疫暈眩",'a_03':"魔力泉源=魔傷+30%",'a_04':"攻擊(盲/眠)=必暴擊",'a_05':"反射光環=反擊真傷2倍",'a_06':"復活魔法=復活100%血量",'a_07':"龍跳躍=附加火屬全體",'a_08':"極速雙擊=變3連擊",'a_09':"防禦=嘲諷+80%物反",'a_10':"聖耀十字架=再生給盾",'a_11':"生命強壯=最大HP+100",'a_12':"源氏之盾=全異常免疫",'a_13':"萬能藥=自身+50盾",'a_14':"惡魔吐息=全隊回血",'ac_02':"(腥血/噬魂)=自殘減半",'ac_03':"跳躍/神速=不滯空/閃+15%",'ac_04':"溢補80%轉盾+聖屬",'ac_05':"(流血/狂暴)=吸血30%",'ac_06':"吸血鬼吻=吸血100%",'ac_07':"閃避成功=自動蓄力",'ac_08':"永久狂暴+2倍物攻",'ac_09':"蓄力=獲得50盾",'ac_10':"腥血拔刀=HP無消耗",'ac_11':"旋風斬=傷害2倍",'ac_12':"武神霸斬=傷害2倍",'p_02':"金屬斬=對金屬傷5倍",'p_03':"奧術精通=魔法無視50%防",'p_07':"不屈意志=每回+5盾",'p_10':"賭博=次數不減",'p_22':"範圍道具=附魔氣候",'p_23':"機率召喚獸魔法",'i_02':"火賦魔=引燃(60真傷)",'i_15':"火賦魔=50%暴,忍術=全體",'m_17':"敵無法行動=傷2倍",'m_19':"敵中毒/流血=傷2倍",'s_14':"敵衰弱=傷2倍",'s_18':"空手=無視防禦"};
+    const HINTS_DB = {'sys_fire':"火+猛毒=毒爆(15%HP)",'sys_ice':"冰+睡眠=深度凍結(暈)",'sys_thunder':"雷+潮濕=感電(暈)",'sys_cleave':"超高傷=過量劈裂全場",'s_08':"疊印記+致命=引爆增傷",'w_01':"套裝=777真傷+暴擊UP",'w_02':"閃避成功=反擊疊印記",'w_03':"奮力劈斬=傷害2倍",'w_04':"治癒50%轉盾+普攻土屬",'w_05':"傷害看速度(速x3)",'w_06':"敵流血=全隊回血",'w_07':"嗜血渴望=吸血倍增",'w_08':"治癒魔法=回復1.5倍",'w_09':"命中永久降防5",'w_10':"普攻=烈陽氣候",'w_11':"敵麻痺=必定暴擊",'w_12':"聖盾庇護=護盾2倍",'w_13':"龍跳躍=全體空降",'w_14':"擊殺毒怪=猛毒擴散",'w_15':"靈巧本能=閃避+20%",'w_16':"盾牌猛擊=傷2倍必暈",'w_17':"敵暈/麻=傷2倍無視防",'w_18':"無想轉生=打擊數+3",'w_19':"聖光閃耀=溢補轉盾",'w_20':"巴哈姆特=傷害2倍",'w_21':"催眠術=全體化",'w_22':"拉姆=暈眩回合+1",'w_23':"嗜血狂斬=附加流血",'w_24':"召喚魔法=耗HP傷2倍",'o_02':"戰盾嘲諷=全隊+10盾",'o_03':"致命刺殺=傷害1.5倍",'o_04':"防禦受擊=回復全隊50%受傷",'o_05':"反射光環=反擊真傷2倍",'o_06':"保護隊友=自身受反射",'o_07':"劇毒割喉=毒素引爆",'o_08':"防禦=反彈50%受傷",'o_09':"雙重施法=次數不減",'o_10':"空手搏擊=閃避+20%",'o_11':"再生術=回合數+3",'o_12':"源氏之鎧=全異常免疫",'o_13':"聖盾庇護=全體化",'o_14':"防禦=受擊得20盾",'a_02':"重甲防禦陣=免疫暈眩",'a_03':"魔力泉源=魔傷+30%",'a_04':"攻擊(盲/眠)=必暴擊",'a_05':"反射光環=反擊真傷2倍",'a_06':"復活魔法=復活100%血量",'a_07':"龍跳躍=附加火屬全體",'a_08':"極速雙擊=變3連擊",'a_09':"防禦=嘲諷+80%物反",'a_10':"聖耀十字架=再生給盾",'a_11':"生命強壯=最大HP+100",'a_12':"源氏之盾=全異常免疫",'a_13':"萬能藥=自身+50盾",'a_14':"惡魔吐息=全隊回血",'ac_02':"(腥血/噬魂)=自殘減半",'ac_03':"跳躍/神速=不滯空/閃+15%",'ac_04':"溢補80%轉盾+聖屬",'ac_05':"(流血/狂暴)=吸血30%",'ac_06':"吸血鬼吻=吸血100%",'ac_07':"閃避成功=自動蓄力",'ac_08':"永久狂暴+2倍物攻",'ac_09':"蓄力=獲得50盾",'ac_10':"腥血拔刀=HP無消耗",'ac_11':"旋風斬=傷害2倍",'ac_12':"武神霸斬=傷害2倍",'p_02':"金屬斬=對金屬傷5倍",'p_03':"+奧術精通=魔法無視50%防",'p_07':"+不屈意志=每回+5盾",'p_10':"賭博=次數不減",'p_22':"範圍道具=附魔氣候",'p_23':"投擲=全體+隨機召喚",'i_02':"火賦魔=引燃(60真傷)",'i_15':"火賦魔=50%暴,忍術=全體",'m_17':"敵無法行動=傷2倍",'m_19':"敵中毒/流血=傷2倍",'s_14':"敵衰弱=傷2倍",'s_18':"空手=無視防禦"};
     const LORE_HINTS = Object.entries(HINTS_DB).map(([k, v]) => { if (k.startsWith('sys_')) return `『${v}』`; let obj = ALL_CARDS_POOL.find(x => x.id === k); return obj ? `【${obj.name}】隱藏著『${v}』的能力` : `『${v}』`; });
     ALL_CARDS_POOL.forEach(item => { if (HINTS_DB[item.id]) item.desc += ` | 隱藏: ${HINTS_DB[item.id]}`; });
 
@@ -241,8 +252,8 @@
         's_14': (t, d) => { if(t.status.weak>0) { d.mult*=2; d.details+='【完全粉碎!】'; } }
     };
 
-    const M_DB = [{id:1,n:"綠黏怪",r:"tank",s:['summon']},{id:2,n:"紅黏怪",r:"tank",s:['summon']},{id:3,n:"蝙蝠",r:"assassin",s:['vampire']},{id:4,n:"地精",r:"warrior",s:['flee']},{id:5,n:"枯骨兵",r:"warrior",s:['enrage']},{id:6,n:"毒蜘蛛",r:"assassin",s:['poison']},{id:7,n:"殭屍",r:"tank",s:['poison']},{id:8,n:"哥布林",r:"assassin",s:['assassinate']},{id:9,n:"巨鼠",r:"warrior",s:['flee']},{id:10,n:"食岩蟲",r:"tank",s:['enrage']},{id:11,n:"獸人",r:"warrior",s:['enrage']},{id:12,n:"幽靈",r:"mage",s:['mage_aoe']},{id:13,n:"石像鬼",r:"tank",s:['stun']},{id:14,n:"黑蛇",r:"assassin",s:['poison']},{id:15,n:"野豬",r:"tank",s:['stun']},{id:16,n:"薩滿",r:"mage",s:['heal']},{id:17,n:"食人花",r:"mage",s:['poison']},{id:18,n:"骨騎兵",r:"warrior",s:['enrage']},{id:19,n:"吸血鬼蝠",r:"assassin",s:['vampire']},{id:20,n:"火精靈",r:"mage",s:['mage_aoe']},{id:27,n:"死靈法師",r:"mage",s:['heal']},{id:29,n:"暗影刺客",r:"assassin",s:['assassinate']},{id:34,n:"魅魔",r:"assassin",s:['vampire']},{id:37,n:"深淵法師",r:"mage",s:['heal']},{id:38,n:"金屬史萊姆",r:"tank",s:['flee'],m:1},{id:39,n:"離散金屬",r:"tank",s:['flee'],m:1},{id:52,n:"提燈死神",r:"tank",s:['tonberry']},{id:53,n:"爆彈怪",r:"tank",s:['kamikaze']},{id:54,n:"仙人掌",r:"assassin",s:['flee']},{id:55,n:"貝希摩斯",r:"boss",s:['assassinate']},{id:41,n:"巨無霸史萊姆",r:"boss",s:['boss_aoe']},{id:42,n:"哥布林王",r:"boss",s:['buff']},{id:43,n:"枯骨將軍",r:"boss",s:['boss_aoe']},{id:44,n:"獸人督軍",r:"boss",s:['stun']},{id:45,n:"千足毒母",r:"boss",s:['poison']},{id:46,n:"吸血伯爵",r:"boss",s:['vampire']},{id:47,n:"滅世炎魔",r:"boss",s:['boss_aoe']},{id:48,n:"龍王",r:"boss",s:['boss_aoe']},{id:49,n:"大魔王佐瑪",r:"boss",s:['boss_aoe']},{id:50,n:"狂人卡夫卡",r:"boss",s:['mage_aoe']},{id:51,n:"片翼天使賽菲羅斯",r:"boss",s:['assassinate']},{id:56,n:"神龍",r:"boss",s:['boss_aoe']},{id:57,n:"歐米茄",r:"boss",s:['boss_aoe']},{id:58,n:"吉爾伽美什",r:"boss",s:['buff']},{id:60,n:"歧路旅人",r:"traveler",s:['traveler_random']},{id:99,n:"寶箱怪",r:"chest",s:['enrage']}];
-    const E_SKILLS = { 'normal':{n:'攻擊',t:'dmg',p:1}, 'flee':{n:'逃跑',t:'flee'}, 'kamikaze':{n:'自爆',t:'kami'}, 'vampire':{n:'吸血',t:'dmg',p:1.2,heal:0.5}, 'poison':{n:'毒牙',t:'dmg',p:1,apply:'psn'}, 'stun':{n:'重擊',t:'dmg',p:1,apply:'bld'}, 'heal':{n:'治癒',t:'heal',p:1.5}, 'buff':{n:'戰吼',t:'buff'}, 'assassinate':{n:'暗殺',t:'dmg',p:1.8,ign:1}, 'mage_aoe':{n:'魔彈風暴',t:'aoe',p:0.8}, 'tonberry':{n:'菜刀開膛',t:'fixed',v:999}, 'boss_aoe':{n:'毀滅攻擊',t:'aoe',p:1.5}, 'summon':{n:'呼叫同伴',t:'summon'}, 'traveler_random':{n:'旅人隨機',t:'trnd'}, 'enrage': {n:'發狂', t:'enrage'}, };
+    const M_DB = [{id:1,n:"綠黏怪",r:"tank",s:[]},{id:2,n:"紅黏怪",r:"tank",s:[]},{id:3,n:"蝙蝠",r:"assassin",s:['vampire']},{id:4,n:"地精",r:"warrior",s:['flee']},{id:5,n:"枯骨兵",r:"warrior",s:[]},{id:6,n:"毒蜘蛛",r:"assassin",s:['poison']},{id:7,n:"殭屍",r:"tank",s:['poison']},{id:8,n:"哥布林",r:"assassin",s:['assassinate']},{id:9,n:"巨鼠",r:"warrior",s:['flee']},{id:10,n:"食岩蟲",r:"tank",s:[]},{id:11,n:"獸人",r:"warrior",s:[]},{id:12,n:"幽靈",r:"mage",s:['mage_aoe']},{id:13,n:"石像鬼",r:"tank",s:['stun']},{id:14,n:"黑蛇",r:"assassin",s:['poison']},{id:15,n:"野豬",r:"tank",s:['stun']},{id:16,n:"薩滿",r:"mage",s:['heal']},{id:17,n:"食人花",r:"mage",s:['poison']},{id:18,n:"骨騎兵",r:"warrior",s:[]},{id:19,n:"吸血鬼蝠",r:"assassin",s:['vampire']},{id:20,n:"火精靈",r:"mage",s:['mage_aoe']},{id:27,n:"死靈法師",r:"mage",s:['heal']},{id:29,n:"暗影刺客",r:"assassin",s:['assassinate']},{id:34,n:"魅魔",r:"assassin",s:['vampire']},{id:37,n:"深淵法師",r:"mage",s:['heal']},{id:38,n:"金屬史萊姆",r:"tank",s:['flee'],m:1},{id:39,n:"離散金屬",r:"tank",s:['flee'],m:1},{id:52,n:"提燈死神",r:"tank",s:['tonberry']},{id:53,n:"爆彈怪",r:"tank",s:['kamikaze']},{id:54,n:"仙人掌",r:"assassin",s:['flee']},{id:55,n:"貝希摩斯",r:"boss",s:['assassinate']},{id:41,n:"巨無霸史萊姆",r:"boss",s:['boss_aoe']},{id:42,n:"哥布林王",r:"boss",s:['buff']},{id:43,n:"枯骨將軍",r:"boss",s:['boss_aoe']},{id:44,n:"獸人督軍",r:"boss",s:['stun']},{id:45,n:"千足毒母",r:"boss",s:['poison']},{id:46,n:"吸血伯爵",r:"boss",s:['vampire']},{id:47,n:"滅世炎魔",r:"boss",s:['boss_aoe']},{id:48,n:"龍王",r:"boss",s:['boss_aoe']},{id:49,n:"大魔王佐瑪",r:"boss",s:['boss_aoe']},{id:50,n:"狂人卡夫卡",r:"boss",s:['mage_aoe']},{id:51,n:"片翼天使賽菲羅斯",r:"boss",s:['assassinate']},{id:56,n:"神龍",r:"boss",s:['boss_aoe']},{id:57,n:"歐米茄",r:"boss",s:['boss_aoe']},{id:58,n:"吉爾伽美什",r:"boss",s:['buff']},{id:60,n:"歧路旅人",r:"traveler",s:['traveler_random']},{id:99,n:"寶箱怪",r:"chest",s:['enrage']}];
+    const E_SKILLS = { 'normal':{n:'攻擊',t:'dmg',p:1}, 'flee':{n:'逃跑',t:'flee'}, 'kamikaze':{n:'自爆',t:'kami'}, 'vampire':{n:'吸血',t:'dmg',p:1.2,heal:0.5}, 'poison':{n:'毒牙',t:'dmg',p:1,apply:'psn'}, 'stun':{n:'重擊',t:'dmg',p:1,apply:'bld'}, 'heal':{n:'治癒',t:'heal',p:1.5}, 'buff':{n:'戰吼',t:'buff'}, 'assassinate':{n:'暗殺',t:'dmg',p:1.8,ign:1}, 'mage_aoe':{n:'魔彈風暴',t:'aoe',p:0.8}, 'tonberry':{n:'菜刀開膛',t:'fixed',v:999}, 'boss_aoe':{n:'毀滅攻擊',t:'aoe',p:1.5}, 'summon':{n:'呼叫同伴',t:'summon'}, 'traveler_random':{n:'旅人隨機',t:'trnd'}, 'enrage':{n:'發狂',t:'enrage'} };
 
     let gameState = { floor: 1, room: 1, maxRooms: 10, roundCount: 1, historyLogs: [], party: [], enemies: [], currentHeroIndex: 0, isBattleActive: false, isInputPhase: false, pendingDrafts: [], draftChoiceIndex: 0, targetingAction: null, activeTab: 'adventure', lastPartyAction: null, weather: null, wTimer: 0 };
 
@@ -260,30 +271,30 @@
       }
       getEquipLvl(id) { return this.cardMemory[id] || 1; } getMult(id) { return 1.0 + ((this.cardMemory[id] || 1) - 1) * 0.2; }
       getMaxMagic() { return 5 + this.bMag; } getMaxSpecial() { return 5 + this.bSpc; } getMaxItems() { return 10 + this.bItm; } getMaxPassives() { return 5 + (this.bPas || 0); } getMaxRerolls() { return 1 + (this.cardMemory['p_10'] || 0); }
-      getMaxHp() { let val = this.baseMaxHp + getGearBonus(this, 'hp') + (this.equips.accessory?.bonusHp || 0); if (this.cardMemory['p_01']) val += this.cardMemory['p_01'] * 15; if (this.cardMemory['p_19']) val += this.cardMemory['p_19'] * 8; if (this.equips.armor?.id === 'a_11' && this.passives.some(p=>p.id==='p_01')) val += 100; return val; }
+      getMaxHp() { let val = this.baseMaxHp + getGearBonus(this, 'hp') + (this.equips.accessory?.bonusHp || 0); if (this.cardMemory['p_01']) val = Math.floor(val * (1 + this.cardMemory['p_01'] * 0.1)); if (this.cardMemory['p_19'])  val = Math.floor(val * (1 + this.cardMemory['p_19'] * 0.05)); if (this.equips.armor?.id === 'a_11' && this.passives.some(p=>p.id==='p_01')) val += 100; return val; }
       getAtk() { 
-        let val = this.baseAtk; if (this.equips.weapon) val += getGearBonus(this, 'val'); else if (this.cardMemory['p_17']) val += 10 + this.cardMemory['p_17'] * 5;
+        let val = this.baseAtk; if (this.equips.weapon) val += getGearBonus(this, 'val'); else if (this.cardMemory['p_17']) val += 15 + this.cardMemory['p_17'] * 5;
         val += (this.equips.armor?.atk || 0) + (this.equips.accessory?.bonusAtk || 0);
-        if (this.cardMemory['p_02']) val = Math.floor(val * (1 + this.cardMemory['p_02'] * 0.08)); if (this.cardMemory['p_14']) val = Math.floor(val * (1 + this.cardMemory['p_14'] * 0.15));
+        if (this.cardMemory['p_02']) val = Math.floor(val * (1 + this.cardMemory['p_02'] * 0.06)); if (this.cardMemory['p_14']) val = Math.floor(val * (1 + this.cardMemory['p_14'] * 0.1));
         if (this.cardMemory['p_20']) val = Math.floor(val * (1 + this.cardMemory['p_20'] * 0.02));
         if (this.status.weak > 0) val = Math.floor(val * 0.7); if (this.status.berserk > 0) val = Math.floor(val * (this.equips.accessory?.id === 'ac_08' ? 2.0 : 1.5)); return val; 
       }
       getDef() { 
         let val = this.baseDef + (this.equips.armor?.val || 0) + (this.equips.accessory?.def || 0); if (this.equips.offhand && !this.equips.offhand.isWeapon) val += getGearBonus(this, 'val');
-        if (this.cardMemory['p_07']) val += this.cardMemory['p_07'] * 5; if (this.cardMemory['p_13']) val += this.cardMemory['p_13'] * 3;
-        if (this.cardMemory['p_14']) val -= 5; 
+        if (this.cardMemory['p_07']) val = Math.floor(val * (1 + this.cardMemory['p_07'] * 0.06)); if (this.cardMemory['p_13']) val = Math.floor(val * (1 + this.cardMemory['p_13'] * 0.03));
+        if (this.cardMemory['p_14']) val = Math.floor(val * (1 - this.cardMemory['p_14'] * 0.1)); 
         if (this.cardMemory['p_19'] && this.equips.armor?.isHeavy && this.equips.offhand) val = Math.floor(val * 1.5);
         if (this.status.weak > 0) val = Math.floor(val * 0.7); if (this.status.berserk > 0) val = Math.floor(val * 0.5); if (this.status.berserk > 0 && this.passives.some(p=>p.id==='p_14') && this.items.some(i=>i.id==='i_10')) val = Math.floor(val * 2.0); return Math.max(0, val); 
       }
       getSpeed() { let val = this.baseSpeed + (this.equips.weapon?.speed || 0) + (this.equips.armor?.speed || 0) + (this.equips.offhand?.speed || 0) + (this.equips.accessory ? (this.equips.accessory.bonusSpeed || 0) + (this.getEquipLvl(this.equips.accessory.id) - 1) : 0); if (this.cardMemory['p_04']) val += this.cardMemory['p_04'] * 2; if (this.cardMemory['p_14']) val += this.cardMemory['p_14'] * 1; return val; }
-      getCritChance() { return Math.min(0.75,0.05 + (this.equips.weapon?.crit || 0) + (this.equips.armor?.crit || 0) + (this.equips.accessory?.bonusCrit || 0) + (this.bCrit || 0)); }
+      getCritChance() { return Math.min(0.75, 0.05 + (this.equips.weapon?.crit || 0) + (this.equips.armor?.crit || 0) + (this.equips.accessory?.bonusCrit || 0) + (this.bCrit || 0)); }
       getDodgeChance() { 
         if (this.combatState.jumpTimer > 0) return 1.0; 
         if (this.cardMemory['p_19'] && this.equips.armor?.isHeavy && this.equips.offhand) return 0; 
         let val = 0.05 + (this.equips.weapon?.dodge || 0) + (this.equips.armor?.dodge || 0) + (this.equips.offhand?.dodge || 0) + (this.equips.accessory?.bonusDodge || 0) + (this.cardMemory['p_08'] ? this.cardMemory['p_08'] * 0.03 : 0); 
         if (this.equips.offhand?.id === 'o_10' && this.passives.some(p=>p.id==='p_17')) val += 0.2;
         if (this.passives.some(p=>p.id==='p_04') && this.equips.accessory?.id === 'ac_03') val += 0.15;
-        return Math.min(0.75, val);
+        return Math.min(0.75, val); 
       }
     }
 
@@ -309,7 +320,7 @@
         if (Math.random() < 0.1 && this.baseId !== 99) this.s.push('summon');
         let rStat = { 'tank':{h:35,a:3,d:2,s:0.5}, 'warrior':{h:25,a:4,d:1,s:1}, 'assassin':{h:15,a:5,d:0.5,s:2}, 'mage':{h:18,a:4,d:0.5,s:1.5}, 'boss':{h:150,a:10,d:5,s:1.5}, 'traveler':{h:0,a:0,d:0,s:0}, 'chest':{h:15,a:8,d:8,s:2} }[base.r || 'warrior'];
         
-        let fLvl = Math.pow(floor, floor > 30 ? 1.1 : 0.8);//let fLvl = Math.pow(floor, 0.8);
+        let fLvl = Math.pow(floor, floor > 30 ? 1.2 : 0.7);
         this.maxHp = this.isMetal ? 4 + Math.floor(floor*0.5) : Math.floor((rStat.h * fLvl + 20) * tm);
         this.atk = Math.floor((rStat.a * fLvl + 5) * tm);
         this.def = this.isMetal ? 999 : Math.floor((rStat.d * fLvl) * tm);
@@ -403,7 +414,7 @@
             let reg = 0; if (t.status.regen > 0) { reg += Math.floor((isHero?t.getMaxHp():t.maxHp) * 0.05); t.status.regen--; }
             if (isHero) { 
                 ['weapon','armor','accessory','offhand'].forEach(eq => { if (t.equips[eq]?.regen) reg += Math.floor(t.equips[eq].regen * t.getMult(t.equips[eq].id)); }); 
-                if (t.equips.weapon?.curse) { let d = Math.floor(t.getMaxHp()*0.1); if (t.equips.accessory?.id === 'ac_02') d = Math.floor(d * 0.5); t.hp = Math.max(0, t.hp - d); createFloatNum(`-${d}`, 'text-red-500', true, i); if (t.hp<=0) { t.isDead = true; logAndMsg(`💀 噬魂！『${t.name}』陣亡`); } }
+                if (t.equips.weapon?.curse) { let cost = Math.floor(t.getMaxHp()*0.1); if (t.equips.accessory?.id === 'ac_02') cost = Math.floor(cost * 0.5); t.hp = Math.max(0, t.hp - cost); createFloatNum(`-${cost}`, 'text-red-500', true, i); if (t.hp<=0) { t.isDead = true; logAndMsg(`💀 噬魂！『${t.name}』陣亡`); } }
                 if (t.equips.armor?.id === 'a_10' && t.equips.accessory?.id === 'ac_04') t.shield += 5;
             }
             if (reg > 0 && !t.isDead) { t.hp = Math.min((isHero?t.getMaxHp():t.maxHp), t.hp + reg); animateElement(isHero ? `hero-mini-${i}` : `enemy-card-${i}`, 'animate-heal'); createFloatNum(`+${reg}`, 'text-green-300', isHero, i); }
@@ -510,58 +521,50 @@
       const opt = DATABASE[equipItem.equipType].find(x => x.id === equipItem.id); 
       let pwr = (opt.val || 10) * 2; 
       let p23Lvl = hero.cardMemory['p_23'] || 1;
-      // 1. 修正：套用忍術投擲 (p_23) 的倍率
+      
       if (hero.passives.some(p => p.id === 'p_23')) {
-      pwr = Math.floor(pwr * (p23Lvl + 1) * 0.5);
+          pwr = Math.floor(pwr * (1 + p23Lvl * 0.2));
       }
-      // 2. 修正：讓投擲裝備也能正確吃到「道具學徒 (p_22)」的道具威力加成
       if (hero.passives.some(p => p.id === 'p_22')) {
-      pwr = Math.floor(pwr * (1.1 + 0.05 * (hero.cardMemory['p_22'] || 1)));
+          pwr = Math.floor(pwr * (1.1 + 0.05 * ((hero.cardMemory['p_22'] || 1) - 1)));
       }
-      // 3. 修正：如果擁有忍術投擲被動，投擲直接判定為全體攻擊 (isAoe = true)
       let isAoe = hero.passives.some(p => p.id === 'p_23');
-      let details = { 
-         type: 'throw_item', 
-         itemIdx: itemIdx, 
-         itemInstance: equipItem, 
-         name: `投擲 [${opt.name}]`, 
-         power: pwr, 
-         isAoe: isAoe, 
-         actor: hero, 
-         effect: 'throw_dmg', 
-         targetFriendly: false 
-       }; 
-      // 4. 修正：全體投擲時不需指定單一對象，直接發動
+      let details = { type: 'throw_item', itemIdx: itemIdx, itemInstance: equipItem, name: `投擲 [${opt.name}]`, power: pwr, isAoe: isAoe, actor: hero, effect: 'throw_dmg', targetFriendly: false }; 
+      
       if (isAoe) {
-      queueAction(details);
-       } else {
-         let alives = gameState.enemies.filter(e => !e.isDead); 
-         if(alives.length === 1) { 
-           details.target = alives[0]; 
-           queueAction(details); 
-         } else {
-          initiateTargeting(details); 
-       }
-     }
+          queueAction(details);
+      } else {
+          let alives = gameState.enemies.filter(e => !e.isDead); 
+          if(alives.length === 1) { 
+              details.target = alives[0]; 
+              queueAction(details); 
+          } else {
+              initiateTargeting(details); 
+          }
+      }
     }
 
     function getSkillPower(h, dbRef, lvl) {
         let pwr = dbRef.power || 0; if (pwr <= 0) return 0;
         let cMap = {
             'magic': () => {
-                if (!dbRef.isConsumable) { pwr = Math.floor(pwr * (1 + 0.05 * (lvl - 1))); if (pwr < h.matk) pwr = Math.floor(pwr + h.matk * (dbRef.isAoe ? 0.5 : 0.8)); }
-                else {pwr = Math.floor(pwr * (1 + 0.1 * (lvl - 1)));} // 召喚(消耗型魔法)每級 +10% 威力
+                if (!dbRef.isConsumable) { 
+                    pwr = Math.floor(pwr * (1 + 0.05 * (lvl - 1))); 
+                    if (pwr < h.matk) pwr = Math.floor(pwr + h.matk * (dbRef.isAoe ? 0.5 : 0.8)); 
+                } else {
+                    pwr = Math.floor(pwr * (1 + 0.1 * (lvl - 1))); 
+                }
                 pwr = Math.floor(pwr * (h.equips.weapon?.magBoost||1) * (h.equips.offhand?.magBoost||1) * (h.equips.armor?.magBoost||1));
                 if (h.equips.offhand?.healBoost && dbRef.effect === 'heal') pwr = Math.floor(pwr * (1 + h.equips.offhand.healBoost));
                 if (h.equips.weapon?.id === 'w_08' && ['m_02', 'm_06'].includes(dbRef.id)) pwr = Math.floor(pwr * 1.5);
                 if (h.equips.weapon?.id === 'w_12' && dbRef.id === 'm_05') pwr *= 2;
                 if (h.equips.armor?.id === 'a_03' && h.passives.some(p=>p.id==='p_03')) pwr = Math.floor(pwr * 1.3);
-                if (h.passives.some(p=>p.id==='p_09')) pwr = Math.floor(pwr * (1 + (h.cardMemory['p_09']||1)*0.05));
-                if (gameState.weather && h.passives.some(p=>p.id==='p_21')) pwr = Math.floor(pwr * (1.1 + 0.03*(h.cardMemory['p_21']||1)));
+                if (h.passives.some(p=>p.id==='p_09')) pwr = Math.floor(pwr * (1 + ((h.cardMemory['p_09']||1)-1)*0.05));
+                if (gameState.weather && h.passives.some(p=>p.id==='p_21')) pwr = Math.floor(pwr * (1.1 + 0.03*((h.cardMemory['p_21']||1)-1)));
             },
             'items': () => {
                 if (dbRef.id === 'i_15') pwr += h.getAtk();
-                if (h.passives.some(p=>p.id==='p_22')) pwr = Math.floor(pwr * (1.1 + 0.05*(h.cardMemory['p_22']||1)));
+                if (h.passives.some(p=>p.id==='p_22')) pwr = Math.floor(pwr * (1.1 + 0.05*((h.cardMemory['p_22']||1)-1)));
             },
             'special': () => {
                 let hits = {'double_strike':2, 'triple_strike':3, 'omnislash':5, 'musou_tensei':7}[dbRef.effect] || 1;
@@ -630,7 +633,7 @@
       logAndMsg(isBossRoom ? `⚠️ 遭遇關卡霸主與其隨從！` : `🔦 發現 ${gameState.enemies.length} 隻魔物。`, isBossRoom ? 'text-red-400 font-bold' : 'text-yellow-300');
       
       gameState.party.forEach(h => { 
-          if (h.matk < h.getAtk()*0.66) h.matk++;
+          if (h.matk < h.getAtk() * 0.66) h.matk++;
           h.status.berserk = 0;
           h.shield = 0; if (h.equips.weapon?.startShield) h.shield += h.equips.weapon.startShield; if (h.equips.offhand?.startShield) h.shield += h.equips.offhand.startShield; if (h.equips.accessory?.startShield) h.shield += h.equips.accessory.startShield; 
           h.combatState = { charging: false, jumpTimer: 0, jumpTarget: null, defending: false }; h.status = { poison: 0, blind: 0, paralyze: 0, sleep: 0, confuse: 0, silence: 0, weak: 0, bleed: 0, regen: 0, berserk: (h.equips.accessory?.id === 'ac_08' ? 999 : 0), reflect_buff: 0, stun: 0, enchant_fire: 0, protect: 0 }; 
@@ -725,7 +728,8 @@
         if (hero.status.berserk > 0 || hero.status.confuse > 0) {
             let possibleTargets = hero.status.berserk > 0 ? gameState.enemies.filter(e=>!e.isDead) : [...gameState.enemies.filter(e=>!e.isDead), ...gameState.party.filter(h=>!h.isDead && h.combatState.jumpTimer===0)];
             if(possibleTargets.length === 0) continue;
-            act = { type: 'attack', name: hero.status.berserk>0?'狂暴亂擊':'混亂攻擊', power: hero.getAtk(), isAoe: false, actor: hero, targetFriendly: gameState.party.includes(possibleTargets[0]), target: possibleTargets[Math.floor(Math.random()*possibleTargets.length)] };
+            let chosenTgt = possibleTargets[Math.floor(Math.random()*possibleTargets.length)];
+            act = { type: 'attack', name: hero.status.berserk>0?'狂暴亂擊':'混亂攻擊', power: hero.getAtk(), isAoe: false, actor: hero, targetFriendly: gameState.party.includes(chosenTgt), target: chosenTgt };
             logAndMsg(hero.status.berserk>0?`😡 『${hero.name}』狂暴！`:`😵‍💫 『${hero.name}』混亂！`, 'text-red-400'); await sleep(1000);
         }
         if (!act) continue;
@@ -768,17 +772,14 @@
       let tName = act.isAoe ? "全體" : (act.target ? (act.targetFriendly ? act.target.name : act.target.shortName) : "自己"); 
       let baseMsg = `▶ 『${hero.name}』對【${tName}】使出 [${act.name}]`;
       let hitDetails = ""; let logTime = new Date().toLocaleTimeString('zh-TW', { hour12: false });
-      //let actionLogObj = { msg: `[${logTime}] ${baseMsg}`, color: 'text-cyan-200' }; 
-      //if (!act.isSubAction) { gameState.historyLogs.push(actionLogObj); if(gameState.historyLogs.length>200)gameState.historyLogs.shift(); } else actionLogObj = gameState.historyLogs[gameState.historyLogs.length-1] || actionLogObj;
-      let actionLogObj = { msg: `[${logTime}] ${baseMsg}`, color: 'text-cyan-200' };
-      gameState.historyLogs.push(actionLogObj);
-      if(gameState.historyLogs.length > 200) gameState.historyLogs.shift();
+      let actionLogObj = { msg: `[${logTime}] ${baseMsg}`, color: 'text-cyan-200' }; 
+      gameState.historyLogs.push(actionLogObj); if(gameState.historyLogs.length>200)gameState.historyLogs.shift();
       const FX_MAP = [{k:'過量劈裂',bg:'bg-red-800'},{k:'毒爆',bg:'bg-orange-800'},{k:'深度凍結',bg:'bg-blue-800'},{k:'感電',bg:'bg-yellow-600'},{k:'洋蔥突擊',bg:'bg-green-700'},{k:'引爆',bg:'bg-purple-800'},{k:'斬鐵劍',bg:'bg-slate-800'}];
       const updateSyncLog = () => { let fullMsg = `${baseMsg}${hitDetails}`; let matchFX = FX_MAP.find(x => hitDetails.includes(x.k)); updateAnimationMsg(fullMsg, matchFX ? matchFX.bg : 'bg-white'); actionLogObj.msg = `[${logTime}] ${fullMsg}`; if (gameState.activeTab === 'log') renderHistoryLogs(); };
       updateSyncLog();
 
       let pwr = act.power; 
-      if (act.effect === 'blood_strike') { let cost = Math.floor(hero.getMaxHp()*0.2); if(hero.equips.accessory?.id === 'ac_02') cost = Math.floor(cost * 0.5); if(hero.equips.accessory?.id !== 'ac_10') { hero.hp -= cost; createFloatNum(`-${cost}`, 'text-red-500', true, heroIdx); } } // 血魔法扣血
+      if (act.effect === 'blood_strike') { let cost = Math.floor(hero.getMaxHp()*0.2); if(hero.equips.accessory?.id === 'ac_02') cost = Math.floor(cost * 0.5); if(hero.equips.accessory?.id !== 'ac_10') { hero.hp = Math.max(0, hero.hp - cost); createFloatNum(`-${cost}`, 'text-red-500', true, heroIdx); } } // 血魔法扣血
       if (hero.combatState.charging && (act.type === 'attack' || act.type === 'special')) { pwr = Math.floor(pwr * 2.5); hero.combatState.charging = false; hitDetails += ' (蓄力!)'; updateSyncLog(); } 
       
       let actTags = [act.type]; 
@@ -797,7 +798,7 @@
       let isFire = actTags.includes('fire'), isIce = actTags.includes('ice'), isLightning = actTags.includes('lightning');
       let critBonus = (act.skillId === 'i_15' && isFire) ? 0.5 : 0;
       let isCrit = Math.random() < (hero.getCritChance() + critBonus);
-      let lifestealRate = (hero.equips.weapon?.lifesteal||0) + (hero.equips.accessory?.lifesteal||0) + (hero.passives.find(p=>p.id==='p_06') ? (hero.cardMemory['p_06']||1)*0.05 : 0) + (hero.passives.find(p=>p.id==='p_18') ? (hero.cardMemory['p_18']||1)*0.03 : 0);
+      let lifestealRate = (hero.equips.weapon?.lifesteal||0) + (hero.equips.accessory?.lifesteal||0) + (hero.passives.find(p=>p.id==='p_06') ? (hero.cardMemory['p_06']||1)*0.06 : 0) + (hero.passives.find(p=>p.id==='p_18') ? (hero.cardMemory['p_18']||1)*0.03 : 0);
       if (hero.equips.accessory?.id === 'ac_05' && (hero.status.bleed > 0 || hero.status.berserk > 0)) lifestealRate = Math.max(lifestealRate, 0.3);
 
       let envMap = {'shiva':['cold','text-blue-300','❄️ 場地陷入極寒！'],'aoe_damage_armor_break':['wet','text-blue-300','🌧️ 場地變得潮濕！'],'aoe_damage_sand':['sand','text-yellow-600','🌪️ 場地捲起沙塵暴！'],'aoe_fixed_sand':['sand','text-yellow-600','🌪️ 場地捲起沙塵暴！'],'damage_sun':['sun','text-red-500','☀️ 烈陽高照！'],'heal_sun':['sun','text-red-500','☀️ 烈陽高照！'],'aoe_damage_miasma':['miasma','text-purple-500','☠️ 瘴氣瀰漫！'],'aoe_poison_miasma':['miasma','text-purple-500','☠️ 瘴氣瀰漫！']};
@@ -807,12 +808,12 @@
       let targets = act.isAoe ? (act.targetFriendly ? gameState.party : gameState.enemies.filter(e => !e.isDead)) : [act.target];
       let hits = act.isAoe ? 1 : ({'double_strike':2, 'triple_strike':3, 'omnislash':5, 'musou_tensei':7}[act.effect] || 1);
       
-      let cMap = {'sleep':['sleep',2,'SLP','text-blue-300'], 'paralyze':['paralyze',1,'PAR','text-yellow-600'], 'damage_paralyze':['paralyze',1,'PAR','text-yellow-600'], 'silence':['silence',2,'SIL','text-gray-500'], 'aoe_blind':['blind',3,'BLD','text-gray-400'], 'aoe_confuse':['confuse',2,'CNF','text-purple-400'], 'aoe_poison_miasma':['poison',3,'PSN','text-green-400'], 'damage_poison':['poison',3,'PSN','text-green-400'], 'shiva':['stun',1,'STN','text-blue-300'], 'kotr':['bleed', 2, 'BLD', 'text-red-500'], 'aoe_damage_stun':['stun',1,'STN','text-blue-300']};
+      let cMap = {'sleep':['sleep',2,'SLP','text-blue-300'], 'paralyze':['paralyze',1,'PAR','text-yellow-600'], 'damage_paralyze':['paralyze',1,'PAR','text-yellow-600'], 'silence':['silence',2,'SIL','text-gray-500'], 'aoe_blind':['blind',3,'BLD','text-gray-400'], 'aoe_confuse':['confuse',2,'CNF','text-purple-400'], 'aoe_poison_miasma':['poison',3,'PSN','text-green-400'], 'damage_poison':['poison',3,'PSN','text-green-400'], 'shiva':['stun',1,'STN','text-blue-300'], 'aoe_damage_stun':['stun',1,'STN','text-blue-300'], 'kotr':['bleed',3,'BLD','text-red-500']};
       
       if (act.targetFriendly) {
           let healP = Math.floor(pwr);
           let fMap = {
-              'heal': (a, aIdx) => { let ohF = (a.equips.accessory?.id === 'ac_04') ? 0.8 : 0.5; let oh = Math.floor((a.hp + healP - a.getMaxHp()) * ohF); a.hp = Math.min(a.getMaxHp(), a.hp + healP); createFloatNum(`+${healP}`, 'text-green-400', true, aIdx); hitDetails += ` (+${healP}HP)`; if(oh>0){ a.shield+=oh; hitDetails+=` (轉盾+${oh})`; } if(hero.equips.weapon?.id === 'w_04'){ let xS=Math.floor(healP*0.5); a.shield+=xS; hitDetails+=` (法杖盾+${xS})`; } },
+              'heal': (a, aIdx) => { let ohF = (a.equips.accessory?.id === 'ac_04') ? 0.8 : 0.5; let oh = Math.floor((a.hp + healP - a.getMaxHp()) * ohF); a.hp = Math.min(a.getMaxHp(), a.hp + healP); createFloatNum(`+${healP}`, 'text-green-400', true, aIdx); hitDetails += ` (+${healP}HP)`; if(oh>0){ a.shield+=oh; hitDetails += ` (轉盾+${oh})`; } if(hero.equips.weapon?.id === 'w_04'){ let xS=Math.floor(healP*0.5); a.shield+=xS; hitDetails += ` (法杖盾+${xS})`; } },
               'heal_sun': (a, aIdx) => { fMap['heal'](a, aIdx); },
               'revive': (a, aIdx) => { a.isDead = false; a.hp = Math.floor(a.getMaxHp() * 0.3); createFloatNum(`LIFE`, 'text-yellow-400', true, aIdx); hitDetails += ` (復活)`; },
               'phoenix': (a, aIdx) => { a.isDead = false; a.hp = a.getMaxHp(); a.shield += healP; createFloatNum(`LIFE+${healP}盾`, 'text-yellow-400', true, aIdx); hitDetails += ` (復活+${healP}盾)`; },
@@ -834,6 +835,7 @@
           }
       } else {
           let totalActionDmg = 0; let kills = 0; let chests = 0;
+          
           for (let t of targets) {
               if(!t || t.isDead) continue; let eIdx = gameState.enemies.indexOf(t);
               for(let hit=0; hit<hits; hit++){
@@ -841,16 +843,24 @@
                   let isImmune = actTags.some(tag => t.immunities.includes(tag)) || (t.weaknesses.length > 0 && !actTags.some(tag => t.weaknesses.includes(tag)));
                   if (isImmune) { createFloatNum('IMMUNE', 'text-gray-400', false, eIdx); hitDetails += ` (IMMUNE)`; updateSyncLog(); await sleep(300); if(!act.isAoe) break; else continue; } 
                   
-                  let d = 0; let tgtDef = (!hero.equips.weapon && act.skillId === 's_18') ? 0 : t.def;
+                  let tgtDef = (!hero.equips.weapon && act.skillId === 's_18') || act.effect === 'pierce_damage' ? 0 : t.def;
+                  let pierceRate = hero.equips.weapon?.pierce || 0;
+                  if (act.type === 'magic' && hero.passives.some(p=>p.id==='p_03') && hero.passives.some(p=>p.id==='p_09')) pierceRate = Math.max(0.5, pierceRate);
+                  let finalDef = Math.floor(tgtDef * (1 - pierceRate));
+                  
                   let isCritTgt = isCrit || (hero.equips.armor?.id === 'a_04' && (t.status.blind > 0 || t.status.sleep > 0));
                   
                   let dData = { d: 0, details: "", mult: 1, ignDef: false };
                   if (hero.hooks?.onAttack) hero.hooks.onAttack.forEach(hk => hk(hero, t, act, dData));
                   hitDetails += dData.details;
 
+                  let d = 0;
                   if (dData.d > 0) { d = dData.d; }
-                  else if (act.effect === 'metal_slash' && t.isMetal) { d = pwr + (hero.cardMemory[act.skillId]||1)*2; }
-                  else { let wBoost = (isLightning && gameState.weather==='wet')?1.5:1; d = calculateDmg(pwr * dData.mult, act.effect==='blood_strike'||dData.ignDef?0:tgtDef, isCritTgt, hero.status.blind > 0) * wBoost; }
+                  else if (act.effect === 'metal_slash' && t.isMetal) { 
+                      d = pwr + (hero.cardMemory[act.skillId]||1)*2; 
+                      if(hero.passives.some(p=>p.id==='p_02')) d *= 5;
+                  }
+                  else { let wBoost = (isLightning && gameState.weather==='wet')?1.5:1; d = calculateDmg(pwr * dData.mult, act.effect==='blood_strike'||dData.ignDef ? 0 : finalDef, isCritTgt, hero.status.blind > 0) * wBoost; }
 
                   if (SKILL_SYN[act.skillId]) { let synD = {mult:1, details:""}; SKILL_SYN[act.skillId](t, synD); d = Math.floor(d * synD.mult); hitDetails += synD.details; }
 
@@ -868,6 +878,15 @@
                   if (act.skillId === 'i_02' && t.status.enchant_fire > 0) { d = 60; hitDetails += '【💥引燃!】'; }
 
                   if (cMap[act.effect]) { applyStatusCond(t, cMap[act.effect][0], cMap[act.effect][1], cMap[act.effect][2], cMap[act.effect][3]); if(!pwr) { if(!act.isAoe) break; else return; } }
+                  
+                  if (act.type === 'attack' && hero.equips.weapon) {
+                      let wp = hero.equips.weapon;
+                      if (wp.poisonChance && Math.random() < wp.poisonChance) applyStatusCond(t, 'poison', 3, 'PSN', 'text-green-400');
+                      if (wp.sleepChance && Math.random() < wp.sleepChance) applyStatusCond(t, 'sleep', 2, 'SLP', 'text-blue-300');
+                      if (wp.paralyzeChance && Math.random() < wp.paralyzeChance) applyStatusCond(t, 'paralyze', 1, 'PAR', 'text-yellow-600');
+                      if (wp.bleedChance && Math.random() < wp.bleedChance) applyStatusCond(t, 'bleed', 3, 'BLD', 'text-red-500');
+                  }
+
                   if (act.effect === 'damage_slow') { t.speed = Math.max(1, t.speed - 3); createFloatNum(`SLW`, 'text-blue-400', false, eIdx); }
                   if (act.effect === 'armor_break' || hero.equips.weapon?.id === 'w_09') { t.def = Math.max(0, t.def - 5); createFloatNum(`DEF DWN`, 'text-yellow-400', false, eIdx); if(act.effect==='armor_break') hitDetails += ` (防禦-5)`; }
 
@@ -892,9 +911,9 @@
           }
           while(chests-- > 0) { logAndMsg(`📦 『${hero.name}』發現寶箱裡面是:`, 'text-yellow-300', 'bg-yellow-800'); await sleep(1000); await triggerChestReward(hero); }
       }
-      if (hero.hp <= 0) { hero.isDead = true; logAndMsg(`💀 『${hero.name}』遭反射擊殺！`, 'text-red-500'); } 
+      if (hero.hp <= 0) { hero.isDead = true; logAndMsg(`💀 『${hero.name}』力竭倒下！`, 'text-red-500'); } 
       
-      if (act.type === 'throw_item' && hero.passives.some(p=>p.id==='p_23')) {
+      if (act.type === 'throw_item' && hero.passives.some(p=>p.id==='p_23') && !hero.isDead) {
           let pool = MAGIC_DB.filter(m=>(m.isAoe && m.power>0) || m.effect==='shiva' || m.effect==='megaflare');
           let sp = pool[Math.floor(Math.random()*pool.length)]; let spLvl = hero.cardMemory[sp.id] || 1; let spPwr = getSkillPower(hero, sp, spLvl);
           await sleep(1000);
@@ -922,8 +941,8 @@
     async function eSPA(e, eIdx, skId) { 
       let sk = E_SKILLS[skId];
       let eMap = {
+          'enrage': async () => { e.s = e.s.filter(x => x !== 'enrage'); e.status.berserk = 999; logAndMsg(`😡 【${e.shortName}】露出滿嘴獠牙，進入狂暴狀態！`, 'text-red-500 font-bold', 'bg-red-900'); renderBattleScreen(); await sleep(800); return true; },
           'flee': async () => { e.isDead = true; e.hp = 0; createFloatNum('FLEE', 'text-gray-400', false, eIdx); logAndMsg(`💨 【${e.shortName}】逃離了戰場！`, 'text-gray-400'); renderBattleScreen(); await sleep(1000); return true; },
-          'enrage': async () => { e.status.berserk = 999; logAndMsg(`😡 【${e.shortName}】露出滿嘴獠牙，進入狂暴狀態！`, 'text-red-500 font-bold', 'bg-red-900'); renderBattleScreen(); await sleep(800); return true; },
           'summon': async () => { 
               let aliveC = gameState.enemies.filter(x=>!x.isDead).length; 
               if(aliveC < 8){ 
@@ -944,14 +963,14 @@
               logAndMsg(`⚠️ 【${e.shortName}】發動了 [${s.name}]！`, 'text-red-500 font-bold', 'bg-red-800'); await sleep(500);
               let alives = gameState.party.filter(h => !h.isDead && h.combatState.jumpTimer === 0); 
               if (alives.length > 0) { 
-                  if (s.isAoe) { for(let t of alives) { let d = calculateDmg(e.atk * (s.power/15), t.getDef(), false, false); if(d>0) await applyEDmg(e, eIdx, t, d, true, s.name); } } 
-                  else { let t = alives[Math.floor(Math.random() * alives.length)]; let d = calculateDmg(e.atk * (s.power/15), t.getDef(), false, false); if(d>0) await applyEDmg(e, eIdx, t, d, false, s.name); else logAndMsg(`💨 『${t.name}』防禦了攻擊！`, 'text-gray-400'); } 
+                  if (s.isAoe) { for(let t of alives) { let d = calculateDmg(e.atk * (s.power/15), typeof t.getDef === 'function' ? t.getDef() : t.def, false, false); if(d>0) await applyEDmg(e, eIdx, t, d, true, s.name); } } 
+                  else { let t = alives[Math.floor(Math.random() * alives.length)]; let d = calculateDmg(e.atk * (s.power/15), typeof t.getDef === 'function' ? t.getDef() : t.def, false, false); if(d>0) await applyEDmg(e, eIdx, t, d, false, s.name); else logAndMsg(`💨 『${t.name}』防禦了攻擊！`, 'text-gray-400'); } 
               } renderBattleScreen(); await sleep(800); return true; 
           }
       };
       if (eMap[sk.t]) { let handled = await eMap[sk.t](); if (handled) return; }
 
-      if (e.status.confuse > 0) { let pt = [...gameState.enemies.filter(x=>!x.isDead), ...gameState.party.filter(h=>!h.isDead && h.combatState.jumpTimer===0)]; let tg = pt[Math.floor(Math.random()*pt.length)]; let d = calculateDmg(e.atk, tg.def||tg.getDef?.(), false, e.status.blind > 0); if(d>0) { if(gameState.party.includes(tg)) await applyEDmg(e, eIdx, tg, d, false, "混亂敲擊"); else { tg.hp = Math.max(0, tg.hp - d); createFloatNum(`-${d}`, 'text-white', false, gameState.enemies.indexOf(tg)); logAndMsg(`💥 【${e.shortName}】混亂敲擊【${tg.shortName || tg.name}】！(-${formatNum(d)})`, 'text-purple-400'); if (tg.hp <= 0) tg.isDead = true; } } renderBattleScreen(); await sleep(1000); return; }
+      if (e.status.confuse > 0) { let pt = [...gameState.enemies.filter(x=>!x.isDead), ...gameState.party.filter(h=>!h.isDead && h.combatState.jumpTimer===0)]; let tg = pt[Math.floor(Math.random()*pt.length)]; let d = calculateDmg(e.atk, typeof tg.getDef === 'function' ? tg.getDef() : tg.def, false, e.status.blind > 0); if(d>0) { if(gameState.party.includes(tg)) await applyEDmg(e, eIdx, tg, d, false, "混亂敲擊"); else { tg.hp = Math.max(0, tg.hp - d); createFloatNum(`-${d}`, 'text-white', false, gameState.enemies.indexOf(tg)); logAndMsg(`💥 【${e.shortName}】混亂敲擊【${tg.shortName || tg.name}】！(-${formatNum(d)})`, 'text-purple-400'); if (tg.hp <= 0) tg.isDead = true; } } renderBattleScreen(); await sleep(1000); return; }
       
       let alives = gameState.party.filter(h => !h.isDead && h.combatState.jumpTimer === 0); let tg = null;
       if (alives.length > 0) { let tnt = alives.find(h => h.buffs.taunt); if (tnt) tg = tnt; else if (sk.id === 'assassinate') tg = alives.reduce((p, c) => (p.hp < c.hp) ? p : c); else tg = alives[Math.floor(Math.random() * alives.length)]; }
@@ -962,7 +981,8 @@
 
       if (sk.t === 'aoe' && e.status.silence <= 0) { 
           logAndMsg(`⚠️ 【${e.shortName}】發動 [${sk.n}]！`, 'text-red-500 font-bold', 'bg-red-800'); await sleep(500); 
-          for(let t of alives) { let d = calculateDmg(eAtk * sk.p, t.getDef(), false, e.status.blind > 0); if(d > 0) { if (t.equips.offhand?.blockMagic) d = Math.floor(d * (1 - t.equips.offhand.blockMagic)); if (t.equips.armor?.blockMagic) d = Math.floor(d * (1 - t.equips.armor.blockMagic)); await applyEDmg(e, eIdx, t, d, true, sk.n); } } 
+          let allAlives = gameState.party.filter(h => !h.isDead);
+          for(let t of allAlives) { let d = calculateDmg(eAtk * sk.p, typeof t.getDef === 'function' ? t.getDef() : t.def, false, e.status.blind > 0); if(d > 0) { if (t.equips.offhand?.blockMagic) d = Math.floor(d * (1 - t.equips.offhand.blockMagic)); if (t.equips.armor?.blockMagic) d = Math.floor(d * (1 - t.equips.armor.blockMagic)); await applyEDmg(e, eIdx, t, d, true, sk.n); } } 
       }
       else if (sk.t === 'aoe') { logAndMsg(`🔇 【${e.shortName}】被沉默無法施法！`, 'text-gray-500'); }
       else {
@@ -970,7 +990,7 @@
             animateElement(`hero-mini-${gameState.party.indexOf(tg)}`, 'animate-dodge'); createFloatNum('MISS', 'text-gray-400', true, gameState.party.indexOf(tg)); logAndMsg(`💨 『${tg.name}』閃避了【${e.shortName}】的攻擊！`, 'text-gray-400'); await sleep(400);
             if (tg.hooks?.onDodge) tg.hooks.onDodge.forEach(hk => hk(tg, e));
         } else {
-          let d = sk.t === 'fixed' ? sk.v : calculateDmg(eAtk * sk.p, tg.getDef(), !!sk.ign, e.status.blind > 0);
+          let d = sk.t === 'fixed' ? sk.v : calculateDmg(eAtk * sk.p, typeof tg.getDef === 'function' ? tg.getDef() : tg.def, !!sk.ign, e.status.blind > 0);
           if (d > 0) {
             if (tg.equips.offhand?.blockPhys && sk.t !== 'fixed') d = Math.floor(d * (1 - tg.equips.offhand.blockPhys));
             await applyEDmg(e, eIdx, tg, d, false, sk.n);
@@ -1015,6 +1035,10 @@
       if (target.status.reflect_buff > 0 && dPre > 0) { let refDmg = Math.floor(dPre * 0.8); enemy.hp = Math.max(0, enemy.hp - refDmg); createFloatNum(`反射-${refDmg}`, 'text-blue-300', false, eIdx); if (enemy.hp <= 0 && !enemy.isDead) { enemy.isDead = true; logAndMsg(`💀 【${enemy.shortName}】遭反射擊殺！`, 'text-blue-400'); await sleep(400); } } 
       if (target.buffs.defending && target.equips.armor?.id === 'a_09' && dPre > 0) { let refDmg = Math.floor(dPre * 0.8); enemy.hp = Math.max(0, enemy.hp - refDmg); createFloatNum(`反彈-${refDmg}`, 'text-blue-300', false, eIdx); if (enemy.hp <= 0 && !enemy.isDead) enemy.isDead = true; } 
       if (target.buffs.defending && target.equips.offhand?.id === 'o_08' && dPre > 0) { let refDmg = Math.floor(dPre * 0.5); enemy.hp = Math.max(0, enemy.hp - refDmg); createFloatNum(`反擊-${refDmg}`, 'text-blue-300', false, eIdx); if (enemy.hp <= 0 && !enemy.isDead) enemy.isDead = true; } 
+      
+      let flatRef = (target.equips?.armor?.reflect || 0) + (target.equips?.offhand?.reflect || 0);
+      if (flatRef > 0 && dPre > 0) { enemy.hp = Math.max(0, enemy.hp - flatRef); createFloatNum(`反傷-${flatRef}`, 'text-blue-300', false, eIdx); if (enemy.hp <= 0 && !enemy.isDead) enemy.isDead = true; }
+      
       if (target.hooks?.onHitTaken) target.hooks.onHitTaken.forEach(hk => hk(target, enemy, dPre, {isMassiveAoe}));
     }
 
@@ -1071,8 +1095,6 @@
 
       shuffledGroups.forEach(grp => { 
         let validCards = ALL_CARDS_POOL.filter(c => grp.includes(c.type) && !options.some(o => o.id === c.id)); 
-        //這段會自動把滿等的被動能力過濾掉
-        //if (grp.includes('passive')) { validCards = validCards.filter(c => { let has = h.passives.find(x => x.id === c.id); return !(has && h.cardMemory[c.id] >= 6 && c.id !== 'p_10'); }); } 
         if (validCards.length > 0) {
             if (Math.random() < 0.33) { let ownedValid = validCards.filter(c => ownedIds.includes(c.id)); if (ownedValid.length > 0) validCards = ownedValid; }
             options.push(validCards[Math.floor(Math.random() * validCards.length)]); 
@@ -1082,15 +1104,17 @@
       const typeNames = { weapon: 'WEAPON', offhand: 'OFF HAND', armor: 'ARMOR', accessory: 'ACCESSORY', magic: 'MAGIC', special: 'SKILL', items: 'ITEM', passive: 'PASSIVE' }; 
       options.forEach(o => { 
         let cardDiv = document.createElement('div'); cardDiv.className = "ff-btn text-left p-3 flex flex-col justify-between items-start w-full relative group"; let targetProp = o.type === 'passive' ? 'passives' : o.type; let hasObj = ['magic','special','items','passive'].includes(o.type) && h[targetProp].some(x => x.id === o.id); let isEquipUpgrade = ['weapon', 'offhand', 'armor', 'accessory'].includes(o.type) && h.equips[o.type] && h.equips[o.type].id === o.id; let dupUpgradeBadge = ''; 
+        
         if (hasObj || isEquipUpgrade) { 
-          // 1. 狀態檢測：是否為滿等被動？是否為滿次數道具？
-          let isMaxItm = o.type === 'items' && !o.isEquipItem && h.items.find(i=>i.id===o.id)?.uses >= (o.isConsumable ? 1 : o.maxUses);
-          let isMaxPas = o.type === 'passive' && h.cardMemory[o.id] >= 6;
-          // 2. 動態決定文字與顏色 (利用三元運算子保持極簡)
-          let bTxt = isMaxPas ? '無法提升' : (isMaxItm ? '數量已滿' : (o.type==='items'&&!o.isEquipItem ? 'USES +1' : 'UPGRADE'));
-          let bCol = (isMaxPas || isMaxItm) ? 'text-red-400 font-bold bg-black/80 px-1 rounded' : (o.type==='items'&&!o.isEquipItem ? 'text-green-300' : 'text-yellow-300');
-          dupUpgradeBadge = `<span class="absolute top-2 right-2 ${bCol} text-[0.7em] retro-font z-20">${bTxt}</span>`;
+            let isMaxItm = o.type === 'items' && !o.isEquipItem && h.items.find(i=>i.id===o.id)?.uses >= (o.isConsumable ? 1 : o.maxUses);
+            let isMaxPas = o.type === 'passive' && h.cardMemory[o.id] >= 6;
+            
+            let bTxt = isMaxPas ? '無法提升' : (isMaxItm ? '數量已滿' : (o.type==='items'&&!o.isEquipItem ? 'USES +1' : 'UPGRADE'));
+            let bCol = (isMaxPas || isMaxItm) ? 'text-red-400 font-bold bg-black/80 px-1 rounded' : (o.type==='items'&&!o.isEquipItem ? 'text-green-300' : 'text-yellow-300');
+            
+            dupUpgradeBadge = `<span class="absolute top-2 right-2 ${bCol} text-[0.7em] retro-font z-20">${bTxt}</span>`; 
         }
+        
         cardDiv.onclick = () => { selectDraftRewardLogic(h, o); }; 
         let currentEquipText = ""; if (['weapon', 'offhand', 'armor', 'accessory'].includes(o.type)) { let current = h.equips[o.type]; let nameDisplay = current ? current.name : "無"; if (current && current.isTwoHanded) nameDisplay += "(雙手)"; if (o.type === 'offhand' && h.equips.weapon?.isTwoHanded) { nameDisplay = `${h.equips.weapon.name}(雙手)`; } else if (o.type === 'weapon' && o.isTwoHanded) { let wName = h.equips.weapon ? h.equips.weapon.name : "無"; let oName = h.equips.offhand ? h.equips.offhand.name : "無"; nameDisplay = (h.equips.weapon || h.equips.offhand) ? `${wName}/${oName}` : "無"; } currentEquipText = `<div class="text-[0.7em] text-gray-500 retro-font mt-1.5 border-t border-gray-700 pt-1.5 w-full text-right"><span class="text-gray-600">替換:</span> <span class="text-gray-400">${nameDisplay}</span></div>`; } 
         let itemUsesStr = ''; if (o.type === 'items') { let existingItem = h.items.find(i => i.id === o.id); itemUsesStr = ` <span class="text-yellow-300 text-[0.7em]">(${existingItem ? `${existingItem.uses}/${existingItem.maxUses}` : `1/${o.isConsumable ? 1 : o.maxUses}`})</span>`; } 
@@ -1106,7 +1130,8 @@
 
     function selectDraftRewardLogic(hero, opt) { 
       let snap = snapshotHeroState(hero);
-      hero.cardMemory[opt.id] = (hero.cardMemory[opt.id] || 0) + 1; let t = opt.type; let pendingCards = []; 
+      hero.cardMemory[opt.id] = Math.min(opt.type === 'passive' ? 6 : 999, (hero.cardMemory[opt.id] || 0) + 1);
+      let t = opt.type; let pendingCards = []; 
       if (t === 'items' && !opt.isEquipItem) { let existing = hero.items.find(i => i.id === opt.id); if (existing && !opt.isConsumable) { existing.uses = Math.min(existing.uses + 1, existing.maxUses); advanceDraft(); return; } } 
       if (['weapon', 'offhand', 'armor', 'accessory'].includes(t)) { 
         let oldEquip = hero.equips[t]; let isSame = oldEquip && oldEquip.id === opt.id; 
