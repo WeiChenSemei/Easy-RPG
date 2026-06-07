@@ -78,10 +78,10 @@
         .val-hp { color: var(--safe-color); text-shadow: 0 0 5px rgba(51, 204, 51, 0.5); } 
         .val-sp { color: #cc33ff; text-shadow: 0 0 5px rgba(204, 51, 255, 0.5); }
         
-        #map-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; flex-grow: 1; margin: 10px 0; }
-        .cell { background: #112233; border: 1px solid #224455; display: flex; justify-content: center; align-items: center; font-size: 1.8em; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.2s; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); user-select: none; }
+        #map-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; flex-grow: 1; margin: 10px 0; align-content: start; }
+        .cell { aspect-ratio: 1 / 1; background: #112233; border: 1px solid #224455; display: flex; justify-content: center; align-items: center; font-size: 1.6em; border-radius: 6px; font-weight: bold; cursor: pointer; transition: all 0.2s; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); user-select: none; overflow: hidden; }
         .cell:hover:not(.revealed) { border-color: #00ffcc; box-shadow: 0 0 10px rgba(0,255,204,0.3) inset; }
-        .cell.revealed { background: #0a1122; border-color: #112233; box-shadow: none; font-size: 1.5em; }
+        .cell.revealed { background: #0a1122; border-color: #112233; box-shadow: none; }
         .cell.danger-1 { color: #88ccff; text-shadow: 0 0 5px #88ccff; } 
         .cell.danger-2 { color: #ffdd55; text-shadow: 0 0 5px #ffdd55; } 
         .cell.danger-3 { color: #ff8833; text-shadow: 0 0 5px #ff8833; } 
@@ -352,7 +352,7 @@ const SYS = {
     hydrate: () => { STATE.w = STATE.w || { chaos:0, wealth:0, tech:0, faith:0, alien:0 }; STATE.heroes = STATE.heroes || []; STATE.news = STATE.news || []; STATE.seeds = STATE.seeds || []; STATE.fusions = STATE.fusions || []; },
     log: (targetId, msg, isClear = false) => { let el = SYS.el(targetId); if (isClear) el.innerHTML = ''; el.innerHTML += `<div style="margin-bottom:5px;">${msg}</div>`; el.scrollTop = el.scrollHeight; },
     adjFont: val => { let r = document.documentElement; let c = parseInt(getComputedStyle(r).getPropertyValue('--font-size')) || 16; r.style.setProperty('--font-size', `${Math.max(12, Math.min(24, c + val))}px`); },
-    bar: (val) => { let f = Math.floor(val/10); return '[' + '|'.repeat(f) + ' '.repeat(10-f) + '] ' + val + '%'; },
+    bar: (val) => { let f = Math.floor(val/10); return `[<span style="color:#00ffcc">${'|'.repeat(f)}</span><span style="color:#224455">${'|'.repeat(10-f)}</span>] <span style="display:inline-block; width:2.5em; text-align:right;">${val}%</span>`; },
     showSettings: () => { if (STATE.currScreen === 'combat' || STATE.currScreen === 'event') return SYS.toast('⚠️ 戰鬥或事件中無法切換畫面！'); SYS.nav('settings'); },
     showNews: () => { if (STATE.currScreen === 'combat' || STATE.currScreen === 'event') return SYS.toast('⚠️ 戰鬥或事件中無法切換畫面！'); SYS.el('news-content').innerHTML = STATE.news.length === 0 ? "宇宙目前一片死寂..." : STATE.news.map(n => `<div class="news-entry">${n}</div>`).join(''); SYS.nav('news'); },
     showStatus: () => {
@@ -362,6 +362,8 @@ const SYS = {
         let spHtml = STATE.pilot.spirits.map(s => `<span style="color:#ffdd55">${s}</span>: <span style="color:#aaa;">${DB.Spirits[s].desc}</span>`).join('<br>');
         let heroHtml = STATE.heroes.length > 0 ? STATE.heroes.map(h => `<span style="color:#88ccff">${h.n}</span> (${DB.PM[h.t].n})`).join(' | ') : '<span style="color:#888">無知名人物活躍</span>';
         
+        let simHtml = Object.keys(DB.PM).map(k => `<div style="display:flex; justify-content:space-between; margin-bottom:2px;"><span>${DB.PM[k].icon} ${DB.PM[k].n}</span><span>${SYS.bar(w[k])}</span></div>`).join('');
+
         d.innerHTML = `
             <div class="panel"><div class="panel-title">/// Pilot & Mech Data</div>
                 <div class="stat-grid" style="margin-bottom:8px;"><div class="stat-item">等級 <span class="stat-val">Lv.${STATE.pilot.lv}</span><span class="stat-desc">Exp: ${STATE.pilot.exp}/${STATE.pilot.lv*20}</span></div><div class="stat-item">核心武裝 <span class="stat-val">${STATE.mech.wTag}</span><span class="stat-desc">武器傷害屬性</span></div></div>
@@ -380,11 +382,7 @@ const SYS = {
             </div>
             <div class="panel"><div class="panel-title">/// Universe Simulation</div>
                 <div style="color:#ffdd55; font-size:0.85em; font-family:monospace; line-height:1.5;">
-                    ${DB.PM.chaos.n}: ${SYS.bar(w.chaos)}<br>
-                    ${DB.PM.wealth.n}: ${SYS.bar(w.wealth)}<br>
-                    ${DB.PM.tech.n}: ${SYS.bar(w.tech)}<br>
-                    ${DB.PM.faith.n}: ${SYS.bar(w.faith)}<br>
-                    ${DB.PM.alien.n}: ${SYS.bar(w.alien)}
+                    ${simHtml}
                 </div>
                 <div style="margin-top:8px; border-top:1px dashed #005577; padding-top:6px; font-size:0.85em;"><strong>當前星域活躍英雄:</strong><br>${heroHtml}</div>
             </div>`;
