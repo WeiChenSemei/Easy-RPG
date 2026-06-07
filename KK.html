@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>萬王之王 - 無盡傳奇版</title>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; font-family: monospace, sans-serif; overflow: hidden; display: flex; flex-direction: column; }
+        #gameContainer { width: 100%; height: 85%; position: relative; background-color: #050505; }
+        canvas { display: block; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
+        #safeArea { width: 100%; height: 15%; background-color: #000; border-top: 2px solid #333; display: flex; align-items: center; justify-content: center; color: #444; font-size: 14px; letter-spacing: 2px; }
+        
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        .overlay input { padding: 15px; font-size: 24px; width: 70%; text-align: center; border: 2px solid #d4af37; background: #111; color: #fff; border-radius: 8px; margin-bottom: 20px; outline: none; }
+        .overlay textarea { width: 80%; height: 200px; padding: 15px; font-size: 16px; background: #111; color: #fff; border: 2px solid #ccc; border-radius: 8px; margin-bottom: 20px; outline: none; word-break: break-all; resize: none; }
+        .overlay button { padding: 15px 40px; font-size: 24px; background: #ccc; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 10px; }
+        .btn-row { display: flex; gap: 20px; }
+        .author-text { color: #ccc; font-size: 26px; width: 80%; text-align: center; line-height: 1.8; margin-bottom: 40px; }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" oncontextmenu="return false;"></canvas>
+        
+        <div id="nameInputOverlay" class="overlay">
+            <h2 style="color:#d4af37; margin-bottom:30px;">[ 建立你的國家 ]</h2>
+            <input type="text" id="countryName" placeholder="例如：白銀王國" maxlength="10" autocomplete="off" spellcheck="false" />
+            <button id="btnConfirmName">登基為王</button>
+        </div>
+        <div id="unitNameOverlay" class="overlay">
+            <h2 style="color:#aaf; margin-bottom:30px;">[ 賜予英雄姓名 ]</h2>
+            <input type="text" id="unitCustomName" placeholder="例如：阿瑞斯" maxlength="8" autocomplete="off" spellcheck="false" />
+            <div class="btn-row">
+                <button id="btnConfirmUnitName">確認賜名</button>
+                <button id="btnCancelUnitName" style="background:#555;color:#ccc;">取消</button>
+            </div>
+        </div>
+        <div id="retireOverlay" class="overlay">
+            <h2 style="color:#f55; margin-bottom:30px;">[ 退休確認 ]</h2>
+            <div style="color:#aaa; font-size:24px; margin-bottom:40px; text-align:center;">該角色將會永久離隊。<br>是否確定？</div>
+            <div class="btn-row">
+                <button id="btnConfirmRetire" style="background:#a33;color:#fff;">是 (確認)</button>
+                <button id="btnCancelRetire" style="background:#555;color:#ccc;">否 (取消)</button>
+            </div>
+        </div>
+        <div id="authorOverlay" class="overlay">
+            <h2 style="color:#aaf; margin-bottom:30px;">[ 關於本作 ]</h2>
+            <div class="author-text">
+                本遊戲的創意發想來自MUD萬王之王（KK），<br><br>感謝 Ruby 與 Onyx 兩位大神創造了美好的異世界，<br><br>本作只供娛樂、學習、回憶用，不作任何牟利用途。
+            </div>
+            <button id="btnCancelAuthor" style="background:#555;color:#ccc;">關閉</button>
+        </div>
+        <div id="exportOverlay" class="overlay">
+            <h2 style="color:#d4af37; margin-bottom:15px;">[ 匯出繼承碼 ]</h2>
+            <div style="color:#aaa; font-size:18px; margin-bottom:15px;">請複製並妥善保存以下代碼：</div>
+            <textarea id="exportCode" readonly style="border-color:#d4af37;"></textarea>
+            <div class="btn-row"><button id="btnCopyExport">複製代碼</button><button id="btnCancelExport" style="background:#555;color:#ccc;">關閉</button></div>
+        </div>
+        <div id="importOverlay" class="overlay">
+            <h2 style="color:#aaf; margin-bottom:15px;">[ 匯入繼承碼 ]</h2>
+            <div style="color:#aaa; font-size:18px; margin-bottom:15px;">請貼上您的繼承碼以恢復進度：</div>
+            <textarea id="importCode" placeholder="貼上代碼..."></textarea>
+            <div class="btn-row"><button id="btnConfirmImport">確認匯入</button><button id="btnCancelImport" style="background:#555;color:#ccc;">取消</button></div>
+        </div>
+    </div>
+    <div id="safeArea">Inspired by MUD KK</div>
+
+    <script>
+        // ==========================================
+        // 核心與 UI 狀態
+        // ==========================================
+        const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
+        const V_WIDTH = 1080; const V_HEIGHT = 1632; canvas.width = V_WIDTH; canvas.height = V_HEIGHT;
+        const STATE_SPLASH=0, STATE_MAIN=1, STATE_ROSTER=2, STATE_UNIT=3, STATE_BATTLE=4, STATE_ENDING=5, STATE_NPC=6, STATE_NPC_UNIT=7;
+        let currentState = STATE_SPLASH, activeButtons = [];
+        let battleFontSize = 32, mainFontSize = 35, isBattlePaused = false, battleTimer = null, battleInfo = {pStart:0, eStart:0}; 
+        let isSelectingSibling = false, sysMsg = "", sysMsgTimer = null, lastInputTime = 0;
+        let isDetailedLog = true, scrollOffset = 0, isAutoScrolling = true, displayLinesCache = [], needRebuildCache = true;
+        let isDragging = false, dragStartY = 0, facClicks = { id: null, count: 0, time: 0 };
+
+        function showSysMsg(msg) {
+            sysMsg = msg; if(sysMsgTimer) clearTimeout(sysMsgTimer);
+            sysMsgTimer = setTimeout(() => { sysMsg = ""; requestAnimationFrame(draw); }, 800); 
+            requestAnimationFrame(draw);
+        }
+
+        function fNum(n) { 
+            if(n >= 1e12) return (n/1e12).toFixed(1).replace(/\.0$/,'') + 'T';
+            if(n >= 1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'') + 'B';
+            if(n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+            if(n >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + 'K';
+            return Math.floor(n).toString();
+        }
+
+        // ==========================================
+        // 資料庫與特質系統
+        // ==========================================
+        const CLASS_SKILLS = {
+            "冒險者": [{n:"揮擊",m:1.0}, {n:"丟石頭",m:1.1}, {n:"奮力一擊",m:1.2}],
+            "戰士": [{n:"狂擊",m:1.3}, {n:"斬擊",m:1.4}, {n:"破甲打擊",m:1.5}], "魔法師": [{n:"魔法飛彈",m:1.3}, {n:"火球術",m:1.5}, {n:"閃電雷擊",m:1.6}], "牧師": [{n:"飛拳術",m:1.2}, {n:"聖水術",m:1.4}, {n:"破魔咒",m:1.3}],
+            "騎士": [{n:"衝鋒",m:1.5}, {n:"聖光擊",m:1.6}, {n:"騎槍突刺",m:1.7}], "遊俠": [{n:"純潔之刃",m:1.7}, {n:"光速飛踢",m:1.4}, {n:"神之箭矢",m:1.5}], "狂戰士": [{n:"狂暴打擊",m:1.8}, {n:"旋風斬",m:1.6}, {n:"嗜血斬",m:1.7}],
+            "巫師": [{n:"冰刃風暴",m:1.6}, {n:"火龍吐息",m:2.0}, {n:"閃電球",m:1.8}], "魔劍士": [{n:"真空斬",m:1.8}, {n:"匕首雨",m:1.6}, {n:"元素劍",m:1.5}], "咒術師": [{n:"心靈爆破",m:1.7}, {n:"延時炸彈",m:1.9}, {n:"風龍幻象",m:1.6}],
+            "賢者": [{n:"聖言術",m:1.8}, {n:"神聖怒火",m:1.7}, {n:"精神衝擊",m:1.5}], "神官": [{n:"心靈之鎚",m:1.6}, {n:"審判",m:1.8}, {n:"神聖爆破",m:1.7}], "祭司": [{n:"降災",m:1.7}, {n:"神聖之擊",m:1.6}, {n:"暗影箭",m:1.5}],
+            "聖騎士": [{n:"神聖十字斬",m:2.2}, {n:"聖光風暴",m:1.9}, {n:"天堂之怒",m:2.4}, {n:"信仰護體",m:2.1}], "闇騎士": [{n:"死亡打擊",m:2.3}, {n:"黑暗突刺",m:2.0}, {n:"深淵斬",m:2.1}, {n:"黑炎陣",m:2.4}], "龍騎士": [{n:"龍槍突刺",m:2.2}, {n:"巨龍衝擊",m:2.5}, {n:"翔龍斬",m:2.0}, {n:"龍之吐息",m:2.3}],
+            "聖鬥士": [{n:"光速連擊",m:1.9}, {n:"星辰碎裂拳",m:2.6}, {n:"流星拳",m:2.1}, {n:"神聖閃電",m:2.4}], "殺手": [{n:"致命暗殺",m:2.8}, {n:"幻影斬",m:2.0}, {n:"影襲",m:2.2}, {n:"淬毒刃",m:2.3}], "吟遊詩人": [{n:"破壞音波",m:1.8}, {n:"鎮魂曲",m:2.4}, {n:"死亡樂章",m:2.1}, {n:"英雄之歌",m:2.0}],
+            "戰將": [{n:"霸體重擊",m:2.5}, {n:"千軍破",m:2.3}, {n:"無雙斬",m:2.1}, {n:"氣刃斬",m:2.4}], "狂魔": [{n:"天魔解體",m:2.7}, {n:"嗜血狂怒",m:2.2}, {n:"魔神斬",m:2.4}, {n:"血怒",m:2.5}], "鬥神": [{n:"鬥氣爆發",m:2.4}, {n:"無雙亂舞",m:2.1}, {n:"轟天擊",m:2.6}, {n:"破天一擊",m:2.5}],
+            "戰巫": [{n:"核融合術",m:2.4}, {n:"近戰爆破",m:2.2}, {n:"魔力震盪",m:2.0}, {n:"魔武雙擊",m:2.3}], "巫妖": [{n:"死亡凋零",m:2.5}, {n:"靈魂收割",m:2.7}, {n:"骸骨長矛",m:2.1}, {n:"靈魂尖嘯",m:2.4}], "大法師": [{n:"末日審判",m:3.0}, {n:"絕對零度",m:2.6}, {n:"雷神之怒",m:2.5}, {n:"重力倍增",m:2.7}],
+            "劍聖": [{n:"劍刃風暴",m:2.4}, {n:"萬劍訣",m:2.8}, {n:"天外飛仙",m:2.2}, {n:"無極劍氣",m:2.5}], "劍魔": [{n:"泣血劍寒",m:2.6}, {n:"魔刃噬魂",m:2.5}, {n:"修羅斬",m:2.3}, {n:"魔氣縱橫",m:2.4}], "大劍師": [{n:"巨劍崩擊",m:2.5}, {n:"裂地斬",m:2.2}, {n:"天 劍",m:2.4}, {n:"劍氣爆發",m:2.6}],
+            "靈能者": [{n:"念動力場",m:2.1}, {n:"腦域風暴",m:2.5}, {n:"精神爆破",m:2.3}, {n:"心靈震盪",m:2.4}], "妖術師": [{n:"混亂妖氣",m:2.2}, {n:"空間撕裂",m:2.6}, {n:"妖火焚身",m:2.4}, {n:"妖氣衝擊",m:2.3}], "操魔師": [{n:"傀儡爆破",m:2.3}, {n:"惡魔召喚",m:2.5}, {n:"魔法漩渦",m:2.1}, {n:"深淵召喚",m:2.6}],
+            "聖者": [{n:"神之干預",m:2.8}, {n:"聖光洗禮",m:2.2}, {n:"極光擊",m:2.4}, {n:"神聖庇護",m:2.5}], "邪魔": [{n:"邪神獻祭",m:2.9}, {n:"幽冥劫火",m:2.5}, {n:"黑暗吞噬",m:2.3}, {n:"惡魔之擊",m:2.7}], "智者": [{n:"真理啟示",m:2.7}, {n:"元素共鳴",m:2.3}, {n:"星辰指引",m:2.2}, {n:"全知之眼",m:2.5}],
+            "主教": [{n:"異端審問",m:2.6}, {n:"神罰降臨",m:2.8}, {n:"聖槍",m:2.4}, {n:"神聖結界",m:2.5}], "妖神": [{n:"妖氣衝天",m:2.5}, {n:"吞噬天地",m:3.0}, {n:"萬妖劫",m:2.7}, {n:"妖神變",m:2.8}], "長老": [{n:"祖靈之怒",m:2.6}, {n:"大地之怒",m:2.5}, {n:"自然懲戒",m:2.3}, {n:"自然領域",m:2.4}],
+            "法王": [{n:"絕對真理",m:2.9}, {n:"光明聖火",m:2.4}, {n:"神聖裁決",m:2.7}, {n:"光明禮讚",m:2.6}], "妖祭司": [{n:"血之詛咒",m:2.4}, {n:"黑暗儀式",m:2.6}, {n:"靈魂剝奪",m:2.5}, {n:"詛咒之環",m:2.7}], "大祭司": [{n:"神聖天啟",m:2.7}, {n:"末日祈禱",m:2.9}, {n:"神威",m:2.5}, {n:"神之恩典",m:2.6}]
+        };
+
+        const RAW_CLASSES = [
+            ["冒險者",0,"無","無","戰士,魔法師,牧師",100,10,5,5],
+            ["戰士",1,"戰士","無","騎士,遊俠,狂戰士",200,25,15,10], ["魔法師",1,"法師","無","巫師,魔劍士,咒術師",120,35,5,8], ["牧師",1,"牧師","無","賢者,神官,祭司",150,15,10,6],
+            ["騎士",2,"戰士","無","聖騎士,闇騎士,龍騎士",300,40,30,15], ["遊俠",2,"戰士","無","聖鬥士,殺手,吟遊詩人",250,45,15,25], ["狂戰士",2,"戰士","無","戰將,狂魔,鬥神",350,60,10,12],
+            ["巫師",2,"法師","無","戰巫,巫妖,大法師",180,60,10,12], ["魔劍士",2,"法師","無","劍聖,劍魔,大劍師",250,50,15,20], ["咒術師",2,"法師","無","靈能者,妖術師,操魔師",160,55,8,14],
+            ["賢者",2,"牧師","無","聖者,邪魔,智者",220,30,20,10], ["神官",2,"牧師","無","主教,妖神,長老",250,25,25,8], ["祭司",2,"牧師","無","法王,妖祭司,大祭司",200,35,15,12],
+            ["聖騎士",3,"戰士","神聖","",500,80,60,30], ["闇騎士",3,"戰士","邪惡","",480,90,50,32], ["龍騎士",3,"戰士","中立","",550,85,55,35],
+            ["聖鬥士",3,"戰士","神聖","",400,95,30,50], ["殺手",3,"戰士","邪惡","",350,110,20,60], ["吟遊詩人",3,"戰士","中立","",420,80,35,45],
+            ["戰將",3,"戰士","神聖","",600,110,40,25], ["狂魔",3,"戰士","邪惡","",500,130,20,28], ["鬥神",3,"戰士","中立","",650,120,30,30],
+            ["戰巫",3,"法師","神聖","",350,110,25,25], ["巫妖",3,"法師","邪惡","",280,130,15,22], ["大法師",3,"法師","中立","",300,120,20,20],
+            ["劍聖",3,"法師","中立","",450,100,30,45], ["劍魔",3,"法師","邪惡","",400,115,25,48], ["大劍師",3,"法師","中立","",480,105,35,40],
+            ["靈能者",3,"法師","中立","",250,125,15,35], ["妖術師",3,"法師","中立","",260,120,18,32], ["操魔師",3,"法師","中立","",270,115,20,30],
+            ["聖者",3,"牧師","神聖","",400,70,40,25], ["邪魔",3,"牧師","邪惡","",380,85,30,28], ["智者",3,"牧師","中立","",420,75,45,22],
+            ["主教",3,"牧師","神聖","",450,60,50,20], ["妖神",3,"牧師","邪惡","",420,80,35,24], ["長老",3,"牧師","中立","",480,65,55,18],
+            ["法王",3,"牧師","神聖","",350,90,30,28], ["妖祭司",3,"牧師","邪惡","",320,100,25,30], ["大祭司",3,"牧師","中立","",380,85,35,26]
+        ];
+
+        const FACILITIES = [
+            { id: 'hp', name: '訓練場', desc: '全軍HP', baseCost: 500, eff: 20 }, { id: 'wAtk', name: '鐵匠鋪', desc: '戰士系攻', baseCost: 500, eff: 5 },
+            { id: 'mAtk', name: '魔法塔', desc: '法師系攻', baseCost: 500, eff: 5 }, { id: 'pAtk', name: '教堂', desc: '牧師系攻', baseCost: 500, eff: 5 },
+            { id: 'def', name: '防具店', desc: '全軍防禦', baseCost: 500, eff: 3 }, { id: 'spd', name: '馬廄', desc: '全軍速度', baseCost: 500, eff: 2 }
+        ];
+
+        const NPC_DB = {
+            10: {n: "小僧侶", c: "牧師"}, 20: {n: "城門守衛", c: "戰士"}, 30: {n: "女服務生悠妮", c: "魔法師"}, 40: {n: "管家蘭貓咪", c: "賢者"},
+            50: {n: "月神祭司", c: "祭司"}, 60: {n: "賞金獵人", c: "遊俠"}, 70: {n: "武器大師蓋茲", c: "大劍師"}, 80: {n: "紅衣主教", c: "主教"},
+            90: {n: "築城大師凱爾斯", c: "聖騎士"}, 100: {n: "席巴克兄弟", c: "殺手"}, 110: {n: "白衣修士", c: "聖者"}, 120: {n: "老法師", c: "大法師"}
+        };
+
+        const CLASS_DB = {}, SIBLINGS = {}; 
+        RAW_CLASSES.forEach(c => { CLASS_DB[c[0]] = { name:c[0], tier:c[1], type:c[2], faction:c[3], next:c[4]?c[4].split(','):[], hp:c[5], atk:c[6], def:c[7], spd:c[8] }; });
+        Object.values(CLASS_DB).forEach(c => { if(c.next.length) c.next.forEach(n => SIBLINGS[n]=c.next); });
+        SIBLINGS["戰士"] = SIBLINGS["魔法師"] = SIBLINGS["牧師"] = ["戰士", "魔法師", "牧師"];
+
+        let gameData = { name: "", gold: 1000, conquered: 0, streak: 0, dungeonFloor: 1, army: [], npcs: [], allCountries: [], defeatedCountries: [], fac: {hp:0, wAtk:0, mAtk:0, pAtk:0, def:0, spd:0} };
+        let rosterPage = 0, selectedUnitIndex = -1, battleLogs = [], battleDisplayIndex = 0, currentEnemyName = "";
+
+        // ==========================================
+        // 核心存檔優化與數值公式化系統 (防通膨)
+        // ==========================================
+        function packData(d) {
+            return {
+                name: d.name, gold: d.gold, conquered: d.conquered, streak: d.streak, dungeonFloor: d.dungeonFloor, fac: d.fac,
+                army: d.army.map(u => ({ cN: u.className, n: u.customName, lv: u.level, e: u.exp })),
+                npcs: d.npcs.map(u => ({ o: u.oName, c: u.customName }))
+            };
+        }
+        function unpackData(p) {
+            if(!p) return false;
+            let restoreUnit = (u) => {
+                let nu = createUnit(u.className || u.cN, u.level || u.lv);
+                nu.customName = u.customName || u.n || ""; nu.exp = u.exp || u.e || 0; return nu;
+            };
+            let army = (p.army||[]).map(restoreUnit);
+            let dFloor = p.dungeonFloor || 1;
+            let maxArmyLv = army.length > 0 ? Math.max(...army.map(a => a.level)) : 1;
+            let targetLevel = maxArmyLv + Math.floor(dFloor / 5);
+
+            gameData = {
+                name: p.name || "無名", gold: p.gold || 0, conquered: p.conquered || 0, streak: p.streak || 0, 
+                dungeonFloor: dFloor, fac: p.fac || {hp:0, wAtk:0, mAtk:0, pAtk:0, def:0, spd:0}, army: army, 
+                npcs: (p.npcs||[]).map(u => {
+                    let oN = u.o || u.oN || u.oName; let cN = u.c || u.customName || u.n;
+                    let nInfo = Object.values(NPC_DB).find(x => x.n === oN);
+                    let nu = createUnit(nInfo ? nInfo.c : (u.cN || "冒險者"), targetLevel);
+                    nu.oName = oN; nu.customName = cN || oN; return nu;
+                })
+            };
+            return true;
+        }
+
+        function calcStats(cName, lv) {
+            let b = CLASS_DB[cName];
+            return {
+                hp: b.hp + (lv - 1) * Math.floor(b.hp * 0.1),
+                atk: b.atk + (lv - 1) * Math.floor(b.atk * 0.1),
+                def: b.def + (lv - 1) * Math.floor(b.def * 0.1),
+                spd: b.spd + (lv - 1) * Math.floor(b.spd * 0.05),
+                exp: Math.floor(100 * Math.pow(lv, 1.2) * (b.tier + 1))
+            };
+        }
+
+        function syncNpcLevels() {
+            if(!gameData.npcs || gameData.npcs.length === 0) return;
+            let maxArmyLv = gameData.army.length > 0 ? Math.max(...gameData.army.map(a => a.level)) : 1;
+            let targetLevel = maxArmyLv + Math.floor(gameData.dungeonFloor / 5);
+            gameData.npcs.forEach(npc => {
+                if(npc.level !== targetLevel) {
+                    let nInfo = Object.values(NPC_DB).find(x => x.n === npc.oName);
+                    let nu = createUnit(nInfo ? nInfo.c : npc.className, targetLevel);
+                    Object.assign(npc, nu, { oName: npc.oName, customName: npc.customName });
+                }
+            });
+        }
+
+        function updateTraits(u) {
+            u.traits = ['potion'];
+            if(u.tier>=1) u.traits.push(u.type==='戰士'?'guard':u.type==='法師'?'pierce':'heal');
+            if(u.tier>=2) {
+                let m = {"騎士":"protect","遊俠":"buff_s","狂戰士":"berserk","巫師":"aoe","咒術師":"stun","魔劍士":"combo","賢者":"heal_all","神官":"buff_b","祭司":"crit"};
+                let t2 = m[u.className];
+                if(!t2) { let pool = u.type==='戰士'?['protect','buff_s','berserk']:u.type==='法師'?['aoe','stun','combo']:['heal_all','buff_b','crit']; t2 = pool[Math.abs(u.className.charCodeAt(0))%3]; }
+                u.traits.push(t2);
+            }
+            if(u.tier>=3) {
+                if(u.className.includes('妖') || u.className.includes('魔')) u.traits.push('vampire');
+                else u.traits.push(u.faction==='神聖'?'holy':u.faction==='邪惡'?'evil':'neutral');
+            }
+        }
+
+        function getSkillsForClass(cls, tier) { let pool = CLASS_SKILLS[cls] || [{n: "普攻", m: 1.0}]; return [...pool].sort(()=>0.5-Math.random()).slice(0, tier===0?1:tier===1?2:tier===2?3:4); }
+        function getFinalStats(u) {
+            let f = gameData.fac;
+            return { maxHp: u.maxHp + f.hp * FACILITIES.find(x=>x.id==='hp').eff, hp: u.maxHp + f.hp * FACILITIES.find(x=>x.id==='hp').eff, 
+                     atk: u.atk + (u.type==='戰士'?f.wAtk*5 : u.type==='法師'?f.mAtk*5 : u.type==='牧師'?f.pAtk*5 : 0), 
+                     def: u.def + f.def * FACILITIES.find(x=>x.id==='def').eff, spd: u.spd + f.spd * FACILITIES.find(x=>x.id==='spd').eff };
+        }
+        function getCountryName() {
+            const p = ["白銀","神聖","魔龍","白鹿","銀月","黑龍","蒼鷹","烈日","冰雪","狂風","幽暗","光明","鋼鐵","黃金","水晶","獅鷲","巨獸","暗影","虛空","星辰","太陽","月亮","大地","海洋","烈焰","寒冰","毒牙","利爪","鐵血","精靈","矮人","泰坦","巨龍"];
+            const s = ["王國","聯邦","帝國","王朝","共和國","公國","部落","聯盟","同盟","聖國"];
+            return p[Math.floor(Math.random()*p.length)] + s[Math.floor(Math.random()*s.length)];
+        }
+
+        function createUnit(cName, level = 1) {
+            let b = CLASS_DB[cName], s = calcStats(cName, level);
+            let u = { customName: "", className: b.name, tier: b.tier, type: b.type, faction: b.faction, level: level, exp: 0, maxExp: s.exp, hp: s.hp, maxHp: s.hp, atk: s.atk, def: s.def, spd: s.spd, skills: getSkillsForClass(b.name, b.tier) };
+            updateTraits(u); return u;
+        }
+
+        function levelUpUnit(u) { 
+            u.level++; let s = calcStats(u.className, u.level);
+            u.maxExp = s.exp; u.maxHp = s.hp; u.atk = s.atk; u.def = s.def; u.spd = s.spd; u.hp = u.maxHp; 
+        }
+
+        function changeClass(u, nName) {
+            let b = CLASS_DB[nName];
+            if(b.tier > u.tier && b.tier >= 2) u.level = Math.max(1, u.level - 10);
+            u.exp = 0; 
+            Object.assign(u, {className: b.name, tier: b.tier, type: b.type, faction: b.faction});
+            let s = calcStats(b.name, u.level);
+            u.maxExp = s.exp; u.maxHp = s.hp; u.atk = s.atk; u.def = s.def; u.spd = s.spd; u.hp = u.maxHp;
+            u.skills = getSkillsForClass(b.name, b.tier); updateTraits(u);
+        }
+
+        function swapSiblingClass(u, nName) { 
+            let b = CLASS_DB[nName]; Object.assign(u, {className: b.name, type: b.type, faction: b.faction}); 
+            let s = calcStats(b.name, u.level);
+            u.maxHp = s.hp; u.atk = s.atk; u.def = s.def; u.spd = s.spd; u.hp = Math.min(u.hp, u.maxHp);
+            u.skills = getSkillsForClass(b.name, b.tier); updateTraits(u); 
+        }
+        
+        function saveGame() { localStorage.setItem('kokSaveMUD_Endless', JSON.stringify(packData(gameData))); showSysMsg("系統：壓縮並存檔成功！"); }
+        function loadGame() {
+            let d = localStorage.getItem('kokSaveMUD_Endless');
+            if(d && unpackData(JSON.parse(d))) { currentState = STATE_MAIN; showSysMsg("系統：讀檔並還原成功！"); } 
+            else showSysMsg("系統：找不到存檔或格式錯誤。");
+        }
+        function getDispName(u) { return u.isMon ? (u.isBoss ? `[BOSS] ${u.customName}` : `[${u.customName}]`) : u.customName ? `[${u.className}]${u.customName}` : `[${u.className}]`; }
+
+        // ==========================================
+        // 戰鬥引擎與 MUD 文學生成器
+        // ==========================================
+        function pushLog(shortTxt, c="#999", detailTxt=null) { battleLogs.push({ type:'text', short: String(shortTxt), detail: String(detailTxt||shortTxt), c: c }); needRebuildCache = true; }
+        function wrapText(text, maxWidth, fontStr) {
+            if(!text) return []; ctx.font = fontStr; let lines = [], curr = "";
+            for(let char of text) { let test = curr + char; if(ctx.measureText(test).width > maxWidth && curr.length > 0) { lines.push(curr); curr = char; } else curr = test; }
+            if(curr) lines.push(curr); return lines;
+        }
+        function buildDisplayCache() {
+            displayLinesCache = []; ctx.font = `bold ${battleFontSize}px sans-serif`;
+            let shown = battleLogs.slice(0, battleDisplayIndex);
+            for(let log of shown) {
+                if(log.type === 'pause') continue; 
+                wrapText(isDetailedLog ? log.detail : log.short, V_WIDTH - 100, ctx.font).forEach(line => displayLinesCache.push({t: line, c: log.c}));
+            }
+            needRebuildCache = false;
+        }
+
+        function launchCombat(type) {
+            if(gameData.army.length === 0) return showSysMsg("系統：部隊無人！");
+            syncNpcLevels(); 
+            
+            let eTotal = [], sNames = [], diffMod = 1;
+
+            if(type === 'siege') {
+                currentEnemyName = getCountryName();
+                if(gameData.streak >= 3 && Math.random() < 0.6) diffMod = 1 + Math.min(0.5, (gameData.streak - 2) * 0.05);
+                gameData.army.forEach(pu => {
+                    let clsArr = Object.values(CLASS_DB).filter(c => c.tier === pu.tier).map(c => c.name);
+                    let eUnit = createUnit(clsArr[Math.floor(Math.random() * clsArr.length)], 1), pFinal = getFinalStats(pu), v = () => (0.9 + Math.random() * 0.2) * diffMod; 
+                    eUnit.level = Math.max(1, pu.level + Math.floor(Math.random()*3)-1); eUnit.maxHp = Math.floor(pFinal.maxHp * v()); eUnit.hp = eUnit.maxHp;
+                    eUnit.atk = Math.floor(pFinal.atk * v()); eUnit.def = Math.floor(pFinal.def * v()); eUnit.spd = Math.floor(pFinal.spd * v()); eTotal.push(eUnit);
+                });
+                sNames = ["城門防線", "外圍陣地", "兵營市街", "近衛內城", "王座大廳"];
+                battleLogs = []; scrollOffset = 0; isAutoScrolling = true;
+                pushLog(`*** 開始攻打 [ ${currentEnemyName} ] ***`, "#fff");
+                if(diffMod > 1) pushLog(`!!! 敵軍士氣高漲 (強敵) !!!`, "#f55", `!!! 敵方察覺到我方連勝勢頭，爆發出前所未有的高昂士氣 (能力小幅提升) !!!`);
+            } else {
+                currentEnemyName = `地下城 第 ${gameData.dungeonFloor} 層`;
+                let isBossFloor = gameData.dungeonFloor % 5 === 0;
+                const M_PRE = ["狂暴的","嗜血的","腐敗的","劇毒的","幽暗的","詛咒的","白骨","火焰","寒冰","暗影"];
+                const M_SUF = ["哥布林","獸人","食人魔","骷髏兵","石像鬼","惡魔","幽靈","魔像","巨魔","史萊姆"];
+                const B_SUF = ["深淵領主","骸骨巨龍","混沌魔王","破壞神","恐懼之王","巫妖王","邪龍使徒"];
+                
+                let baseTier = gameData.dungeonFloor >= 35 ? 3 : (gameData.dungeonFloor >= 25 ? 2 : 1);
+                
+                for(let i=0; i<30; i++) {
+                    let isBoss = isBossFloor && i===29;
+                    let t = isBoss ? Math.min(3, baseTier + 1) : baseTier; 
+                    let avail = Object.values(CLASS_DB).filter(c => c.tier === t);
+                    if(!avail.length) avail = Object.values(CLASS_DB);
+                    
+                    let eLevel = Math.max(1, Math.floor(gameData.dungeonFloor * 1.4)); 
+                    let eUnit = createUnit(avail[Math.floor(Math.random()*avail.length)].name, eLevel);
+                    eUnit.isMon = true; eUnit.isBoss = isBoss; eUnit.customName = M_PRE[Math.floor(Math.random()*M_PRE.length)] + (isBoss ? B_SUF[Math.floor(Math.random()*B_SUF.length)] : M_SUF[Math.floor(Math.random()*M_SUF.length)]);
+                    
+                    if(isBoss) { eUnit.maxHp*=3; eUnit.hp=eUnit.maxHp; eUnit.atk=Math.floor(eUnit.atk*1.5); eUnit.def=Math.floor(eUnit.def*1.5); }
+                    eTotal.push(eUnit);
+                }
+                sNames = ["幽暗入口", "潮濕走道", "廢棄祭壇", "白骨大廳", isBossFloor ? "深淵王座 (BOSS)" : "下層入口"];
+                battleLogs = []; scrollOffset = 0; isAutoScrolling = true;
+                pushLog(`*** 深入 [ ${currentEnemyName} ] ***`, "#a5f");
+                if(isBossFloor) pushLog(`!!! 感受到深處傳來恐怖的威壓 (BOSS層) !!!`, "#f55");
+            }
+
+            eTotal.sort(() => 0.5 - Math.random());
+            if(type === 'dungeon' && gameData.dungeonFloor % 5 === 0) {
+                let bossIdx = eTotal.findIndex(u => u.isBoss);
+                if(bossIdx >= 0) eTotal.push(eTotal.splice(bossIdx, 1)[0]); 
+            }
+
+            let stages = [[], [], [], [], []]; eTotal.forEach((u, idx) => stages[Math.floor(idx/6)].push(u));
+            pushLog(`> 敵軍總數：${eTotal.length} 個`, "#ccc");
+
+            let pPool = gameData.army.map(u => { let fs = getFinalStats(u); return {...u, ...fs, isP:true, isNpc:false, curHp: fs.maxHp, bAtk:0, bDef:0, bSpd:0, stun:0, poison:0, oUnit: u}; });
+            if(gameData.npcs) gameData.npcs.forEach(n => n._joined = false);
+
+            let totalKills = 0, isWin = false; 
+            battleInfo.pStart = pPool.length; battleInfo.eStart = eTotal.length; 
+
+            for(let step=0; step<5; step++) {
+                let ePool = stages[step].map(u => ({...u, isP:false, curHp:u.maxHp, bAtk:0, bDef:0, bSpd:0, stun:0, poison:0}));
+                pushLog(``); pushLog(`=== 第 ${step+1} 關：${sNames[step]} ===`, "#fff");
+                if(ePool.length === 0) { pushLog(`> 無人防守，輕鬆推進！`, "#5f5"); battleLogs.push({type:'pause'}); continue; }
+
+                if (gameData.npcs && gameData.npcs.length > 0) {
+                    let availNpcs = gameData.npcs.filter(n => !n._joined);
+                    let joinProbs = [0.06, 0.12, 0.18, 0.24, 0.30]; 
+                    let joining = availNpcs.filter(n => Math.random() < joinProbs[step]);
+                    let aliveCount = pPool.filter(u => u.curHp > 0).length;
+                    
+                    if (joining.length > 0 && (aliveCount + joining.length) <= 30) {
+                        joining.forEach(npc => {
+                            npc._joined = true; let fs = getFinalStats(npc);
+                            pPool.unshift({...npc, ...fs, isP:true, isNpc:true, curHp:fs.maxHp, bAtk:0, bDef:0, bSpd:0, stun:0, poison:0, oUnit: npc});
+                            pushLog(`  *增援* [我方] ${npc.oName} 加入戰場！`, "#d4af37", `[英雄降臨] ${npc.oName} 突入前線，誓言與你戰鬥至最後一刻！`);
+                        });
+                    }
+                }
+
+                let turn = 1;
+                while(pPool.some(u=>u.curHp>0) && ePool.some(u=>u.curHp>0) && turn<150) {
+                    let pActive = pPool.filter(u=>u.curHp>0).slice(0, 6), eActive = ePool.filter(u=>u.curHp>0).slice(0, 6);
+                    let all = [...pActive, ...eActive].sort((a,b) => (b.spd+b.bSpd) - (a.spd+a.bSpd));
+                    
+                    for(let u of all) {
+                        if(u.curHp <= 0) continue;
+                        let px = u.isP?"[我方]":"[敵方]", dn = getDispName(u), uTeam = u.isP?pActive:eActive, tTeam = u.isP?eActive:pActive;
+                        let tgtPool = tTeam.filter(x=>x.curHp>0); if(tgtPool.length === 0) break;
+                        
+                        if(u.stun > 0) { u.stun--; pushLog(`  ${px}${dn} 被定身`, "#88f", `  [狀態] ${px}${dn} 受到束縛，無法行動！`); continue; }
+                        if(u.poison > 0) { let pd = Math.floor(u.maxHp*0.05); u.curHp -= pd; pushLog(`  ${px}${dn} 中毒 -${fNum(pd)}`, "#f5f", `  [狀態] 毒素發作，${px}${dn} 吐出一口黑血！`); u.poison--; if(u.curHp<=0) { pushLog(`  *陣亡* ${px}${dn} 毒發身亡！`, "#ff5"); if(!u.isP) totalKills++; continue; } }
+
+                        let aliveAllies = uTeam.filter(x=>x.curHp>0);
+                        let has = (t) => u.traits.includes(t) && Math.random() < 0.25;
+                        
+                        if(has('potion') && u.curHp < u.maxHp*0.4) { let h=Math.floor(u.maxHp*0.15); u.curHp=Math.min(u.maxHp, u.curHp+h); pushLog(`  ${px}${dn} [喝藥]+${fNum(h)}`, "#5f5", `  ${px}${dn} 灌下藥水，穩住了陣腳！`); continue; }
+                        if(has('heal') && aliveAllies.length > 0) { let w = aliveAllies.sort((a,b)=>a.curHp-b.curHp)[0]; let h=Math.floor(w.maxHp*0.2); w.curHp=Math.min(w.maxHp, w.curHp+h); pushLog(`  ${px}${dn} [治療]->${getDispName(w)}`, "#5f5", `  ${px}${dn} 吟唱治癒，光芒包覆了 ${getDispName(w)}！`); continue; }
+                        if(has('heal_all') && aliveAllies.length > 0) { aliveAllies.forEach(x=>x.curHp=Math.min(x.maxHp, x.curHp+x.maxHp*0.06)); pushLog(`  ${px}${dn} [全體回復]`, "#5f5", `  ${px}${dn} 施展賢者之光，全隊生命力得到了滋潤！`); continue; }
+                        if(has('buff_s')) { u.bAtk+=u.atk*0.15; u.bDef+=u.def*0.15; pushLog(`  ${px}${dn} [小強化]`, "#fd5", `  ${px}${dn} 激發潛能，屬性微幅提升！`); continue; }
+                        if(has('buff_b')) { u.bAtk+=u.atk*0.3; u.bDef+=u.def*0.3; u.bSpd+=u.spd*0.3; pushLog(`  ${px}${dn} [大強化]`, "#fd5", `  ${px}${dn} 接受祝福，戰鬥力大幅飆升！`); continue; }
+                        if(has('berserk')) { let bh = Math.floor(u.maxHp*0.1); u.curHp -= bh; u.bAtk += Math.floor(u.atk*0.4); pushLog(`  ${px}${dn} [狂暴] -${fNum(bh)}`, "#f55", `  ${px}${dn} 雙眼血紅，以生命換取了恐怖的攻擊力！`); if(u.curHp<=0) { pushLog(`  *陣亡* ${px}${dn} 力竭而亡！`, "#ff5"); if(!u.isP) totalKills++; } continue; }
+                        if(has('holy') && aliveAllies.length > 0) { aliveAllies.forEach(x=>x.bDef+=x.def*0.15); pushLog(`  ${px}${dn} [神聖光環]`, "#ff5", `  ${px}${dn} 散發神聖氣息，全隊防禦得到了神之庇護！`); continue; }
+                        if(has('neutral')) { u.poison=0; u.bSpd+=u.spd*0.2; pushLog(`  ${px}${dn} [淨化加速]`, "#aaf", `  ${px}${dn} 驅散了負面狀態，身形變得更加輕靈！`); continue; }
+
+                        let sk = u.skills[Math.floor(Math.random()*u.skills.length)], isAoeHit = has('aoe');
+                        let tgts = isAoeHit ? tgtPool : [tgtPool[Math.floor(Math.random()*tgtPool.length)]];
+
+                        if (!u.isP && !isAoeHit && tgts[0].isNpc) {
+                            let normals = tgtPool.filter(x => !x.isNpc);
+                            if (normals.length > 0 && Math.random() < 0.75) tgts[0] = normals[Math.floor(Math.random() * normals.length)];
+                        }
+
+                        let doHit = (tgt, isCombo, isAoeFlag) => {
+                            if(u.curHp <= 0 || tgt.curHp <= 0) return; 
+                            let isPierce = has('pierce'), isCrit = has('crit'), isEvil = has('evil'), isStun = has('stun'), isVampire = u.traits.includes('vampire');
+                            let tGuard = tgt.traits.includes('guard') && Math.random()<0.25;
+                            let protector = tTeam.find(x => x.curHp>0 && x!==tgt && x.traits.includes('protect'));
+                            let tProtect = protector && Math.random()<0.25, rTgt = tProtect ? protector : tgt;
+
+                            let baseAtk = u.atk+u.bAtk, baseDef = isPierce ? 0 : (rTgt.def+rTgt.bDef);
+                            let dmg = Math.floor(baseAtk * sk.m - baseDef);
+                            if(isAoeFlag) dmg = Math.floor(dmg * 0.45); 
+                            if(dmg<1) dmg=1;
+                            
+                            if((u.type==="法師"&&rTgt.type==="戰士")||(u.type==="戰士"&&rTgt.type==="牧師")||(u.type==="牧師"&&rTgt.type==="法師")) dmg=Math.floor(dmg*1.3);
+                            else if((u.type==="戰士"&&rTgt.type==="法師")||(u.type==="牧師"&&rTgt.type==="戰士")||(u.type==="法師"&&rTgt.type==="牧師")) dmg=Math.floor(dmg*0.8);
+                            if(u.faction!=="無" && rTgt.faction!=="無") {
+                                if((u.faction==="神聖"&&rTgt.faction==="邪惡")||(u.faction==="邪惡"&&rTgt.faction==="中立")||(u.faction==="中立"&&rTgt.faction==="神聖")) dmg=Math.floor(dmg*1.25);
+                                else if((u.faction==="邪惡"&&rTgt.faction==="神聖")||(u.faction==="中立"&&rTgt.faction==="邪惡")||(u.faction==="神聖"&&rTgt.faction==="中立")) dmg=Math.floor(dmg*0.85);
+                            }
+
+                            if(isCrit) dmg*=2; if(tGuard||tProtect) dmg = Math.floor(dmg*0.5); if(isEvil) { dmg = Math.floor(dmg*1.2); rTgt.poison = 2; }
+                            rTgt.curHp -= dmg;
+                            
+                            let vHeal = 0; if (isVampire && dmg > 0) { vHeal = Math.max(1, Math.floor(dmg * 0.3)); u.curHp = Math.min(u.maxHp, u.curHp + vHeal); }
+                            
+                            let aTagsS = (isPierce?"[穿透]":"")+(isCrit?"[爆擊]":"")+(isEvil?"[淬毒]":"")+(isStun?"[定身]":"")+(isVampire?`[吸血+${fNum(vHeal)}]`:"");
+                            let aTagsD = (isPierce?"[穿透]":"")+(isCrit?"[爆擊]":"")+(isEvil?"[淬毒]":"")+(isStun?"[定身]":"")+(isVampire?`[吸血]`:"");
+                            
+                            let dTags = (tGuard?"[防禦]":"")+(tProtect?"[保護]":"");
+                            if(isStun) rTgt.stun = 1;
+
+                            let r = dmg / rTgt.maxHp, pxTgt = u.isP?"[敵方]":"[我方]";
+                            let dLvl = r<0.05?"輕微的擦傷":r<0.15?"輕微的傷害":r<0.3?"可怕的傷口":r<0.5?"極嚴重的傷害":r<0.8?"毀滅性的打擊":"碎屍萬段毀滅重傷";
+                            
+                            let acts = [];
+                            if(u.faction === "神聖") acts = ["高舉聖物，引導天界之力化作", "渾身散發耀眼光芒，施展出", "化作神聖的殘影，不可阻擋地使出"];
+                            else if(u.faction === "邪惡" || isVampire) acts = ["發出令人毛骨悚然的狂笑，釋放出", "周身黑氣繚繞，將深淵詛咒凝聚為", "帶著致命的殺意，無情地刺出"];
+                            else if(u.type === "法師") acts = ["雙手結印，引動周圍元素湧動，施放", "口中唸誦古老咒語，虛空中凝聚出", "法杖直指蒼穹，牽引天地魔力爆發出"];
+                            else if(u.type === "戰士") acts = ["怒吼一聲，以雷霆萬鈞之勢劈出", "身形如電，帶著破空之聲剛猛使出", "大步踏前，地面為之震顫，狂暴揮出"];
+                            else if(u.type === "牧師") acts = ["雙手合十，祈求神明庇護，隨即降下", "吟唱著古老讚美詩，將精神力化為", "目光如炬，以無可動搖的信仰之力驅動"];
+                            else acts = ["身形一閃，出其不意地施展出", "深吸一口氣，凝聚全身力量使出", "眼神一凝，動作行雲流水般施展"];
+                            let actMsg = acts[Math.floor(Math.random() * acts.length)];
+                            let logC = u.isP ? "#5af" : "#f55";
+                            
+                            let sLog = `${px}${dn} ${isCombo?"[連擊]":isAoeFlag?"[全體]":""}${aTagsS} ${sk.n} -> ${pxTgt}${getDispName(rTgt)} ${dTags}-${fNum(dmg)}`;
+                            let dLog = `${px}${dn} ${isCombo?"追加":"趁勢"}${actMsg}「${sk.n}」，對 ${pxTgt}${getDispName(rTgt)} 造成了${dLvl}！${(aTagsD||dTags)?`(${aTagsD}${dTags})`:""}`;
+                            
+                            pushLog(sLog, logC, dLog);
+
+                            if(rTgt.curHp<=0) { pushLog(`  *陣亡* ${pxTgt}${getDispName(rTgt)} 倒下了！`, "#ff5"); if(u.isP) totalKills++; }
+                            else if(rTgt.traits.includes('neutral') && Math.random()<0.25 && rTgt.curHp>0) {
+                                let cDmg = Math.floor(rTgt.atk*0.8); u.curHp -= cDmg;
+                                pushLog(`  ${pxTgt}${getDispName(rTgt)} [反擊] -> ${dn} -${fNum(cDmg)}`, "#fd5", `  ${pxTgt}${getDispName(rTgt)} 抓準破綻，凌厲地反擊了 ${dn}！`);
+                                if(u.curHp<=0) { pushLog(`  *陣亡* ${px}${dn} 倒下了！`, "#ff5"); if(!u.isP) totalKills++; }
+                            }
+                        };
+
+                        tgts.forEach(tg => doHit(tg, false, isAoeHit));
+                        if(has('combo') && !isAoeHit && tgtPool[0].curHp>0 && u.curHp>0) doHit(tgtPool[0], true, false);
+                    } turn++;
+                }
+                if(!pPool.some(u=>u.curHp>0 && u.curHp!==-999)) { pushLog(`[全滅] 我方全滅，部隊潰退...`, "#f55"); break; } 
+                else { pushLog(`>>> 突破了 ${sNames[step]}！`, "#5f5"); if(step < 4) battleLogs.push({type:'pause'}); }
+            }
+
+            isWin = pPool.some(u=>u.curHp>0 && u.curHp!==-999); pushLog(``); pushLog(`=== 戰役結算 ===`, "#fff");
+            let gG = 0, gE = 0;
+            if(type === 'siege') {
+                gG = totalKills * 50; gE = totalKills * 80;
+                if(isWin) { gG += gameData.conquered*20 + 200; gE += gameData.conquered*30 + 100; pushLog(`[大勝] 攻城勝利！`, "#5f5"); gameData.conquered++; gameData.streak++; } 
+                else { pushLog(`[敗北] 攻城失敗...連勝中斷。`, "#f55"); gameData.streak = 0; }
+            } else {
+                gG = totalKills * 15; gE = Math.floor(totalKills * 50 * Math.max(1, Math.floor(Math.sqrt(gameData.dungeonFloor))));
+                if(isWin) { 
+                    gG += 500 * gameData.dungeonFloor; 
+                    gE += 500 * gameData.dungeonFloor; 
+                    pushLog(`[突破] 成功清理了地下城！`, "#a5f"); 
+                    let f = gameData.dungeonFloor;
+                    if(f % 10 === 0 && NPC_DB[f] && !gameData.npcs.find(x => x.oName === NPC_DB[f].n)) {
+                        let nInfo = NPC_DB[f], newNpc = createUnit(nInfo.c, f);
+                        newNpc.oName = nInfo.n; newNpc.customName = nInfo.n;
+                        gameData.npcs.push(newNpc);
+                        pushLog(`[奇遇] 救出了被困的英雄：${nInfo.n}！`, "#d4af37", `[史詩] 擊敗領主後，你在深處解救了英雄「${nInfo.n}」！他已加入殿堂。`);
+                    }
+                    gameData.dungeonFloor++; 
+                } else pushLog(`[敗北] 探索失敗，退回營地。`, "#f55");
+            }
+            
+            pushLog(`* 總擊殺：${fNum(totalKills)}`); pushLog(`$ 獲得資金：${fNum(gG)} 金幣`); pushLog(`+ 獲得經驗：${fNum(gE)} EXP`);
+            gameData.gold += gG; 
+            pPool.forEach(u => { if(u.curHp !== 0 && !u.isNpc) { u.oUnit.exp += gE; while(u.oUnit.exp >= u.oUnit.maxExp) { u.oUnit.exp -= u.oUnit.maxExp; levelUpUnit(u.oUnit); } }});
+
+            currentState = STATE_BATTLE; battleDisplayIndex = 0; isBattlePaused = false;
+            if(gameData.conquered >= 10000) setTimeout(() => currentState = STATE_ENDING, 4000); 
+            if(battleTimer) clearTimeout(battleTimer); advanceBattleLog(); 
+        }
+
+        function advanceBattleLog() {
+            if(currentState !== STATE_BATTLE || isBattlePaused) return; 
+            if(battleDisplayIndex < battleLogs.length) {
+                if(battleLogs[battleDisplayIndex].type === 'pause') {
+                    isBattlePaused = true; battleDisplayIndex++; requestAnimationFrame(draw); 
+                } else {
+                    battleDisplayIndex++; needRebuildCache = true; requestAnimationFrame(draw);
+                    battleTimer = setTimeout(advanceBattleLog, 350); 
+                }
+            } else requestAnimationFrame(draw); 
+        }
+
+        // ==========================================
+        // 渲染引擎與 UI
+        // ==========================================
+        function drawBtn(x, y, w, h, t, cb, bg="#1a1a1a", tc="#ccc", fSize=35) {
+            ctx.fillStyle=bg; ctx.fillRect(x,y,w,h); ctx.strokeStyle="#444"; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
+            ctx.fillStyle=tc; ctx.font=`bold ${fSize}px sans-serif`; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(t, x+w/2, y+h/2);
+            activeButtons.push({x,y,w,h,cb});
+        }
+        function drawTxt(t, x, y, sz, c="#fff", align="left", w="normal") { ctx.fillStyle=c; ctx.font=`${w} ${sz}px sans-serif`; ctx.textAlign=align; ctx.textBaseline="top"; ctx.fillText(t, x, y); }
+
+        function draw() {
+            ctx.clearRect(0, 0, V_WIDTH, V_HEIGHT); ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT); activeButtons = [];
+
+            if(currentState === STATE_SPLASH) {
+                drawTxt("萬王之王", V_WIDTH/2, 350, 110, "#d4af37", "center", "bold"); drawTxt("- 無盡傳奇版 -", V_WIDTH/2, 500, 40, "#888", "center");
+                drawBtn(V_WIDTH/2-250, 650, 500, 100, "[ 開始新遊戲 ]", () => document.getElementById('nameInputOverlay').style.display='flex');
+                drawBtn(V_WIDTH/2-250, 800, 500, 100, "[ 載入存檔 ]", loadGame);
+                drawBtn(V_WIDTH/2-250, 950, 500, 100, "[ 匯入繼承碼 ]", () => { document.getElementById('importCode').value=""; document.getElementById('importOverlay').style.display='flex'; });
+                drawBtn(V_WIDTH/2-150, 1100, 300, 80, "[ 關於本作 ]", () => document.getElementById('authorOverlay').style.display='flex', "#111", "#aaa", 28);
+            } 
+            else if(currentState === STATE_MAIN) {
+                drawBtn(V_WIDTH-280, 40, 110, 80, "字+", () => mainFontSize=Math.min(45,mainFontSize+2), "#111", "#ccc", 32);
+                drawBtn(V_WIDTH-150, 40, 110, 80, "字-", () => mainFontSize=Math.max(20,mainFontSize-2), "#111", "#ccc", 32);
+
+                ctx.fillStyle="#111"; ctx.fillRect(40,150,V_WIDTH-80,210); ctx.strokeRect(40,150,V_WIDTH-80,210);
+                let title = gameData.conquered>=10000 ? "萬王之王" : gameData.conquered>=1000 ? "千王之王" : gameData.conquered>=100 ? "百王之王" : gameData.conquered>=50 ? "伯爵" : gameData.conquered>=10 ? "男爵" : "平民";
+                drawTxt(`國家：${gameData.name}`, 70, 170, mainFontSize+5, "#fff", "left", "bold");
+                drawTxt(`稱號：${title} | 征服：${fNum(gameData.conquered)} | 連勝：${gameData.streak}`, 70, 230, mainFontSize-2, "#aaa");
+                drawTxt(`資金：${fNum(gameData.gold)} 金幣 | 兵力：${gameData.army.length}/30`, 70, 290, mainFontSize-2, "#ffd700");
+
+                drawBtn(40, 380, V_WIDTH/2-60, 100, "[ 發起攻城 ]", ()=>launchCombat('siege'), "#311", "#faa", mainFontSize);
+                drawBtn(V_WIDTH/2+20, 380, V_WIDTH/2-60, 100, `[ 地下城 ${gameData.dungeonFloor}F ]`, ()=>launchCombat('dungeon'), "#214", "#aaf", mainFontSize);
+                drawBtn(40, 500, V_WIDTH/2-60, 100, "[ 部隊轉職 ]", () => {rosterPage=0; currentState=STATE_ROSTER;}, "#1a1a1a", "#ccc", mainFontSize);
+                drawBtn(V_WIDTH/2+20, 500, V_WIDTH/2-60, 100, "[ 招募 100金幣 ]", () => {
+                    if(gameData.army.length>=30) return showSysMsg("系統：已達30人上限");
+                    if(gameData.gold<100) return showSysMsg("系統：資金不足");
+                    gameData.gold-=100; gameData.army.push(createUnit("冒險者",1)); showSysMsg("招募成功！");
+                }, "#1a1a1a", "#ccc", mainFontSize);
+                drawBtn(40, 620, V_WIDTH/2-60, 100, "[ 儲存進度 ]", saveGame, "#1a1a1a", "#ccc", mainFontSize);
+                drawBtn(V_WIDTH/2+20, 620, V_WIDTH/2-60, 100, "[ 匯出繼承碼 ]", () => { document.getElementById('exportCode').value = btoa(encodeURIComponent(JSON.stringify(packData(gameData)))); document.getElementById('exportOverlay').style.display='flex'; }, "#1a1a1a", "#ccc", mainFontSize);
+
+                if(gameData.npcs && gameData.npcs.length > 0) drawBtn(40, 740, V_WIDTH/2-60, 100, "[ 英雄殿堂 ]", () => {rosterPage=0; currentState=STATE_NPC;}, "#123", "#aaf", mainFontSize);
+                if(gameData.conquered>=10000) drawBtn(V_WIDTH/2+20, 740, V_WIDTH/2-60, 100, "=== 觀看結局 ===", ()=>currentState=STATE_ENDING, "#221", "#fd0", mainFontSize);
+
+                drawTxt("=== 國家基礎設施 ===", V_WIDTH/2, 860, 36, "#fff", "center", "bold");
+                FACILITIES.forEach((fac, i) => {
+                    let lv = gameData.fac[fac.id] || 0; let cost = fac.baseCost * (lv + 1);
+                    let x = i%2===0 ? 40 : V_WIDTH/2 + 20, y = 910 + Math.floor(i/2)*160;
+                    drawBtn(x, y, V_WIDTH/2-60, 140, "", () => { 
+                        let now = Date.now();
+                        if(facClicks.id === fac.id && now - facClicks.time < 2000) facClicks.count++;
+                        else { facClicks.id = fac.id; facClicks.count = 1; }
+                        facClicks.time = now;
+
+                        if(facClicks.count >= 5) {
+                            let cGold = gameData.gold, up = 0, curLv = lv;
+                            while(true) { let c = fac.baseCost * (curLv + 1); if(cGold >= c) { cGold -= c; curLv++; up++; } else break; }
+                            if(up > 0) { gameData.gold = cGold; gameData.fac[fac.id] = curLv; showSysMsg(`極限投資！連升 ${up} 級！`); }
+                            else showSysMsg("資金已榨乾！");
+                            facClicks.count = 0; 
+                        } else {
+                            if(gameData.gold >= cost) { gameData.gold -= cost; gameData.fac[fac.id]++; showSysMsg(`升級成功！(連點${5-facClicks.count}次可極限投資)`); } 
+                            else showSysMsg("資金不足！"); 
+                        }
+                    }, "#1a1a1a");
+                    drawTxt(`${fac.name} Lv.${lv}`, x+30, y+20, mainFontSize-3, "#d4af37", "left", "bold"); drawTxt(`${fac.desc}+${fac.eff}`, x+30, y+70, mainFontSize-7, "#8cf"); drawTxt(`升級:${fNum(cost)}金幣`, x+30, y+110, mainFontSize-7, "#aaa");
+                });
+            }
+            else if(currentState === STATE_ROSTER || currentState === STATE_NPC) {
+                if(currentState === STATE_NPC) syncNpcLevels(); 
+                let isNpcMode = currentState === STATE_NPC, list = isNpcMode ? gameData.npcs : gameData.army;
+                drawTxt(isNpcMode ? "=== 英雄殿堂 ===" : "=== 部隊列表 ===", V_WIDTH/2, 50, 45, "#fff", "center", "bold");
+                let sIdx = rosterPage * 5, eIdx = Math.min(sIdx+5, list.length);
+                for(let i=sIdx; i<eIdx; i++) {
+                    let u = list[i], fs = getFinalStats(u), y = 140 + (i-sIdx)*230, reqLv = u.tier===0?10 : u.tier===1?25 : u.tier===2?35 : 999, canPro = !isNpcMode && u.level >= reqLv && u.tier < 3;
+                    drawBtn(50, y, V_WIDTH-100, 210, "", () => { selectedUnitIndex=i; isSelectingSibling=false; currentState = isNpcMode ? STATE_NPC_UNIT : STATE_UNIT; }, canPro?"#1a1a10":"#111");
+                    drawTxt(`Lv.${u.level} ${getDispName(u)}`, 80, y+20, 40, canPro?"#ffc":"#fff", "left", "bold");
+                    drawTxt(`HP:${fNum(fs.maxHp)} 攻:${fNum(fs.atk)} 防:${fNum(fs.def)} 速:${fNum(fs.spd)}`, 80, y+80, 32, "#888"); 
+                    if(isNpcMode) drawTxt(`陣營:${u.faction} (英雄能力隨隊伍與樓層成長)`, 80, y+130, 32, "#888");
+                    else drawTxt(`Exp:${fNum(u.exp)}/${fNum(u.maxExp)} 陣營:${u.faction}`, 80, y+130, 32, "#888");
+                    if(canPro) drawTxt("* 可轉職 *", V_WIDTH-220, y+70, 40, "#0f0", "left", "bold");
+                }
+                if(rosterPage>0) drawBtn(50, 1320, 300, 100, "< 上一頁", () => rosterPage--); if(eIdx<list.length) drawBtn(V_WIDTH-350, 1320, 300, 100, "下一頁 >", () => rosterPage++);
+                drawBtn(V_WIDTH/2-200, 1460, 400, 100, "[ 返回主選單 ]", ()=>currentState=STATE_MAIN);
+            }
+            else if(currentState === STATE_UNIT || currentState === STATE_NPC_UNIT) {
+                if(currentState === STATE_NPC_UNIT) syncNpcLevels(); 
+                let isNpcMode = currentState === STATE_NPC_UNIT, u = isNpcMode ? gameData.npcs[selectedUnitIndex] : gameData.army[selectedUnitIndex], fs = getFinalStats(u);
+                drawTxt(isNpcMode ? "=== 英雄資訊 ===" : "=== 角色資訊 ===", V_WIDTH/2, 60, 50, "#fff", "center", "bold");
+                ctx.fillStyle="#111"; ctx.fillRect(50,130,V_WIDTH-100,340);
+                drawTxt(`名稱：${getDispName(u)}`, 100, 150, 45, "#fff", "left", "bold"); 
+                
+                if(isNpcMode) drawTxt(`等級：Lv.${u.level} (英雄能力隨隊伍與樓層成長)`, 100, 215, 35, "#aaa");
+                else drawTxt(`等級：Lv.${u.level} (${fNum(u.exp)}/${fNum(u.maxExp)})`, 100, 215, 35, "#aaa");
+                
+                drawTxt(`HP:${fNum(fs.maxHp)} 攻:${fNum(fs.atk)} 防:${fNum(fs.def)} 速:${fNum(fs.spd)} (含設施)`, 100, 275, 32, "#aaa"); drawTxt(`招式：${u.skills.map(s=>s.n).join(", ")}`, 100, 335, 32, "#8cf");
+                
+                let tNames = {"potion":"[藥水]","guard":"[格擋]","pierce":"[穿透]","heal":"[治療]","protect":"[保護]","buff_s":"[小強化]","berserk":"[狂暴]","aoe":"[群攻]","stun":"[定身]","combo":"[連擊]","heal_all":"[全體補]","buff_b":"[大強化]","crit":"[爆擊]","holy":"[光環]","evil":"[淬毒]","neutral":"[反擊]", "vampire":"[吸血]"};
+                drawTxt(`特質：${u.traits.map(t=>tNames[t]||"").join(" ")}`, 100, 400, 30, "#d4af37");
+
+                if(isNpcMode) {
+                    drawBtn(V_WIDTH/2-200, 480, 400, 100, "[ 賜予姓名 ]", () => { document.getElementById('unitNameOverlay').style.display='flex'; document.getElementById('unitCustomName').value = u.customName; }, "#224", "#aaf");
+                } else {
+                    if (isSelectingSibling) {
+                        drawTxt("= 選擇轉換的分支 =", V_WIDTH/2, 500, 40, "#d4af37", "center"); let cost = u.tier * 500;
+                        SIBLINGS[u.className].filter(s => s !== u.className).forEach((nc, i) => {
+                            drawBtn(100, 580+i*130, V_WIDTH-200, 100, `> 轉換為：${nc}`, () => { if(gameData.gold >= cost) { gameData.gold -= cost; swapSiblingClass(u, nc); isSelectingSibling = false; showSysMsg(`成功轉換為 ${nc}！`); } else showSysMsg("系統：資金不足！"); }, "#221", "#ffc");
+                        });
+                        drawBtn(V_WIDTH/2-200, 1000, 400, 100, "[ 取消轉換 ]", () => isSelectingSibling=false);
+                    } else {
+                        drawBtn(100, 480, 260, 100, "[ 特訓 500金 ]", () => { if(gameData.gold >= 500) { gameData.gold-=500; u.exp+=200; while(u.exp>=u.maxExp) { u.exp-=u.maxExp; levelUpUnit(u); } showSysMsg("獲得 200 Exp"); } else showSysMsg("系統：資金不足！"); }, "#1a1a1a", "#ccc", 28);
+                        if(u.tier > 0) drawBtn(380, 480, 300, 100, `[ 換分支 ${fNum(u.tier*500)}金 ]`, () => isSelectingSibling = true, "#1a1a1a", "#ccc", 28);
+                        drawBtn(700, 480, 280, 100, "[ 賜予姓名 ]", () => { document.getElementById('unitNameOverlay').style.display='flex'; document.getElementById('unitCustomName').value = u.customName; }, "#224", "#aaf");
+
+                        let reqLv = u.tier===0?10 : u.tier===1?25 : u.tier===2?35 : 999;
+                        if(u.level>=reqLv && CLASS_DB[u.className].next.length>0) {
+                            drawTxt("= 可轉職 =", V_WIDTH/2, 630, 40, "#d4af37", "center");
+                            CLASS_DB[u.className].next.forEach((nc, i) => { drawBtn(100, 690+i*120, V_WIDTH-200, 100, `> 轉職為：${nc}`, () => { changeClass(u, nc); currentState=STATE_ROSTER; showSysMsg(`轉職成功！`); }, "#131"); });
+                        } else drawTxt(reqLv===999?"(已達最高階級)":`(轉職需要 Lv.${reqLv})`, V_WIDTH/2, 630, 40, "#666", "center");
+                        
+                        // 修正：危險選項下放到畫面最底端，遠離轉職區塊避免誤觸
+                        drawBtn(100, 1320, 400, 100, "[ 重置為冒險者 5K ]", () => { 
+                            if(gameData.gold >= 5000) { gameData.gold-=5000; changeClass(u, "冒險者"); showSysMsg("已重置為冒險者！"); } else showSysMsg("資金不足！");
+                        }, "#1a1a1a", "#ccc", 28);
+                        drawBtn(580, 1320, 400, 100, `[ 退休換 ${fNum(u.level*100)}金 ]`, () => { document.getElementById('retireOverlay').style.display='flex'; }, "#411", "#faa", 28);
+                    }
+                }
+                drawBtn(V_WIDTH/2-200, 1460, 400, 100, "[ 返回列表 ]", ()=> { isSelectingSibling=false; currentState = isNpcMode ? STATE_NPC : STATE_ROSTER; });
+            }
+            else if(currentState === STATE_BATTLE) {
+                if(needRebuildCache) buildDisplayCache();
+                
+                let aliveP = battleInfo.pStart, aliveE = battleInfo.eStart;
+                for(let i=0; i<battleDisplayIndex; i++) { 
+                    if(battleLogs[i].type === 'text') { 
+                        if(battleLogs[i].short.startsWith("  *陣亡* [我方]")) aliveP--; 
+                        else if(battleLogs[i].short.startsWith("  *陣亡* [敵方]")) aliveE--; 
+                        else if(battleLogs[i].short.startsWith("  *增援* [我方]")) aliveP++; 
+                    }
+                }
+
+                drawTxt("= 戰鬥紀錄 =", 50, 45, 45, "#ccc", "left", "bold");
+                drawTxt(`我方:${aliveP} | 敵方:${aliveE}`, 340, 45, 45, "#d4af37", "left", "bold");
+                drawBtn(V_WIDTH - 260, 25, 100, 80, "字+", () => { battleFontSize=Math.min(60, battleFontSize+4); needRebuildCache=true; requestAnimationFrame(draw); }, "#111");
+                drawBtn(V_WIDTH - 140, 25, 100, 80, "字-", () => { battleFontSize=Math.max(20, battleFontSize-4); needRebuildCache=true; requestAnimationFrame(draw); }, "#111");
+
+                let lineH = battleFontSize * 1.5, listStartY = 160, maxVisible = Math.floor(1150 / lineH); 
+                let maxScroll = Math.max(0, displayLinesCache.length - maxVisible);
+                if(isAutoScrolling) scrollOffset = maxScroll; else scrollOffset = Math.max(0, Math.min(scrollOffset, maxScroll));
+                
+                let sLine = Math.floor(scrollOffset), eLine = Math.min(displayLinesCache.length, sLine + maxVisible + 1);
+                for(let i=sLine; i<eLine; i++) { drawTxt(displayLinesCache[i].t, 50, listStartY + (i - scrollOffset)*lineH, battleFontSize, displayLinesCache[i].c); }
+
+                drawBtn(50, 1400, 200, 100, isDetailedLog ? "簡化" : "詳細", () => { isDetailedLog = !isDetailedLog; needRebuildCache = true; isAutoScrolling = true; requestAnimationFrame(draw); }, "#222");
+                
+                if(battleDisplayIndex >= battleLogs.length) drawBtn(V_WIDTH-450, 1400, 400, 100, "[ 結束結算 ]", ()=>currentState=STATE_MAIN);
+                else if(isBattlePaused) drawBtn(V_WIDTH-450, 1400, 400, 100, "[ 繼續推進 ]", () => { isBattlePaused = false; isAutoScrolling = true; advanceBattleLog(); }, "#242", "#afa");
+                else drawBtn(V_WIDTH-450, 1400, 400, 100, "[ 跳過本關 ]", () => {
+                    if(battleTimer) clearTimeout(battleTimer);
+                    while(battleDisplayIndex<battleLogs.length && battleLogs[battleDisplayIndex].type !== "pause") battleDisplayIndex++;
+                    if(battleDisplayIndex<battleLogs.length && battleLogs[battleDisplayIndex].type === "pause") { isBattlePaused=true; battleDisplayIndex++; }
+                    needRebuildCache = true; isAutoScrolling = true; requestAnimationFrame(draw);
+                }, "#111");
+            }
+            else if(currentState === STATE_ENDING) {
+                drawTxt("*** 萬王之王 ***", V_WIDTH/2, 400, 80, "#d4af37", "center", "bold"); 
+                drawTxt("天下一統，四海昇平。", V_WIDTH/2, 600, 45, "#fff", "center");
+                drawBtn(V_WIDTH/2-200, 1200, 400, 100, "[ 回主選單 ]", ()=>currentState=STATE_MAIN);
+            }
+
+            if(sysMsg) { ctx.fillStyle = "rgba(0,0,0,0.85)"; ctx.fillRect(0, V_HEIGHT/2-80, V_WIDTH, 160); ctx.strokeStyle="#444"; ctx.lineWidth=4; ctx.strokeRect(0, V_HEIGHT/2-80, V_WIDTH, 160); drawTxt(sysMsg, V_WIDTH/2, V_HEIGHT/2-25, 50, "#0f0", "center", "bold"); }
+        }
+
+        // ==========================================
+        // 互動綁定：極致防護 (原生 Click + TouchStart)
+        // ==========================================
+        function handleInput(cx, cy) {
+            if(sysMsg) return true; 
+            let r = canvas.getBoundingClientRect(), x = (cx - r.left) * (V_WIDTH / r.width), y = (cy - r.top) * (V_HEIGHT / r.height);
+            for(let i=activeButtons.length-1; i>=0; i--) { let b = activeButtons[i]; if(x>=b.x && x<=b.x+b.w && y>=b.y && y<=b.y+b.h) { b.cb(); requestAnimationFrame(draw); return true; } }
+            return false;
+        }
+        
+        canvas.addEventListener('pointerdown', e => { 
+            if(Date.now() - lastInputTime < 150) return; lastInputTime = Date.now();
+            let hitBtn = handleInput(e.clientX, e.clientY); 
+            if(!hitBtn && currentState === STATE_BATTLE) { isDragging = true; dragStartY = e.clientY; }
+        });
+        canvas.addEventListener('pointermove', e => {
+            let canScroll = isBattlePaused || battleDisplayIndex >= battleLogs.length;
+            if(isDragging && currentState === STATE_BATTLE && canScroll) {
+                let r = canvas.getBoundingClientRect(), deltaY = (e.clientY - dragStartY) * (V_HEIGHT / r.height);
+                scrollOffset -= (deltaY / (battleFontSize * 1.5)); dragStartY = e.clientY; isAutoScrolling = false; requestAnimationFrame(draw);
+            }
+        });
+        canvas.addEventListener('pointerup', () => isDragging = false); canvas.addEventListener('pointerleave', () => isDragging = false);
+        
+        function bindOverlayBtn(id, cb, isCopy = false) {
+            let el = document.getElementById(id); if(!el) return;
+            if (isCopy) {
+                el.addEventListener('click', cb); 
+            } else {
+                let triggered = false;
+                let execute = (e) => {
+                    if (e.type !== 'click') e.preventDefault(); 
+                    if (triggered) return;
+                    triggered = true; setTimeout(() => triggered = false, 400); 
+                    document.querySelectorAll('input, textarea').forEach(i=>i.blur()); 
+                    cb();
+                };
+                el.addEventListener('touchstart', execute, {passive: false});
+                el.addEventListener('mousedown', execute); 
+            }
+        }
+
+        bindOverlayBtn('btnConfirmName', () => {
+            gameData = { name: document.getElementById('countryName').value.trim() || "無名之國", gold: 1000, conquered: 0, streak: 0, dungeonFloor: 1, army: [createUnit("冒險者"),createUnit("冒險者"),createUnit("冒險者")], npcs: [], allCountries: [], defeatedCountries: [], fac: {hp:0, wAtk:0, mAtk:0, pAtk:0, def:0, spd:0} };
+            document.getElementById('nameInputOverlay').style.display = 'none'; currentState = STATE_MAIN; requestAnimationFrame(draw);
+        });
+        bindOverlayBtn('btnConfirmUnitName', () => {
+            if(selectedUnitIndex !== -1) { 
+                if(currentState === STATE_NPC_UNIT) gameData.npcs[selectedUnitIndex].customName = document.getElementById('unitCustomName').value.trim();
+                else gameData.army[selectedUnitIndex].customName = document.getElementById('unitCustomName').value.trim(); 
+                showSysMsg("賜名成功！"); 
+            }
+            document.getElementById('unitNameOverlay').style.display = 'none'; requestAnimationFrame(draw);
+        });
+        bindOverlayBtn('btnCancelUnitName', () => document.getElementById('unitNameOverlay').style.display = 'none');
+        bindOverlayBtn('btnCancelAuthor', () => document.getElementById('authorOverlay').style.display = 'none');
+        
+        bindOverlayBtn('btnCopyExport', () => {
+            let ta = document.getElementById('exportCode'); ta.select(); document.execCommand('copy');
+            showSysMsg("已複製繼承碼！"); document.getElementById('exportOverlay').style.display = 'none';
+        }, true);
+        
+        bindOverlayBtn('btnCancelExport', () => document.getElementById('exportOverlay').style.display = 'none');
+        
+        bindOverlayBtn('btnConfirmImport', () => {
+            try {
+                let code = document.getElementById('importCode').value.trim(); if(!code) return;
+                let parsed = JSON.parse(decodeURIComponent(atob(code)));
+                if(unpackData(parsed)) {
+                    document.getElementById('importOverlay').style.display = 'none'; currentState = STATE_MAIN; showSysMsg("繼承並解壓縮成功！"); requestAnimationFrame(draw);
+                } else throw new Error();
+            } catch(e) { alert("繼承碼格式錯誤或已損毀！"); }
+        });
+        bindOverlayBtn('btnCancelImport', () => document.getElementById('importOverlay').style.display = 'none');
+
+        bindOverlayBtn('btnConfirmRetire', () => {
+            let u = gameData.army[selectedUnitIndex];
+            let earn = u.level * 100;
+            gameData.gold += earn;
+            gameData.army.splice(selectedUnitIndex, 1);
+            document.getElementById('retireOverlay').style.display = 'none';
+            currentState = STATE_ROSTER;
+            showSysMsg(`退休成功！獲得 ${fNum(earn)} 金幣`);
+            requestAnimationFrame(draw);
+        });
+        bindOverlayBtn('btnCancelRetire', () => document.getElementById('retireOverlay').style.display = 'none');
+
+        document.fonts.ready.then(() => requestAnimationFrame(draw)); window.addEventListener('resize', () => requestAnimationFrame(draw));
+    </script>
+</body>
+</html>
