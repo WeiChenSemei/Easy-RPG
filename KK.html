@@ -29,6 +29,14 @@
             <input type="text" id="countryName" placeholder="例如：白銀王國" maxlength="10" autocomplete="off" spellcheck="false" />
             <button id="btnConfirmName">登基為王</button>
         </div>
+         <div id="renameKingdomOverlay" class="overlay">
+             <h2 style="color:#d4af37; margin-bottom:30px;">[ 重新命名國家 ]</h2>
+             <input type="text" id="newCountryName" placeholder="例如：白銀王國" maxlength="10" autocomplete="off" spellcheck="false" />
+             <div class="btn-row">
+             <button id="btnConfirmRename">確認改名</button>
+            <button id="btnCancelRename" style="background:#555;color:#ccc;">取消</button>
+            </div>
+        </div>
         <div id="unitNameOverlay" class="overlay">
             <h2 style="color:#aaf; margin-bottom:30px;">[ 賜予英雄姓名 ]</h2>
             <input type="text" id="unitCustomName" placeholder="例如：阿瑞斯" maxlength="8" autocomplete="off" spellcheck="false" />
@@ -542,6 +550,10 @@
                 ctx.fillStyle="#111"; ctx.fillRect(40,150,V_WIDTH-80,210); ctx.strokeRect(40,150,V_WIDTH-80,210);
                 let title = gameData.conquered>=10000 ? "萬王之王" : gameData.conquered>=1000 ? "千王之王" : gameData.conquered>=100 ? "百王之王" : gameData.conquered>=50 ? "伯爵" : gameData.conquered>=10 ? "男爵" : "平民";
                 drawTxt(`國家：${gameData.name}`, 70, 170, mainFontSize+5, "#fff", "left", "bold");
+                drawBtn(450, 155, 120, 50, "改名", () => {
+                document.getElementById('renameKingdomOverlay').style.display = 'flex';
+                document.getElementById('newCountryName').value = gameData.name; // 自動帶入舊名字
+                }, "#1a1a1a", "#ccc", 24);
                 drawTxt(`稱號：${title} | 征服：${fNum(gameData.conquered)} | 連勝：${gameData.streak}`, 70, 230, mainFontSize-2, "#aaa");
                 drawTxt(`資金：${fNum(gameData.gold)} 金幣 | 兵力：${gameData.army.length}/30`, 70, 290, mainFontSize-2, "#ffd700");
 
@@ -745,6 +757,14 @@
         bindOverlayBtn('btnCancelUnitName', () => document.getElementById('unitNameOverlay').style.display = 'none');
         bindOverlayBtn('btnCancelAuthor', () => document.getElementById('authorOverlay').style.display = 'none');
         
+        bindOverlayBtn('btnConfirmRename', () => {
+          // 讀取新名字，如果留白就維持原名
+          gameData.name = document.getElementById('newCountryName').value.trim() || gameData.name;
+          document.getElementById('renameKingdomOverlay').style.display = 'none';
+          showSysMsg("國家改名成功！");
+        });
+        bindOverlayBtn('btnCancelRename', () => document.getElementById('renameKingdomOverlay').style.display = 'none');
+
         bindOverlayBtn('btnCopyExport', () => {
             let ta = document.getElementById('exportCode'); ta.select(); document.execCommand('copy');
             showSysMsg("已複製繼承碼！"); document.getElementById('exportOverlay').style.display = 'none';
