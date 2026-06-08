@@ -202,10 +202,10 @@ const SYS = {
     toast: m => { let t=SYS.el('sys-toast'); t.innerText=m; t.style.display='block'; setTimeout(()=>t.style.display='none', 3000); },
     updateUI: () => { ['name','lv','floor','hp','sp'].forEach(k=>{let e=SYS.el(`ui-${k}`); if(e) e.innerText=STATE.pilot[k]!==undefined?STATE.pilot[k]:STATE[k];}); let hpEl=SYS.el('ui-hp'); if(hpEl) hpEl.style.color=STATE.pilot.hp<STATE.pilot.maxHp*0.3?'var(--danger-color)':'var(--safe-color)'; },
     saveLocal: () => { localStorage.setItem('US_SAVE', JSON.stringify(STATE)); SYS.toast('💾 儲存成功'); },
-    loadLocal: (isAuto=false) => { let s=localStorage.getItem('US_SAVE'); if(s){STATE=JSON.parse(s); SYS.hydrate(); if(!isAuto){ SYS.back(); MAP.render(); SYS.toast('📂 讀取成功');}}else if(!isAuto) SYS.toast('❌ 無存檔'); },
+    loadLocal: () => { let s=localStorage.getItem('US_SAVE'); if(s){STATE=JSON.parse(s); SYS.hydrate(); SYS.back(); MAP.render(); SYS.toast('📂 讀取成功');}else SYS.toast('❌ 無存檔'); },
     exportData: () => SYS.el('save-code').value = btoa(encodeURIComponent(JSON.stringify(STATE))),
     importData: () => { try{STATE=JSON.parse(decodeURIComponent(atob(SYS.el('save-code').value))); SYS.hydrate(); SYS.back(); MAP.render(); SYS.toast('📥 繼承成功');}catch(e){SYS.toast('❌ 代碼無效');} },
-    hydrate: () => { STATE.legacy=STATE.legacy||{statBonus:0, gen:1}; STATE.w=STATE.w||{chaos:0,wealth:0,tech:0,faith:0,alien:0}; STATE.heroes=STATE.heroes||[]; STATE.news=STATE.news||[]; STATE.combat.buff=STATE.combat.buff||{}; },
+    hydrate: () => { STATE.legacy=STATE.legacy||{statBonus:0, gen:1}; STATE.w=STATE.w||{chaos:0,wealth:0,tech:0,faith:0,alien:0}; STATE.heroes=STATE.heroes||[]; STATE.news=STATE.news||[]; STATE.combat=STATE.combat||{enemy:null, buff:{}}; STATE.combat.buff=STATE.combat.buff||{}; STATE.map=STATE.map||{grid:[],w:6,h:8,curr:null}; if(STATE.map.width){STATE.map.w=STATE.map.width; delete STATE.map.width;} if(STATE.map.height){STATE.map.h=STATE.map.height; delete STATE.map.height;} if(STATE.map.currCell!==undefined){STATE.map.curr=STATE.map.currCell; delete STATE.map.currCell;} },
     log: (id, msg, clr=0) => { let e=SYS.el(id); if(clr) e.innerHTML=''; e.innerHTML+=`<div style="margin-bottom:5px;">${msg}</div>`; e.scrollTop=e.scrollHeight; },
     adjFont: v => { let r=document.documentElement, c=parseInt(getComputedStyle(r).getPropertyValue('--font-size'))||16; r.style.setProperty('--font-size',`${Math.max(12,Math.min(24,c+v))}px`); },
     bar: v => { let f=Math.floor(v/10); return `[<span style="color:#00ffcc">${'|'.repeat(f)}</span><span style="color:#224455">${'|'.repeat(10-f)}</span>] <span style="display:inline-block;width:2.5em;text-align:right;">${v}%</span>`; },
@@ -226,7 +226,6 @@ const SYS = {
 /** 遊戲核心演算 */
 const GAME = {
     init: () => { 
-        SYS.loadLocal(true); // 自動背景讀取存檔以載入世代數據
         let s=SYS.el('sel-faction'); Object.keys(DB.Factions).forEach(f=>s.innerHTML+=`<option value="${f}">${f}</option>`); 
         s.onchange=e=>SYS.el('faction-desc').innerText=DB.Factions[e.target.value].desc; s.onchange({target:s}); 
     },
