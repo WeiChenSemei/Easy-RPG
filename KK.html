@@ -5,72 +5,135 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>萬王之王 - 無盡國戰版</title>
     <style>
-       // body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; font-family: monospace, sans-serif; overflow: hidden; display: flex; flex-direction: column; }
-        html { width: 100%; height: 100%; background-color: #1a1a1a; }
-        body { margin: 0 auto; padding: 0; width: 100%; height: 100%; max-width: 600px; background-color: #000; font-family: monospace, sans-serif; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.8); position: relative; }
-        #gameContainer { width: 100%; height: 100%; position: relative; background-color: #050505; }
+        /* 古典魔幻史詩 UI 風格設定 */
+        html { width: 100%; height: 100%; background: radial-gradient(circle at center, #2a201a 0%, #0d0a08 100%); }
+        body { 
+            margin: 0 auto; padding: 0; width: 100%; height: 100%; max-width: 600px; 
+            background: linear-gradient(to bottom, #1f1814 0%, #0d0a08 100%); 
+            /* 使用襯線體營造史詩感，並保留 monospace 確保數值對齊 */
+            font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif; 
+            overflow: hidden; display: flex; flex-direction: column; 
+            box-shadow: 0 0 40px rgba(0,0,0,0.9), inset 0 0 20px rgba(0,0,0,0.8); 
+            position: relative; border-left: 2px solid #3d2f25; border-right: 2px solid #3d2f25;
+        }
+        #gameContainer { width: 100%; height: 85%; position: relative; }
         canvas { display: block; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
-        #safeArea { width: 100%; height: 15%; background-color: #000; border-top: 2px solid #333; display: flex; align-items: center; justify-content: center; color: #444; font-size: 14px; letter-spacing: 2px; }
         
-        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        .overlay input { padding: 15px; font-size: 24px; width: 70%; text-align: center; border: 2px solid #d4af37; background: #111; color: #fff; border-radius: 8px; margin-bottom: 20px; outline: none; }
-        .overlay textarea { width: 80%; height: 200px; padding: 15px; font-size: 16px; background: #111; color: #fff; border: 2px solid #ccc; border-radius: 8px; margin-bottom: 20px; outline: none; word-break: break-all; resize: none; }
-        .overlay button { padding: 15px 40px; font-size: 24px; background: #ccc; color: #000; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 10px; }
-        .btn-row { display: flex; gap: 20px; }
-        .author-text { color: #ccc; font-size: 26px; width: 80%; text-align: center; line-height: 1.8; margin-bottom: 40px; }
+        /* 底部資訊列改為仿燙金飾條 */
+        #safeArea { 
+            width: 100%; height: 15%; 
+            background: linear-gradient(to bottom, #110d0b 0%, #000 100%); 
+            border-top: 3px solid #6b533e; 
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.8);
+            display: flex; align-items: center; justify-content: center; 
+            color: #8c7355; font-size: 14px; letter-spacing: 3px; font-weight: bold; font-family: monospace;
+        }
+        
+        /* 覆蓋層：羊皮紙質感的對話框 */
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(13, 10, 8, 0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(5px); }
+        .overlay-content { 
+            background: linear-gradient(135deg, #2a201a 0%, #1a1410 100%); 
+            border: 2px solid #8c7355; border-radius: 12px; padding: 40px 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8), inset 0 0 15px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; align-items: center; width: 85%; max-width: 450px;
+        }
+        .overlay input { 
+            padding: 15px; font-size: 24px; width: 80%; text-align: center; 
+            border: 2px solid #6b533e; background: #0a0806; color: #eaddc5; 
+            border-radius: 6px; margin-bottom: 25px; outline: none; font-family: inherit;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.8);
+        }
+        .overlay input:focus { border-color: #d4af37; box-shadow: 0 0 10px rgba(212, 175, 55, 0.3), inset 0 2px 5px rgba(0,0,0,0.8); }
+        .overlay textarea { 
+            width: 85%; height: 180px; padding: 15px; font-size: 16px; 
+            background: #0a0806; color: #eaddc5; border: 2px solid #6b533e; 
+            border-radius: 6px; margin-bottom: 20px; outline: none; word-break: break-all; resize: none; 
+            font-family: monospace; box-shadow: inset 0 2px 5px rgba(0,0,0,0.8);
+        }
+        .overlay button { 
+            padding: 12px 30px; font-size: 22px; 
+            background: linear-gradient(to bottom, #d4af37 0%, #8c7355 100%); 
+            color: #1a1410; border: 1px solid #ffdf73; border-radius: 6px; 
+            cursor: pointer; font-weight: bold; margin: 10px; font-family: inherit;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5); text-shadow: 0 1px 1px rgba(255,255,255,0.4);
+        }
+        .overlay button:active { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.5); }
+        .btn-row { display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; }
+        .author-text { color: #bca88f; font-size: 22px; text-align: center; line-height: 1.8; margin-bottom: 30px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
     </style>
 </head>
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas" oncontextmenu="return false;"></canvas>
         
+        <!-- UI 層結構包裝為 .overlay-content 以利造型 -->
         <div id="nameInputOverlay" class="overlay">
-            <h2 style="color:#d4af37; margin-bottom:30px;">[ 建立你的國家 ]</h2>
-            <input type="text" id="countryName" placeholder="例如：白銀王國" maxlength="10" autocomplete="off" spellcheck="false" />
-            <button id="btnConfirmName">登基為王</button>
+            <div class="overlay-content">
+                <h2 style="color:#d4af37; margin-top:0; margin-bottom:25px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); letter-spacing: 2px;">[ 建立你的國家 ]</h2>
+                <input type="text" id="countryName" placeholder="例如：白銀王國" maxlength="10" autocomplete="off" spellcheck="false" />
+                <button id="btnConfirmName">登基為王</button>
+            </div>
         </div>
          <div id="renameKingdomOverlay" class="overlay">
-             <h2 style="color:#d4af37; margin-bottom:30px;">[ 重新命名國家 ]</h2>
-             <input type="text" id="newCountryName" placeholder="例如：白銀王國" maxlength="10" autocomplete="off" spellcheck="false" />
-             <div class="btn-row">
-             <button id="btnConfirmRename">確認改名</button>
-            <button id="btnCancelRename" style="background:#555;color:#ccc;">取消</button>
+            <div class="overlay-content">
+                 <h2 style="color:#d4af37; margin-top:0; margin-bottom:25px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); letter-spacing: 2px;">[ 重新命名國家 ]</h2>
+                 <input type="text" id="newCountryName" placeholder="例如：白銀王國" maxlength="10" autocomplete="off" spellcheck="false" />
+                 <div class="btn-row">
+                    <button id="btnConfirmRename">確認詔令</button>
+                    <button id="btnCancelRename" style="background: linear-gradient(to bottom, #555 0%, #333 100%); color: #ccc; border-color:#666; text-shadow: 0 1px 1px #000;">取消</button>
+                </div>
             </div>
         </div>
         <div id="unitNameOverlay" class="overlay">
-            <h2 style="color:#aaf; margin-bottom:30px;">[ 賜予英雄姓名 ]</h2>
-            <input type="text" id="unitCustomName" placeholder="例如：阿瑞斯" maxlength="8" autocomplete="off" spellcheck="false" />
-            <div class="btn-row">
-                <button id="btnConfirmUnitName">確認賜名</button>
-                <button id="btnCancelUnitName" style="background:#555;color:#ccc;">取消</button>
+             <div class="overlay-content">
+                <h2 style="color:#8cafff; margin-top:0; margin-bottom:25px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); letter-spacing: 2px;">[ 賜予英雄真名 ]</h2>
+                <input type="text" id="unitCustomName" placeholder="例如：阿瑞斯" maxlength="8" autocomplete="off" spellcheck="false" />
+                <div class="btn-row">
+                    <button id="btnConfirmUnitName">確認賜名</button>
+                    <button id="btnCancelUnitName" style="background: linear-gradient(to bottom, #555 0%, #333 100%); color: #ccc; border-color:#666; text-shadow: 0 1px 1px #000;">取消</button>
+                </div>
             </div>
         </div>
         <div id="retireOverlay" class="overlay">
-            <h2 style="color:#f55; margin-bottom:30px;">[ 退休確認 ]</h2>
-            <div style="color:#aaa; font-size:24px; margin-bottom:40px; text-align:center;">該角色將會永久離隊。<br>是否確定？</div>
-            <div class="btn-row">
-                <button id="btnConfirmRetire" style="background:#a33;color:#fff;">是 (確認)</button>
-                <button id="btnCancelRetire" style="background:#555;color:#ccc;">否 (取消)</button>
+             <div class="overlay-content">
+                <h2 style="color:#ff6b6b; margin-top:0; margin-bottom:20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); letter-spacing: 2px;">[ 告老還鄉 ]</h2>
+                <div style="color:#bca88f; font-size:20px; margin-bottom:30px; text-align:center;">這位英雄將永久解甲歸田。<br>是否頒布退役詔書？</div>
+                <div class="btn-row">
+                    <button id="btnConfirmRetire" style="background: linear-gradient(to bottom, #c44 0%, #822 100%); color: #fff; border-color:#e66; text-shadow: 0 1px 1px #000;">是 (確認)</button>
+                    <button id="btnCancelRetire" style="background: linear-gradient(to bottom, #555 0%, #333 100%); color: #ccc; border-color:#666; text-shadow: 0 1px 1px #000;">否 (取消)</button>
+                </div>
             </div>
         </div>
         <div id="authorOverlay" class="overlay">
-            <h2 style="color:#aaf; margin-bottom:30px;">[ 關於本作 ]</h2>
-            <div class="author-text">
-                本遊戲的創意發想來自MUD萬王之王（KK），<br>感謝 Ruby 與 Onyx 兩位大神<br>創造了美好的異世界，<br>本作只供娛樂、學習、回憶用，<br>不作任何牟利用途。
+             <div class="overlay-content">
+                <h2 style="color:#8cafff; margin-top:0; margin-bottom:20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); letter-spacing: 2px;">[ 古卷記載 ]</h2>
+                <div class="author-text">
+                    本遊戲之創意火種，<br>傳承自經典 MUD 萬王之王 (KK)。<br><br>致敬 Ruby 與 Onyx 大神，<br>開創了那片美好的異世界。<br><br><span style="font-size: 16px; color:#887;">- 本作僅供娛樂與回憶，非營利用途 -</span>
+                </div>
+                <button id="btnCancelAuthor" style="background: linear-gradient(to bottom, #555 0%, #333 100%); color: #ccc; border-color:#666; text-shadow: 0 1px 1px #000;">闔上古卷</button>
             </div>
-            <button id="btnCancelAuthor" style="background:#555;color:#ccc;">關閉</button>
         </div>
         <div id="exportOverlay" class="overlay">
-            <h2 style="color:#d4af37; margin-bottom:15px;">[ 匯出繼承碼 ]</h2>
-            <div style="color:#aaa; font-size:18px; margin-bottom:15px;">請複製並妥善保存以下代碼：</div>
-            <textarea id="exportCode" readonly style="border-color:#d4af37;"></textarea>
-            <div class="btn-row"><button id="btnCopyExport">複製代碼</button><button id="btnCancelExport" style="background:#555;color:#ccc;">關閉</button></div>
+             <div class="overlay-content">
+                <h2 style="color:#d4af37; margin-top:0; margin-bottom:15px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); letter-spacing: 2px;">[ 封印靈魂石 ]</h2>
+                <div style="color:#bca88f; font-size:16px; margin-bottom:15px; text-align:center;">請妥善保管以下繼承符文：</div>
+                <textarea id="exportCode" readonly style="border-color:#d4af37;"></textarea>
+                <div class="btn-row">
+                    <button id="btnCopyExport">拓印符文</button>
+                    <button id="btnCancelExport" style="background: linear-gradient(to bottom, #555 0%, #333 100%); color: #ccc; border-color:#666; text-shadow: 0 1px 1px #000;">關閉</button>
+                </div>
+            </div>
         </div>
         <div id="importOverlay" class="overlay">
-            <h2 style="color:#aaf; margin-bottom:15px;">[ 匯入繼承碼 ]</h2>
-            <div style="color:#aaa; font-size:18px; margin-bottom:15px;">請貼上您的繼承碼以恢復進度：</div>
-            <textarea id="importCode" placeholder="貼上代碼..."></textarea>
-            <div class="btn-row"><button id="btnConfirmImport">確認匯入</button><button id="btnCancelImport" style="background:#555;color:#ccc;">取消</button></div>
+             <div class="overlay-content">
+                <h2 style="color:#8cafff; margin-top:0; margin-bottom:15px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); letter-spacing: 2px;">[ 解開靈魂石 ]</h2>
+                <div style="color:#bca88f; font-size:16px; margin-bottom:15px; text-align:center;">將您的繼承符文嵌入於此：</div>
+                <textarea id="importCode" placeholder="貼上符文..."></textarea>
+                <div class="btn-row">
+                    <button id="btnConfirmImport">解開封印</button>
+                    <button id="btnCancelImport" style="background: linear-gradient(to bottom, #555 0%, #333 100%); color: #ccc; border-color:#666; text-shadow: 0 1px 1px #000;">取消</button>
+                </div>
+            </div>
         </div>
     </div>
    <div id="safeArea">Inspired by MUD KK</div>
@@ -88,9 +151,25 @@
         let isDetailedLog = true, scrollOffset = 0, isAutoScrolling = true, displayLinesCache = [], needRebuildCache = true;
         let isDragging = false, dragStartY = 0, facClicks = { id: null, count: 0, time: 0 };
 
+        // 史詩色盤定義
+        const P = {
+            bgMain: "rgba(26, 20, 16, 0.6)",       // 半透明暗褐
+            bgBtn: "#2a201a",                     // 按鈕底色
+            bgBtnHover: "#3d2f25",                // 按鈕高亮
+            border: "#6b533e",                    // 古銅邊框
+            borderGold: "#d4af37",                // 燙金邊框
+            textMain: "#eaddc5",                  // 羊皮紙白
+            textTitle: "#d4af37",                 // 燙金字
+            textSub: "#bca88f",                   // 褪色墨水
+            textWarn: "#e65a5a",                  // 警示紅
+            textHeal: "#78d478",                  // 治癒綠
+            textMagic: "#8cafff",                 // 魔法藍
+            textDark: "#b57edc"                   // 詛咒紫
+        };
+
         function showSysMsg(msg) {
             sysMsg = msg; if(sysMsgTimer) clearTimeout(sysMsgTimer);
-            sysMsgTimer = setTimeout(() => { sysMsg = ""; requestAnimationFrame(draw); }, 800); 
+            sysMsgTimer = setTimeout(() => { sysMsg = ""; requestAnimationFrame(draw); }, 1200); // 加長顯示時間
             requestAnimationFrame(draw);
         }
 
@@ -160,7 +239,7 @@
         let rosterPage = 0, selectedUnitIndex = -1, battleLogs = [], battleDisplayIndex = 0, currentEnemyName = "";
 
         // ==========================================
-        // 核心存檔優化與數值公式化系統 (防通膨)
+        // 核心存檔優化與數值公式化系統
         // ==========================================
         function packData(d) {
             return {
@@ -240,8 +319,8 @@
                      def: u.def + f.def * FACILITIES.find(x=>x.id==='def').eff, spd: u.spd + f.spd * FACILITIES.find(x=>x.id==='spd').eff };
         }
         function getCountryName() {
-            const p = ["白銀","神聖","魔龍","白鹿","銀月","黑龍","蒼鷹","烈日","冰雪","狂風","幽暗","光明","鋼鐵","黃金","水晶","獅鷲","巨獸","暗影","虛空","星辰","太陽","月亮","大地","海洋","烈焰","寒冰","毒牙","利爪","鐵血","精靈","矮人","泰坦","巨龍"];
-            const s = ["王國","聯邦","帝國","王朝","共和國","公國","部落","聯盟","同盟","聖國"];
+            const p = ["亞伯里亞","魔龍","魔導","天使","夢幻","白銀","神聖","白鹿","銀月","黑龍","蒼鷹","烈日","冰雪","狂風","幽暗","光明","鋼鐵","黃金","水晶","獅鷲","巨獸","暗影","虛空","星辰","太陽","月亮","大地","海洋","烈焰","寒冰","毒牙","利爪","鐵血","精靈","矮人","泰坦","巨龍"];
+            const s = ["王國","聯邦","帝國","王朝","共和國","公國","部落","聯盟","同盟","聖國","領域","之島","之界","之地","之都","上國","大陸","皇朝","幻境","遺跡"];
             return p[Math.floor(Math.random()*p.length)] + s[Math.floor(Math.random()*s.length)];
         }
 
@@ -273,18 +352,18 @@
             u.skills = getSkillsForClass(b.name, b.tier); updateTraits(u); 
         }
         
-        function saveGame() { localStorage.setItem('kokSaveMUD_Endless', JSON.stringify(packData(gameData))); showSysMsg("系統：壓縮並存檔成功！"); }
+        function saveGame() { localStorage.setItem('kokSaveMUD_Endless', JSON.stringify(packData(gameData))); showSysMsg("系統：古老靈魂石已封印 (存檔成功)"); }
         function loadGame() {
             let d = localStorage.getItem('kokSaveMUD_Endless');
-            if(d && unpackData(JSON.parse(d))) { currentState = STATE_MAIN; showSysMsg("系統：讀檔並還原成功！"); } 
-            else showSysMsg("系統：找不到存檔或格式錯誤。");
+            if(d && unpackData(JSON.parse(d))) { currentState = STATE_MAIN; showSysMsg("系統：靈魂重塑完成 (讀檔成功)"); } 
+            else showSysMsg("系統：靈魂石已破碎或遺失。");
         }
         function getDispName(u) { return u.isMon ? (u.isBoss ? `[BOSS] ${u.customName}` : `[${u.customName}]`) : u.customName ? `[${u.className}]${u.customName}` : `[${u.className}]`; }
 
         // ==========================================
         // 戰鬥引擎與 MUD 文學生成器
         // ==========================================
-        function pushLog(shortTxt, c="#999", detailTxt=null) { battleLogs.push({ type:'text', short: String(shortTxt), detail: String(detailTxt||shortTxt), c: c }); needRebuildCache = true; }
+        function pushLog(shortTxt, c=P.textSub, detailTxt=null) { battleLogs.push({ type:'text', short: String(shortTxt), detail: String(detailTxt||shortTxt), c: c }); needRebuildCache = true; }
         function wrapText(text, maxWidth, fontStr) {
             if(!text) return []; ctx.font = fontStr; let lines = [], curr = "";
             for(let char of text) { let test = curr + char; if(ctx.measureText(test).width > maxWidth && curr.length > 0) { lines.push(curr); curr = char; } else curr = test; }
@@ -317,8 +396,8 @@
                 });
                 sNames = ["城門防線", "外圍陣地", "兵營市街", "近衛內城", "王座大廳"];
                 battleLogs = []; scrollOffset = 0; isAutoScrolling = true;
-                pushLog(`*** 開始攻打 [ ${currentEnemyName} ] ***`, "#fff");
-                if(diffMod > 1) pushLog(`!!! 敵軍士氣高漲 (強敵) !!!`, "#f55", `!!! 敵方察覺到我方連勝勢頭，爆發出前所未有的高昂士氣 (能力小幅提升) !!!`);
+                pushLog(`*** 開始征伐 [ ${currentEnemyName} ] ***`, P.textTitle);
+                if(diffMod > 1) pushLog(`!!! 敵方嚴陣以待 (強敵) !!!`, P.textWarn, `!!! 敵軍察覺了你的連勝威勢，燃起了無與倫比的高昂鬥志 !!!`);
             } else {
                 currentEnemyName = `地下城 第 ${gameData.dungeonFloor} 層`;
                 let isBossFloor = gameData.dungeonFloor % 5 === 0;
@@ -343,8 +422,8 @@
                 }
                 sNames = ["幽暗入口", "潮濕走道", "廢棄祭壇", "白骨大廳", isBossFloor ? "深淵王座 (BOSS)" : "下層入口"];
                 battleLogs = []; scrollOffset = 0; isAutoScrolling = true;
-                pushLog(`*** 深入 [ ${currentEnemyName} ] ***`, "#a5f");
-                if(isBossFloor) pushLog(`!!! 感受到深處傳來恐怖的威壓 (BOSS層) !!!`, "#f55");
+                pushLog(`*** 深入探險 [ ${currentEnemyName} ] ***`, P.textMagic);
+                if(isBossFloor) pushLog(`!!! 深處傳來令人窒息的恐怖威壓 !!!`, P.textWarn);
             }
 
             eTotal.sort(() => 0.5 - Math.random());
@@ -354,7 +433,7 @@
             }
 
             let stages = [[], [], [], [], []]; eTotal.forEach((u, idx) => stages[Math.floor(idx/6)].push(u));
-            pushLog(`> 敵軍總數：${eTotal.length} 個`, "#ccc");
+            pushLog(`> 偵測到魔物總數：${eTotal.length} 體`, P.textSub);
 
             let pPool = gameData.army.map(u => { let fs = getFinalStats(u); return {...u, ...fs, isP:true, isNpc:false, curHp: fs.maxHp, bAtk:0, bDef:0, bSpd:0, stun:0, poison:0, oUnit: u}; });
             if(gameData.npcs) gameData.npcs.forEach(n => n._joined = false);
@@ -364,8 +443,8 @@
 
             for(let step=0; step<5; step++) {
                 let ePool = stages[step].map(u => ({...u, isP:false, curHp:u.maxHp, bAtk:0, bDef:0, bSpd:0, stun:0, poison:0}));
-                pushLog(``); pushLog(`=== 第 ${step+1} 關：${sNames[step]} ===`, "#fff");
-                if(ePool.length === 0) { pushLog(`> 無人防守，輕鬆推進！`, "#5f5"); battleLogs.push({type:'pause'}); continue; }
+                pushLog(``); pushLog(`=== 突破戰：${sNames[step]} ===`, P.textMain);
+                if(ePool.length === 0) { pushLog(`> 毫無防備，輕鬆推進！`, P.textHeal); battleLogs.push({type:'pause'}); continue; }
 
                 if (gameData.npcs && gameData.npcs.length > 0) {
                     let availNpcs = gameData.npcs.filter(n => !n._joined);
@@ -377,7 +456,7 @@
                         joining.forEach(npc => {
                             npc._joined = true; let fs = getFinalStats(npc);
                             pPool.unshift({...npc, ...fs, isP:true, isNpc:true, curHp:fs.maxHp, bAtk:0, bDef:0, bSpd:0, stun:0, poison:0, oUnit: npc});
-                            pushLog(`  *增援* [我方] ${npc.oName} 加入戰場！`, "#d4af37", `[英雄降臨] ${npc.oName} 突入前線，誓言與你戰鬥至最後一刻！`);
+                            pushLog(`  *增援* [我方] ${npc.oName} 拔劍參戰！`, P.textTitle, `[傳奇降臨] ${npc.oName} 衝入戰陣，誓言與你血戰到底！`);
                         });
                     }
                 }
@@ -392,20 +471,20 @@
                         let px = u.isP?"[我方]":"[敵方]", dn = getDispName(u), uTeam = u.isP?pActive:eActive, tTeam = u.isP?eActive:pActive;
                         let tgtPool = tTeam.filter(x=>x.curHp>0); if(tgtPool.length === 0) break;
                         
-                        if(u.stun > 0) { u.stun--; pushLog(`  ${px}${dn} 被定身`, "#88f", `  [狀態] ${px}${dn} 受到束縛，無法行動！`); continue; }
-                        if(u.poison > 0) { let pd = Math.floor(u.maxHp*0.05); u.curHp -= pd; pushLog(`  ${px}${dn} 中毒 -${fNum(pd)}`, "#f5f", `  [狀態] 毒素發作，${px}${dn} 吐出一口黑血！`); u.poison--; if(u.curHp<=0) { pushLog(`  *陣亡* ${px}${dn} 毒發身亡！`, "#ff5"); if(!u.isP) totalKills++; continue; } }
+                        if(u.stun > 0) { u.stun--; pushLog(`  ${px}${dn} 遭到定身`, P.textMagic, `  [狀態] ${px}${dn} 被無形的魔力束縛，動彈不得！`); continue; }
+                        if(u.poison > 0) { let pd = Math.floor(u.maxHp*0.05); u.curHp -= pd; pushLog(`  ${px}${dn} 中毒 -${fNum(pd)}`, P.textDark, `  [狀態] 劇毒蔓延，${px}${dn} 痛苦地嘔出黑血！`); u.poison--; if(u.curHp<=0) { pushLog(`  *陣亡* ${px}${dn} 毒發身亡！`, P.textWarn); if(!u.isP) totalKills++; continue; } }
 
                         let aliveAllies = uTeam.filter(x=>x.curHp>0);
                         let has = (t) => u.traits.includes(t) && Math.random() < 0.25;
                         
-                        if(has('potion') && u.curHp < u.maxHp*0.4) { let h=Math.floor(u.maxHp*0.15); u.curHp=Math.min(u.maxHp, u.curHp+h); pushLog(`  ${px}${dn} [喝藥]+${fNum(h)}`, "#5f5", `  ${px}${dn} 灌下藥水，穩住了陣腳！`); continue; }
-                        if(has('heal') && aliveAllies.length > 0) { let w = aliveAllies.sort((a,b)=>a.curHp-b.curHp)[0]; let h=Math.floor(w.maxHp*0.2); w.curHp=Math.min(w.maxHp, w.curHp+h); pushLog(`  ${px}${dn} [治療]->${getDispName(w)}`, "#5f5", `  ${px}${dn} 吟唱治癒，光芒包覆了 ${getDispName(w)}！`); continue; }
-                        if(has('heal_all') && aliveAllies.length > 0) { aliveAllies.forEach(x=>x.curHp=Math.min(x.maxHp, x.curHp+x.maxHp*0.06)); pushLog(`  ${px}${dn} [全體回復]`, "#5f5", `  ${px}${dn} 施展賢者之光，全隊生命力得到了滋潤！`); continue; }
-                        if(has('buff_s')) { u.bAtk+=u.atk*0.15; u.bDef+=u.def*0.15; pushLog(`  ${px}${dn} [強化術]`, "#fd5", `  ${px}${dn} 激發潛能，屬性微幅提升！`); continue; }
-                        if(has('buff_b')) { u.bAtk+=u.atk*0.3; u.bDef+=u.def*0.3; u.bSpd+=u.spd*0.3; pushLog(`  ${px}${dn} [祝福術]`, "#fd5", `  ${px}${dn} 接受祝福，戰鬥力大幅飆升！`); continue; }
-                        if(has('berserk')) { let bh = Math.floor(u.maxHp*0.1); u.curHp -= bh; u.bAtk += Math.floor(u.atk*0.4); pushLog(`  ${px}${dn} [狂暴] -${fNum(bh)}`, "#f55", `  ${px}${dn} 雙眼血紅，以生命換取了恐怖的攻擊力！`); if(u.curHp<=0) { pushLog(`  *陣亡* ${px}${dn} 力竭而亡！`, "#ff5"); if(!u.isP) totalKills++; } continue; }
-                        if(has('holy') && aliveAllies.length > 0) { aliveAllies.forEach(x=>x.bDef+=x.def*0.15); pushLog(`  ${px}${dn} [神聖光環]`, "#ff5", `  ${px}${dn} 散發神聖氣息，全隊防禦得到了神之庇護！`); continue; }
-                        if(has('neutral')) { u.poison=0; u.bSpd+=u.spd*0.2; pushLog(`  ${px}${dn} [淨化&加速度]`, "#aaf", `  ${px}${dn} 驅散了負面狀態，身形變得更加輕靈！`); continue; }
+                        if(has('potion') && u.curHp < u.maxHp*0.4) { let h=Math.floor(u.maxHp*0.15); u.curHp=Math.min(u.maxHp, u.curHp+h); pushLog(`  ${px}${dn} [飲用聖水]+${fNum(h)}`, P.textHeal, `  ${px}${dn} 喝下閃耀的治癒藥水，重獲新生！`); continue; }
+                        if(has('heal') && aliveAllies.length > 0) { let w = aliveAllies.sort((a,b)=>a.curHp-b.curHp)[0]; let h=Math.floor(w.maxHp*0.2); w.curHp=Math.min(w.maxHp, w.curHp+h); pushLog(`  ${px}${dn} [聖光祈禱]->${getDispName(w)}`, P.textHeal, `  ${px}${dn} 高舉雙手引導聖光，溫暖了 ${getDispName(w)} 的傷口！`); continue; }
+                        if(has('heal_all') && aliveAllies.length > 0) { aliveAllies.forEach(x=>x.curHp=Math.min(x.maxHp, x.curHp+x.maxHp*0.06)); pushLog(`  ${px}${dn} [神聖新星]`, P.textHeal, `  ${px}${dn} 釋放神聖新星，沐浴了全軍的靈魂！`); continue; }
+                        if(has('buff_s')) { u.bAtk+=u.atk*0.15; u.bDef+=u.def*0.15; pushLog(`  ${px}${dn} [戰吼]`, P.textTitle, `  ${px}${dn} 發出震天戰吼，激發了肉體的潛能！`); continue; }
+                        if(has('buff_b')) { u.bAtk+=u.atk*0.3; u.bDef+=u.def*0.3; u.bSpd+=u.spd*0.3; pushLog(`  ${px}${dn} [王者祝福]`, P.textTitle, `  ${px}${dn} 獲得王者祝福，氣場產生了質的飛躍！`); continue; }
+                        if(has('berserk')) { let bh = Math.floor(u.maxHp*0.1); u.curHp -= bh; u.bAtk += Math.floor(u.atk*0.4); pushLog(`  ${px}${dn} [嗜血狂化] -${fNum(bh)}`, P.textWarn, `  ${px}${dn} 雙眼猩紅，燃燒生命換取了惡魔般的力量！`); if(u.curHp<=0) { pushLog(`  *陣亡* ${px}${dn} 氣血逆流而亡！`, P.textWarn); if(!u.isP) totalKills++; } continue; }
+                        if(has('holy') && aliveAllies.length > 0) { aliveAllies.forEach(x=>x.bDef+=x.def*0.15); pushLog(`  ${px}${dn} [神之庇護]`, P.textTitle, `  ${px}${dn} 展開神之結界，全軍宛如銅牆鐵壁！`); continue; }
+                        if(has('neutral')) { u.poison=0; u.bSpd+=u.spd*0.2; pushLog(`  ${px}${dn} [淨化之風]`, P.textMagic, `  ${px}${dn} 喚來純淨之風，驅散了所有污穢！`); continue; }
 
                         let sk = u.skills[Math.floor(Math.random()*u.skills.length)], isAoeHit = has('aoe');
                         let tgts = isAoeHit ? tgtPool : [tgtPool[Math.floor(Math.random()*tgtPool.length)]];
@@ -439,35 +518,39 @@
                             
                             let vHeal = 0; if (isVampire && dmg > 0) { vHeal = Math.max(1, Math.floor(dmg * 0.3)); u.curHp = Math.min(u.maxHp, u.curHp + vHeal); }
                             
-                            let aTagsS = (isPierce?"[穿透]":"")+(isCrit?"[爆擊]":"")+(isEvil?"[淬毒]":"")+(isStun?"[定身]":"")+(isVampire?`[吸血+${fNum(vHeal)}]`:"");
-                            let aTagsD = (isPierce?"[穿透]":"")+(isCrit?"[爆擊]":"")+(isEvil?"[淬毒]":"")+(isStun?"[定身]":"")+(isVampire?`[吸血]`:"");
+                            let aTagsS = (isPierce?"[破甲]":"")+(isCrit?"[致命]":"")+(isEvil?"[淬毒]":"")+(isStun?"[定身]":"")+(isVampire?`[鮮血虹吸+${fNum(vHeal)}]`:"");
+                            let aTagsD = (isPierce?"[破甲]":"")+(isCrit?"[致命]":"")+(isEvil?"[淬毒]":"")+(isStun?"[定身]":"")+(isVampire?`[鮮血虹吸]`:"");
                             
-                            let dTags = (tGuard?"[防禦]":"")+(tProtect?"[保護]":"");
+                            let dTags = (tGuard?"[格擋]":"")+(tProtect?"[掩護]":"");
                             if(isStun) rTgt.stun = 1;
 
-                            let r = dmg / rTgt.maxHp, pxTgt = u.isP?"[敵方]":"[我方]";
-                            let dLvl = r<0.05?"輕微的擦傷":r<0.15?"輕微的傷害":r<0.3?"可怕的傷口":r<0.5?"極嚴重的傷害":r<0.8?"毀滅性的打擊":"碎屍萬段毀滅重傷";
+                            let r = dmg / rTgt.maxHp, pxTgt = u.isP?"[敵軍]":"[我方]";
+                            let dLvl = r<0.05?"皮肉之傷":r<0.15?"見血的創口":r<0.3?"嚴重的撕裂":r<0.5?"見骨的重傷":r<0.8?"致命的打擊":"徹底的粉碎";
                             
                             let acts = [];
-                            if(u.faction === "神聖") acts = ["高舉聖物，引導天界之力化作", "渾身散發耀眼光芒，施展出", "化作神聖的殘影，不可阻擋地使出"];
-                            else if(u.faction === "邪惡" || isVampire) acts = ["發出令人毛骨悚然的狂笑，釋放出", "周身黑氣繚繞，將深淵詛咒凝聚為", "帶著致命的殺意，無情地刺出"];
-                            else if(u.type === "法師") acts = ["雙手結印，引動周圍元素湧動，施放", "口中唸誦古老咒語，虛空中凝聚出", "法杖直指蒼穹，牽引天地魔力爆發出"];
-                            else if(u.type === "戰士") acts = ["怒吼一聲，以雷霆萬鈞之勢劈出", "身形如電，帶著破空之聲剛猛使出", "大步踏前，地面為之震顫，狂暴揮出"];
-                            else if(u.type === "牧師") acts = ["雙手合十，祈求神明庇護，隨即降下", "吟唱著古老讚美詩，將精神力化為", "目光如炬，以無可動搖的信仰之力驅動"];
-                            else acts = ["身形一閃，出其不意地施展出", "深吸一口氣，凝聚全身力量使出", "眼神一凝，動作行雲流水般施展"];
+                            if(u.faction === "神聖") acts = ["高舉聖器，引導天界怒火化作", "渾身散發耀眼金芒，施展出", "化作莊嚴的光影，不可阻擋地使出"];
+                            else if(u.faction === "邪惡" || isVampire) acts = ["發出令人毛骨悚然的狂笑，釋放出", "周身黑氣繚繞，將深淵詛咒凝聚為", "帶著冰冷的殺意，無情地刺出"];
+                            else if(u.type === "法師") acts = ["雙手結出古老法印，引動元素施放", "口中低語禁忌咒語，虛空中凝聚出", "法杖直指蒼穹，牽引星辰魔力爆發出"];
+                            else if(u.type === "戰士") acts = ["發出戰吼，以雷霆萬鈞之勢劈出", "身形如電，帶著破空之音剛猛使出", "大步踏碎地面，狂暴無匹地揮出"];
+                            else if(u.type === "牧師") acts = ["雙手合十祈求庇護，隨即降下", "吟唱著古老的讚美詩，將精神化為", "目光如炬，以無可動搖的信仰驅動"];
+                            else acts = ["身形一閃，出其不意地施展出", "深吸一口氣，凝聚全身真氣使出", "眼神一冷，動作行雲流水般施展"];
                             let actMsg = acts[Math.floor(Math.random() * acts.length)];
-                            let logC = u.isP ? "#5af" : "#f55";
                             
-                            let sLog = `${px}${dn} ${isCombo?"[連擊]":isAoeFlag?"[全體]":""}${aTagsS} ${sk.n} -> ${pxTgt}${getDispName(rTgt)} ${dTags}-${fNum(dmg)}`;
+                            // 戰鬥文字配色微調
+                            let logC = u.isP ? P.textMagic : P.textWarn;
+                            if (isVampire || isEvil) logC = P.textDark;
+                            else if (u.faction === "神聖") logC = P.textTitle;
+                            
+                            let sLog = `${px}${dn} ${isCombo?"[二連]":isAoeFlag?"[掃蕩]":""}${aTagsS} ${sk.n} -> ${pxTgt}${getDispName(rTgt)} ${dTags}-${fNum(dmg)}`;
                             let dLog = `${px}${dn} ${isCombo?"追加":"趁勢"}${actMsg}「${sk.n}」，對 ${pxTgt}${getDispName(rTgt)} 造成了${dLvl}！${(aTagsD||dTags)?`(${aTagsD}${dTags})`:""}`;
                             
                             pushLog(sLog, logC, dLog);
 
-                            if(rTgt.curHp<=0) { pushLog(`  *陣亡* ${pxTgt}${getDispName(rTgt)} 倒下了！`, "#ff5"); if(u.isP) totalKills++; }
+                            if(rTgt.curHp<=0) { pushLog(`  *隕落* ${pxTgt}${getDispName(rTgt)} 倒在血泊中！`, P.textWarn); if(u.isP) totalKills++; }
                             else if(rTgt.traits.includes('neutral') && Math.random()<0.25 && rTgt.curHp>0) {
                                 let cDmg = Math.floor(rTgt.atk*0.8); u.curHp -= cDmg;
-                                pushLog(`  ${pxTgt}${getDispName(rTgt)} [反擊] -> ${dn} -${fNum(cDmg)}`, "#fd5", `  ${pxTgt}${getDispName(rTgt)} 抓準破綻，凌厲地反擊了 ${dn}！`);
-                                if(u.curHp<=0) { pushLog(`  *陣亡* ${px}${dn} 倒下了！`, "#ff5"); if(!u.isP) totalKills++; }
+                                pushLog(`  ${pxTgt}${getDispName(rTgt)} [絕境反擊] -> ${dn} -${fNum(cDmg)}`, P.textTitle, `  ${pxTgt}${getDispName(rTgt)} 抓準破綻，凌厲地反擊了 ${dn}！`);
+                                if(u.curHp<=0) { pushLog(`  *隕落* ${px}${dn} 倒在血泊中！`, P.textWarn); if(!u.isP) totalKills++; }
                             }
                         };
 
@@ -475,34 +558,34 @@
                         if(has('combo') && !isAoeHit && tgtPool[0].curHp>0 && u.curHp>0) doHit(tgtPool[0], true, false);
                     } turn++;
                 }
-                if(!pPool.some(u=>u.curHp>0 && u.curHp!==-999)) { pushLog(`[全滅] 我方全滅，部隊潰退...`, "#f55"); break; } 
-                else { pushLog(`>>> 突破了 ${sNames[step]}！`, "#5f5"); if(step < 4) battleLogs.push({type:'pause'}); }
+                if(!pPool.some(u=>u.curHp>0 && u.curHp!==-999)) { pushLog(`[全軍覆沒] 你的部隊已潰散...`, P.textWarn); break; } 
+                else { pushLog(`>>> 成功佔領了 ${sNames[step]}！`, P.textTitle); if(step < 4) battleLogs.push({type:'pause'}); }
             }
 
-            isWin = pPool.some(u=>u.curHp>0 && u.curHp!==-999); pushLog(``); pushLog(`=== 戰役結算 ===`, "#fff");
+            isWin = pPool.some(u=>u.curHp>0 && u.curHp!==-999); pushLog(``); pushLog(`=== 戰役塵埃落定 ===`, P.textMain);
             let gG = 0, gE = 0;
             if(type === 'siege') {
                 gG = totalKills * 50; gE = totalKills * 80;
-                if(isWin) { gG += gameData.conquered*20 + 200; gE += gameData.conquered*30 + 100; pushLog(`[大勝] 攻城勝利！`, "#5f5"); gameData.conquered++; gameData.streak++; } 
-                else { pushLog(`[敗北] 攻城失敗...連勝中斷。`, "#f55"); gameData.streak = 0; }
+                if(isWin) { gG += gameData.conquered*20 + 200; gE += gameData.conquered*30 + 100; pushLog(`[榮耀] 征服成功！`, P.textTitle); gameData.conquered++; gameData.streak++; } 
+                else { pushLog(`[挫敗] 征服失敗...連勝紀錄中斷。`, P.textWarn); gameData.streak = 0; }
             } else {
                 gG = totalKills * 15; gE = Math.floor(totalKills * 50 * Math.max(1, Math.floor(Math.sqrt(gameData.dungeonFloor))));
                 if(isWin) { 
                     gG += 500 * gameData.dungeonFloor; 
                     gE += 500 * gameData.dungeonFloor; 
-                    pushLog(`[突破] 成功清理了地下城！`, "#a5f"); 
+                    pushLog(`[凱旋] 成功掃蕩了該層地下城！`, P.textTitle); 
                     let f = gameData.dungeonFloor;
                     if(f % 10 === 0 && NPC_DB[f] && !gameData.npcs.find(x => x.oName === NPC_DB[f].n)) {
                         let nInfo = NPC_DB[f], newNpc = createUnit(nInfo.c, f);
                         newNpc.oName = nInfo.n; newNpc.customName = nInfo.n;
                         gameData.npcs.push(newNpc);
-                        pushLog(`[奇遇] 救出了被困的英雄：${nInfo.n}！`, "#d4af37", `[史詩] 擊敗領主後，你在深處解救了英雄「${nInfo.n}」！他已加入殿堂。`);
+                        pushLog(`[奇遇] 解救了被囚禁的英雄：${nInfo.n}！`, P.textTitle, `[史詩] 斬殺領主後，你在深淵中解救了傳奇英雄「${nInfo.n}」！他已在殿堂候命。`);
                     }
                     gameData.dungeonFloor++; 
-                } else pushLog(`[敗北] 探索失敗，退回營地。`, "#f55");
+                } else pushLog(`[撤退] 探索受挫，部隊退回營地。`, P.textWarn);
             }
             
-            pushLog(`* 總擊殺：${fNum(totalKills)}`); pushLog(`$ 獲得資金：${fNum(gG)} 金幣`); pushLog(`+ 獲得經驗：${fNum(gE)} EXP`);
+            pushLog(`* 總計斬殺：${fNum(totalKills)}`); pushLog(`$ 繳獲金幣：${fNum(gG)}`); pushLog(`+ 戰鬥歷練：${fNum(gE)} EXP`);
             gameData.gold += gG; 
             pPool.forEach(u => { if(u.curHp !== 0 && !u.isNpc) { u.oUnit.exp += gE; while(u.oUnit.exp >= u.oUnit.maxExp) { u.oUnit.exp -= u.oUnit.maxExp; levelUpUnit(u.oUnit); } }});
 
@@ -526,55 +609,107 @@
         // ==========================================
         // 渲染引擎與 UI
         // ==========================================
-        function drawBtn(x, y, w, h, t, cb, bg="#1a1a1a", tc="#ccc", fSize=35) {
-            ctx.fillStyle=bg; ctx.fillRect(x,y,w,h); ctx.strokeStyle="#444"; ctx.lineWidth=2; ctx.strokeRect(x,y,w,h);
-            ctx.fillStyle=tc; ctx.font=`bold ${fSize}px sans-serif`; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(t, x+w/2, y+h/2);
-            activeButtons.push({x,y,w,h,cb});
+        function drawBtn(x, y, w, h, t, cb, bg=P.bgBtn, tc=P.textMain, fSize=35) {
+            // UI 美術升級：邊框、漸層、內陰影
+            let isHighlight = tc === "#ccc" || tc === "#faa" || tc === "#aaf" || tc === P.textMain; // 判別是否要給予史詩按鈕樣式
+            if(isHighlight) {
+                let grad = ctx.createLinearGradient(x, y, x, y+h);
+                grad.addColorStop(0, "#2a201a"); grad.addColorStop(1, "#15100d");
+                ctx.fillStyle = grad;
+                ctx.strokeStyle = P.border;
+            } else {
+                ctx.fillStyle = bg; ctx.strokeStyle = P.border;
+            }
+            if(tc === "#ffc" || tc === "#fd0" || bg.includes("1a1a10")) ctx.strokeStyle = P.borderGold; // 特殊按鈕給燙金邊
+            
+            ctx.fillRect(x, y, w, h);
+            ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+            
+            // 內陰影增添質感
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(x, y, w, 4); // 上暗邊
+            ctx.fillStyle = "rgba(255,255,255,0.05)";
+            ctx.fillRect(x, y+h-4, w, 4); // 下亮邊
+
+            ctx.fillStyle = (tc === "#ccc" || tc === "#fff") ? P.textMain : tc;
+            if(tc === "#ffc" || tc === "#fd0") ctx.fillStyle = P.textTitle;
+
+            ctx.font = `bold ${fSize}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; 
+            
+            // 文字微小陰影
+            ctx.shadowColor = "black"; ctx.shadowBlur = 4; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
+            ctx.fillText(t, x+w/2, y+h/2);
+            ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0; // 重置陰影
+
+            activeButtons.push({x, y, w, h, cb});
         }
-        function drawTxt(t, x, y, sz, c="#fff", align="left", w="normal") { ctx.fillStyle=c; ctx.font=`${w} ${sz}px sans-serif`; ctx.textAlign=align; ctx.textBaseline="top"; ctx.fillText(t, x, y); }
+        function drawTxt(t, x, y, sz, c="#fff", align="left", w="normal") { 
+            ctx.fillStyle = (c === "#fff" || c === "#ccc" || c === "#aaa") ? P.textMain : (c === "#888" ? P.textSub : c);
+            if(c === "#d4af37") ctx.fillStyle = P.textTitle;
+            if(c === "#ffd700") ctx.fillStyle = P.textTitle;
+            
+            ctx.font = `${w} ${sz}px serif`; // 使用 serif 增添古典感
+            ctx.textAlign = align; ctx.textBaseline = "top"; 
+            
+            ctx.shadowColor = "black"; ctx.shadowBlur = 2;
+            ctx.fillText(t, x, y); 
+            ctx.shadowBlur = 0;
+        }
 
         function draw() {
-            ctx.clearRect(0, 0, V_WIDTH, V_HEIGHT); ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT); activeButtons = [];
+            ctx.clearRect(0, 0, V_WIDTH, V_HEIGHT); 
+            // 背景漸層
+            let bgGrad = ctx.createRadialGradient(V_WIDTH/2, 0, 100, V_WIDTH/2, V_HEIGHT, V_HEIGHT);
+            bgGrad.addColorStop(0, "#2a201a"); bgGrad.addColorStop(1, "#0d0a08");
+            ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT); 
+            activeButtons = [];
 
             if(currentState === STATE_SPLASH) {
-                drawTxt("萬王之王", V_WIDTH/2, 350, 110, "#d4af37", "center", "bold"); drawTxt("- 無盡國戰版 -", V_WIDTH/2, 500, 40, "#888", "center");
-                drawBtn(V_WIDTH/2-250, 650, 500, 100, "[ 開始新遊戲 ]", () => document.getElementById('nameInputOverlay').style.display='flex');
-                drawBtn(V_WIDTH/2-250, 800, 500, 100, "[ 載入存檔 ]", loadGame);
-                drawBtn(V_WIDTH/2-250, 950, 500, 100, "[ 匯入繼承碼 ]", () => { document.getElementById('importCode').value=""; document.getElementById('importOverlay').style.display='flex'; });
-                drawBtn(V_WIDTH/2-150, 1100, 300, 80, "[ 關於本作 ]", () => document.getElementById('authorOverlay').style.display='flex', "#111", "#aaa", 28);
+                drawTxt("萬王之王", V_WIDTH/2, 350, 120, "#d4af37", "center", "bold"); 
+                drawTxt("- 無盡傳奇版 -", V_WIDTH/2, 500, 45, "#bca88f", "center");
+                drawBtn(V_WIDTH/2-250, 650, 500, 100, "[ 締造新朝 ]", () => document.getElementById('nameInputOverlay').style.display='flex', P.bgBtn, P.textTitle);
+                drawBtn(V_WIDTH/2-250, 800, 500, 100, "[ 喚醒古卷 ]", loadGame);
+                drawBtn(V_WIDTH/2-250, 950, 500, 100, "[ 解開靈魂石 ]", () => { document.getElementById('importCode').value=""; document.getElementById('importOverlay').style.display='flex'; });
+                drawBtn(V_WIDTH/2-150, 1100, 300, 80, "[ 關於本作 ]", () => document.getElementById('authorOverlay').style.display='flex', P.bgBtn, P.textSub, 28);
             } 
             else if(currentState === STATE_MAIN) {
-                drawBtn(V_WIDTH-280, 40, 110, 80, "字+", () => mainFontSize=Math.min(45,mainFontSize+2), "#111", "#ccc", 32);
-                drawBtn(V_WIDTH-150, 40, 110, 80, "字-", () => mainFontSize=Math.max(20,mainFontSize-2), "#111", "#ccc", 32);
+                drawBtn(V_WIDTH-280, 40, 110, 80, "字+", () => mainFontSize=Math.min(45,mainFontSize+2), P.bgBtn, P.textMain, 32);
+                drawBtn(V_WIDTH-150, 40, 110, 80, "字-", () => mainFontSize=Math.max(20,mainFontSize-2), P.bgBtn, P.textMain, 32);
 
-                ctx.fillStyle="#111"; ctx.fillRect(40,150,V_WIDTH-80,210); ctx.strokeRect(40,150,V_WIDTH-80,210);
+                // 資訊面板外框裝飾
+                ctx.fillStyle = "rgba(13, 10, 8, 0.7)"; ctx.fillRect(40,150,V_WIDTH-80,210); 
+                ctx.strokeStyle = P.borderGold; ctx.lineWidth = 2; ctx.strokeRect(40,150,V_WIDTH-80,210);
+                // 裝飾角
+                ctx.fillStyle = P.textTitle; ctx.fillRect(35,145,10,10); ctx.fillRect(V_WIDTH-45,145,10,10); ctx.fillRect(35,355,10,10); ctx.fillRect(V_WIDTH-45,355,10,10);
+
                 let title = gameData.conquered>=10000 ? "萬王之王" : gameData.conquered>=1000 ? "千王之王" : gameData.conquered>=100 ? "百王之王" : gameData.conquered>=50 ? "伯爵" : gameData.conquered>=10 ? "男爵" : "平民";
-                drawTxt(`國家：${gameData.name}`, 70, 170, mainFontSize+5, "#fff", "left", "bold");
-                drawBtn(450, 155, 120, 50, "改名", () => {
-                document.getElementById('renameKingdomOverlay').style.display = 'flex';
-                document.getElementById('newCountryName').value = gameData.name; // 自動帶入舊名字
-                }, "#1a1a1a", "#ccc", 24);
-                drawTxt(`稱號：${title} | 征服：${fNum(gameData.conquered)} | 連勝：${gameData.streak}`, 70, 230, mainFontSize-2, "#aaa");
-                drawTxt(`資金：${fNum(gameData.gold)} 金幣 | 兵力：${gameData.army.length}/30`, 70, 290, mainFontSize-2, "#ffd700");
+                drawTxt(`王國：${gameData.name}`, 70, 170, mainFontSize+5, "#d4af37", "left", "bold");
+                drawTxt(`爵位：${title} | 疆域：${fNum(gameData.conquered)} | 連勝：${gameData.streak}`, 70, 230, mainFontSize-2, P.textMain);
+                drawTxt(`國庫：${fNum(gameData.gold)} G | 軍勢：${gameData.army.length}/30`, 70, 290, mainFontSize-2, "#ffd700");
 
-                drawBtn(40, 380, V_WIDTH/2-60, 100, "[ 發起攻城 ]", ()=>launchCombat('siege'), "#311", "#faa", mainFontSize);
-                drawBtn(V_WIDTH/2+20, 380, V_WIDTH/2-60, 100, `[ 地下城 ${gameData.dungeonFloor}F ]`, ()=>launchCombat('dungeon'), "#214", "#aaf", mainFontSize);
-                drawBtn(40, 500, V_WIDTH/2-60, 100, "[ 部隊轉職 ]", () => {rosterPage=0; currentState=STATE_ROSTER;}, "#1a1a1a", "#ccc", mainFontSize);
-                drawBtn(V_WIDTH/2+20, 500, V_WIDTH/2-60, 100, "[ 招募 100金幣 ]", () => {
-                    if(gameData.army.length>=30) return showSysMsg("系統：已達30人上限");
-                    if(gameData.gold<100) return showSysMsg("系統：資金不足");
-                    gameData.gold-=100; gameData.army.push(createUnit("冒險者",1)); showSysMsg("招募成功！");
-                }, "#1a1a1a", "#ccc", mainFontSize);
-                drawBtn(40, 620, V_WIDTH/2-60, 100, "[ 儲存進度 ]", saveGame, "#1a1a1a", "#ccc", mainFontSize);
-                drawBtn(V_WIDTH/2+20, 620, V_WIDTH/2-60, 100, "[ 匯出繼承碼 ]", () => { document.getElementById('exportCode').value = btoa(encodeURIComponent(JSON.stringify(packData(gameData)))); document.getElementById('exportOverlay').style.display='flex'; }, "#1a1a1a", "#ccc", mainFontSize);
+                drawBtn(450, 160, 120, 50, "[ 詔令 ]", () => {
+                    document.getElementById('renameKingdomOverlay').style.display = 'flex';
+                    document.getElementById('newCountryName').value = gameData.name;
+                }, P.bgBtn, P.textSub, 24);
 
-                if(gameData.npcs && gameData.npcs.length > 0) drawBtn(40, 740, V_WIDTH/2-60, 100, "[ 英雄殿堂 ]", () => {rosterPage=0; currentState=STATE_NPC;}, "#123", "#aaf", mainFontSize);
-                if(gameData.conquered>=10000) drawBtn(V_WIDTH/2+20, 740, V_WIDTH/2-60, 100, "=== 觀看結局 ===", ()=>currentState=STATE_ENDING, "#221", "#fd0", mainFontSize);
+                drawBtn(40, 390, V_WIDTH/2-60, 100, "[ 興兵遠征 ]", ()=>launchCombat('siege'), "#3a1c1c", P.textMain, mainFontSize);
+                drawBtn(V_WIDTH/2+20, 390, V_WIDTH/2-60, 100, `[ 深淵探索 ${gameData.dungeonFloor}F ]`, ()=>launchCombat('dungeon'), "#1a203a", P.textMain, mainFontSize);
+                drawBtn(40, 510, V_WIDTH/2-60, 100, "[ 晉升大廳 ]", () => {rosterPage=0; currentState=STATE_ROSTER;}, P.bgBtn, P.textMain, mainFontSize);
+                drawBtn(V_WIDTH/2+20, 510, V_WIDTH/2-60, 100, "[ 徵召新血 100G ]", () => {
+                    if(gameData.army.length>=30) return showSysMsg("系統：軍營已滿");
+                    if(gameData.gold<100) return showSysMsg("系統：國庫空虛");
+                    gameData.gold-=100; gameData.army.push(createUnit("冒險者",1)); showSysMsg("徵召完畢！");
+                }, P.bgBtn, P.textMain, mainFontSize);
+                drawBtn(40, 630, V_WIDTH/2-60, 100, "[ 封印古卷 ]", saveGame, P.bgBtn, P.textMain, mainFontSize);
+                drawBtn(V_WIDTH/2+20, 630, V_WIDTH/2-60, 100, "[ 封印靈魂石 ]", () => { document.getElementById('exportCode').value = btoa(encodeURIComponent(JSON.stringify(packData(gameData)))); document.getElementById('exportOverlay').style.display='flex'; }, P.bgBtn, P.textMain, mainFontSize);
 
-                drawTxt("=== 國家基礎設施 ===", V_WIDTH/2, 860, 36, "#fff", "center", "bold");
+                if(gameData.npcs && gameData.npcs.length > 0) drawBtn(40, 750, V_WIDTH/2-60, 100, "[ 英靈殿堂 ]", () => {rosterPage=0; currentState=STATE_NPC;}, "#151b26", P.textMagic, mainFontSize);
+                if(gameData.conquered>=10000) drawBtn(V_WIDTH/2+20, 750, V_WIDTH/2-60, 100, "=== 觀看史詩 ===", ()=>currentState=STATE_ENDING, "#262010", P.textTitle, mainFontSize);
+
+                drawTxt("=== 王國建設 ===", V_WIDTH/2, 870, 36, P.textTitle, "center", "bold");
                 FACILITIES.forEach((fac, i) => {
                     let lv = gameData.fac[fac.id] || 0; let cost = fac.baseCost * (lv + 1);
-                    let x = i%2===0 ? 40 : V_WIDTH/2 + 20, y = 910 + Math.floor(i/2)*160;
+                    let x = i%2===0 ? 40 : V_WIDTH/2 + 20, y = 920 + Math.floor(i/2)*160;
                     drawBtn(x, y, V_WIDTH/2-60, 140, "", () => { 
                         let now = Date.now();
                         if(facClicks.id === fac.id && now - facClicks.time < 2000) facClicks.count++;
@@ -584,77 +719,86 @@
                         if(facClicks.count >= 5) {
                             let cGold = gameData.gold, up = 0, curLv = lv;
                             while(true) { let c = fac.baseCost * (curLv + 1); if(cGold >= c) { cGold -= c; curLv++; up++; } else break; }
-                            if(up > 0) { gameData.gold = cGold; gameData.fac[fac.id] = curLv; showSysMsg(`極限投資！連升 ${up} 級！`); }
-                            else showSysMsg("資金已榨乾！");
+                            if(up > 0) { gameData.gold = cGold; gameData.fac[fac.id] = curLv; showSysMsg(`國庫傾注！連升 ${up} 級！`); }
+                            else showSysMsg("國庫已空！");
                             facClicks.count = 0; 
                         } else {
-                            if(gameData.gold >= cost) { gameData.gold -= cost; gameData.fac[fac.id]++; showSysMsg(`升級成功！(連點${5-facClicks.count}次可極限投資)`); } 
-                            else showSysMsg("資金不足！"); 
+                            if(gameData.gold >= cost) { gameData.gold -= cost; gameData.fac[fac.id]++; showSysMsg(`擴建成功！(速點${5-facClicks.count}次傾注國庫)`); } 
+                            else showSysMsg("國庫空虛！"); 
                         }
-                    }, "#1a1a1a");
-                    drawTxt(`${fac.name} Lv.${lv}`, x+30, y+20, mainFontSize-3, "#d4af37", "left", "bold"); drawTxt(`${fac.desc}+${fac.eff}`, x+30, y+70, mainFontSize-7, "#8cf"); drawTxt(`升級:${fNum(cost)}金幣`, x+30, y+110, mainFontSize-7, "#aaa");
+                    }, P.bgBtn);
+                    drawTxt(`${fac.name} Lv.${lv}`, x+30, y+20, mainFontSize-3, P.textTitle, "left", "bold"); drawTxt(`${fac.desc}+${fac.eff}`, x+30, y+70, mainFontSize-7, P.textMagic); drawTxt(`擴建:${fNum(cost)} G`, x+30, y+110, mainFontSize-7, P.textSub);
                 });
             }
             else if(currentState === STATE_ROSTER || currentState === STATE_NPC) {
                 if(currentState === STATE_NPC) syncNpcLevels(); 
                 let isNpcMode = currentState === STATE_NPC, list = isNpcMode ? gameData.npcs : gameData.army;
-                drawTxt(isNpcMode ? "=== 英雄殿堂 ===" : "=== 部隊列表 ===", V_WIDTH/2, 50, 45, "#fff", "center", "bold");
+                drawTxt(isNpcMode ? "=== 英靈殿堂 ===" : "=== 遠征軍名冊 ===", V_WIDTH/2, 50, 45, P.textTitle, "center", "bold");
                 let sIdx = rosterPage * 5, eIdx = Math.min(sIdx+5, list.length);
                 for(let i=sIdx; i<eIdx; i++) {
                     let u = list[i], fs = getFinalStats(u), y = 140 + (i-sIdx)*230, reqLv = u.tier===0?10 : u.tier===1?25 : u.tier===2?35 : 999, canPro = !isNpcMode && u.level >= reqLv && u.tier < 3;
-                    drawBtn(50, y, V_WIDTH-100, 210, "", () => { selectedUnitIndex=i; isSelectingSibling=false; currentState = isNpcMode ? STATE_NPC_UNIT : STATE_UNIT; }, canPro?"#1a1a10":"#111");
-                    drawTxt(`Lv.${u.level} ${getDispName(u)}`, 80, y+20, 40, canPro?"#ffc":"#fff", "left", "bold");
-                    drawTxt(`HP:${fNum(fs.maxHp)} 攻:${fNum(fs.atk)} 防:${fNum(fs.def)} 速:${fNum(fs.spd)}`, 80, y+80, 32, "#888"); 
-                    if(isNpcMode) drawTxt(`陣營:${u.faction} (英雄能力隨隊伍與樓層成長)`, 80, y+130, 32, "#888");
-                    else drawTxt(`Exp:${fNum(u.exp)}/${fNum(u.maxExp)} 陣營:${u.faction}`, 80, y+130, 32, "#888");
-                    if(canPro) drawTxt("* 可轉職 *", V_WIDTH-220, y+70, 40, "#0f0", "left", "bold");
+                    
+                    // 名冊卡片裝飾
+                    ctx.fillStyle = "rgba(13, 10, 8, 0.7)"; ctx.fillRect(50,y,V_WIDTH-100,210);
+                    ctx.strokeStyle = canPro ? P.borderGold : P.border; ctx.lineWidth = canPro ? 3 : 2; ctx.strokeRect(50,y,V_WIDTH-100,210);
+
+                    drawBtn(50, y, V_WIDTH-100, 210, "", () => { selectedUnitIndex=i; isSelectingSibling=false; currentState = isNpcMode ? STATE_NPC_UNIT : STATE_UNIT; }, "transparent", canPro?P.textTitle:"#111"); // 透明按鈕蓋在上面
+                    drawTxt(`Lv.${u.level} ${getDispName(u)}`, 80, y+20, 40, canPro?P.textTitle:P.textMain, "left", "bold");
+                    drawTxt(`HP:${fNum(fs.maxHp)} 攻:${fNum(fs.atk)} 防:${fNum(fs.def)} 速:${fNum(fs.spd)}`, 80, y+80, 32, P.textSub); 
+                    if(isNpcMode) drawTxt(`陣營:${u.faction} (能力隨軍隊同步成長)`, 80, y+130, 32, P.textSub);
+                    else drawTxt(`Exp:${fNum(u.exp)}/${fNum(u.maxExp)} 陣營:${u.faction}`, 80, y+130, 32, P.textSub);
+                    if(canPro) drawTxt("* 準備晉升 *", V_WIDTH-250, y+70, 40, P.textHeal, "left", "bold");
                 }
-                if(rosterPage>0) drawBtn(50, 1320, 300, 100, "< 上一頁", () => rosterPage--); if(eIdx<list.length) drawBtn(V_WIDTH-350, 1320, 300, 100, "下一頁 >", () => rosterPage++);
-                drawBtn(V_WIDTH/2-200, 1460, 400, 100, "[ 返回主選單 ]", ()=>currentState=STATE_MAIN);
+                if(rosterPage>0) drawBtn(50, 1320, 300, 100, "< 翻頁", () => rosterPage--, P.bgBtn, P.textMain); if(eIdx<list.length) drawBtn(V_WIDTH-350, 1320, 300, 100, "翻頁 >", () => rosterPage++, P.bgBtn, P.textMain);
+                drawBtn(V_WIDTH/2-200, 1460, 400, 100, "[ 返回營地 ]", ()=>currentState=STATE_MAIN, P.bgBtn, P.textTitle);
             }
             else if(currentState === STATE_UNIT || currentState === STATE_NPC_UNIT) {
                 if(currentState === STATE_NPC_UNIT) syncNpcLevels(); 
                 let isNpcMode = currentState === STATE_NPC_UNIT, u = isNpcMode ? gameData.npcs[selectedUnitIndex] : gameData.army[selectedUnitIndex], fs = getFinalStats(u);
-                drawTxt(isNpcMode ? "=== 英雄資訊 ===" : "=== 角色資訊 ===", V_WIDTH/2, 60, 50, "#fff", "center", "bold");
-                ctx.fillStyle="#111"; ctx.fillRect(50,130,V_WIDTH-100,340);
-                drawTxt(`名稱：${getDispName(u)}`, 100, 150, 45, "#fff", "left", "bold"); 
+                drawTxt(isNpcMode ? "=== 英靈靈魂石 ===" : "=== 英雄卷宗 ===", V_WIDTH/2, 60, 50, P.textTitle, "center", "bold");
                 
-                if(isNpcMode) drawTxt(`等級：Lv.${u.level} (英雄能力隨隊伍與樓層成長)`, 100, 215, 35, "#aaa");
-                else drawTxt(`等級：Lv.${u.level} (${fNum(u.exp)}/${fNum(u.maxExp)})`, 100, 215, 35, "#aaa");
+                // 羊皮紙底板
+                ctx.fillStyle="rgba(20, 15, 12, 0.8)"; ctx.fillRect(50,130,V_WIDTH-100,340);
+                ctx.strokeStyle=P.border; ctx.lineWidth=2; ctx.strokeRect(50,130,V_WIDTH-100,340);
+
+                drawTxt(`真名：${getDispName(u)}`, 100, 150, 45, P.textTitle, "left", "bold"); 
                 
-                drawTxt(`HP:${fNum(fs.maxHp)} 攻:${fNum(fs.atk)} 防:${fNum(fs.def)} 速:${fNum(fs.spd)} (含設施)`, 100, 275, 32, "#aaa"); drawTxt(`招式：${u.skills.map(s=>s.n).join(", ")}`, 100, 335, 32, "#8cf");
+                if(isNpcMode) drawTxt(`境界：Lv.${u.level} (能力隨軍隊同步成長)`, 100, 215, 35, P.textMain);
+                else drawTxt(`境界：Lv.${u.level} (${fNum(u.exp)}/${fNum(u.maxExp)})`, 100, 215, 35, P.textMain);
                 
-                let tNames = {"potion":"[藥水]","guard":"[格擋]","pierce":"[穿透]","heal":"[治療]","protect":"[保護]","buff_s":"[小強化]","berserk":"[狂暴]","aoe":"[群攻]","stun":"[定身]","combo":"[連擊]","heal_all":"[全體補]","buff_b":"[大強化]","crit":"[爆擊]","holy":"[光環]","evil":"[淬毒]","neutral":"[反擊]", "vampire":"[吸血]"};
-                drawTxt(`特質：${u.traits.map(t=>tNames[t]||"").join(" ")}`, 100, 400, 30, "#d4af37");
+                drawTxt(`HP:${fNum(fs.maxHp)} 攻:${fNum(fs.atk)} 防:${fNum(fs.def)} 速:${fNum(fs.spd)} (含建設)`, 100, 275, 32, P.textMain); drawTxt(`奧義：${u.skills.map(s=>s.n).join(", ")}`, 100, 335, 32, P.textMagic);
+                
+                let tNames = {"potion":"[藥水]","guard":"[格擋]","pierce":"[破甲]","heal":"[治癒]","protect":"[掩護]","buff_s":"[戰吼]","berserk":"[狂化]","aoe":"[掃蕩]","stun":"[束縛]","combo":"[連擊]","heal_all":"[神聖新星]","buff_b":"[王者祝福]","crit":"[致命]","holy":"[神之庇護]","evil":"[淬毒]","neutral":"[淨化之風]", "vampire":"[血之虹吸]"};
+                drawTxt(`血脈特質：${u.traits.map(t=>tNames[t]||"").join(" ")}`, 100, 400, 30, P.textTitle);
 
                 if(isNpcMode) {
-                    drawBtn(V_WIDTH/2-200, 480, 400, 100, "[ 賜予姓名 ]", () => { document.getElementById('unitNameOverlay').style.display='flex'; document.getElementById('unitCustomName').value = u.customName; }, "#224", "#aaf");
+                    drawBtn(V_WIDTH/2-200, 480, 400, 100, "[ 賜予真名 ]", () => { document.getElementById('unitNameOverlay').style.display='flex'; document.getElementById('unitCustomName').value = u.customName; }, P.bgBtn, P.textMagic);
                 } else {
                     if (isSelectingSibling) {
-                        drawTxt("= 選擇轉換的分支 =", V_WIDTH/2, 500, 40, "#d4af37", "center"); let cost = u.tier * 500;
+                        drawTxt("= 選擇轉化之途 =", V_WIDTH/2, 500, 40, P.textTitle, "center"); let cost = u.tier * 500;
                         SIBLINGS[u.className].filter(s => s !== u.className).forEach((nc, i) => {
-                            drawBtn(100, 580+i*130, V_WIDTH-200, 100, `> 轉換為：${nc}`, () => { if(gameData.gold >= cost) { gameData.gold -= cost; swapSiblingClass(u, nc); isSelectingSibling = false; showSysMsg(`成功轉換為 ${nc}！`); } else showSysMsg("系統：資金不足！"); }, "#221", "#ffc");
+                            drawBtn(100, 580+i*130, V_WIDTH-200, 100, `> 轉化為：${nc}`, () => { if(gameData.gold >= cost) { gameData.gold -= cost; swapSiblingClass(u, nc); isSelectingSibling = false; showSysMsg(`轉化儀式完成：${nc}！`); } else showSysMsg("系統：國庫空虛！"); }, P.bgBtn, P.textTitle);
                         });
-                        drawBtn(V_WIDTH/2-200, 1000, 400, 100, "[ 取消轉換 ]", () => isSelectingSibling=false);
+                        drawBtn(V_WIDTH/2-200, 1000, 400, 100, "[ 中斷儀式 ]", () => isSelectingSibling=false, P.bgBtn, P.textSub);
                     } else {
-                        drawBtn(100, 480, 260, 100, "[ 特訓 500金 ]", () => { if(gameData.gold >= 500) { gameData.gold-=500; u.exp+=200; while(u.exp>=u.maxExp) { u.exp-=u.maxExp; levelUpUnit(u); } showSysMsg("獲得 200 Exp"); } else showSysMsg("系統：資金不足！"); }, "#1a1a1a", "#ccc", 28);
-                        if(u.tier > 0) drawBtn(380, 480, 300, 100, `[ 換分支 ${fNum(u.tier*500)}金 ]`, () => isSelectingSibling = true, "#1a1a1a", "#ccc", 28);
-                        drawBtn(700, 480, 280, 100, "[ 賜予姓名 ]", () => { document.getElementById('unitNameOverlay').style.display='flex'; document.getElementById('unitCustomName').value = u.customName; }, "#224", "#aaf");
+                        drawBtn(100, 480, 260, 100, "[ 苦修 500G ]", () => { if(gameData.gold >= 500) { gameData.gold-=500; u.exp+=200; while(u.exp>=u.maxExp) { u.exp-=u.maxExp; levelUpUnit(u); } showSysMsg("獲得 200 歷練"); } else showSysMsg("系統：國庫空虛！"); }, P.bgBtn, P.textMain, 28);
+                        if(u.tier > 0) drawBtn(380, 480, 300, 100, `[ 轉化 ${fNum(u.tier*500)}G ]`, () => isSelectingSibling = true, P.bgBtn, P.textMain, 28);
+                        drawBtn(700, 480, 280, 100, "[ 賜名 ]", () => { document.getElementById('unitNameOverlay').style.display='flex'; document.getElementById('unitCustomName').value = u.customName; }, P.bgBtn, P.textMagic);
 
                         let reqLv = u.tier===0?10 : u.tier===1?25 : u.tier===2?35 : 999;
                         if(u.level>=reqLv && CLASS_DB[u.className].next.length>0) {
-                            drawTxt("= 可轉職 =", V_WIDTH/2, 630, 40, "#d4af37", "center");
-                            CLASS_DB[u.className].next.forEach((nc, i) => { drawBtn(100, 690+i*120, V_WIDTH-200, 100, `> 轉職為：${nc}`, () => { changeClass(u, nc); currentState=STATE_ROSTER; showSysMsg(`轉職成功！`); }, "#131"); });
-                        } else drawTxt(reqLv===999?"(已達最高階級)":`(轉職需要 Lv.${reqLv})`, V_WIDTH/2, 630, 40, "#666", "center");
+                            drawTxt("= 晉升之門已啟 =", V_WIDTH/2, 630, 40, P.textTitle, "center");
+                            CLASS_DB[u.className].next.forEach((nc, i) => { drawBtn(100, 690+i*120, V_WIDTH-200, 100, `> 晉升為：${nc}`, () => { changeClass(u, nc); currentState=STATE_ROSTER; showSysMsg(`晉升儀式完成！`); }, P.bgBtn, P.textHeal); });
+                        } else drawTxt(reqLv===999?"(已達傳奇之境)":`(晉升需要 境界 ${reqLv})`, V_WIDTH/2, 680, 40, P.textSub, "center");
                         
-                        // 修正：危險選項下放到畫面最底端，遠離轉職區塊避免誤觸
-                        drawBtn(100, 1320, 400, 100, "[ 重置為冒險者 5K ]", () => { 
-                            if(gameData.gold >= 5000) { gameData.gold-=5000; changeClass(u, "冒險者"); showSysMsg("已重置為冒險者！"); } else showSysMsg("資金不足！");
-                        }, "#1a1a1a", "#ccc", 28);
-                        drawBtn(580, 1320, 400, 100, `[ 退休換 ${fNum(u.level*100)}金 ]`, () => { document.getElementById('retireOverlay').style.display='flex'; }, "#411", "#faa", 28);
+                        // 危險按鈕區（最底部）
+                        drawBtn(100, 1320, 400, 100, "[ 散盡修為 5K ]", () => { 
+                            if(gameData.gold >= 5000) { gameData.gold-=5000; changeClass(u, "冒險者"); showSysMsg("已散盡修為重歸凡人！"); } else showSysMsg("國庫空虛！");
+                        }, "#2a1a1a", P.textSub, 28);
+                        drawBtn(580, 1320, 400, 100, `[ 告老還鄉得 ${fNum(u.level*100)}G ]`, () => { document.getElementById('retireOverlay').style.display='flex'; }, "#3a1c1c", P.textWarn, 28);
                     }
                 }
-                drawBtn(V_WIDTH/2-200, 1460, 400, 100, "[ 返回列表 ]", ()=> { isSelectingSibling=false; currentState = isNpcMode ? STATE_NPC : STATE_ROSTER; });
+                drawBtn(V_WIDTH/2-200, 1460, 400, 100, "[ 闔上卷宗 ]", ()=> { isSelectingSibling=false; currentState = isNpcMode ? STATE_NPC : STATE_ROSTER; }, P.bgBtn, P.textMain);
             }
             else if(currentState === STATE_BATTLE) {
                 if(needRebuildCache) buildDisplayCache();
@@ -662,17 +806,20 @@
                 let aliveP = battleInfo.pStart, aliveE = battleInfo.eStart;
                 for(let i=0; i<battleDisplayIndex; i++) { 
                     if(battleLogs[i].type === 'text') { 
-                        if(battleLogs[i].short.startsWith("  *陣亡* [我方]")) aliveP--; 
-                        else if(battleLogs[i].short.startsWith("  *陣亡* [敵方]")) aliveE--; 
+                        if(battleLogs[i].short.startsWith("  *隕落* [我方]")) aliveP--; 
+                        else if(battleLogs[i].short.startsWith("  *隕落* [敵方]")) aliveE--; 
                         else if(battleLogs[i].short.startsWith("  *增援* [我方]")) aliveP++; 
                     }
                 }
 
-                drawTxt("= 戰鬥紀錄 =", 50, 45, 45, "#ccc", "left", "bold");
-                drawTxt(`我方:${aliveP} | 敵方:${aliveE}`, 340, 45, 45, "#d4af37", "left", "bold");
-                drawBtn(V_WIDTH - 260, 25, 100, 80, "字+", () => { battleFontSize=Math.min(60, battleFontSize+4); needRebuildCache=true; requestAnimationFrame(draw); }, "#111");
-                drawBtn(V_WIDTH - 140, 25, 100, 80, "字-", () => { battleFontSize=Math.max(20, battleFontSize-4); needRebuildCache=true; requestAnimationFrame(draw); }, "#111");
+                drawTxt("= 戰場卷宗 =", 50, 45, 45, P.textSub, "left", "bold");
+                drawTxt(`我軍:${aliveP} | 敵軍:${aliveE}`, 340, 45, 45, P.textTitle, "left", "bold");
+                drawBtn(V_WIDTH - 260, 25, 100, 80, "字+", () => { battleFontSize=Math.min(60, battleFontSize+4); needRebuildCache=true; requestAnimationFrame(draw); }, P.bgBtn, P.textMain);
+                drawBtn(V_WIDTH - 140, 25, 100, 80, "字-", () => { battleFontSize=Math.max(20, battleFontSize-4); needRebuildCache=true; requestAnimationFrame(draw); }, P.bgBtn, P.textMain);
 
+                // 戰鬥文字區域背景
+                ctx.fillStyle = "rgba(10, 8, 5, 0.5)"; ctx.fillRect(20, 130, V_WIDTH-40, 1220);
+                
                 let lineH = battleFontSize * 1.5, listStartY = 160, maxVisible = Math.floor(1150 / lineH); 
                 let maxScroll = Math.max(0, displayLinesCache.length - maxVisible);
                 if(isAutoScrolling) scrollOffset = maxScroll; else scrollOffset = Math.max(0, Math.min(scrollOffset, maxScroll));
@@ -680,24 +827,28 @@
                 let sLine = Math.floor(scrollOffset), eLine = Math.min(displayLinesCache.length, sLine + maxVisible + 1);
                 for(let i=sLine; i<eLine; i++) { drawTxt(displayLinesCache[i].t, 50, listStartY + (i - scrollOffset)*lineH, battleFontSize, displayLinesCache[i].c); }
 
-                drawBtn(50, 1400, 200, 100, isDetailedLog ? "簡化" : "詳細", () => { isDetailedLog = !isDetailedLog; needRebuildCache = true; isAutoScrolling = true; requestAnimationFrame(draw); }, "#222");
+                drawBtn(50, 1400, 200, 100, isDetailedLog ? "戰報" : "史詩", () => { isDetailedLog = !isDetailedLog; needRebuildCache = true; isAutoScrolling = true; requestAnimationFrame(draw); }, P.bgBtn, P.textMain);
                 
-                if(battleDisplayIndex >= battleLogs.length) drawBtn(V_WIDTH-450, 1400, 400, 100, "[ 結束結算 ]", ()=>currentState=STATE_MAIN);
-                else if(isBattlePaused) drawBtn(V_WIDTH-450, 1400, 400, 100, "[ 繼續推進 ]", () => { isBattlePaused = false; isAutoScrolling = true; advanceBattleLog(); }, "#242", "#afa");
-                else drawBtn(V_WIDTH-450, 1400, 400, 100, "[ 跳過本關 ]", () => {
+                if(battleDisplayIndex >= battleLogs.length) drawBtn(V_WIDTH-450, 1400, 400, 100, "[ 清點戰果 ]", ()=>currentState=STATE_MAIN, P.bgBtn, P.textTitle);
+                else if(isBattlePaused) drawBtn(V_WIDTH-450, 1400, 400, 100, "[ 繼續衝鋒 ]", () => { isBattlePaused = false; isAutoScrolling = true; advanceBattleLog(); }, "#1a2a1a", P.textHeal);
+                else drawBtn(V_WIDTH-450, 1400, 400, 100, "[ 略過戰報 ]", () => {
                     if(battleTimer) clearTimeout(battleTimer);
                     while(battleDisplayIndex<battleLogs.length && battleLogs[battleDisplayIndex].type !== "pause") battleDisplayIndex++;
                     if(battleDisplayIndex<battleLogs.length && battleLogs[battleDisplayIndex].type === "pause") { isBattlePaused=true; battleDisplayIndex++; }
                     needRebuildCache = true; isAutoScrolling = true; requestAnimationFrame(draw);
-                }, "#111");
+                }, P.bgBtn, P.textSub);
             }
             else if(currentState === STATE_ENDING) {
-                drawTxt("*** 萬王之王 ***", V_WIDTH/2, 400, 80, "#d4af37", "center", "bold"); 
-                drawTxt("天下一統，四海昇平。", V_WIDTH/2, 600, 45, "#fff", "center");
-                drawBtn(V_WIDTH/2-200, 1200, 400, 100, "[ 回主選單 ]", ()=>currentState=STATE_MAIN);
+                drawTxt("*** 萬王之王 ***", V_WIDTH/2, 400, 80, P.textTitle, "center", "bold"); 
+                drawTxt("天下一統，四海昇平。", V_WIDTH/2, 600, 45, P.textMain, "center");
+                drawBtn(V_WIDTH/2-200, 1200, 400, 100, "[ 銘記歷史 ]", ()=>currentState=STATE_MAIN, P.bgBtn, P.textTitle);
             }
 
-            if(sysMsg) { ctx.fillStyle = "rgba(0,0,0,0.85)"; ctx.fillRect(0, V_HEIGHT/2-80, V_WIDTH, 160); ctx.strokeStyle="#444"; ctx.lineWidth=4; ctx.strokeRect(0, V_HEIGHT/2-80, V_WIDTH, 160); drawTxt(sysMsg, V_WIDTH/2, V_HEIGHT/2-25, 50, "#0f0", "center", "bold"); }
+            if(sysMsg) { 
+                ctx.fillStyle = "rgba(10,8,5,0.9)"; ctx.fillRect(0, V_HEIGHT/2-80, V_WIDTH, 160); 
+                ctx.strokeStyle=P.borderGold; ctx.lineWidth=3; ctx.strokeRect(0, V_HEIGHT/2-80, V_WIDTH, 160); 
+                drawTxt(sysMsg, V_WIDTH/2, V_HEIGHT/2-25, 50, P.textHeal, "center", "bold"); 
+            }
         }
 
         // ==========================================
@@ -746,6 +897,12 @@
             gameData = { name: document.getElementById('countryName').value.trim() || "無名之國", gold: 1000, conquered: 0, streak: 0, dungeonFloor: 1, army: [createUnit("冒險者"),createUnit("冒險者"),createUnit("冒險者")], npcs: [], allCountries: [], defeatedCountries: [], fac: {hp:0, wAtk:0, mAtk:0, pAtk:0, def:0, spd:0} };
             document.getElementById('nameInputOverlay').style.display = 'none'; currentState = STATE_MAIN; requestAnimationFrame(draw);
         });
+        bindOverlayBtn('btnConfirmRename', () => {
+            gameData.name = document.getElementById('newCountryName').value.trim() || gameData.name;
+            document.getElementById('renameKingdomOverlay').style.display = 'none';
+            showSysMsg("國家改名成功！");
+        });
+        bindOverlayBtn('btnCancelRename', () => document.getElementById('renameKingdomOverlay').style.display = 'none');
         bindOverlayBtn('btnConfirmUnitName', () => {
             if(selectedUnitIndex !== -1) { 
                 if(currentState === STATE_NPC_UNIT) gameData.npcs[selectedUnitIndex].customName = document.getElementById('unitCustomName').value.trim();
@@ -757,17 +914,9 @@
         bindOverlayBtn('btnCancelUnitName', () => document.getElementById('unitNameOverlay').style.display = 'none');
         bindOverlayBtn('btnCancelAuthor', () => document.getElementById('authorOverlay').style.display = 'none');
         
-        bindOverlayBtn('btnConfirmRename', () => {
-          // 讀取新名字，如果留白就維持原名
-          gameData.name = document.getElementById('newCountryName').value.trim() || gameData.name;
-          document.getElementById('renameKingdomOverlay').style.display = 'none';
-          showSysMsg("國家改名成功！");
-        });
-        bindOverlayBtn('btnCancelRename', () => document.getElementById('renameKingdomOverlay').style.display = 'none');
-
         bindOverlayBtn('btnCopyExport', () => {
             let ta = document.getElementById('exportCode'); ta.select(); document.execCommand('copy');
-            showSysMsg("已複製繼承碼！"); document.getElementById('exportOverlay').style.display = 'none';
+            showSysMsg("已拓印符文！"); document.getElementById('exportOverlay').style.display = 'none';
         }, true);
         
         bindOverlayBtn('btnCancelExport', () => document.getElementById('exportOverlay').style.display = 'none');
@@ -777,9 +926,9 @@
                 let code = document.getElementById('importCode').value.trim(); if(!code) return;
                 let parsed = JSON.parse(decodeURIComponent(atob(code)));
                 if(unpackData(parsed)) {
-                    document.getElementById('importOverlay').style.display = 'none'; currentState = STATE_MAIN; showSysMsg("繼承並解壓縮成功！"); requestAnimationFrame(draw);
+                    document.getElementById('importOverlay').style.display = 'none'; currentState = STATE_MAIN; showSysMsg("解開封印成功！"); requestAnimationFrame(draw);
                 } else throw new Error();
-            } catch(e) { alert("繼承碼格式錯誤或已損毀！"); }
+            } catch(e) { alert("符文格式錯誤或已損毀！"); }
         });
         bindOverlayBtn('btnCancelImport', () => document.getElementById('importOverlay').style.display = 'none');
 
@@ -790,7 +939,7 @@
             gameData.army.splice(selectedUnitIndex, 1);
             document.getElementById('retireOverlay').style.display = 'none';
             currentState = STATE_ROSTER;
-            showSysMsg(`退休成功！獲得 ${fNum(earn)} 金幣`);
+            showSysMsg(`英雄退隱！獲 ${fNum(earn)} G`);
             requestAnimationFrame(draw);
         });
         bindOverlayBtn('btnCancelRetire', () => document.getElementById('retireOverlay').style.display = 'none');
