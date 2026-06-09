@@ -114,7 +114,7 @@ const DB = {
         '異星蟲族': { desc:'生命力極強。裝甲厚實但反應遲緩。\n[初始 HP+50, 反應-2] | 武裝:重力', bonus:{hp:50,s:0,m:0,r:-2,l:0}, wTag:'重力' }
     },
     MechTypes: { '突擊':{hp:1,s:1.2,m:1.2,r:1}, '重裝':{hp:1.5,s:1,m:1.2,r:0.8}, '狙擊':{hp:0.8,s:1.5,m:0.5,r:1.2}, '高速':{hp:0.8,s:1,m:1,r:1.5}, '特裝':{hp:1.1,s:1.1,m:1.1,r:1.1} },
-    Prefixes: ['試作','量產','王牌','古代','深淵','次世代','重鍛','異端'], FinPre: ['次元','究極','必殺','真・','星爆'], FinMid: ['毀滅','碎星','超重','神劍'], FinSuf: ['擊','突刺','劍','破','閃'],
+    Prefixes: ['試作','量產','王牌','古代','深淵','次世代','重鍛','異端'], FinPre: ['次元','究極','必殺','真・','星爆','終焉','寂滅','極道','聖裁','深淵','幻影','修羅','不滅','混沌','至尊'], FinMid: ['神煌','九幽','星辰','帝王','霜天','狂魔','光輝','雷霆','毀滅','黑炎','碎星','超重','神之','蒼穹'], FinSuf: ['印','劫','崩','舞','吼','爆','擊','斬','突刺','劍','破','閃'],
     Tags: { Weapon: ['實彈','光束','導彈','近戰','重力','精神'], Enemy: ['機械','生體','護盾','巨型','高速','AI'] },
     TagMatrix: { '實彈':{'高速':1.5,'護盾':0.5}, '光束':{'生體':1.5,'護盾':0.5}, '導彈':{'巨型':1.5,'高速':0.5}, '近戰':{'機械':1.5,'巨型':0.5}, '重力':{'高速':0.5,'巨型':1.5}, '精神':{'AI':1.5,'生體':0.5} },
     
@@ -188,7 +188,7 @@ const DB = {
     ],
     SysE: { 
         'sys_lv':{d:"歷經無數次生死邊緣的戰火，駕駛員與機體的同步率突破了臨界點，抵達了全新的境界。請選擇未來的強化方向：",c:[{l:'火控最佳化 (射擊+4)',f:p=>p.shoot+=4},{l:'傳動軸強化 (格鬥+4)',f:p=>p.melee+=4},{l:'推進器過載 (反應+4)',f:p=>p.react+=4},{l:'裝甲擴充 (MaxHP+25)',f:p=>{p.maxHp+=25;p.hp+=25;}},{l:'精神框架共鳴 (MaxSP+20)',f:p=>{p.maxSp+=20;p.sp+=20;}}]},
-        'sys_base':{d:"經歷了漫長且危險的航行，你終於抵達了前線的隱密中繼基地。機甲停靠在維修架上，獲得了短暫的休整時光：",c:[{l:'進行全面維護 (HP/SP全滿)',f:p=>{p.hp=p.maxHp;p.sp=p.maxSp;}},{l:'火控系統升級 (射/格+6)',f:p=>{p.shoot+=6;p.melee+=6;}},{l:'機體魔改換乘 (HP上限+30)',f:p=>{let n=GAME.rnd(Object.keys(DB.MechTypes));STATE.mech.name=`次世代${n}機`;STATE.mech.type=n;p.react+=3;p.maxHp+=30;p.hp+=30;}}]}
+        'sys_base':{d:"經歷了漫長且危險的航行，你終於抵達了前線的隱密中繼基地。機甲停靠在維修架上，獲得了短暫的休整時光：",c:[{l:'進行全面維護 (HP/SP全滿)',f:p=>{p.hp=p.maxHp;p.sp=p.maxSp;}},{l:'火控系統升級 (射/格+6)',f:p=>{p.shoot+=6;p.melee+=6;}},{l:'機體魔改換乘 (HP上限+30)',f:p=>{let n=GAME.rnd(Object.keys(DB.MechTypes));STATE.mech.name=`次世代${n}機`; STATE.mech.type=n;p.react+=3; p.maxHp+=30; p.hp+=30; STATE.mech.finisher = GAME.genFins();}}]}
     }
 };
 
@@ -239,10 +239,19 @@ const GAME = {
         SYS.nav('create');
     },
     rnd: a => a[Math.floor(Math.random()*a.length)], rndInt: (min, max) => Math.floor(Math.random()*(max-min+1))+min,
+    
+    // 將陣列複製並打亂，保證取出的前三個絕對不重複
+    genFins: () => {
+        let p = [...DB.FinPre].sort(()=>0.5-Math.random()), 
+            m = [...DB.FinMid].sort(()=>0.5-Math.random()), 
+            s = [...DB.FinSuf].sort(()=>0.5-Math.random());
+        return [0,1,2].map(i => p[i] + m[i] + s[i]);
+    },
+    
     start: () => {
         let f=SYS.el('sel-faction').value, fd=DB.Factions[f], lb=STATE.legacy.statBonus||0, g=STATE.legacy.gen||1, sP=Object.keys(DB.Spirits).filter(k=>DB.Spirits[k].lv===1);
         STATE.pilot = { name:SYS.el('inp-name').value||`第${g}代機師`, lv:1, exp:0, hp:100+fd.bonus.hp+lb*2, maxHp:100+fd.bonus.hp+lb*2, sp:50+(fd.spBonus||0)+lb, maxSp:50+(fd.spBonus||0)+lb, shoot:10+fd.bonus.s+Math.floor(lb/2), melee:10+fd.bonus.m+Math.floor(lb/2), react:10+fd.bonus.r+Math.floor(lb/2), luck:10+fd.bonus.l+Math.floor(lb/2), spirits:[GAME.rnd(sP)] };
-        let mt=GAME.rnd(Object.keys(DB.MechTypes)); STATE.mech = { name:`${GAME.rnd(DB.Prefixes)}${mt}機`, type:mt, wTag:fd.wTag, finisher:[1,2,3].map(()=>GAME.rnd(DB.FinPre)+GAME.rnd(DB.FinMid)+GAME.rnd(DB.FinSuf)) };
+        let mt=GAME.rnd(Object.keys(DB.MechTypes)); STATE.mech = { name:`${GAME.rnd(DB.Prefixes)}${mt}機`, type:mt, wTag:fd.wTag, finisher: GAME.genFins() };
         STATE.floor=1; STATE.inGame=true; STATE.combat.buff={}; STATE.fusions=[]; STATE.news.unshift(`[世代交替] ${STATE.pilot.name} 踏入星海...`); GAME.genFloor(); SYS.nav('map');
     },
     simWorld: () => {
@@ -325,7 +334,20 @@ const COMBAT = {
             }
         } else { bName = GAME.rnd(DB.PM[eT].mobs); }
 
-        STATE.combat.enemy = { n:bName, hp:(isB?200:50)*(1+STATE.floor*0.1), maxHp:(isB?200:50)*(1+STATE.floor*0.1), atk:(isB?25:10)*(1+STATE.floor*0.1), tag:GAME.rnd(DB.Tags.Enemy), icon:isB?(eT2?'👿':'☠️'):DB.PM[eT].icon, isD:(isB&&ws[eT]>=100), eT:eT, eT2:eT2, isH:!!hD, hObj:hD };
+        // 1. 抓取玩家當前的基礎總傷害 (射擊 + 格鬥)
+        let pAtk = STATE.pilot.shoot + STATE.pilot.melee;
+        // 2. 判斷敵人身分，給予最低存活回合 (小兵=0, 英雄=2, 融合英雄=3, BOSS=4, 融合BOSS=5)
+        let turns = 0;
+        if(hD) turns = hD.t2 ? 3 : 2; 
+        else if(isB) turns = eT2 ? 5 : 4; 
+        // 3. 計算傳統的樓層血量
+        let floorHp = (isB ? 200 : (hD ? 150 : 50)) * (1 + STATE.floor * 0.15);
+        // 4. 計算動態保底血量 (玩家總攻擊力 * 1.5倍屬性浮動係數 * 存活回合數)
+        let minHp = turns > 0 ? (pAtk * 1.5 * turns) : 0;
+        // 5. 兩者取最大值
+        let finalHp = Math.floor(Math.max(floorHp, minHp));
+
+        STATE.combat.enemy = { n:bName, hp: finalHp, maxHp: finalHp, atk:(isB?25:10)*(1+STATE.floor*0.1), tag:GAME.rnd(DB.Tags.Enemy), icon:isB?(eT2?'👿':'☠️'):DB.PM[eT].icon, isD:(isB&&ws[eT]>=100), eT:eT, eT2:eT2, isH:!!hD, hObj:hD };
         SYS.nav('combat'); COMBAT.upd(); SYS.log('combat-log', `>>> 戰鬥接觸 <<<\n敵方：[${STATE.combat.enemy.tag}] ${STATE.combat.enemy.n}\n----------------------`, 1);
     },
     upd: () => { let e=STATE.combat.enemy; SYS.el('combat-title').innerHTML=`${e.icon} 遭遇 ${e.n} <br><span style="font-size:0.8em;color:#fff;">(HP: ${Math.floor(e.hp)}/${Math.floor(e.maxHp)})</span>`; SYS.updateUI(); },
