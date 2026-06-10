@@ -229,7 +229,7 @@ const SYS = {
     showStatus: () => {
         if(SYS.chkBlock()) return; SYS.el('stat-name').value=STATE.pilot.name; SYS.el('stat-mech-name').value=STATE.mech.name;
         let p=STATE.pilot, m=STATE.mech, d=SYS.el('stat-details'), simH=Object.keys(DB.PM).map(k=>`<div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span>${DB.PM[k].icon} ${DB.PM[k].n}</span><span>${SYS.bar(STATE.w[k])}</span></div>`).join('');
-        d.innerHTML = `<div class="panel"><div class="panel-title">Pilot & Mech</div><div class="stat-grid" style="margin-bottom:8px;"><div class="stat-item">Lv.${p.lv}<span class="stat-desc">Exp: ${p.exp}/${p.lv*20}</span></div><div class="stat-item">武裝: ${m.wTag}</div></div><div style="font-size:0.9em;">終結技: <span style="color:#ff33ff;">${m.finisher.join('/')}</span></div></div>
+        d.innerHTML = `<div class="panel"><div class="panel-title">Pilot & Mech</div><div class="stat-grid" style="margin-bottom:8px;"><div class="stat-item">Lv.${p.lv}<span class="stat-desc">Exp: ${SYS.nFmt(p.exp)}/${SYS.nFmt(p.lv*20 + p.lv*p.lv*5)}</span></div><div class="stat-item">武裝: ${m.wTag}</div></div><div style="font-size:0.9em;">終結技: <span style="color:#ff33ff;">${m.finisher.join('/')}</span></div></div>
         <div class="panel">
             <div class="panel-title">Attributes</div>
             <div class="stat-grid">
@@ -400,7 +400,7 @@ const COMBAT = {
         if(e.hp<=0) { STATE.combat.isEnding=true; return COMBAT.win(); }
         if(b.awaken && t==='attack') { b.awaken=false; SYS.log('combat-log', `> <span style="color:#ffdd55">覺醒發動！連續行動！</span>\n----------------------`); return COMBAT.upd(); }
 
-        let eHr = b.alert ? 0 : (b.focus ? Math.max(0.1, 0.7+(STATE.floor*0.02)-(p.react*0.01)-0.3) : 0.7+(STATE.floor*0.02)-(p.react*0.01));
+        let eHr = b.alert ? 0 : Math.max(0.2, 0.7 + (STATE.floor*0.02) - (p.react*0.01) - (b.focus ? 0.3 : 0));
         if(Math.random()<eHr) {
             let eDMul = b.vigor ? 0.125 : (b.iron ? 0.25 : (b.def ? 0.3 : 1)); if(b.spirit) eDMul *= 0.8;
             eDmg = Math.floor(e.atk * eDMul * GAME.rndInt(8,12)/10); p.hp -= eDmg; b.vigor=false;
@@ -432,7 +432,7 @@ const COMBAT = {
             SYS.toast("成功討伐傳奇人物！"); 
         }
         
-        if(STATE.pilot.exp >= STATE.pilot.lv*20) {
+        if(STATE.pilot.exp >= STATE.pilot.lv*20 + Math.pow(STATE.pilot.lv, 2)*5) {
             STATE.pilot.lv++; STATE.pilot.exp=0;
             if(STATE.pilot.lv%5===0 && STATE.pilot.spirits.length<6) {
                 let p=Object.keys(DB.Spirits).filter(k=>DB.Spirits[k].lv<=STATE.pilot.lv && !STATE.pilot.spirits.includes(k));
