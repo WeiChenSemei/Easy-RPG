@@ -332,7 +332,11 @@ const MAP = {
         const getA=i=>{let r=[], x=i%STATE.map.w, y=Math.floor(i/STATE.map.w); [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]].forEach(([dx,dy])=>{let nx=x+dx,ny=y+dy; if(nx>=0&&nx<STATE.map.w&&ny>=0&&ny<STATE.map.h) r.push(ny*STATE.map.w+nx);}); return r;};
         g=g.map((c,i)=>c.v!==0?c:{...c,num:getA(i).reduce((a,adj)=>a+(g[adj].v===1||g[adj].v===9?1:0),0)}); STATE.map.grid=g; MAP.render();
     },
-    render: () => { let g=SYS.el('map-grid'); g.innerHTML=''; STATE.map.grid.forEach((c,i)=>{let d=document.createElement('div'); d.className=`cell ${c.rev?'revealed':''} ${c.rev&&c.v===0&&c.num>0?'danger-'+c.num:''}`; d.innerText=c.rev?(c.v===0?(c.num>0?c.num:''):DB.Cells[c.v].i):''; d.onclick=()=>MAP.click(i); g.appendChild(d);}); },
+    render: () => { let g=SYS.el('map-grid'); g.innerHTML='';
+     // 掃描地圖資料，如果有格子是傳送門(v===8)且被翻開(rev===true)，就顯示按鈕
+     SYS.el('btn-next-floor').style.display = STATE.map.grid.some(c => c.v === 8 && c.rev) ? 'block' : 'none';
+     STATE.map.grid.forEach((c,i)=>{let d=document.createElement('div'); d.className=`cell ${c.rev?'revealed':''} ${c.rev&&c.v===0&&c.num>0?'danger-'+c.num:''}`; d.innerText=c.rev?(c.v===0?(c.num>0?c.num:''):DB.Cells[c.v].i):''; d.onclick=()=>MAP.click(i); g.appendChild(d);}); },
+   
     click: i => { let c=STATE.map.grid[i]; if(c.rev) return; c.rev=true; MAP.render(); let a={'empty':()=>{if(c.num===0)MAP.fill(i); MAP.render();}, 'enemy':()=>COMBAT.init(false,i), 'boss':()=>COMBAT.init(true,i), 'event':()=>EVENT.init(c.v,i), 'exit':()=>{SYS.el('btn-next-floor').style.display='block'; SYS.toast("發現跳躍門！");}}; if(a[DB.Cells[c.v].t]) a[DB.Cells[c.v].t](); },
     fill: sI => { let stk=[sI], w=STATE.map.w, h=STATE.map.h; while(stk.length>0){let i=stk.pop(), x=i%w, y=Math.floor(i/w); [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]].forEach(([dx,dy])=>{let nx=x+dx,ny=y+dy,ni=ny*w+nx; if(nx>=0&&nx<w&&ny>=0&&ny<h&&!STATE.map.grid[ni].rev&&STATE.map.grid[ni].v===0){STATE.map.grid[ni].rev=true; if(STATE.map.grid[ni].num===0) stk.push(ni);}});} }
 };
