@@ -94,36 +94,45 @@
             box-shadow: var(--shadow);
         }
 
+        /* 虛擬方向鍵 */
         #dpad-container {
             width: 100%;
             display: flex;
             justify-content: center;
             pointer-events: auto;
-            margin-bottom: 24px;
+            margin-bottom: 8px; /* 往下移貼齊邊緣，遠離中央角色 */
+            opacity: 0.4; /* 預設半透明，降低視覺干擾 */
+            transition: opacity 0.2s ease-out;
+        }
+        
+        #dpad-container:active, #dpad-container:hover {
+            opacity: 0.85; /* 操作時才變清晰 */
         }
         
         .dpad {
             display: grid;
-            grid-template-columns: repeat(3, 68px);
-            grid-template-rows: repeat(3, 68px);
+            grid-template-columns: repeat(3, 60px); /* 稍微縮小按鍵尺寸 */
+            grid-template-rows: repeat(3, 60px);
             gap: 8px;
         }
 
         .d-btn {
-            background: rgba(255, 255, 255, 0.88);
+            background: rgba(255, 255, 255, 0.25); /* 更通透的底色 */
             border-radius: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            font-size: 26px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            font-size: 24px;
             display: flex;
             justify-content: center; align-items: center;
-            box-shadow: 0 6px 0 rgba(0,0,0,0.1);
+            box-shadow: 0 4px 0 rgba(0,0,0,0.08);
             transition: all 0.08s;
             cursor: pointer;
+            backdrop-filter: blur(4px); /* 療癒的毛玻璃質感 */
+            -webkit-backdrop-filter: blur(4px);
         }
         .d-btn:active {
             transform: translateY(4px);
-            box-shadow: 0 2px 0 rgba(0,0,0,0.1);
-            background: #fff;
+            box-shadow: 0 0 0 rgba(0,0,0,0);
+            background: rgba(255, 255, 255, 0.6);
         }
         #btn-up { grid-column: 2; grid-row: 1; }
         #btn-left { grid-column: 1; grid-row: 2; }
@@ -423,12 +432,23 @@
             'grass': { b: '#c4eec0', e: '🟩', r: -1 },
             'water': { b: '#a5c9f3', e: '🌊', r: -1 },
             'sand':  { b: '#f5e5c9', e: '🟨', r: -1 },
-            '🌲':{r:0}, '🪨':{r:0}, '🌾':{r:0}, '🍄':{r:0},
-            '🌸':{r:0}, '🌷':{r:0}, '🌳':{r:0}, '🌻':{r:0}, '🍁':{r:0}, '🍂':{r:0}, '❄️':{r:0}, '☃️':{r:0},
-            '⛰️':{r:1}, '💎':{r:1}, '🗿':{r:1}, '🏰':{r:1}, '🧊':{r:1},
+            
+            '🌲': { r: 0 }, '🪨': { r: 0 }, '🌾': { r: 0 }, '🍄': { r: 0 },
+            
+            // 四季植物
+            '🌸': { r: 0 }, '🌷': { r: 0 }, '🌳': { r: 0 }, '🌻': { r: 0 },
+            '🍁': { r: 0 }, '🍂': { r: 0 }, '❄️': { r: 0 }, '☃️': { r: 0 },
+            
+            '⛰️': { r: 1 }, '💎': { r: 1 }, '🗿': { r: 1 }, '🏰': { r: 1 }, '🧊': { r: 1 },
+
+            // 奇觀
             '🌈':{r:2}, '🌋':{r:2}, '🏛️':{r:2}, '👑':{r:2}, '🛸':{r:2},
+
+            // NPCs
             '🧙‍♂️':{r:3}, '🧚‍♀️':{r:3}, '🧝‍♂️':{r:3},
-            '🪄':{r:4}, '✨':{r:4}, '🏹':{r:4}
+
+            // 特殊品與漂流瓶
+            '🪄':{r:4}, '✨':{r:4}, '🏹':{r:4}, '📜':{r:1}
         };
 
         const COLLECTIBLES = Object.keys(DICT).filter(k => DICT[k].r >= 0);
@@ -489,6 +509,9 @@
         let rainDrops = [];
         let heartParticles = [];
 
+        let lastInputTime = Date.now();
+        let skyOffset = 0;
+
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
         canvas.addEventListener('contextmenu', e => e.preventDefault()); // 禁用畫布右鍵選單
@@ -529,7 +552,10 @@
             let bg = getBaseTerrain(gx, gy);
             if (state.mods[key] !== undefined) return { bg, obj: state.mods[key] };
             let obj = null;
-            if (bg === 'grass') {
+            
+            if (bg === 'water' || bg === 'sand') {
+                if (hash(gx, gy, state.seed + 200) < 0.005) obj = '📜';
+            } else if (bg === 'grass') {
                 let dist = Math.hypot(gx, gy);
                 let h = hash(gx, gy, state.seed);
                 let spawnChance = 0.11 + Math.min(0.11, dist / 600);
@@ -629,10 +655,11 @@
         }
 
         canvas.addEventListener('pointerdown', (e) => {
+            lastInputTime = Date.now();
             if (e.target !== canvas) return;
             let rect = canvas.getBoundingClientRect();
             let clickGx = Math.floor((e.clientX - rect.left - canvas.width/2 + camera.x) / TILE_SIZE);
-            let clickGy = Math.floor((e.clientY - rect.top - canvas.height/2 + camera.y) / TILE_SIZE);
+            let clickGy = Math.floor((e.clientY - rect.top - canvas.height/2 + camera.y - skyOffset) / TILE_SIZE);
             processInteract(clickGx, clickGy);
         });
 
@@ -649,6 +676,13 @@
         function interactTile(gx, gy) {
             const key = `${gx},${gy}`, tile = getTileData(gx, gy);
             if (tile.obj && DICT[tile.obj]?.r === 3) { openNpcMenu(tile.obj); return; }
+            
+            if (tile.obj === '📜' && state.mods[key] === undefined) {
+                let icons = ['🌸','🌊','🌙','✨','🌲','💎','🕊️','🍂','🛸','🍄'];
+                let msg = ""; for(let i=0;i<3;i++) msg += icons[Math.floor(Math.random()*icons.length)] + (i<2?'➡️':'');
+                addToInventory('📜', 1); state.mods[key] = null; sfx.discover(); showToast(`📜: ${msg}`); saveGame(); return;
+            }
+
             if (activeTool === '🧊' && tile.obj === '🌋') { if (removeFromInventory('🧊',1)) { state.mods[key]='🏛️'; addToInventory('💎',1); sfx.trade(); showToast("🧊🌋 ➡️ 🏛️💎"); saveGame(); } return; }
             if (activeTool === '🌾' && tile.obj === '🐉') { if (removeFromInventory('🌾',1)) { state.mods[key]='🏰'; addToInventory('👑',1); sfx.trade(); showToast("🌾🐉 ➡️ 🏰👑"); saveGame(); } return; }
 
@@ -779,13 +813,14 @@
         // --- 全新 PC 鍵盤操控綁定 ---
         function setupInput() {
             const bindBtn = (id, dx, dy) => {
-                const btn = document.getElementById(id), start = (e) => { e.preventDefault(); if(!moveTimer){ movePlayer(dx,dy); moveTimer=setInterval(()=>movePlayer(dx,dy),160); } };
+                const btn = document.getElementById(id), start = (e) => { lastInputTime=Date.now(); e.preventDefault(); if(!moveTimer){ movePlayer(dx,dy); moveTimer=setInterval(()=>movePlayer(dx,dy),160); } };
                 const stop = (e) => { e.preventDefault(); if(moveTimer){ clearInterval(moveTimer); moveTimer=null; } };
                 btn.addEventListener('touchstart', start); btn.addEventListener('touchend', stop); btn.addEventListener('mousedown', start); btn.addEventListener('mouseup', stop); btn.addEventListener('mouseleave', stop);
             };
             bindBtn('btn-up', 0, -1); bindBtn('btn-down', 0, 1); bindBtn('btn-left', -1, 0); bindBtn('btn-right', 1, 0);
 
             window.addEventListener('keydown', (e) => {
+                lastInputTime = Date.now();
                 // 1. 處理全域快速鍵 (ESC)
                 if (e.key === 'Escape') {
                     if (activeModal) closeAllModals();
@@ -878,6 +913,30 @@
         let frameCount = 0, lastHour = -1;
         function gameLoop() {
             frameCount++;
+            
+            // 閒置掛機狀態判斷與平滑仰角過渡
+            let isIdle = (Date.now() - lastInputTime) > 5000;
+            skyOffset += ((isIdle && !activeModal ? 150 : 0) - skyOffset) * 0.05;
+
+            // 掛機模式下：自動漫步與自然採集
+            if (isIdle && !activeModal && frameCount % 90 === 0) {
+                let dx = 0, dy = 0;
+                if (Math.random() < 0.5) dx = Math.random() < 0.5 ? 1 : -1;
+                else dy = Math.random() < 0.5 ? 1 : -1;
+                movePlayer(dx, dy);
+
+                let key = `${state.px},${state.py}`;
+                let nTile = getTileData(state.px, state.py);
+                // 智能判定：只採集原生生成的常見與稀有資源 (不會破壞玩家手作，不會干擾NPC/奇觀)
+                if (nTile.obj && DICT[nTile.obj]?.r <= 1 && state.mods[key] === undefined && nTile.obj !== '📜') {
+                    addToInventory(nTile.obj, 1);
+                    state.mods[key] = null;
+                    sfx.harvest();
+                    showToast(`🤖🎒 ${nTile.obj}`);
+                    saveGame();
+                }
+            }
+
             pVisual.x += (state.px*TILE_SIZE - pVisual.x)*0.22; pVisual.y += (state.py*TILE_SIZE - pVisual.y)*0.22;
             camera.x += (pVisual.x - camera.x)*0.12; camera.y += (pVisual.y - camera.y)*0.12;
 
@@ -900,7 +959,7 @@
 
         function draw() {
             ctx.fillStyle = '#11131c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            let cx = canvas.width/2, cy = canvas.height/2, sGx = Math.floor((camera.x-cx)/TILE_SIZE)-1, eGx = Math.floor((camera.x+cx)/TILE_SIZE)+1, sGy = Math.floor((camera.y-cy)/TILE_SIZE)-1, eGy = Math.floor((camera.y+cy)/TILE_SIZE)+1;
+            let cx = canvas.width/2, cy = canvas.height/2 + skyOffset, sGx = Math.floor((camera.x-cx)/TILE_SIZE)-1, eGx = Math.floor((camera.x+cx)/TILE_SIZE)+1, sGy = Math.floor((camera.y-cy)/TILE_SIZE)-1, eGy = Math.floor((camera.y+cy)/TILE_SIZE)+1;
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${TILE_SIZE*0.65}px sans-serif`;
             let nOS = [];
 
@@ -935,6 +994,40 @@
                 ctx.beginPath(); ctx.moveTo(bx-5, by+16); ctx.lineTo(bx, by+21); ctx.lineTo(bx+5, by+16); ctx.fill(); ctx.stroke();
                 ctx.font = '16px sans-serif'; ctx.fillStyle = '#000'; ctx.fillText(`${gI}🔄${geI}`, bx, by+1); ctx.font = `${TILE_SIZE*0.65}px sans-serif`;
             });
+
+            // 繪製閒置仰望星空/天空特效
+            if (skyOffset > 1) {
+                let isNight = (state.time >= 1800 || state.time < 500);
+                let skyColor = isNight ? '15,20,35' : '150,200,235';
+                if (state.time >= 1650 && state.time < 1850) skyColor = '244,117,43';
+                else if (state.time >= 450 && state.time < 650) skyColor = '150,120,220';
+
+                let grad = ctx.createLinearGradient(0, 0, 0, skyOffset * 2.5);
+                grad.addColorStop(0, `rgba(${skyColor}, 1)`);
+                grad.addColorStop(0.5, `rgba(${skyColor}, 0.8)`);
+                grad.addColorStop(1, `rgba(${skyColor}, 0)`);
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, canvas.width, skyOffset * 3);
+
+                let progress = isNight ? ((state.time < 500 ? state.time+2400 : state.time) - 1800)/1100 : (state.time - 500)/1300;
+                let cX = canvas.width * progress;
+                let cY = (skyOffset * 0.8) + Math.sin(progress * Math.PI) * -40;
+                ctx.font = `${40 * (skyOffset/150)}px sans-serif`;
+                ctx.fillText(isNight ? '🌙' : '☀️', cX, cY);
+
+                if (isNight) {
+                    for(let i=0; i<15; i++) {
+                        let sX = hash(i, 1, state.seed) * canvas.width;
+                        let sY = hash(i, 2, state.seed) * skyOffset * 1.5;
+                        let twinkle = Math.sin(Date.now()/(200 + i*50) + i);
+                        if (twinkle > 0) {
+                            ctx.fillStyle = `rgba(255,255,255,${twinkle * (skyOffset/150)})`;
+                            ctx.fillText('✨', sX, sY);
+                        }
+                    }
+                }
+                ctx.font = `${TILE_SIZE*0.65}px sans-serif`; // 恢復字體大小
+            }
 
             let ol = null;
             if (state.weather===2) ol='rgba(225,230,235,0.4)'; else if (state.weather===1) ol='rgba(110,125,150,0.25)';
