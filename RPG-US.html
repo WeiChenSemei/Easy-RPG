@@ -200,10 +200,21 @@ let STATE = { legacy:{statBonus:0, gen:1}, lastMainScreen:'title', currScreen:'t
 /** 系統工具 */
 const SYS = {
     el: id => document.getElementById(id),
+    // 數字格式化 (k, m, b, t)，超過1000自動縮寫並保留一位小數 (如 1.5k, 1k)
+    nFmt: v => {
+        if (isNaN(v)) return v; // <--- 加上這行：如果不是數字（例如名字字串），就直接原樣回傳
+        if (v >= 1e12) return (v / 1e12).toFixed(1).replace(/\.0$/, '') + 't';
+        if (v >= 1e9) return (v / 1e9).toFixed(1).replace(/\.0$/, '') + 'b';
+        if (v >= 1e6) return (v / 1e6).toFixed(1).replace(/\.0$/, '') + 'm';
+        if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+        return Math.floor(v); // 1000 以下直接回傳並無條件捨去小數
+    },
     nav: s => { if(['map','title','create','gameover'].includes(s)) STATE.lastMainScreen = s; STATE.currScreen = s; document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active-screen')); SYS.el(`scr-${s}`).classList.add('active-screen'); SYS.el('top-bar').style.display=(s==='title'||s==='create'||s==='gameover')?'none':'flex'; if(STATE.inGame) SYS.updateUI(); },
     back: () => STATE.inGame ? SYS.nav(STATE.lastMainScreen) : SYS.nav('title'),
     toast: m => { let t=SYS.el('sys-toast'); t.innerText=m; t.style.display='block'; setTimeout(()=>t.style.display='none', 3000); },
-    updateUI: () => { ['name','lv','floor','hp','sp'].forEach(k=>{let e=SYS.el(`ui-${k}`); if(e) e.innerText=STATE.pilot[k]!==undefined?STATE.pilot[k]:STATE[k];}); let hpEl=SYS.el('ui-hp'); if(hpEl) hpEl.style.color=STATE.pilot.hp<STATE.pilot.maxHp*0.3?'var(--danger-color)':'var(--safe-color)'; },
+    
+    updateUI: () => { ['name','lv','floor','hp','sp'].forEach(k=>{let e=SYS.el(`ui-${k}`); if(e) e.innerText=SYS.nFmt(STATE.pilot[k]!==undefined?STATE.pilot[k]:STATE[k]);}); let hpEl=SYS.el('ui-hp'); if(hpEl) hpEl.style.color=STATE.pilot.hp<STATE.pilot.maxHp*0.3?'var(--danger-color)':'var(--safe-color)'; },
+    
     saveLocal: () => { localStorage.setItem('US_SAVE', JSON.stringify(STATE)); SYS.toast('💾 儲存成功'); },
     loadLocal: (isAuto=false) => { let s=localStorage.getItem('US_SAVE'); if(s){STATE=JSON.parse(s); SYS.hydrate(); if(!isAuto){ SYS.back(); MAP.render(); SYS.toast('📂 讀取成功');}}else if(!isAuto) SYS.toast('❌ 無存檔'); },
     exportData: () => SYS.el('save-code').value = btoa(encodeURIComponent(JSON.stringify(STATE))),
@@ -222,12 +233,12 @@ const SYS = {
         <div class="panel">
             <div class="panel-title">Attributes</div>
             <div class="stat-grid">
-                <div class="stat-item">機體 <span class="stat-val" style="color:var(--safe-color);">${p.hp}/${p.maxHp}</span><span class="stat-desc">${DB.StatDesc['機體']}</span></div>
-                <div class="stat-item">精神 <span class="stat-val" style="color:#cc33ff;">${p.sp}/${p.maxSp}</span><span class="stat-desc">${DB.StatDesc['精神']}</span></div>
-                <div class="stat-item">射擊 <span class="stat-val">${p.shoot}</span><span class="stat-desc">${DB.StatDesc['射擊']}</span></div>
-                <div class="stat-item">格鬥 <span class="stat-val">${p.melee}</span><span class="stat-desc">${DB.StatDesc['格鬥']}</span></div>
-                <div class="stat-item">反應 <span class="stat-val">${p.react}</span><span class="stat-desc">${DB.StatDesc['反應']}</span></div>
-                <div class="stat-item">運氣 <span class="stat-val">${p.luck}</span><span class="stat-desc">${DB.StatDesc['運氣']}</span></div>
+                <div class="stat-item">機體 <span class="stat-val" style="color:var(--safe-color);">${SYS.nFmt(p.hp)}/${SYS.nFmt(p.maxHp)}</span><span class="stat-desc">${DB.StatDesc['機體']}</span></div>
+                <div class="stat-item">精神 <span class="stat-val" style="color:#cc33ff;">${SYS.nFmt(p.sp)}/${SYS.nFmt(p.maxSp)}</span><span class="stat-desc">${DB.StatDesc['精神']}</span></div>
+                <div class="stat-item">射擊 <span class="stat-val">${SYS.nFmt(p.shoot)}</span><span class="stat-desc">${DB.StatDesc['射擊']}</span></div>
+                <div class="stat-item">格鬥 <span class="stat-val">${SYS.nFmt(p.melee)}</span><span class="stat-desc">${DB.StatDesc['格鬥']}</span></div>
+                <div class="stat-item">反應 <span class="stat-val">${SYS.nFmt(p.react)}</span><span class="stat-desc">${DB.StatDesc['反應']}</span></div>
+                <div class="stat-item">運氣 <span class="stat-val">${SYS.nFmt(p.luck)}</span><span class="stat-desc">${DB.StatDesc['運氣']}</span></div>
             </div>
             <div style="margin-top:8px;font-size:0.85em;border-top:1px dashed #005577;padding-top:6px;"><strong>持有精神:</strong><br>${p.spirits.map(s=>`<span style="color:#ffdd55">${s}</span>: <span style="color:#aaa">${DB.Spirits[s].d}</span>`).join('<br>')}</div>
         </div>
@@ -361,7 +372,7 @@ const COMBAT = {
         STATE.combat.enemy = { n:bName, hp: finalHp, maxHp: finalHp, atk:(isB?25:10)*(1+STATE.floor*0.1), tag:GAME.rnd(DB.Tags.Enemy), icon:isB?(eT2?'👿':'☠️'):DB.PM[eT].icon, isD:(isB&&ws[eT]>=100), eT:eT, eT2:eT2, isH:!!hD, hObj:hD };
         SYS.nav('combat'); COMBAT.upd(); SYS.log('combat-log', `>>> 戰鬥接觸 <<<\n敵方：[${STATE.combat.enemy.tag}] ${STATE.combat.enemy.n}\n----------------------`, 1);
     },
-    upd: () => { let e=STATE.combat.enemy; SYS.el('combat-title').innerHTML=`${e.icon} 遭遇 ${e.n} <br><span style="font-size:0.8em;color:#fff;">(HP: ${Math.floor(e.hp)}/${Math.floor(e.maxHp)})</span>`; SYS.updateUI(); },
+    upd: () => { let e=STATE.combat.enemy; SYS.el('combat-title').innerHTML=`${e.icon} 遭遇 ${e.n} <br><span style="font-size:0.8em;color:#fff;">(HP: ${SYS.nFmt(e.hp)}/${SYS.nFmt(e.maxHp)})</span>`; SYS.updateUI(); },
     act: t => {
         if(!STATE.combat.enemy || STATE.combat.isEnding) return;
         let p=STATE.pilot, m=STATE.mech, e=STATE.combat.enemy, b=STATE.combat.buff, pDmg=0, eDmg=0, pMsg='', eMsg=''; SYS.el('combat-spirits').style.display='none';
@@ -375,7 +386,7 @@ const COMBAT = {
                 let dMul = b.soul ? 2.2 : (b.valor ? 2.0 : 1.0); if(b.spirit) dMul *= 1.2;
                 pDmg = Math.floor((sSt+mSt) * mul * (isC?1.5:1) * dMul * GAME.rndInt(8,12)/10);
                 e.hp = Math.max(0, e.hp-pDmg); b.soul=false; b.valor=false; b.snipe=false; b.charge=false; b.strike=false;
-                pMsg = `${GAME.rnd(DB.WepTxt[m.wTag]||DB.WepTxt['實彈'])} ${mul>1?'<span style="color:#ffdd55">【克制】</span>':''}${isC?'<span style="color:#ff3366">【會心一擊】</span>':''}<br>造成 <span style="font-size:1.5em;color:var(--danger-color);">${pDmg}</span> 傷害！`;
+                pMsg = `${GAME.rnd(DB.WepTxt[m.wTag]||DB.WepTxt['實彈'])} ${mul>1?'<span style="color:#ffdd55">【克制】</span>':''}${isC?'<span style="color:#ff3366">【會心一擊】</span>':''}<br>造成 <span style="font-size:1.5em;color:var(--danger-color);">${SYS.nFmt(pDmg)}</span> 傷害！`;
                 if(e.hp<=0) pMsg+=`<br><br><span class="rainbow-text" style="font-size:1.6em;display:block;text-align:center;">💥終結技：【${GAME.rnd(m.finisher)}】</span>`;
             } else pMsg = `攻擊落空！`;
         } else if(t==='defend') { pMsg=`採取防禦姿態，降低受到的傷害。`; b.def=true; }
@@ -389,7 +400,7 @@ const COMBAT = {
         if(Math.random()<eHr) {
             let eDMul = b.vigor ? 0.125 : (b.iron ? 0.25 : (b.def ? 0.3 : 1)); if(b.spirit) eDMul *= 0.8;
             eDmg = Math.floor(e.atk * eDMul * GAME.rndInt(8,12)/10); p.hp -= eDmg; b.vigor=false;
-            eMsg = `${GAME.rnd(DB.EnemyTxt)}<br>受到 <span style="color:var(--danger-color);font-size:1.2em;">${eDmg}</span> 損傷。`;
+            eMsg = `${GAME.rnd(DB.EnemyTxt)}<br>受到 <span style="color:var(--danger-color);font-size:1.2em;">${SYS.nFmt(eDmg)}</span> 損傷。`;
         } else { eMsg = `<span style="color:var(--safe-color)">${GAME.rnd(DB.DodgeTxt)}</span>`; b.alert=false; }
         
         b.def=false; b.focus=false; b.iron=false; // Round reset
@@ -403,7 +414,7 @@ const COMBAT = {
                 SYS.log('combat-log', `> 消耗${sD.cost}SP。☄️ 發動【<span style="color:#ffdd55">${sp}</span>】!<br><span style="color:#aaa;font-size:0.9em;">${sD.d}</span>`); SYS.updateUI(); d.style.display='none'; }; d.appendChild(btn); });
     },
     win: () => {
-        STATE.inCombat=false; let expG = Math.floor((10+STATE.floor*3)*(STATE.combat.buff.gain?2:1)); STATE.pilot.exp+=expG; STATE.map.grid[STATE.map.curr].v=0; SYS.log('combat-log', `<br>🏆 勝利！獲得 <span style="color:#00ffcc">${expG}</span> Exp。`);
+        STATE.inCombat=false; let expG = Math.floor((10+STATE.floor*3)*(STATE.combat.buff.gain?2:1)); STATE.pilot.exp+=expG; STATE.map.grid[STATE.map.curr].v=0; SYS.log('combat-log', `<br>🏆 勝利！獲得 <span style="color:#00ffcc">${SYS.nFmt(expG)}</span> Exp。`);
         if(STATE.combat.enemy.isD || STATE.combat.enemy.eT2) { 
             STATE.w[STATE.combat.enemy.eT] = Math.max(0, STATE.w[STATE.combat.enemy.eT]-50);
             if (STATE.combat.enemy.eT2) STATE.w[STATE.combat.enemy.eT2] = Math.max(0, STATE.w[STATE.combat.enemy.eT2]-50);
