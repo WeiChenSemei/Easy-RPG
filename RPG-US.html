@@ -113,8 +113,9 @@ const DB = {
         '宇宙海盜': { desc:'高風險。游走在生死邊緣的狂徒。\n[初始 運氣+15, HP-10] | 武裝:導彈', bonus:{hp:-10,s:2,m:5,r:0,l:15}, wTag:'導彈' },
         '異星蟲族': { desc:'生命力極強。裝甲厚實但反應遲緩。\n[初始 HP+50, 反應-2] | 武裝:重力', bonus:{hp:50,s:0,m:0,r:-2,l:0}, wTag:'重力' }
     },
+    StatDesc: { '機體': '裝甲與耐久，歸零任務失敗。', '精神': '發動強大精神指令的能量。', '射擊': '實彈與光束等遠程傷害。', '格鬥': '近戰武器傷害與判定。', '反應': '機動性，提升迴避與命中。', '運氣': '提升暴擊、經驗與好事件。' },
     MechTypes: { '突擊':{hp:1,s:1.2,m:1.2,r:1}, '重裝':{hp:1.5,s:1,m:1.2,r:0.8}, '狙擊':{hp:0.8,s:1.5,m:0.5,r:1.2}, '高速':{hp:0.8,s:1,m:1,r:1.5}, '特裝':{hp:1.1,s:1.1,m:1.1,r:1.1} },
-    Prefixes: ['試作','量產','王牌','古代','深淵','次世代','重鍛','異端'], FinPre: ['次元','究極','必殺','真・','星爆','終焉','寂滅','極道','聖裁','深淵','幻影','修羅','不滅','混沌','至尊'], FinMid: ['神煌','九幽','星辰','帝王','霜天','狂魔','光輝','雷霆','毀滅','黑炎','碎星','超重','神之','蒼穹'], FinSuf: ['印','劫','崩','舞','吼','爆','擊','斬','突刺','劍','破','閃'],
+    Prefixes: ['試作','量產','王牌','古代','深淵','次世代','重鍛','異端'], FinPre: ['次元','究極','必殺','真・','星爆','終焉','寂滅','極道','聖裁','深淵','幻影','修羅','不滅','混沌','至尊'], FinMid: ['神煌','九幽','星辰','帝王','霜天','狂魔','光輝','雷霆','毀滅','黑炎','碎星','超重','神之','蒼穹'], FinSuf: ['印','陣','崩','舞','吼','爆','擊','斬','突刺','劍','破','閃'],
     Tags: { Weapon: ['實彈','光束','導彈','近戰','重力','精神'], Enemy: ['機械','生體','護盾','巨型','高速','AI'] },
     TagMatrix: { '實彈':{'高速':1.5,'護盾':0.5}, '光束':{'生體':1.5,'護盾':0.5}, '導彈':{'巨型':1.5,'高速':0.5}, '近戰':{'機械':1.5,'巨型':0.5}, '重力':{'高速':0.5,'巨型':1.5}, '精神':{'AI':1.5,'生體':0.5} },
     
@@ -218,8 +219,18 @@ const SYS = {
         if(SYS.chkBlock()) return; SYS.el('stat-name').value=STATE.pilot.name; SYS.el('stat-mech-name').value=STATE.mech.name;
         let p=STATE.pilot, m=STATE.mech, d=SYS.el('stat-details'), simH=Object.keys(DB.PM).map(k=>`<div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span>${DB.PM[k].icon} ${DB.PM[k].n}</span><span>${SYS.bar(STATE.w[k])}</span></div>`).join('');
         d.innerHTML = `<div class="panel"><div class="panel-title">Pilot & Mech</div><div class="stat-grid" style="margin-bottom:8px;"><div class="stat-item">Lv.${p.lv}<span class="stat-desc">Exp: ${p.exp}/${p.lv*20}</span></div><div class="stat-item">武裝: ${m.wTag}</div></div><div style="font-size:0.9em;">終結技: <span style="color:#ff33ff;">${m.finisher.join('/')}</span></div></div>
-        <div class="panel"><div class="panel-title">Attributes</div><div class="stat-grid"><div class="stat-item">機體 <span class="stat-val" style="color:var(--safe-color);">${p.hp}/${p.maxHp}</span></div><div class="stat-item">精神 <span class="stat-val" style="color:#cc33ff;">${p.sp}/${p.maxSp}</span></div><div class="stat-item">射擊 <span class="stat-val">${p.shoot}</span></div><div class="stat-item">格鬥 <span class="stat-val">${p.melee}</span></div><div class="stat-item">反應 <span class="stat-val">${p.react}</span></div><div class="stat-item">運氣 <span class="stat-val">${p.luck}</span></div></div>
-        <div style="margin-top:8px;font-size:0.85em;border-top:1px dashed #005577;padding-top:6px;"><strong>持有精神:</strong><br>${p.spirits.map(s=>`<span style="color:#ffdd55">${s}</span>: <span style="color:#aaa">${DB.Spirits[s].d}</span>`).join('<br>')}</div></div>
+        <div class="panel">
+            <div class="panel-title">Attributes</div>
+            <div class="stat-grid">
+                <div class="stat-item">機體 <span class="stat-val" style="color:var(--safe-color);">${p.hp}/${p.maxHp}</span><span class="stat-desc">${DB.StatDesc['機體']}</span></div>
+                <div class="stat-item">精神 <span class="stat-val" style="color:#cc33ff;">${p.sp}/${p.maxSp}</span><span class="stat-desc">${DB.StatDesc['精神']}</span></div>
+                <div class="stat-item">射擊 <span class="stat-val">${p.shoot}</span><span class="stat-desc">${DB.StatDesc['射擊']}</span></div>
+                <div class="stat-item">格鬥 <span class="stat-val">${p.melee}</span><span class="stat-desc">${DB.StatDesc['格鬥']}</span></div>
+                <div class="stat-item">反應 <span class="stat-val">${p.react}</span><span class="stat-desc">${DB.StatDesc['反應']}</span></div>
+                <div class="stat-item">運氣 <span class="stat-val">${p.luck}</span><span class="stat-desc">${DB.StatDesc['運氣']}</span></div>
+            </div>
+            <div style="margin-top:8px;font-size:0.85em;border-top:1px dashed #005577;padding-top:6px;"><strong>持有精神:</strong><br>${p.spirits.map(s=>`<span style="color:#ffdd55">${s}</span>: <span style="color:#aaa">${DB.Spirits[s].d}</span>`).join('<br>')}</div>
+        </div>
         <div class="panel"><div class="panel-title">World</div><div style="font-size:0.85em;font-family:monospace;">${simH}</div><div style="margin-top:8px;font-size:0.85em;border-top:1px dashed #005577;padding-top:6px;"><strong>傳奇人物:</strong><br>${STATE.heroes.length?STATE.heroes.map(h=>`<span style="color:#88ccff">${h.n}</span>`).join(' | '):'<span style="color:#888">無</span>'}</div></div>`;
         SYS.nav('status');
     }
