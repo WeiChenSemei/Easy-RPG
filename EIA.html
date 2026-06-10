@@ -233,6 +233,9 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             z-index: 2;
         }
+        /* NPC 鍵盤焦點視覺 */
+        .npc-tab.focused { border: 2px solid #64748b; transform: scale(1.05); }
+        .trade-row.focused { border: 2px solid #64748b; transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .item-slot.locked {
             background: #e2e8f0;
             border: 3px dashed #cbd5e1;
@@ -476,6 +479,11 @@
         let activeModal = null; // 紀錄目前開啟的視窗
         let invCursor = 0; // 背包鍵盤焦點
         let invKeys = [];  // 背包陣列映射
+        
+        let npcTab = 'gift'; // NPC 目前分頁
+        let npcFocus = 'tab'; // NPC 鍵盤焦點層級 ('tab' 或 'content')
+        let npcCursor = 0; // NPC 內容清單焦點
+        let npcGiftKeys = []; // NPC 贈禮陣列映射
 
         let animals = [];
         let rainDrops = [];
@@ -705,26 +713,46 @@
             openModal('modal-pokedex');
         });
 
-        function openNpcMenu(npc) { currentNpc = npc; document.getElementById('npc-name').innerText = npc; updateNpcUI(); openModal('modal-npc'); switchNpcTab('gift'); }
+        function openNpcMenu(npc) { 
+            currentNpc = npc; 
+            document.getElementById('npc-name').innerText = npc; 
+            npcTab = 'gift'; npcFocus = 'tab'; npcCursor = 0;
+            switchNpcTab('gift'); 
+            openModal('modal-npc'); 
+        }
         function updateNpcUI() {
             if(!currentNpc) return;
             const aff = state.npcAff[currentNpc]||0;
             document.getElementById('npc-affection').innerHTML = `${'💖'.repeat(Math.min(5, Math.ceil(aff/3)))||'🤍'} <span style="font-size:18px;">(${aff})</span>`;
+            
+            npcGiftKeys = Object.keys(state.inv);
             const gL = document.getElementById('npc-inventory-list'); gL.innerHTML = '';
-            for (let item in state.inv) { let el = document.createElement('div'); el.className='item-slot'; el.innerHTML=`<div class="item-emoji">${item}</div><div class="item-count">${state.inv[item]}</div>`; el.onclick=()=>giftItem(item); gL.appendChild(el); }
-            if(!Object.keys(state.inv).length) gL.innerHTML = '<div style="grid-column:1/-1; text-align:center; font-size:40px; padding:20px;">🈳</div>';
+            npcGiftKeys.forEach((item, i) => { 
+                let el = document.createElement('div'); 
+                el.className=`item-slot ${npcFocus==='content' && npcTab==='gift' && npcCursor===i ? 'focused' : ''}`; 
+                el.innerHTML=`<div class="item-emoji">${item}</div><div class="item-count">${state.inv[item]}</div>`; 
+                el.onclick=()=>giftItem(item); gL.appendChild(el); 
+            });
+            if(!npcGiftKeys.length) gL.innerHTML = '<div style="grid-column:1/-1; text-align:center; font-size:40px; padding:20px;">🈳</div>';
+            
             const tL = document.getElementById('trade-list'); tL.innerHTML = '';
             (TRADES[currentNpc]||[]).forEach((t, i) => {
                 let cI=Object.keys(t.cost)[0], cA=t.cost[cI], gI=Object.keys(t.get)[0], gA=t.get[gI], hE=(state.inv[cI]||0)>=cA, uL=aff>=t.req;
-                let row = document.createElement('div'); row.className = 'trade-row';
+                let row = document.createElement('div'); 
+                row.className = `trade-row ${npcFocus==='content' && npcTab==='trade' && npcCursor===i ? 'focused' : ''}`;
                 if(!uL) row.innerHTML = `<div style="font-size:24px; color:#94a3b8;">🔒 💖(${t.req})</div>`;
                 else { row.innerHTML = `<div class="trade-formula"><span>${cI}</span><span style="font-size:14px; font-weight:800; color:#64748b;">x${cA}</span><span>➡️</span><span>${gI}</span><span style="font-size:14px; font-weight:800; color:#64748b;">x${gA}</span></div><button class="trade-btn" ${hE?'':'disabled'}>🤝</button>`; if(hE) row.querySelector('button').onclick=()=>executeTrade(i); }
                 tL.appendChild(row);
             });
+
+            document.getElementById('tab-gift').classList.toggle('focused', npcFocus==='tab' && npcTab==='gift');
+            document.getElementById('tab-trade').classList.toggle('focused', npcFocus==='tab' && npcTab==='trade');
         }
         function switchNpcTab(tab) {
+            npcTab = tab; npcCursor = 0;
             document.getElementById('tab-gift').className=`npc-tab ${tab==='gift'?'active':''}`; document.getElementById('tab-trade').className=`npc-tab ${tab==='trade'?'active':''}`;
             document.getElementById('npc-view-gift').style.display=tab==='gift'?'block':'none'; document.getElementById('npc-view-trade').style.display=tab==='trade'?'block':'none';
+            updateNpcUI();
         }
         function giftItem(item) { if(removeFromInventory(item,1)){ let p = [0,3,10][DICT[item]?.r]||1; state.npcAff[currentNpc] = (state.npcAff[currentNpc]||0)+p; sfx.trade(); showToast(`🎁${item} 💖+${p}`); saveGame(); updateNpcUI(); } }
         function executeTrade(idx) { let t = TRADES[currentNpc][idx], cI=Object.keys(t.cost)[0], gI=Object.keys(t.get)[0]; if(removeFromInventory(cI, t.cost[cI])){ addToInventory(gI, t.get[gI]); sfx.trade(); showToast(`🤝✨ ${gI}`); saveGame(); updateNpcUI(); } }
@@ -781,6 +809,37 @@
                             return;
                         }
                         if (c >= 0 && c < len) { invCursor = c; renderInvFocus(); }
+                    } else if (activeModal === 'modal-npc') {
+                        let handled = true;
+                        if (e.key === 'ArrowUp' || e.key === 'w') {
+                            if (npcFocus === 'content') {
+                                if (npcTab === 'gift') { if (npcCursor >= 4) npcCursor -= 4; else npcFocus = 'tab'; }
+                                else { if (npcCursor > 0) npcCursor -= 1; else npcFocus = 'tab'; }
+                            }
+                        } else if (e.key === 'ArrowDown' || e.key === 's') {
+                            if (npcFocus === 'tab') { npcFocus = 'content'; npcCursor = 0; }
+                            else {
+                                if (npcTab === 'gift' && npcCursor + 4 < npcGiftKeys.length) npcCursor += 4;
+                                else if (npcTab === 'trade' && npcCursor + 1 < (TRADES[currentNpc]?.length || 0)) npcCursor += 1;
+                            }
+                        } else if (e.key === 'ArrowLeft' || e.key === 'a') {
+                            if (npcFocus === 'tab') switchNpcTab('gift');
+                            else if (npcTab === 'gift' && npcCursor > 0) npcCursor -= 1;
+                        } else if (e.key === 'ArrowRight' || e.key === 'd') {
+                            if (npcFocus === 'tab') switchNpcTab('trade');
+                            else if (npcTab === 'gift' && npcCursor + 1 < npcGiftKeys.length) npcCursor += 1;
+                        } else if (e.key === ' ' || e.key === 'Enter') {
+                            if (npcFocus === 'tab') { npcFocus = 'content'; npcCursor = 0; }
+                            else if (npcFocus === 'content') {
+                                if (npcTab === 'gift' && npcGiftKeys.length > 0) giftItem(npcGiftKeys[npcCursor]);
+                                else if (npcTab === 'trade') {
+                                    let t = TRADES[currentNpc][npcCursor], aff = state.npcAff[currentNpc] || 0, cI = Object.keys(t.cost)[0];
+                                    if (aff >= t.req && (state.inv[cI] || 0) >= t.cost[cI]) executeTrade(npcCursor);
+                                    else sfx.invalid();
+                                }
+                            }
+                        } else handled = false;
+                        if (handled) { e.preventDefault(); updateNpcUI(); }
                     }
                     return; // 只要有開視窗，就阻斷主角移動與採集
                 }
