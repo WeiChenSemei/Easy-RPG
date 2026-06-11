@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>元素之塔：煉金覺醒</title>
+    <style>
+        :root { --bg: #0a0a0f; --panel: #1a1a24; --border: #333; --text: #eee; --hl: #4da8da; --danger: #e23e57; --success: #00d26a; --warn: #ff9800; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', sans-serif; }
+        body { background: var(--bg); color: var(--text); display: flex; justify-content: center; height: 100vh; overflow: hidden; }
+        #app { width: 100%; max-width: 500px; display: flex; flex-direction: column; background: #0d0d12; position: relative; }
+        
+        header { background: var(--panel); padding: 12px; text-align: center; font-weight: bold; border-bottom: 1px solid var(--border); letter-spacing: 1px; position: relative; }
+        .settings-btn { position: absolute; right: 15px; top: 10px; cursor: pointer; font-size: 1.2em; transition: 0.2s; }
+        .settings-btn:active { transform: rotate(45deg); }
+        
+        #relics-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; background: #08080b; padding: 5px; font-size: 1.2em; min-height: 35px; border-bottom: 1px solid #222;}
+        #inventory { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 10px; background: #121218; min-height: 45px; }
+        .inv-item { display: flex; align-items: center; background: rgba(255,255,255,0.08); padding: 4px 8px; border-radius: 6px; font-size: 0.9em; font-weight: bold; cursor: pointer;}
+        .inv-item span { margin-left: 5px; color: var(--hl); }
+
+        #canvas-container { position: relative; width: 100%; aspect-ratio: 4/3; background: #111; border-bottom: 2px solid var(--border); overflow: hidden; }
+        canvas { width: 100%; height: 100%; display: block; cursor: pointer; }
+        #click-prompt { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 1.2em; font-weight: bold; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; pointer-events: none; display: none; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        #battle-log { position: absolute; bottom: 0; left: 0; width: 100%; height: 65px; background: linear-gradient(transparent, rgba(0,0,0,0.85)); color: #ddd; font-size: 0.85em; padding: 5px 10px; overflow: hidden; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; }
+        .log-msg { animation: fadeUp 2s forwards; margin-top: 2px; text-shadow: 1px 1px 2px #000; }
+        @keyframes fadeUp { 0% {opacity:1; transform:translateY(5px);} 80% {opacity:1;} 100% {opacity:0; transform:translateY(-10px);} }
+        
+        #main-panel { flex: 1; overflow-y: auto; background: var(--panel); position: relative; }
+        .view { display: none; padding: 15px; height: 100%; flex-direction: column; }
+        .view.active { display: flex; }
+        
+        .doors-container { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
+        .door-btn { background: #222230; border: 1px solid #444; border-radius: 12px; padding: 15px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; }
+        .door-btn:active { background: #333; transform: scale(0.98); }
+        .door-icon { font-size: 2.2em; margin-right: 15px; }
+        .door-text h4 { color: var(--text); margin-bottom: 4px; font-size: 1.1em; }
+        .door-text p { color: var(--muted); font-size: 0.85em; }
+        
+        .turn-box { text-align: center; margin-bottom: 12px; font-size: 1.1em; color: var(--hl); font-weight: bold; background: rgba(77, 168, 218, 0.1); padding: 8px; border-radius: 8px; }
+        .sel-container { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+        .sel-slot { width: 45px; height: 45px; background: #2a2a35; border: 2px dashed #555; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 1.6em; }
+        .sel-slot.filled { border-style: solid; border-color: var(--hl); background: #334; }
+        
+        .element-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 8px; margin-bottom: auto; }
+        .el-btn { background: #252530; border: 1px solid #444; border-radius: 8px; padding: 10px 0; font-size: 1.5em; text-align: center; cursor: pointer; position: relative; }
+        .el-btn:active { background: #334; transform: scale(0.95); }
+        .el-btn .count { position: absolute; bottom: 2px; right: 5px; font-size: 0.45em; color: #aaa; font-weight: bold; }
+        .el-btn.empty { opacity: 0.2; pointer-events: none; }
+        .el-btn.infinite { border-color: var(--success); background: rgba(0, 210, 106, 0.1); }
+        .el-btn.infinite .count { color: var(--success); }
+        
+        .btn { background: var(--hl); color: #fff; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1em; font-weight: bold; cursor: pointer; }
+        .btn:active { transform: scale(0.95); }
+        .cmd-actions { display: flex; gap: 10px; margin-top: 15px; }
+        .cmd-actions button { flex: 1; padding: 15px; font-size: 1.1em; font-weight: bold; border: none; border-radius: 10px; color: white; cursor: pointer; }
+        
+        .codex-section { margin-bottom: 20px; }
+        .codex-title { font-size: 1.1em; color: var(--hl); margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px; }
+        .codex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(48%, 1fr)); gap: 8px; }
+        .codex-card { background: #252530; padding: 10px; border-radius: 8px; font-size: 0.85em; border-left: 3px solid #555; }
+        .codex-card.unlocked { border-left-color: var(--hl); }
+        .codex-card.unlocked .c-name { color: #fff; font-weight: bold; margin-bottom: 3px; font-size: 1.05em;}
+        .codex-card .c-req { font-size: 0.8em; color: var(--warn); }
+        .codex-card .c-desc { font-size: 0.8em; color: var(--muted); margin-top: 3px; }
+        .codex-card.secret .c-name { filter: blur(4px); color: #666; }
+        
+        nav { display: flex; background: #15151a; border-top: 1px solid var(--border); height: 60px; }
+        nav button { flex: 1; background: transparent; color: var(--muted); border: none; font-size: 1.1em; cursor: pointer; transition: 0.2s; }
+        nav button.active { color: var(--hl); font-weight: bold; background: rgba(255,255,255,0.05); }
+        #save-modal { display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:100; flex-direction:column; justify-content:center; align-items:center; padding:20px; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <header id="top-header">元素之塔 <div class="settings-btn" onclick="openSaveMenu()">⚙️</div></header>
+    <div id="relics-bar"></div>
+    <div id="inventory"></div>
+    <div id="canvas-container">
+        <canvas id="game-canvas" width="400" height="300"></canvas>
+        <div id="click-prompt">▶ 點擊繼續</div>
+        <div id="battle-log"></div>
+    </div>
+    
+    <div id="save-modal">
+        <h2 style="color:var(--hl); margin-bottom:20px;">冒險紀錄與繼承</h2>
+        <p style="margin-bottom:10px;">輪迴次數: <span id="st-runs" style="color:var(--warn); font-weight:bold;">0</span></p>
+        <p>歷史最高層: <span id="st-maxf" style="color:var(--success); font-weight:bold;">1</span></p>
+        <div style="margin-top:30px; display:flex; flex-direction:column; gap:15px; width:80%;">
+            <button class="btn" onclick="exportSave()">匯出繼承碼 (複製到剪貼簿)</button>
+            <button class="btn" onclick="importSave()">匯入繼承碼 (讀取進度)</button>
+            <button class="btn" style="background:#555;" onclick="$('save-modal').style.display='none'">返回遊戲</button>
+        </div>
+    </div>
+
+    <div id="main-panel">
+        <div id="explore-view" class="view active">
+            <h3 style="color:var(--muted); text-align:center;">選擇前進的方向</h3>
+            <div id="door-container" class="doors-container"></div>
+            <div id="event-result" style="display:none; text-align:center; margin-top:30px;">
+                <p id="event-msg" style="font-size:1.3em; color:var(--hl); margin-bottom:15px; font-weight:bold;"></p>
+                <div id="event-loot" style="display:flex; justify-content:center; flex-wrap:wrap; gap:10px; margin-bottom:30px; font-size:1.5em;"></div>
+                <button id="event-btn" class="btn" onclick="nextRoom()">繼續前進</button>
+            </div>
+        </div>
+        <div id="battle-view" class="view">
+            <div class="turn-box"><span id="theme-display" style="color:var(--danger); margin-right:10px;"></span>指令: <span id="current-hero-name" style="color:#fff; font-size:1.2em;"></span></div>
+            <div class="sel-container"><div class="sel-slot" id="slot-0"></div><div class="sel-slot" id="slot-1"></div><div class="sel-slot" id="slot-2"></div><div class="sel-slot" id="slot-3"></div></div>
+            <div class="element-grid" id="element-buttons"></div>
+            <div class="cmd-actions"><button style="background:var(--danger);" onclick="clearElements()">清除</button><button style="background:var(--success);" onclick="confirmAction()">施放 / 融合</button></div>
+        </div>
+        <div id="codex-view" class="view">
+            <h2 style="text-align:center; color:#fff; margin-bottom:10px;">煉金大圖鑑</h2>
+            <div style="text-align:center; color:var(--hl); margin-bottom:20px; font-weight:bold;">探索進度: <span id="completion-rate">0</span>%</div>
+            <div id="codex-content" style="overflow-y: auto; flex: 1;"></div>
+        </div>
+    </div>
+    <nav>
+        <button id="nav-explore" class="active" onclick="goMainView()">🏔️ 冒險</button>
+        <button id="nav-codex" onclick="switchView('codex-view'); renderCodex();">📖 圖鑑</button>
+    </nav>
+</div>
+
+<script>
+/** 1. 核心資料映射 (Data-Driven) */
+const EL = {
+    E: { i:'🪨', n:'地', t:'B' }, W: { i:'💧', n:'水', t:'B' }, F: { i:'🔥', n:'火', t:'B' }, A: { i:'🌪️', n:'風', t:'B' }, I: { i:'❄️', n:'冰', t:'B' }, T: { i:'⚡', n:'雷', t:'B' }, P: { i:'☠️', n:'毒', t:'B' }, L: { i:'✨', n:'光', t:'B' }, D: { i:'🌑', n:'闇', t:'B' },
+    M: { i:'🌋', n:'熔岩', t:'A', req:'F_F' }, C: { i:'🌩️', n:'雷暴', t:'A', req:'T_T' }, G: { i:'🧊', n:'堅冰', t:'A', req:'I_W' }, S: { i:'☁️', n:'蒸氣', t:'A', req:'F_W' },
+    O: { i:'🟤', n:'泥沼', t:'A', req:'E_W' }, X: { i:'💥', n:'爆裂', t:'A', req:'F_P' }, H: { i:'🕊️', n:'聖物', t:'A', req:'L_L' }, V: { i:'🌌', n:'虛空', t:'A', req:'D_D' }, Z: { i:'☯️', n:'混沌', t:'A', req:'D_L' }
+};
+const EVO = {}; for(let k in EL) if(EL[k].req) EVO[EL[k].req] = k;
+
+const STATUS = { BURN: { i:'🔥', c:'#ff5722' }, WET: { i:'💧', c:'#03a9f4' }, FROZEN: { i:'❄️', c:'#81d4fa' }, SHOCK: { i:'⚡', c:'#ffeb3b' }, POISON: { i:'☠️', c:'#9c27b0' }, STUN: { i:'💫', c:'#e0e0e0', skip:true }, SLOW: { i:'🐢', c:'#888' }, HASTE: { i:'🐇', c:'#fff' }, SHIELD: { i:'🛡️', c:'#eee' }, ATK_UP: { i:'⚔️', c:'#ff9800' } };
+const FIELD = { F: { n:'火海', i:'🔥', fx:'每回合燃燒' }, W: { n:'水窪', i:'💧', fx:'強化雷冰' }, P: { n:'毒沼', i:'☠️', fx:'每回合中毒' }, S: { n:'蒸氣', i:'☁️', fx:'遮蔽視線' }, G: { n:'冰域', i:'🧊', fx:'全場緩速' }, C: { n:'雷場', i:'🌩️', fx:'隨機感電' } };
+
+const RELICS = {
+    'R_F': { i:'🔥', n:'火炎核心', d:'火屬性傷害 +50%' }, 'R_I': { i:'❄️', n:'永凍冰晶', d:'冰屬性傷害 +50%' }, 'R_T': { i:'⚡', n:'超導線圈', d:'雷屬性傷害 +50%' },
+    'R_E': { i:'🪨', n:'大地之核', d:'戰鬥開始全體獲得 30 護盾' }, 'R_A': { i:'🌪️', n:'輕靈之羽', d:'全體初始速度大幅提升' }, 'R_W': { i:'💧', n:'潮濕護符', d:'施放水屬技能回復自身 15 HP' },
+    'R_ALCH': { i:'♻️', n:'煉金之心', d:'施放時 25% 機率不消耗元素' }, 'R_HEAL': { i:'💚', n:'活力之泉', d:'離開房間全體恢復 10% 生命' },
+    'R_LUCK': { i:'🍀', n:'幸運草', d:'戰鬥勝利額外掉落基礎元素' }, 'R_THORN': { i:'🌵', n:'反甲圖騰', d:'英雄受擊時反彈 20% 傷害' }
+};
+
+const AFFIXES = { VAMP: { n:'吸血', fx:'攻擊時回復等量生命' }, THORN: { n:'荊棘', fx:'受擊反彈20%傷害' }, QUICK: { n:'疾風', fx:'極高初始速度' }, TOUGH: { n:'重甲', fx:'初始獲得護盾' }, REGEN: { n:'再生', fx:'每回合恢復生命' } };
+
+const SKILLS = {
+    '': { n:'普通攻擊', dmg:12, p:'E', desc:'未注入元素的普通物理攻擊' },
+    'F': { n:'火球', dmg:15, apply:'BURN', leave:'F', p:'F', desc:'打血少，留火海' }, 'W': { n:'水彈', dmg:10, apply:'WET', leave:'W', p:'W', desc:'打血多，留水窪' },
+    'I': { n:'冰箭', dmg:12, apply:'FROZEN', desc:'機率凍結' }, 'T': { n:'落雷', dmg:18, apply:'SHOCK', chain:true, desc:'高傷會彈跳' },
+    'A': { n:'風刃', dmg:10, aoe:true, desc:'全體風傷' }, 'E': { n:'落石', dmg:22, p:'E', desc:'打擊最前排' },
+    'P': { n:'毒鏢', dmg:8, apply:'POISON', leave:'P', p:'W', desc:'打血多，留毒沼' }, 'L': { n:'聖光', heal:25, target:'ALLIES', p:'F', desc:'治療血少隊友' }, 'D': { n:'闇影', dmg:20, apply:'SLOW', desc:'闇傷並緩速' },
+    'A_F': { n:'火焰風暴', dmg:30, apply:'BURN', aoe:true, desc:'全體烈焰' }, 'T_W': { n:'雷雨', dmg:20, apply:'SHOCK', aoe:true, desc:'全體感電' },
+    'A_A': { n:'龍捲風', dmg:18, apply:'SLOW', aoe:true, desc:'全體緩速' }, 'E_E': { n:'大地震擊', dmg:40, aoe:true, desc:'全體無屬性毀滅' },
+    'E_P': { n:'腐蝕泥沼', dmg:15, apply:'POISON', leave:'P', aoe:true, desc:'全體中毒，留毒沼' }, 'I_I': { n:'暴風雪', dmg:25, apply:'FROZEN', aoe:true, desc:'極寒全體凍結' },
+    'L_W': { n:'洞察之眼', target:'ENEMIES', action:'REVEAL', aoe:true, desc:'揭露隱藏情報與詞綴' }, 'E_L': { n:'大地護盾', target:'ALLIES', action:'SHIELD', val:50, aoe:true, desc:'全體50護盾' },
+    'F_L': { n:'激昂戰意', target:'ALLIES', action:'BUFF', buff:'ATK_UP', aoe:true, desc:'全體下次攻擊增傷' }, 'D_W': { n:'治癒之雨', target:'ALLIES', action:'HEAL', val:40, aoe:true, desc:'全體恢復生命' },
+    'M': { n:'熔岩爆發', dmg:45, apply:'BURN', aoe:true, leave:'F', desc:'全體極大火傷' }, 'C': { n:'雷霆萬鈞', dmg:35, apply:'SHOCK', aoe:true, leave:'C', desc:'全場落雷' },
+    'G': { n:'絕對零度', dmg:30, apply:'STUN', aoe:true, leave:'G', desc:'全體凍結暈眩' }, 'X': { n:'終極爆裂', dmg:70, desc:'單體毀滅破壞' }, 'Z': { n:'混沌一擊', dmg:60, aoe:true, desc:'光闇交融全體毀滅' }, 'A_A_F_F': { n:'末日炎災', dmg:90, apply:'BURN', leave:'F', aoe:true, desc:'四階極致魔法' }
+};
+
+const REACTIONS = { 'FROZEN_F': { n:'融化', dmg:30, apply:'WET', clear:true, txt:'💥融化!' }, 'WET_T': { n:'感電擴散', dmg:20, apply:'SHOCK', isAoe:true, txt:'⚡連鎖!' }, 'WET_I': { n:'急凍', dmg:10, apply:'FROZEN', clear:true, txt:'❄️急凍!' }, 'POISON_F': { n:'毒爆', dmg:40, apply:'BURN', clear:true, txt:'🔥毒爆!' }, 'STUN_E': { n:'碎岩', dmg:50, clear:true, txt:'🪨碎擊!' } };
+const F_REACT = { 'W_T': { new:'C', txt:'⚡水窪導電化為【雷場】!', dmg:25, aoe:'SHOCK' }, 'F_A': { new:'F', txt:'🌪️風助火勢捲起狂潮!', dmg:20, aoe:'BURN' }, 'W_I': { new:'G', txt:'❄️水窪結冰化為【冰域】!', aoe:'FROZEN' }, 'S_A': { new:null, txt:'🌪️狂風吹散了蒸氣!' }, 'P_F': { new:'F', txt:'💥毒氣引發大爆炸!', dmg:45 }, 'C_W': { new:'C', txt:'⚡雷場遇水激增!', aoe:'SHOCK' } };
+const COMBOS = [ { req:['F','A'], n:'🔥🌪️ 烈焰龍捲', dmg:50, aoe:true, apply:'BURN' }, { req:['T','W'], n:'⚡💧 雷霆暴雨', dmg:45, aoe:true, apply:'SHOCK' }, { req:['E','I'], n:'🪨❄️ 冰川突刺', dmg:60, aoe:false, apply:'FROZEN' }, { req:['L','E','W'], n:'✨🪨💧 生命樹界', action:'HEAL', val:80, action2:'SHIELD', val2:50, target:'ALLIES', aoe:true }, { req:['A','F','I','T'], n:'🌪️🔥❄️⚡ 元素終焉', dmg:250, aoe:true } ];
+
+const ENEMY_DATA = [
+  ['E','🪨','石像鬼',80,'W,I','T,P','','','堅硬',0], ['E','🗿','巨石陣',90,'W,I','T,P','E','','石化',0], ['E','🦏','土角犀',70,'W,I','T','','','衝撞',0], ['E','🧌','岩巨魔',100,'W,I','P','','','高血',0], ['E','⛰️','大地之主',150,'I','T,P','E','','免雷毒',1], ['E','🏜️','沙暴巨蟲',160,'W,I','T','','','遁地',1],
+  ['W','💧','水精靈',40,'T,I','W','','','流水',0], ['W','🐸','巨水蛙',60,'T','W','','','跳躍',0], ['W','🦀','硬殼蟹',70,'T,E','W','','','高防',0], ['W','🧜‍♀️','海妖',65,'T,L','W','','','魅惑',0], ['W','🦑','深海巨魷',140,'T,E','W','','','觸手',1], ['W','🌊','海嘯巨怪',150,'T','W','','I','遇冰凍結',1],
+  ['F','🔥','火妖精',45,'W,I','F','','W','遇水即死',0], ['F','🦎','火蜥蜴',55,'W','F','','','耐熱',0], ['F','🐕','地獄犬',75,'W,L','F','','','猛咬',0], ['F','🌋','熔岩怪',90,'W,I','F','F','','吸收火',0], ['F','🐉','骸骨火龍',160,'W,L','F,P,D','','','免毒闇',1], ['F','👿','炎魔',170,'W,L','F','F','','吸收火',1],
+  ['A','🌪️','風精靈',40,'E,T','A','','','飄逸',0], ['A','🦅','狂風雕',55,'E,T','A','','','閃避',0], ['A','🦇','疾風蝠',45,'E,L','A','','','吸血',0], ['A','🌪️','龍捲怪',80,'E','A','A','','吸收風',0], ['A','🪽','風暴大鵬',150,'E,T','A','','','制空',1], ['A','🌬️','天空領主',160,'E','A,T','','','免風雷',1],
+  ['I','❄️','冰精靈',45,'F,E','I','','F','遇火即化',0], ['I','🐺','雪狼',60,'F','I','','','撕咬',0], ['I','🐧','巨企鵝',70,'F,T','I','','','滑行',0], ['I','🧊','冰魔像',95,'F,E','I','','','堅冰',0], ['I','🏔️','極寒冰龍',160,'F,D','I','I','','吸收冰',1], ['I','⛄','雪怪之王',150,'F,E','I','','','巨力',1],
+  ['T','⚡','雷精靈',40,'W,E','T','','','帶電',0], ['T','🐈‍⬛','閃電貓',50,'W','T','','','極速',0], ['T','🦅','雷鳥',60,'E,W','T','','','雷擊',0], ['T','🌩️','電光球',75,'W,E','T','T','','吸收雷',0], ['T','🤖','古代機甲',160,'W,E','T,P,I','','','免毒冰',1], ['T','⚡','雷霆巨獸',170,'E','T','T','','吸收雷',1],
+  ['P','☠️','毒泥怪',55,'F,L','P','','F','遇火爆燃',0], ['P','🕷️','猛毒蛛',50,'F','P','','','毒液',0], ['P','🦂','劇毒蠍',65,'F,I','P','','','毒刺',0], ['P','🍄','腐敗蕈菇',70,'F,L','P','P','','吸收毒',0], ['P','🐍','百步毒蛇',140,'F,L','P','','','見血封喉',1], ['P','🦠','瘟疫之源',160,'F,L,H','P','P','','吸收毒',1],
+  ['L','✨','光精靈',40,'D','L','','','閃耀',0], ['L','🕊️','聖鴿',45,'D','L','','','治癒',0], ['L','🦄','獨角獸',75,'D','L','','','純潔',0], ['L','👼','守護天使',90,'D','L','L','','吸收光',0], ['L','🌞','太陽神鳥',150,'D,W','L','L','','吸收光',1], ['L','👑','光之裁決者',170,'D','L,P','','','免毒',1],
+  ['D','🌑','闇影',45,'L','D,P','','L','遇光消散',0], ['D','👻','怨靈',55,'L','D,P,E','','','無實體',0], ['D','🧟','殭屍',70,'L,F','D,P','','','不死',0], ['D','🧛','吸血鬼',85,'L,F','D,P','D','','吸血',0], ['D','👁️','深淵之眼',150,'L,H','D,P','D','','凝視',1], ['D','👿','魔王',200,'L,H,Z','D,P','D','','恐懼',1]
+];
+
+/** 2. 狀態與存檔核心 */
+let state = {
+    floor: 1, room: 1, maxFloor: 1, deaths: 0,
+    inventory: { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }, relics: [],
+    heroes: Array.from({length:4}, (_,i) => ({ id:'h'+i, i:['🧙‍♂️','🧝‍♀️','🥷','🧑‍🎤'][i], hp:100, maxHp:100, status:[], shield:0, buffs:[], atkAnim:0, hit:0 })),
+    enemies: [], codex: new Set(), battlePhase: 'NONE', execQueue: [], heroActions: [], field: null, currentHero: null, theme: null
+};
+
+function saveGame() { state.maxFloor = Math.max(state.maxFloor, state.floor); const s = { ...state, codex: Array.from(state.codex) }; localStorage.setItem('toe_sv2', JSON.stringify(s)); }
+function loadGame() { let s = localStorage.getItem('toe_sv2'); if(s) { let p = JSON.parse(s); Object.assign(state, p); state.codex = new Set(p.codex); if(!state.relics) state.relics=[]; } }
+function openSaveMenu() { $('st-runs').innerText = state.deaths; $('st-maxf').innerText = state.maxFloor; $('save-modal').style.display = 'flex'; }
+
+function exportSave() { saveGame(); let d = btoa(encodeURIComponent(localStorage.getItem('toe_sv2'))); let ta = document.createElement("textarea"); ta.value = d; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.focus(); ta.select(); try { document.execCommand('copy'); alert("繼承碼已複製！"); } catch (err) { prompt("請複製繼承碼：", d); } document.body.removeChild(ta); }
+function importSave() { let c = prompt("請輸入繼承碼："); if(c) { try { let s = decodeURIComponent(atob(c)); JSON.parse(s); localStorage.setItem('toe_sv2', s); location.reload(); } catch(e) { alert("無效碼"); } } }
+
+const $ = id => document.getElementById(id); const canvas = $('game-canvas'); const ctx = canvas.getContext('2d');
+let particles = [], floatTexts = [];
+
+/** 3. 介面與探索 */
+function goMainView() { switchView(state.battlePhase === 'NONE' ? 'explore-view' : 'battle-view'); }
+function switchView(vid) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); $(vid).classList.add('active');
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    $('nav-explore').innerText = state.battlePhase === 'NONE' ? "🏔️ 冒險" : "⚔️ 戰鬥";
+    if(vid === 'explore-view' || vid === 'battle-view') $('nav-explore').classList.add('active');
+    if(vid === 'codex-view') $('nav-codex').classList.add('active');
+}
+
+function updateTop() {
+    $('top-header').innerHTML = `元素之塔 - 第 ${state.floor} 層 (${state.room}/10) <div class="settings-btn" onclick="openSaveMenu()">⚙️</div>`;
+    let rb = $('relics-bar'); rb.innerHTML = '';
+    state.relics.forEach(r => { let e = document.createElement('span'); e.innerText = RELICS[r].i; e.title = RELICS[r].n; rb.appendChild(e); });
+    
+    let inv = $('inventory'); inv.innerHTML = '';
+    for(let k in state.inventory) {
+        if(state.inventory[k] > 0 && (!EL[k].req || state.codex.has('E_'+k))) {
+            let item = document.createElement('div'); item.className = 'inv-item'; item.innerHTML = `${EL[k].i} <span>${state.inventory[k]}</span>`;
+            item.onclick = () => logMsg(`${EL[k].i}${EL[k].n}: ${EL[k].req ? '進階元素' : '基礎元素'}`); inv.appendChild(item);
+        }
+    }
+}
+
+function createDoor(t, arg, icon, title, desc) {
+    let btn = document.createElement('div'); btn.className = 'door-btn'; btn.innerHTML = `<div class="door-icon">${icon}</div><div class="door-text"><h4>${title}</h4><p>${desc}</p></div>`;
+    btn.onclick = () => { $('door-container').style.display='none'; if(t==='EVENT') resolveEvent(arg); else startBattle(t==='BOSS', arg); };
+    $('door-container').appendChild(btn);
+}
+
+function genDoors() {
+    saveGame(); $('door-container').style.display = 'flex'; $('event-result').style.display = 'none'; $('event-btn').onclick = nextRoom;
+    const c = $('door-container'); c.innerHTML = '';
+    if(state.room === 10) return createDoor('BOSS', null, '🚪', '【首領門】', '強大的守護者擋住了階梯');
+    
+    let baseKeys = Object.keys(EL).filter(x=>EL[x].t==='B'); let doors = [ {t:'BATTLE', arg:null, i:'⚔️', n:'幽暗通道', d:'遭遇未知魔物'} ];
+    let themeEl = baseKeys[Math.floor(Math.random()*baseKeys.length)];
+    
+    let totalEls = 0; baseKeys.forEach(k => totalEls += state.inventory[k] || 0); let needEls = totalEls < 40; 
+    
+    let evPool = []; let addEv = (w, obj) => { for(let i=0; i<w; i++) evPool.push(obj); };
+    addEv(4, {t:'THEME', arg:themeEl, i:EL[themeEl].i, n:`${EL[themeEl].n}之領域`, d:`對應元素無限，遇同屬怪物`});
+    addEv(needEls ? 15 : 4, {t:'EVENT', arg:'CRYSTAL', i:'🔮', n:'元素祭壇', d:'安全的採集區，獲得大量元素'});
+    addEv(3, {t:'EVENT', arg:'CAMP', i:'🏕️', n:'一般營地', d:'回復全體50%生命'});
+    addEv(1, {t:'EVENT', arg:'FOUNTAIN', i:'⛲', n:'神聖噴泉', d:'全體全回復與復活'});
+    addEv(Math.max(0, 6 - state.relics.length * 2), {t:'EVENT', arg:'RELIC', i:'🎁', n:'遺物寶箱', d:'獲得稀有被動遺物'});
+    
+    doors.push(evPool[Math.floor(Math.random()*evPool.length)]);
+    doors.sort(()=>Math.random()-0.5).forEach(d => createDoor(d.t, d.arg, d.i, d.n, d.d));
+}
+
+function resolveEvent(arg) {
+    $('door-container').style.display = 'none'; $('event-result').style.display = 'block'; let msg = "", loot = "";
+    if(arg === 'CRYSTAL') {
+        for(let i=0; i<8; i++) { let k = Object.keys(EL).filter(x=>!EL[x].req)[Math.floor(Math.random()*9)]; state.inventory[k]+=2; loot+=`<span style="background:rgba(255,255,255,0.1); padding:5px; border-radius:5px;">${EL[k].i}+2</span>`; }
+        msg = "吸收了大量純淨的能量！";
+    } else if(arg === 'CAMP') {
+        state.heroes.forEach(h => { if(h.hp>0) h.hp = Math.min(h.maxHp, h.hp + Math.floor(h.maxHp*0.5)); }); msg = "在營地休息，全體恢復 50% 生命！";
+    } else if(arg === 'FOUNTAIN') {
+        state.heroes.forEach(h => { h.hp = h.maxHp; h.status=[]; h.shield=0; }); msg = "飲用神聖泉水，全體生命全滿，死者復甦！";
+    } else if(arg === 'RELIC') {
+        let avail = Object.keys(RELICS).filter(k => !state.relics.includes(k));
+        if(avail.length > 0) { let r = avail[Math.floor(Math.random()*avail.length)]; state.relics.push(r); state.codex.add('RELIC_'+r); msg = "發現了古老的遺物！"; loot = `<div style="color:var(--warn); font-size:1.2em;">${RELICS[r].i} 【${RELICS[r].n}】<br><span style="font-size:0.7em; color:#ccc;">${RELICS[r].d}</span></div>`; } 
+        else { msg = "寶箱是空的..."; }
+    } else if(arg === 'GAMEOVER') {
+        msg = "💀 隊伍全滅... 塔的輪迴已開啟"; loot = `<div style="font-size:0.8em; color:#aaa; line-height:1.5;">繼承先前的意志<br>最大生命 +${state.maxFloor}<br>全元素 +${state.deaths}</div>`;
+        $('event-btn').onclick = () => { $('event-btn').onclick = nextRoom; genDoors(); updateTop(); };
+    }
+    $('event-msg').innerHTML = msg; $('event-loot').innerHTML = loot; updateTop(); saveGame();
+}
+
+function nextRoom() {
+    state.room++;
+    if(state.relics.includes('R_HEAL')) state.heroes.forEach(h => { if(h.hp>0) h.hp = Math.min(h.maxHp, h.hp + Math.floor(h.maxHp*0.1)); });
+    if(state.room > 10) { state.floor++; state.room = 1; state.heroes.forEach(h => { if(h.hp>0) h.hp = Math.min(h.maxHp, h.hp+30); }); }
+    genDoors(); updateTop();
+}
+
+/** 4. 戰鬥系統 */
+function startBattle(isBoss, themeArg = null) {
+    state.battlePhase = 'EXECUTE'; state.field = null; state.execQueue = []; state.heroActions = []; state.theme = themeArg;
+    state.heroes.forEach(h => { h.shield = state.relics.includes('R_E') ? 30 : 0; h.buffs = []; h.status = []; });
+    if(state.relics.includes('R_E')) state.heroes.forEach(h=>spTxt(h, "🛡️磐石", '#eee'));
+    
+    let pool = ENEMY_DATA.filter(e => e[9] === (isBoss?1:0)); if(themeArg) pool = pool.filter(e => e[0] === themeArg); if(pool.length === 0) pool = ENEMY_DATA;
+    let affixKeys = Object.keys(AFFIXES);
+    
+    state.enemies = []; const count = isBoss ? 1 : Math.floor(Math.random()*3)+1;
+    for(let i=0; i<count; i++) {
+        let t = pool[Math.floor(Math.random()*pool.length)];
+        let hp = t[3] + state.floor*15;
+        let afx = (isBoss || Math.random() < 0.2) ? affixKeys[Math.floor(Math.random()*affixKeys.length)] : null;
+        let s = afx === 'TOUGH' ? 100 : 0; let fn = afx ? `[${AFFIXES[afx].n}] ${t[2]}` : t[2];
+        state.enemies.push({ id:'e'+i, el:t[0], i:t[1], n:fn, hp:hp, maxHp:hp, status:[], shield:s, buffs:[], weak:t[4], immu:t[5], abs:t[6], insta:t[7], tr:t[8], isBoss:isBoss, revealed:false, isEnemy:true, atkAnim:0, hit:0, affix:afx });
+    }
+    $('theme-display').innerText = state.theme ? `[${EL[state.theme].i}領域] ` : '';
+    logMsg(`⚠️ 遭遇魔物！`); switchView('battle-view'); if(particles.length === 0) loop(); planRound();
+}
+
+function planRound() {
+    state.heroActions = []; let aliveHeroes = state.heroes.filter(h=>h.hp>0);
+    if(aliveHeroes.length === 0) return triggerGameOver();
+    state.currentHeroIdx = 0; promptHeroCmd(aliveHeroes[0]);
+}
+
+let currSel = [];
+function promptHeroCmd(hero) { state.battlePhase = 'COMMAND'; state.currentHero = hero; currSel = []; renderCmdUI(); }
+
+function renderCmdUI() {
+    updateTop(); $('current-hero-name').innerText = state.currentHero.i;
+    for(let i=0; i<4; i++) { let s=$('slot-'+i); s.innerText = currSel[i]?EL[currSel[i]].i:''; s.className=`sel-slot ${currSel[i]?'filled':''}`; }
+    let grid = $('element-buttons'); grid.innerHTML = '';
+    for(let k in state.inventory) {
+        if((state.inventory[k] > 0 || k === state.theme) && (!EL[k].req || state.codex.has('E_'+k))) {
+            let btn = document.createElement('div'); btn.className = `el-btn ${k===state.theme?'infinite':''}`;
+            btn.innerHTML = `${EL[k].i}<div class="count">${k===state.theme?'∞':state.inventory[k]}</div>`;
+            btn.onclick = () => { if(state.battlePhase==='COMMAND' && currSel.length<4) { if(k !== state.theme) { if(state.inventory[k]<=0) return; state.inventory[k]--; } currSel.push(k); renderCmdUI(); } };
+            grid.appendChild(btn);
+        }
+    }
+}
+
+function clearElements() { if(state.battlePhase!=='COMMAND') return; currSel.forEach(k => { if(k !== state.theme) state.inventory[k]++; }); currSel=[]; renderCmdUI(); }
+
+function confirmAction() {
+    if(state.battlePhase !== 'COMMAND') return;
+    
+    if(state.relics.includes('R_ALCH') && currSel.length > 0 && Math.random() < 0.25) {
+        logMsg("♻️ 煉金之心發動，未消耗元素！"); currSel.forEach(k => { if(k !== state.theme) state.inventory[k]++; });
+    }
+    
+    let comboStr = [...currSel].sort().join('_');
+    let action = { hero: state.currentHero, elements: [...currSel], baseEl: currSel[0] || 'NONE', comboStr: comboStr };
+    
+    if(EVO[comboStr]) {
+        let evoKey = EVO[comboStr];
+        if(!state.codex.has('E_'+evoKey)) { state.codex.add('E_'+evoKey); state.inventory[evoKey] = (state.inventory[evoKey]||0) + 1; logMsg(`🌟 煉金突破！解鎖【${EL[evoKey].i}${EL[evoKey].n}】！`); }
+        action.comboStr = evoKey;
+    }
+    
+    state.heroActions.push(action); let aliveHeroes = state.heroes.filter(h=>h.hp>0); state.currentHeroIdx++;
+    if(state.currentHeroIdx < aliveHeroes.length) promptHeroCmd(aliveHeroes[state.currentHeroIdx]);
+    else buildExecutionQueue();
+}
+
+function buildExecutionQueue() {
+    state.execQueue = []; let actions = [...state.heroActions]; let used = new Set();
+    
+    for(let c of COMBOS) {
+        let matched = [], req = [...c.req];
+        for(let i=0; i<actions.length; i++) {
+            if(used.has(i)) continue;
+            let idx = req.indexOf(actions[i].baseEl); if(idx !== -1) { matched.push(i); req.splice(idx, 1); }
+        }
+        if(req.length === 0) {
+            matched.forEach(i => used.add(i)); const mainActor = actions[matched[0]].hero;
+            state.execQueue.push({ isCombo: true, actor: mainActor, skill: c, spd: 999 });
+            if(!state.codex.has('C_'+c.n)) state.codex.add('C_'+c.n);
+        }
+    }
+    
+    for(let i=0; i<actions.length; i++) {
+        if(!used.has(i)) {
+            let act = actions[i]; let skill = SKILLS[act.comboStr] || { n: '元素反噬', dmg: 5 };
+            if(SKILLS[act.comboStr] && act.comboStr !== '' && !state.codex.has('S_'+act.comboStr)) state.codex.add('S_'+act.comboStr);
+            let hSpd = Math.random()*100 + (state.relics.includes('R_A')?100:0);
+            state.execQueue.push({ isCombo: false, actor: act.hero, skill: skill, baseEl: act.baseEl, spd: hSpd });
+        }
+    }
+    
+    state.enemies.filter(e=>e.hp>0).forEach(e => {
+        let spd = Math.random()*100 + (e.status.includes('HASTE')?100:0) - (e.status.includes('SLOW')?50:0) + (e.affix==='QUICK'?150:0);
+        state.execQueue.push({ isEnemyAtk: true, actor: e, spd: spd });
+    });
+    state.execQueue.sort((a,b) => b.spd - a.spd); state.battlePhase = 'EXECUTE'; nextAction();
+}
+
+function nextAction() {
+    if(state.enemies.filter(e=>e.hp>0).length === 0 || state.heroes.filter(h=>h.hp>0).length === 0) return checkWinLoss();
+    if(state.execQueue.length === 0) return planRound();
+    let act = state.execQueue.shift(); if(act.actor.hp <= 0) return nextAction();
+    if(act.actor.status.includes('STUN')) { logMsg(`💫 ${act.actor.n||act.actor.i} 暈眩中`); act.actor.status.splice(act.actor.status.indexOf('STUN'), 1); setTimeout(nextAction, 1000); return; }
+
+    act.actor.atkAnim = 20;
+    if(act.isEnemyAtk) {
+        let targets = state.heroes.filter(h=>h.hp>0); let target = targets[Math.floor(Math.random()*targets.length)];
+        let dmg = (10 + state.floor*2) * (act.actor.isBoss ? 2 : 1);
+        logMsg(`⚔️ ${act.actor.n} 攻擊！`); applyDmg(target, dmg);
+        if(act.actor.affix === 'VAMP') { act.actor.hp = Math.min(act.actor.maxHp, act.actor.hp+dmg); spTxt(act.actor, `💚吸血`, '#0f0', -20); }
+        if(state.relics.includes('R_THORN')) { applyDmg(act.actor, Math.floor(dmg*0.2), '#ff9800'); spTxt(act.actor, "🌵反彈", '#ff9800', -20); }
+    } else {
+        logMsg(`${act.isCombo ? '💫 奧義：' : act.actor.i+' 施放 '}${act.skill.n}`);
+        executeSkill(act.skill, act.baseEl, act.actor);
+    }
+    
+    resolveEndOfTurn(act.actor);
+    state.battlePhase = 'WAIT'; setTimeout(() => { $('click-prompt').style.display='block'; }, 1000);
+}
+
+function executeSkill(skill, baseEl, actor) {
+    let enemies = state.enemies.filter(e=>e.hp>0); let heroes = state.heroes.filter(h=>h.hp>0); let targets = [];
+    let p = skill.p || baseEl;
+    if(skill.target === 'ALLIES') targets = skill.aoe ? heroes : [heroes.sort((a,b)=>a.hp-b.hp)[0]];
+    else if(skill.aoe || skill.target === 'ENEMIES') targets = enemies;
+    else if(p === 'F') targets = [enemies.sort((a,b)=>a.hp-b.hp)[0]];
+    else if(p === 'P' || p === 'W') targets = [enemies.sort((a,b)=>b.hp-a.hp)[0]];
+    else if(p === 'E') targets = [enemies[0]];
+    else targets = [enemies.sort(()=>Math.random()-0.5)[0]]; 
+    
+    let fReacted = false; let rKey = state.field + '_' + baseEl;
+    if(state.field && F_REACT[rKey]) {
+        let rx = F_REACT[rKey]; logMsg(rx.txt); state.field = rx.new;
+        if(rx.dmg) enemies.forEach(e => applyDmg(e, rx.dmg));
+        if(rx.aoe) enemies.forEach(e => applyStatus(e, rx.aoe));
+        if(!state.codex.has('FR_'+rKey)) state.codex.add('FR_'+rKey);
+        fReacted = true;
+    }
+    
+    targets.forEach(t => hitTarget(t, skill, baseEl, actor));
+    if(skill.chain && enemies.length > 1) { let next = enemies.find(e => !targets.includes(e)); if(next) hitTarget(next, { dmg: Math.floor(skill.dmg/2), apply: skill.apply }, baseEl, actor); }
+    if(!fReacted && skill.leave) { state.field = skill.leave; logMsg(`場地化為【${FIELD[state.field].i}${FIELD[state.field].n}】`); }
+}
+
+function hitTarget(t, skill, elKey, actor) {
+    if(skill.action === 'REVEAL') { t.revealed = true; return spTxt(t, "👁️看破", '#fff9c4', -20); }
+    if(skill.action === 'SHIELD' || skill.action2 === 'SHIELD') { let v = skill.val2 || skill.val; t.shield += v; spTxt(t, `🛡️+${v}`, '#eee'); if(!skill.action2) return; }
+    if(skill.action === 'BUFF') { if(!t.buffs.includes(skill.buff)) t.buffs.push(skill.buff); return spTxt(t, `⚔️強化`, '#ff9800'); }
+    if(skill.action === 'HEAL' || skill.heal) { let amt = skill.val || skill.heal; t.hp = Math.min(t.maxHp, t.hp + amt); spTxt(t, `💚+${amt}`, '#00d26a'); if(!skill.dmg) return; }
+
+    if(skill.dmg) {
+        let dmg = skill.dmg; let c = '#fff';
+        if(actor && actor.buffs && actor.buffs.includes('ATK_UP')) { dmg = Math.floor(dmg*1.5); actor.buffs = []; spTxt(actor, "爆發!", '#ff9800', -20); }
+        if(state.relics.includes('R_F') && elKey==='F') dmg = Math.floor(dmg*1.5);
+        if(state.relics.includes('R_I') && elKey==='I') dmg = Math.floor(dmg*1.5);
+        if(state.relics.includes('R_T') && elKey==='T') dmg = Math.floor(dmg*1.5);
+        
+        if(t.isEnemy) {
+            if(t.insta && t.insta.includes(elKey)) { dmg = 999; c = '#f00'; logMsg(`🎯 致命弱點觸發！`); }
+            else if(t.abs && t.abs.includes(elKey)) { t.hp = Math.min(t.maxHp, t.hp + dmg); return spTxt(t, `吸收+${dmg}`, '#0f0'); }
+            else if(t.immu && t.immu.includes(elKey)) { return spTxt(t, `免疫`, '#888'); }
+            else if(t.weak && t.weak.includes(elKey)) { dmg = Math.floor(dmg*1.5); c = '#f00'; }
+            
+            if(t.affix === 'THORN') { applyDmg(actor, Math.floor(dmg*0.2), '#ff9800'); spTxt(actor, "🌵荊棘反彈", '#ff9800', -20); }
+        }
+        applyDmg(t, dmg, c);
+        
+        if(state.relics.includes('R_W') && elKey==='W' && actor) { actor.hp = Math.min(actor.maxHp, actor.hp+15); spTxt(actor, "💧護符", '#00d26a', -20); }
+    }
+    
+    if(skill.apply) applyStatus(t, skill.apply);
+    mkPtc(t, skill.apply || elKey || 'E');
+}
+
+function applyStatus(t, s) { 
+    if(t.status.includes(s)) return; let reacted = false;
+    for(let i=0; i<t.status.length; i++) {
+        let rKey = t.status[i] + '_' + s;
+        if(REACTIONS[rKey]) {
+            const rx = REACTIONS[rKey]; reacted = true; spTxt(t, rx.txt, '#ffeb3b', -25);
+            if(!state.codex.has('R_'+rKey)) state.codex.add('R_'+rKey);
+            if(rx.dmg) applyDmg(t, rx.dmg, '#ff9800');
+            if(rx.clear) { t.status.splice(i, 1); i--; }
+            if(rx.apply) applyStatus(t, rx.apply); 
+            if(rx.isAoe) state.enemies.filter(e=>e!==t && e.hp>0).forEach(e => applyDmg(e, Math.floor(rx.dmg/2), '#ff9800'));
+            break;
+        }
+    }
+    if(!reacted) { t.status.push(s); spTxt(t, STATUS[s].i, STATUS[s].c, 20); }
+}
+
+function applyDmg(t, v, c='#fff') {
+    if(t.shield > 0) { if(t.shield >= v) { t.shield -= v; return spTxt(t, "🛡️抵消", '#aaa'); } else { v -= t.shield; t.shield = 0; } }
+    t.hp -= v; spTxt(t, `-${v}`, c); t.hit = 25; 
+}
+
+function resolveEndOfTurn(ent) {
+    if(ent.hp<=0) return;
+    if(ent.status.includes('BURN')) { applyDmg(ent, 5, '#f52'); spTxt(ent, '🔥', '#f52', 15); }
+    if(ent.status.includes('POISON')) { applyDmg(ent, 8, '#92b'); spTxt(ent, '☠️', '#92b', 15); }
+    if(state.field === 'F') applyDmg(ent, 3, '#f52');
+    if(state.field === 'P') applyStatus(ent, 'POISON');
+    if(ent.isEnemy && ent.affix === 'REGEN') { ent.hp = Math.min(ent.maxHp, ent.hp+15); spTxt(ent, "💚再生", '#0f0'); }
+}
+
+canvas.addEventListener('click', () => { if(state.battlePhase === 'WAIT') { $('click-prompt').style.display='none'; nextAction(); } });
+
+function checkWinLoss() {
+    if(state.heroes.filter(h=>h.hp>0).length === 0) { triggerGameOver(); } 
+    else if (state.enemies.filter(e=>e.hp>0).length === 0) {
+        let dc = {};
+        state.enemies.forEach(e => { dc[e.el] = (dc[e.el]||0) + (e.isBoss?12:5); });
+        if(state.theme) dc[state.theme] = (dc[state.theme]||0) + 6;
+        if(state.relics.includes('R_LUCK')) { for(let i=0; i<4; i++) { let k = Object.keys(EL).filter(x=>EL[x].t==='B')[Math.floor(Math.random()*9)]; dc[k] = (dc[k]||0)+2; } }
+        
+        let lm = []; for(let k in dc) { state.inventory[k] += dc[k]; lm.push(`${EL[k].i}+${dc[k]}`); }
+        logMsg(`🏆 勝利！獲得大量戰利品: ${lm.join(' ')}`);
+        
+        state.battlePhase = 'NONE'; setTimeout(() => { goMainView(); nextRoom(); }, 2000);
+    }
+}
+
+function triggerGameOver() {
+    state.deaths++; state.maxFloor = Math.max(state.maxFloor, state.floor); let mf = state.maxFloor, d = state.deaths;
+    state.heroes.forEach(h => { h.maxHp += mf; h.hp = h.maxHp; h.status=[]; h.shield=0; h.buffs=[]; });
+    for(let k in state.inventory) if(EL[k].t==='B') state.inventory[k] += d;
+    state.relics = []; state.floor = 1; state.room = 1; state.battlePhase = 'NONE'; saveGame();
+    setTimeout(() => { goMainView(); resolveEvent('GAMEOVER'); }, 1500);
+}
+
+/** 5. 視覺渲染 */
+function drawEnt(e, x, y) {
+    if(e.hp<=0) return;
+    ctx.font = e.isBoss ? "55px Arial" : "35px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    let dx = 0; if(e.atkAnim > 0) { dx = (e.isEnemy ? -1 : 1) * Math.sin(e.atkAnim * Math.PI / 20) * 15; e.atkAnim--; } if(e.hit > 0) { dx += (Math.random()-0.5)*8; e.hit--; } 
+    if(e.hit > 0 && e.hit % 8 < 4) { ctx.fillStyle = 'rgba(255,0,0,0.6)'; ctx.fillText(e.i, x+dx, y); } else { ctx.fillText(e.i, x+dx, y); }
+    
+    let p = Math.max(0, e.hp/e.maxHp);
+    ctx.fillStyle="#222"; ctx.fillRect(x-20+dx, y+25, 40, 5); ctx.fillStyle = p>0.5 ? "#4caf50" : p>0.2 ? "#ff9800" : "#f44336"; ctx.fillRect(x-20+dx, y+25, 40*p, 5);
+    if(e.shield > 0) { ctx.fillStyle="#eee"; ctx.fillRect(x-20+dx, y+31, 40*Math.min(1,e.shield/e.maxHp), 3); }
+    
+    if(e.status.length) { ctx.font="14px Arial"; let sx = x-(e.status.length*8)+8; e.status.forEach((s,i) => { if(STATUS[s]) ctx.fillText(STATUS[s].i, sx+(i*16)+dx, y-32); }); }
+    if(e.buffs && e.buffs.includes('ATK_UP')) { ctx.font="16px Arial"; ctx.fillText('⚔️', x-25+dx, y+10); }
+    
+    if(e.isEnemy && e.revealed) {
+        ctx.font="11px Arial"; let info = [];
+        if(e.weak) info.push(`🎯${e.weak.split(',').map(k=>EL[k]?EL[k].i:'').join('')}`);
+        if(e.immu) info.push(`🛡️${e.immu.split(',').map(k=>EL[k]?EL[k].i:'').join('')}`);
+        if(e.abs) info.push(`💚${e.abs.split(',').map(k=>EL[k]?EL[k].i:'').join('')}`);
+        ctx.fillText(info.join(' '), x+dx, y-48);
+    }
+    e.x=x+dx; e.y=y;
+}
+
+function spTxt(e, t, c, oy=0) { floatTexts.push({x:e.x+(Math.random()*20-10), y:e.y-10+oy, t:t, c:c, l:90}); }
+function mkPtc(e, type) { let c = (EL[type] && STATUS[EL[type].n]) ? STATUS[EL[type].n].c : '#fff'; for(let i=0; i<12; i++) particles.push({x:e.x, y:e.y, vx:(Math.random()-0.5)*12, vy:(Math.random()-0.5)*12, l:20+Math.random()*15, c:c}); }
+
+function render() {
+    ctx.clearRect(0,0,canvas.width,canvas.height); if(state.battlePhase==='NONE') return;
+    if(state.field) { ctx.globalAlpha=0.1; ctx.font="250px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(FIELD[state.field].i, 200, 150); ctx.globalAlpha=1.0; ctx.font="14px Arial"; ctx.fillStyle="rgba(255,255,255,0.6)"; ctx.fillText(`[環境] ${FIELD[state.field].n} : ${FIELD[state.field].fx}`, 200, 20); }
+    state.heroes.forEach((h,i) => { drawEnt(h, 60, 50+i*65); if(state.battlePhase==='COMMAND' && h===state.currentHero) { ctx.fillStyle="rgba(77,168,218,0.2)"; ctx.beginPath(); ctx.arc(60,50+i*65,30,0,Math.PI*2); ctx.fill(); }});
+    state.enemies.forEach((e,i) => drawEnt(e, e.isBoss ? 300 : 260+(i%2)*65, e.isBoss ? 150 : 60+Math.floor(i/2)*75));
+    for(let i=particles.length-1; i>=0; i--) { let p=particles[i]; ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); p.x+=p.vx; p.y+=p.vy; p.l--; if(p.l<=0) particles.splice(i,1); }
+    
+    for(let i=floatTexts.length-1; i>=0; i--) { 
+        let t=floatTexts[i]; 
+        ctx.globalAlpha = Math.min(1, t.l/20);
+        ctx.fillStyle=t.c; ctx.font="bold 16px Arial"; ctx.strokeStyle="#000"; ctx.lineWidth=3; 
+        ctx.strokeText(t.t,t.x,t.y); ctx.fillText(t.t,t.x,t.y); 
+        ctx.globalAlpha = 1.0;
+        t.y-=0.6; t.l--; 
+        if(t.l<=0) floatTexts.splice(i,1); 
+    }
+}
+function loop() { render(); requestAnimationFrame(loop); }
+
+/** 6. 圖鑑系統 */
+function logMsg(m) { let div = $('battle-log'); let el = document.createElement('div'); el.className='log-msg'; el.innerText=m; div.appendChild(el); if(div.children.length>4) div.firstChild.remove(); }
+function renderCodex() {
+    let tot = Object.keys(EL).length + Object.keys(SKILLS).length + Object.keys(REACTIONS).length + Object.keys(F_REACT).length + COMBOS.length + Object.keys(RELICS).length; 
+    let uCount = 0; let h = '';
+    h += '<div class="codex-section"><div class="codex-title">💎 煉金元素</div><div class="codex-grid">'; for(let k in EL) { let u = !EL[k].req || state.codex.has('E_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?EL[k].i+EL[k].n:'？？？'}</div><div class="c-req">${u?(EL[k].req?EL[k].req.split('_').map(x=>EL[x].i).join('+'):'基礎'):'未知'}</div></div>`; }
+    h += '</div></div><div class="codex-section"><div class="codex-title">📜 魔法與多人奧義</div><div class="codex-grid">'; for(let k in SKILLS) { let u = state.codex.has('S_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?SKILLS[k].n:'？？？'}</div><div class="c-req">${k.split('_').map(x=>EL[x]?EL[x].i:'').join('+')}</div></div>`; }
+    COMBOS.forEach(c => { let u = state.codex.has('C_'+c.n); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?c.n:'？？？'}</div><div class="c-req">${c.req.map(x=>EL[x].i).join('+')} (多人)</div></div>`; });
+    h += '</div></div><div class="codex-section"><div class="codex-title">🧪 狀態與環境反應</div><div class="codex-grid">'; for(let k in REACTIONS) { let u = state.codex.has('R_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?REACTIONS[k].n:'？？？'}</div><div class="c-desc">${u?REACTIONS[k].txt:'未知'}</div></div>`; }
+    for(let k in F_REACT) { let u = state.codex.has('FR_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?'環境變異':'？？？'}</div><div class="c-desc">${u?F_REACT[k].txt:'未知'}</div></div>`; }
+    h += '</div></div><div class="codex-section"><div class="codex-title">🎁 神秘遺物</div><div class="codex-grid">'; for(let k in RELICS) { let u = state.codex.has('RELIC_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?RELICS[k].i+' '+RELICS[k].n:'？？？'}</div><div class="c-desc">${u?RELICS[k].d:'未知'}</div></div>`; }
+    $('codex-content').innerHTML = h + '</div></div>'; $('completion-rate').innerText = Math.floor((uCount/tot)*100);
+}
+
+loadGame(); if(state.battlePhase !== 'NONE') { state.battlePhase = 'NONE'; genDoors(); } else { genDoors(); } updateTop();
+</script>
+</body>
+</html>
