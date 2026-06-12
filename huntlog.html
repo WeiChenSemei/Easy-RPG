@@ -58,7 +58,12 @@
                         <div class="space-y-3">
                             <!-- 玩家自己裝備與武器選擇 -->
                             <div class="bg-black/40 p-3 rounded-lg border border-gray-800">
-                                <span id="player-name-display" onclick="window.openRenameModal(-1)" class="text-yellow-400 font-bold text-sm block mb-2 cursor-pointer hover:text-yellow-300 transition">✦ 傳奇獵人 (您) <i class="fa-solid fa-pen text-[10px] ml-1 opacity-50"></i></span>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span id="player-name-display" onclick="window.openRenameModal(-1)" class="text-yellow-400 font-bold text-sm cursor-pointer hover:text-yellow-300 transition">✦ 傳奇獵人 (您) <i class="fa-solid fa-pen text-[10px] ml-1 opacity-50"></i></span>
+                                    <button onclick="window.openSaveLoadModal()" class="text-[11px] bg-indigo-950 hover:bg-indigo-900 border border-indigo-600/50 text-indigo-300 px-2 py-1 rounded transition shadow">
+                                        <i class="fa-solid fa-floppy-disk"></i> 檔案管理
+                                    </button>
+                                </div>
                                 <div class="mb-3">
                                     <label class="text-xs text-gray-400 block mb-1">武器：</label>
                                     <select id="player-weapon-select" onchange="window.changePlayerWeapon(this.value)" class="w-full bg-[#1b2230] border border-gray-700 rounded px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-cyan-400">
@@ -268,6 +273,30 @@
             </div>
         </div>
 
+        <!-- [5] 檔案管理彈窗 -->
+        <div id="saveload-modal" class="absolute inset-0 bg-black/85 backdrop-blur-sm hidden flex justify-center items-center p-4 z-[60]">
+            <div class="bg-[#12161f] border border-indigo-800/40 rounded-xl w-full max-w-sm flex flex-col overflow-hidden shadow-2xl">
+                <div class="p-4 bg-black/40 border-b border-gray-800 flex justify-between items-center">
+                    <span class="text-indigo-400 font-black text-sm"><i class="fa-solid fa-floppy-disk mr-1"></i> 檔案管理</span>
+                    <button onclick="window.closeSaveLoadModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <div class="p-5 flex flex-col gap-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="window.localSave()" class="bg-indigo-900/60 hover:bg-indigo-800 border border-indigo-600/50 text-indigo-200 py-2.5 rounded text-sm font-bold transition">💾 本地儲存</button>
+                        <button onclick="window.localLoad()" class="bg-teal-900/60 hover:bg-teal-800 border border-teal-600/50 text-teal-200 py-2.5 rounded text-sm font-bold transition">📂 本地讀檔</button>
+                    </div>
+                    <div class="border-t border-gray-800 pt-4 flex flex-col gap-2">
+                        <label class="text-xs text-gray-400">繼承碼 (附魔與素材)：</label>
+                        <textarea id="save-code-input" class="w-full h-24 bg-[#1b2230] border border-gray-700 rounded p-2 text-xs text-gray-300 focus:outline-none focus:border-indigo-400 font-mono break-all"></textarea>
+                        <div class="grid grid-cols-2 gap-2 mt-2">
+                            <button onclick="window.exportSaveCode()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 rounded text-xs transition">📤 產生繼承碼</button>
+                            <button onclick="window.importSaveCode()" class="bg-amber-900/60 hover:bg-amber-800 border border-amber-600/50 text-amber-200 py-2 rounded text-xs font-bold transition">📥 匯入繼承碼</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -351,14 +380,12 @@
             sleepDragon: { names: ["骨槌龍", "浮眠龍", "眠狗龍", "骸蜘蛛"], hp: 1100, type: "眠", textStyle: "text-indigo-400", desc: "鱗片散發催眠粉塵，一旦睡著將會毫無防備", statusEffect: "sleep" },
             bloodDragon: { names: ["兇爪龍", "慘爪龍", "千刃龍", "迅龍"], hp: 1450, type: "流血", textStyle: "text-red-600", desc: "瘋狂的嗜血掠食者，利爪能造成無法癒合的嚴重裂傷", statusEffect: "bleed" },
             earthDragon: { names: ["金獅子", "角龍", "轟龍", "爆鎚龍"], hp: 1700, type: "暈眩", textStyle: "text-amber-600", desc: "擁有如岩石般堅固皮甲的巨獸，震地能輕易震暈獵人", statusEffect: "stun" },
-            // 新增爆炸屬性魔物
             explosionDragon: { names: ["爆龍", "爆鱗龍", "碎龍", "炎妃龍"], hp: 1350, type: "爆", textStyle: "text-orange-500", desc: "危險的高爆破災厄，散佈的粉塵附著後將引發毀滅性的爆炸", statusEffect: "explosion" }
         };
 
         const PARTS = ["head", "body", "wings", "tail", "leftLeg", "rightLeg"];
         const PART_NAMES = { head: "頭部", body: "身體", wings: "翅膀", tail: "尾巴", leftLeg: "左腳", rightLeg: "右腳" };
         const SHORT_PART_NAMES = { head: "頭", body: "身", wings: "翼", tail: "尾", leftLeg: "左", rightLeg: "右" };
-
         const ENCHANT_PARTS = ["weapon", "head", "chest", "waist", "pants", "hands"];
         const ENCHANT_PART_NAMES = { weapon: "武器", head: "頭甲", chest: "胸甲", waist: "腰甲", pants: "腿甲", hands: "護手" };
 
@@ -399,12 +426,7 @@
             selectedQuestIndex: null,
             enchants: {}, 
             battle: {
-                active: false,
-                auto: false,
-                monster: null,
-                monsterParts: {},
-                turn: 1,
-                squad: [] 
+                active: false, auto: false, monster: null, monsterParts: {}, turn: 1, squad: [] 
             }
         };
 
@@ -438,7 +460,6 @@
             const btnDetail = document.getElementById("battle-tab-detail");
             const panelSummary = document.getElementById("battle-panel-summary");
             const panelDetail = document.getElementById("battle-panel-detail");
-            
             const topStatus = document.getElementById("battle-top-status");
             const squadGrid = document.getElementById("battle-squad-grid");
 
@@ -456,7 +477,6 @@
                 panelSummary.classList.add("hidden");
                 topStatus.classList.add("hidden");
                 squadGrid.classList.add("hidden");
-                
                 if (panelDetail) panelDetail.scrollTop = panelDetail.scrollHeight;
             }
         };
@@ -478,15 +498,74 @@
             }, 2500);
         }
 
+        /* ====== 存檔與繼承系統 ====== */
+        window.openSaveLoadModal = () => document.getElementById('saveload-modal').classList.remove('hidden');
+        window.closeSaveLoadModal = () => document.getElementById('saveload-modal').classList.add('hidden');
+
+        const getSaveData = () => JSON.stringify({
+            m: gameState.materials,
+            n: gameState.playerName,
+            w: gameState.playerWeapon,
+            e: gameState.enchants
+        });
+
+        const loadSaveData = (jsonStr) => {
+            try {
+                const data = JSON.parse(jsonStr);
+                if (data && typeof data.m !== 'undefined' && data.e) {
+                    gameState.materials = data.m;
+                    if (data.n) gameState.playerName = data.n;
+                    if (data.w) gameState.playerWeapon = data.w;
+                    gameState.enchants = data.e;
+                    renderHub();
+                    document.getElementById('player-name-display').innerHTML = `✦ ${gameState.playerName} (您) <i class="fa-solid fa-pen text-[10px] ml-1 opacity-50"></i>`;
+                    document.getElementById('player-weapon-select').value = gameState.playerWeapon;
+                    showNotification("✅ 讀檔成功！資料已覆蓋。");
+                    window.closeSaveLoadModal();
+                } else throw new Error("Format");
+            } catch (err) {
+                showNotification("❌ 存檔損壞或繼承碼無效！");
+            }
+        };
+
+        window.localSave = () => {
+            localStorage.setItem('huntLogSave', getSaveData());
+            showNotification("💾 已儲存至本地瀏覽器！");
+        };
+
+        window.localLoad = () => {
+            const data = localStorage.getItem('huntLogSave');
+            if (data) loadSaveData(data);
+            else showNotification("⚠️ 沒有找到本地存檔！");
+        };
+
+        window.exportSaveCode = () => {
+            const code = btoa(encodeURIComponent(getSaveData()));
+            const ta = document.getElementById('save-code-input');
+            ta.value = code;
+            ta.select();
+            document.execCommand('copy');
+            showNotification("📤 繼承碼已產生！(已嘗試複製)");
+        };
+
+        window.importSaveCode = () => {
+            const code = document.getElementById('save-code-input').value.trim();
+            if (!code) { showNotification("⚠️ 請先輸入繼承碼！"); return; }
+            try {
+                const jsonStr = decodeURIComponent(atob(code));
+                loadSaveData(jsonStr);
+            } catch (err) {
+                showNotification("❌ 繼承碼解析失敗！請確認格式正確。");
+            }
+        };
+
+        /* ====== 其他系統 ====== */
         window.openRenameModal = function(index) {
             if (gameState.battle.active) return;
             renamingTarget = index;
             const input = document.getElementById("rename-input");
-            if (index === -1) {
-                input.value = gameState.playerName;
-            } else {
-                input.value = gameState.squad[index].name;
-            }
+            if (index === -1) input.value = gameState.playerName;
+            else input.value = gameState.squad[index].name;
             document.getElementById("rename-modal").classList.remove("hidden");
             input.focus();
         };
@@ -498,10 +577,7 @@
 
         window.saveNewName = function() {
             const newName = document.getElementById("rename-input").value.trim();
-            if (!newName) {
-                showNotification("名稱不能為空！");
-                return;
-            }
+            if (!newName) { showNotification("名稱不能為空！"); return; }
             if (renamingTarget === -1) {
                 gameState.playerName = newName;
                 document.getElementById("player-name-display").innerHTML = `✦ ${newName} (您) <i class="fa-solid fa-pen text-[10px] ml-1 opacity-50"></i>`;
@@ -536,10 +612,7 @@
         };
 
         window.rerollEnchant = function(part, slotIndex) {
-            if (gameState.materials < 1) {
-                showNotification("❌ 龍之素材不足！");
-                return;
-            }
+            if (gameState.materials < 1) { showNotification("❌ 龍之素材不足！"); return; }
             gameState.materials -= 1;
             gameState.enchants[part][slotIndex] = getRandomEnchant();
             renderEnchantModal();
@@ -572,7 +645,6 @@
             const availableWeapons = Object.keys(WEAPONS);
             let chosenAllies = [];
             let namesPool = [...ALLY_NAMES];
-            
             for (let i = 0; i < 3; i++) {
                 const nameIdx = Math.floor(Math.random() * namesPool.length);
                 const name = namesPool.splice(nameIdx, 1)[0];
@@ -598,14 +670,9 @@
                 const base = MONSTERS[mKey];
                 const modifier = 0.9 + (Math.random() * 0.3);
                 const randomName = base.names[Math.floor(Math.random() * base.names.length)];
-                
                 quests.push({
-                    monsterKey: mKey,
-                    name: randomName,
-                    hp: Math.floor(base.hp * modifier),
-                    type: base.type,
-                    desc: base.desc,
-                    textStyle: base.textStyle,
+                    monsterKey: mKey, name: randomName, hp: Math.floor(base.hp * modifier),
+                    type: base.type, desc: base.desc, textStyle: base.textStyle,
                     materialsReward: Math.floor(4 + Math.random() * 4)
                 });
             }
@@ -619,22 +686,17 @@
             if (gameState.battle.active) return;
             gameState.selectedQuestIndex = index;
             document.getElementById("start-hunt-btn").disabled = false;
-            
             for (let i = 0; i < 3; i++) {
                 const card = document.getElementById(`quest-card-${i}`);
                 if (card) {
-                    if (i === index) {
-                        card.className = "p-3 rounded-lg border-2 border-amber-500 bg-amber-950/20 text-left transition cursor-pointer";
-                    } else {
-                        card.className = "p-3 rounded-lg border border-gray-800 bg-black/40 text-left hover:border-gray-700 transition cursor-pointer";
-                    }
+                    if (i === index) card.className = "p-3 rounded-lg border-2 border-amber-500 bg-amber-950/20 text-left transition cursor-pointer";
+                    else card.className = "p-3 rounded-lg border border-gray-800 bg-black/40 text-left hover:border-gray-700 transition cursor-pointer";
                 }
             }
         };
 
         function renderHub() {
             updateMaterialsDisplay();
-            
             const squadContainer = document.getElementById("squad-list");
             squadContainer.innerHTML = "";
             gameState.squad.forEach((member, idx) => {
@@ -653,7 +715,6 @@
             const sum = getEnchantSum();
             const summaryContainer = document.getElementById("enchant-summary");
             let summaryHtml = "";
-            
             const renderItem = (icon, label, val, suf, colorClass) => {
                 if (val > 0) summaryHtml += `<div class="bg-black/40 p-1.5 rounded border border-gray-800/40">${icon} ${label}: <span class="${colorClass} font-bold">+${val}${suf}</span></div>`;
             };
@@ -745,8 +806,7 @@
             hunterVisual.classList.remove("animate-shake", "translate-x-6");
             monsterVisual.classList.remove("animate-shake", "-translate-x-6");
             damagePopup.className = "absolute -top-6 text-sm font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] opacity-0 scale-0 transition-all duration-300 pointer-events-none";
-
-            void hunterVisual.offsetWidth; // 強制重繪
+            void hunterVisual.offsetWidth; 
 
             setTimeout(() => {
                 if (isMonsterAttacking) {
@@ -793,13 +853,8 @@
             window.switchBattleTab('summary');
 
             gameState.battle.monster = {
-                key: quest.monsterKey,
-                name: quest.name,
-                maxHp: quest.hp,
-                hp: quest.hp,
-                type: quest.type,
-                textStyle: quest.textStyle,
-                materialsReward: quest.materialsReward,
+                key: quest.monsterKey, name: quest.name, maxHp: quest.hp, hp: quest.hp,
+                type: quest.type, textStyle: quest.textStyle, materialsReward: quest.materialsReward,
                 statusEffect: MONSTERS[quest.monsterKey].statusEffect
             };
             
@@ -807,10 +862,8 @@
             PARTS.forEach(part => {
                 const modifier = part === "body" ? 0.35 : 0.22;
                 gameState.battle.monsterParts[part] = {
-                    name: PART_NAMES[part],
-                    maxHp: Math.floor(quest.hp * modifier),
-                    hp: Math.floor(quest.hp * modifier),
-                    broken: false
+                    name: PART_NAMES[part], maxHp: Math.floor(quest.hp * modifier),
+                    hp: Math.floor(quest.hp * modifier), broken: false
                 };
             });
 
@@ -818,15 +871,9 @@
             const enchants = getEnchantSum();
 
             gameState.battle.squad.push({
-                isPlayer: true,
-                name: gameState.playerName,
-                weaponKey: gameState.playerWeapon,
-                maxHp: 100 + enchants.maxHp,
-                hp: 100 + enchants.maxHp,
-                sp: 0,
-                status: {}, 
-                defending: false,
-                evading: false
+                isPlayer: true, name: gameState.playerName, weaponKey: gameState.playerWeapon,
+                maxHp: 100 + enchants.maxHp, hp: 100 + enchants.maxHp,
+                sp: 0, status: {}, defending: false, evading: false
             });
 
             gameState.squad.forEach(m => {
@@ -904,21 +951,12 @@
 
         function triggerAutoTurn() {
             if (!gameState.battle.active || !gameState.battle.auto) return;
-            
             const player = gameState.battle.squad[0];
-            if (player.hp <= 0) {
-                setTimeout(() => handlePlayerAction("heal"), 1000);
-                return;
-            }
-
-            if (player.hp < 35 && Math.random() < 0.9) {
-                setTimeout(() => handlePlayerAction("heal"), 1000);
-                return;
-            }
+            if (player.hp <= 0) { setTimeout(() => handlePlayerAction("heal"), 1000); return; }
+            if (player.hp < 35 && Math.random() < 0.9) { setTimeout(() => handlePlayerAction("heal"), 1000); return; }
 
             const wInfo = WEAPONS[player.weaponKey];
             const randomSkillIdx = Math.floor(Math.random() * wInfo.skills.length);
-            
             setTimeout(() => handlePlayerAction(randomSkillIdx), 1000);
         }
 
@@ -926,19 +964,16 @@
             const b = gameState.battle;
             if (!b.active) return;
 
-            // 1. 魔物血量
             const hpPercent = (b.monster.hp / b.monster.maxHp) * 100;
             document.getElementById("monster-hp-bar").style.width = `${Math.max(0, hpPercent)}%`;
             document.getElementById("monster-hp-txt").textContent = `${Math.max(0, b.monster.hp)} / ${b.monster.maxHp}`;
             document.getElementById("monster-name").textContent = b.monster.name + ` (${b.monster.type})`;
 
-            // 2. 魔物部位 (1x6 一行顯示)
             const partsGrid = document.getElementById("monster-parts-grid");
             partsGrid.innerHTML = "";
             PARTS.forEach(p => {
                 const partInfo = b.monsterParts[p];
                 const pct = partInfo.broken ? 0 : (partInfo.hp / partInfo.maxHp) * 100;
-                
                 const card = document.createElement("div");
                 card.className = `flex flex-col items-center justify-center py-1 rounded border ${partInfo.broken ? 'bg-red-950/20 border-red-900/40 opacity-40' : 'bg-black/50 border-gray-800'}`;
                 card.innerHTML = `
@@ -950,13 +985,11 @@
                 partsGrid.appendChild(card);
             });
 
-            // 3. 獵人小隊
             const squadGrid = document.getElementById("battle-squad-grid");
             squadGrid.innerHTML = "";
             b.squad.forEach((h, idx) => {
                 const hpPct = (h.hp / h.maxHp) * 100;
                 const spPct = (h.sp / 100) * 100;
-                
                 let stateTags = "";
                 if (h.hp <= 0) {
                     stateTags = `<span class="bg-red-900 text-red-200 px-1 rounded font-bold animate-pulse">💀 倒下</span>`;
@@ -995,7 +1028,6 @@
                 squadGrid.appendChild(card);
             });
 
-            // 4. 指令按鈕 (1行4列)
             const cmdContainer = document.getElementById("action-commands-container");
             cmdContainer.innerHTML = "";
             const player = b.squad[0];
@@ -1020,11 +1052,9 @@
             }
 
             const hasUlt = player.sp >= 100;
-
             wInfo.skills.forEach((sk, idx) => {
                 const btn = document.createElement("button");
                 btn.className = "py-2 px-1 rounded font-bold text-xs sm:text-sm flex flex-col items-center justify-center min-h-[42px] leading-tight transition active:scale-95 ";
-                
                 if (hasUlt && sk.type && sk.type.startsWith("attack")) {
                     btn.className += "bg-gradient-to-b from-amber-500 to-yellow-600 text-black border border-yellow-300 animate-pulse";
                     btn.innerHTML = `💥 絕招<br><span class="text-[10px] truncate w-full text-center px-1">${wInfo.ult.name}</span>`;
@@ -1034,13 +1064,9 @@
                     btn.innerHTML = `<span class="truncate w-full text-center">🚫 破防中</span>`;
                     btn.onclick = () => showNotification("暈眩後遺症：暫時無法防禦！");
                 } else {
-                    if (sk.type.startsWith("attack")) {
-                        btn.className += "bg-red-950/80 hover:bg-red-900/80 text-red-200 border border-red-800/50";
-                    } else if (sk.type === "defend") {
-                        btn.className += "bg-blue-950/80 hover:bg-blue-900/80 text-blue-200 border border-blue-800/50";
-                    } else {
-                        btn.className += "bg-purple-950/80 hover:bg-purple-900/80 text-purple-200 border border-purple-800/50";
-                    }
+                    if (sk.type.startsWith("attack")) btn.className += "bg-red-950/80 hover:bg-red-900/80 text-red-200 border border-red-800/50";
+                    else if (sk.type === "defend") btn.className += "bg-blue-950/80 hover:bg-blue-900/80 text-blue-200 border border-blue-800/50";
+                    else btn.className += "bg-purple-950/80 hover:bg-purple-900/80 text-purple-200 border border-purple-800/50";
                     btn.innerHTML = `<span class="truncate w-full text-center">⚔️ ${sk.name}</span>`;
                     btn.onclick = () => window.handlePlayerAction(idx);
                 }
@@ -1066,7 +1092,6 @@
 
             if (checkBattleEnd()) return;
 
-            // 依序執行，拉長延遲讓自動戰鬥時玩家來得及閱讀
             setTimeout(() => {
                 if (!b.active) return;
                 executeAlliesTurn();
@@ -1089,17 +1114,12 @@
                         if (checkBattleEnd()) return;
 
                         b.turn += 1;
-                        b.squad.forEach(h => {
-                            h.defending = false;
-                            h.evading = false;
-                        });
+                        b.squad.forEach(h => { h.defending = false; h.evading = false; });
 
                         addBattleLog(`⚔️ <strong>-- 回合 ${b.turn} 開始 --</strong>`, "text-gray-500 text-sm text-center my-2");
                         renderBattleUI();
 
-                        if (b.auto) {
-                            setTimeout(triggerAutoTurn, BATTLE_SPEED * 0.8);
-                        }
+                        if (b.auto) setTimeout(triggerAutoTurn, BATTLE_SPEED * 0.8);
                     }, BATTLE_SPEED * 0.8);
                 }, BATTLE_SPEED);
             }, BATTLE_SPEED);
@@ -1113,7 +1133,6 @@
             }
         }
 
-        // 計算包含附魔加成的最終傷害與爆擊
         function calcPlayerDamage(baseDmg, enchants, monsterStatusEffect) {
             let dmg = baseDmg + enchants.atk;
             const elementMap = {
@@ -1141,7 +1160,7 @@
             if (actionCode === "heal") {
                 const wasDead = player.hp <= 0;
                 player.hp = Math.min(player.maxHp, player.hp + 50);
-                player.status.defEvadeCount = 0; // 重置
+                player.status.defEvadeCount = 0; 
                 if (wasDead) {
                     player.status = {};
                     addBattleLog(`🧪 <strong>${player.name}</strong> 喝下回復藥，恢復 <span class="text-green-400 font-bold">50</span> HP 重新站起！`, "text-green-400 text-sm");
@@ -1158,7 +1177,6 @@
                 else if (player.status.stun > 0) addBattleLog(`💫 <strong>${player.name}</strong> 腦袋暈乎乎的，無法行動！`, "text-amber-500 text-sm");
                 return;
             }
-            
             if (actionCode === "skip") {
                 player.status.defEvadeCount = 0;
                 addBattleLog(`⏳ <strong>${player.name}</strong> 正在努力掙脫狀態異常。`, "text-gray-400 text-sm");
@@ -1173,7 +1191,6 @@
                 isAttackAction = true;
                 const ult = wInfo.ult;
                 player.sp = 0; 
-                
                 const calcResult = calcPlayerDamage(ult.dmg, enchants, b.monster.statusEffect);
                 applyDamageToMonster(calcResult.dmg, aimPart);
                 
@@ -1193,16 +1210,13 @@
                     applyDamageToMonster(calcResult.dmg, aimPart);
                     let logStr = `⚔️ <strong>${player.name}</strong> 的【${skill.name}】砸中 <span class="text-amber-400">${SHORT_PART_NAMES[aimPart]}</span>，造成 <span class="text-red-400 font-bold">${calcResult.dmg}</span> 傷害。`;
                     if (calcResult.isCrit) logStr += ` <span class="text-orange-400 font-black tracking-widest text-base">(爆擊！)</span>`;
-                    
                     if (skill.status && Math.random() < 0.35 && skill.status.type === "stun") {
                         b.monster.stunnedNextTurn = true;
                         logStr += ` 💫 魔物被打得眼花繚亂！`;
                     }
                     addBattleLog(logStr, "text-gray-200 text-sm");
                     player.sp = Math.min(100, player.sp + 25);
-                } else {
-                    addBattleLog(`💨 <strong>${player.name}</strong> 的攻擊被靈敏避開！`, "text-gray-500 text-sm");
-                }
+                } else addBattleLog(`💨 <strong>${player.name}</strong> 的攻擊被靈敏避開！`, "text-gray-500 text-sm");
             } else if (skill.type === "attack_var") {
                 isAttackAction = true;
                 const finalHit = (skill.hit || 100) + enchants.hitRate;
@@ -1214,14 +1228,11 @@
                     if (calcResult.isCrit) logStr += ` <span class="text-orange-400 font-black tracking-widest text-base">(爆擊！)</span>`;
                     addBattleLog(logStr, "text-gray-200 text-sm");
                     player.sp = Math.min(100, player.sp + 30);
-                } else {
-                    addBattleLog(`💨 <strong>${player.name}</strong> 砲擊落空！`, "text-gray-500 text-sm");
-                }
+                } else addBattleLog(`💨 <strong>${player.name}</strong> 砲擊落空！`, "text-gray-500 text-sm");
             } else if (skill.type === "attack_multi") {
                 isAttackAction = true;
                 const hitCount = 1 + Math.floor(Math.random() * skill.hits);
-                let totalDmg = 0;
-                let critCount = 0;
+                let totalDmg = 0; let critCount = 0;
                 const finalHit = (skill.hit || 100) + enchants.hitRate;
                 for (let i = 0; i < hitCount; i++) {
                     if (Math.random() * 100 <= finalHit) {
@@ -1236,9 +1247,7 @@
                     if (critCount > 0) logStr += ` <span class="text-orange-400 font-black tracking-widest text-base">(${critCount}次爆擊！)</span>`;
                     addBattleLog(logStr, "text-gray-200 text-sm");
                     player.sp = Math.min(100, player.sp + 35);
-                } else {
-                    addBattleLog(`💨 <strong>${player.name}</strong> 亂舞連斬完全落空！`, "text-gray-500 text-sm");
-                }
+                } else addBattleLog(`💨 <strong>${player.name}</strong> 亂舞連斬完全落空！`, "text-gray-500 text-sm");
             } else if (skill.type === "defend") {
                 player.defending = true;
                 addBattleLog(`🛡️ <strong>${player.name}</strong> 進入防禦姿態。`, "text-blue-400 text-sm");
@@ -1249,21 +1258,16 @@
                 player.sp = Math.min(100, player.sp + 15);
             }
 
-            // 處理爆炸解除機制
-            if (isAttackAction) {
-                player.status.defEvadeCount = 0;
-            } else if (skill.type === "defend" || skill.type === "evade") {
+            if (isAttackAction) player.status.defEvadeCount = 0;
+            else if (skill.type === "defend" || skill.type === "evade") {
                 if (player.status.explosion > 0) {
                     player.status.defEvadeCount = (player.status.defEvadeCount || 0) + 1;
                     if (player.status.defEvadeCount >= 2) {
-                        player.status.explosion = 0;
-                        player.status.defEvadeCount = 0;
-                        addBattleLog(`💨✨ <strong>${player.name}</strong> 透過連續的迴避/防守，成功抖落了身上的爆炸粉塵！危機解除！`, "text-green-400 text-sm font-bold");
+                        player.status.explosion = 0; player.status.defEvadeCount = 0;
+                        addBattleLog(`💨✨ <strong>${player.name}</strong> 透過連續的迴避/防守，成功抖落了身上的爆炸粉塵！`, "text-green-400 text-sm font-bold");
                     }
                 }
             }
-
-            // 流血觸發檢測
             checkTriggerBleed(player, isAttackAction);
         }
 
@@ -1273,24 +1277,17 @@
                 const ally = b.squad[i];
                 if (ally.hp <= 0) {
                     if (Math.random() < 0.8) {
-                        ally.hp = 50;
-                        ally.status.defEvadeCount = 0;
+                        ally.hp = 50; ally.status.defEvadeCount = 0;
                         addBattleLog(`🧪 <strong>${ally.name}</strong> 咬牙喝下回復藥重返戰線！`, "text-green-400 text-sm");
                     }
                     continue;
                 }
-
-                if (ally.status.para > 0 || ally.status.sleep > 0 || ally.status.stun > 0) {
-                    ally.status.defEvadeCount = 0;
-                    continue; // 狀態控制中
-                }
+                if (ally.status.para > 0 || ally.status.sleep > 0 || ally.status.stun > 0) { ally.status.defEvadeCount = 0; continue; }
 
                 const wInfo = WEAPONS[ally.weaponKey];
                 let targetPart = "body";
                 const intactParts = PARTS.filter(p => !b.monsterParts[p].broken);
-                if (intactParts.length > 0) {
-                    targetPart = intactParts[Math.floor(Math.random() * intactParts.length)];
-                }
+                if (intactParts.length > 0) targetPart = intactParts[Math.floor(Math.random() * intactParts.length)];
 
                 let isAttackAction = false;
                 let usedSkillType = "attack";
@@ -1300,15 +1297,12 @@
                     usedSkillType = wInfo.ult.type || "attack";
                     ally.sp = 0;
                     applyDamageToMonster(wInfo.ult.dmg, targetPart);
-                    addBattleLog(`💥 <strong>${ally.name}</strong> 施放大絕【<strong>${wInfo.ult.name}</strong>】！造成 <span class="text-yellow-400">${wInfo.ult.dmg}</span> 巨量傷害！`, "text-gray-200 text-base font-bold");
+                    addBattleLog(`💥 <strong>${ally.name}</strong> 施放大絕【<strong>${wInfo.ult.name}</strong>】！造成 <span class="text-yellow-400">${wInfo.ult.dmg}</span> 巨量傷害！`, "text-yellow-300 text-lg font-bold");
                 } else {
                     let playSkills = wInfo.skills;
                     if (ally.status.noDefend > 0) playSkills = playSkills.filter(s => s.type !== "defend");
-                    
                     let finalSkill = playSkills[0];
-                    if (playSkills.length > 1 && Math.random() < 0.15) {
-                        finalSkill = playSkills[Math.floor(Math.random() * playSkills.length)];
-                    }
+                    if (playSkills.length > 1 && Math.random() < 0.15) finalSkill = playSkills[Math.floor(Math.random() * playSkills.length)];
 
                     usedSkillType = finalSkill.type;
 
@@ -1319,9 +1313,7 @@
                             applyDamageToMonster(dmg, targetPart);
                             addBattleLog(`👥 <strong>${ally.name}</strong> 攻擊 ${SHORT_PART_NAMES[targetPart]}，造成 <span class="text-red-300">${dmg}</span> 傷害。`, "text-gray-200 text-sm");
                             ally.sp = Math.min(100, ally.sp + 25);
-                        } else {
-                            addBattleLog(`💨 <strong>${ally.name}</strong> 攻擊被閃躲。`, "text-gray-500 text-sm");
-                        }
+                        } else addBattleLog(`💨 <strong>${ally.name}</strong> 攻擊被閃躲。`, "text-gray-500 text-sm");
                     } else if (finalSkill.type === "defend") {
                         ally.defending = true;
                         addBattleLog(`🛡️ <strong>${ally.name}</strong> 撐起防禦。`, "text-blue-400 text-sm");
@@ -1331,20 +1323,16 @@
                     }
                 }
                 
-                // 處理爆炸解除機制
-                if (isAttackAction) {
-                    ally.status.defEvadeCount = 0;
-                } else if (usedSkillType === "defend" || usedSkillType === "evade") {
+                if (isAttackAction) ally.status.defEvadeCount = 0;
+                else if (usedSkillType === "defend" || usedSkillType === "evade") {
                     if (ally.status.explosion > 0) {
                         ally.status.defEvadeCount = (ally.status.defEvadeCount || 0) + 1;
                         if (ally.status.defEvadeCount >= 2) {
-                            ally.status.explosion = 0;
-                            ally.status.defEvadeCount = 0;
+                            ally.status.explosion = 0; ally.status.defEvadeCount = 0;
                             addBattleLog(`💨✨ <strong>${ally.name}</strong> 動作輕巧地抖落了爆炸粉塵！`, "text-green-400 text-sm");
                         }
                     }
                 }
-
                 checkTriggerBleed(ally, isAttackAction);
             }
         }
@@ -1356,7 +1344,6 @@
             if (b.monster.stunnedNextTurn) {
                 b.monster.stunnedNextTurn = false;
                 addBattleLog(`🌀 <strong>${b.monster.name}</strong> 陷入暈眩，癱坐無法反擊！`, "text-green-400 font-bold text-sm");
-                
                 b.squad.forEach(h => {
                     if (h.status.sleep > 0) {
                         h.status.sleep = 0;
@@ -1375,7 +1362,6 @@
                 rightLeg: { name: "右神速撕裂爪擊", dmg: 22, desc: "用尖銳鉤爪極速撕扯！" }
             };
 
-            // 針對爆破屬性魔物改變招式敘述
             if (b.monster.statusEffect === "explosion") {
                 monsterMoves = {
                     head: { name: "高爆粉塵咬碎", dmg: 40, desc: "在口中引燃爆炸性粉塵，帶著毀滅性爆風狠狠咬下！" },
@@ -1388,14 +1374,9 @@
             }
 
             const selectPartPool = PARTS.filter(p => !b.monsterParts[p].broken);
-            let finalAimPart = "body";
-            let isExtremelyWeakened = false;
-
-            if (selectPartPool.length > 0) {
-                finalAimPart = selectPartPool[Math.floor(Math.random() * selectPartPool.length)];
-            } else {
-                isExtremelyWeakened = true;
-            }
+            let finalAimPart = "body"; let isExtremelyWeakened = false;
+            if (selectPartPool.length > 0) finalAimPart = selectPartPool[Math.floor(Math.random() * selectPartPool.length)];
+            else isExtremelyWeakened = true;
 
             const move = monsterMoves[finalAimPart];
             const aliveHunters = b.squad.filter(h => h.hp > 0);
@@ -1408,63 +1389,44 @@
                 let dmg = 5;
                 if (targetHunter.defending) dmg = Math.floor(dmg * 0.2);
                 if (targetHunter.isPlayer) dmg = Math.max(1, dmg - getEnchantSum().def);
-                
                 targetHunter.hp = Math.max(0, targetHunter.hp - dmg);
                 addBattleLog(`💥 <strong>${targetHunter.name}</strong> 受到微弱的 <span class="text-red-400">${dmg}</span> 傷害。`, "text-gray-300 text-sm");
                 return;
             }
 
-            addBattleLog(`🔥 <strong>${b.monster.name}</strong> 使出必殺技：【<strong>${move.name}</strong>】！`, "text-red-400 text-lg");
+            addBattleLog(`🔥 <strong>${b.monster.name}</strong> 使出必殺技：【<strong>${move.name}</strong>】！`, "text-red-400 text-lg font-bold");
             addBattleLog(`💬 ${move.desc}`, "text-gray-400 italic text-sm font-bold");
 
             let finalDmg = move.dmg;
-
-            // 計算閃避率 (附魔影響)
             let evadeChance = (targetHunter.evading ? 65 : 0);
             if (targetHunter.isPlayer) evadeChance += getEnchantSum().evadeRate;
 
             if (Math.random() * 100 < evadeChance) {
-                addBattleLog(`💨 <strong>${targetHunter.name}</strong> 施展極限滑步，完全迴避了威脅！`, "text-purple-400 text-sm font-bold");
+                addBattleLog(`💨 <strong>${targetHunter.name}</strong> 施展極限迴避，完全躲開了威脅！`, "text-purple-400 text-sm font-bold");
                 return;
             }
 
-            // 被打醒機制
             if (targetHunter.status.sleep > 0) {
                 targetHunter.status.sleep = 0;
                 addBattleLog(`💥 <strong>${targetHunter.name}</strong> 遭到重擊，從睡夢中痛醒過來！`, "text-indigo-300 text-sm");
             }
 
-            if (targetHunter.defending) {
-                finalDmg = Math.floor(finalDmg * 0.3);
-            } 
+            if (targetHunter.defending) finalDmg = Math.floor(finalDmg * 0.3);
             
-            // 防禦與抗性計算
             if (targetHunter.isPlayer) {
                 const sum = getEnchantSum();
                 if (b.monster.statusEffect === "fire") finalDmg = Math.floor(finalDmg * (1 - sum.fireRes / 100));
                 if (b.monster.statusEffect === "ice") finalDmg = Math.floor(finalDmg * (1 - sum.iceRes / 100));
                 if (b.monster.statusEffect === "water") finalDmg = Math.floor(finalDmg * (1 - sum.waterRes / 100));
-                // 防禦力減免 (防禦計算置於最後)
                 finalDmg = Math.max(1, finalDmg - sum.def);
-            } else {
-                finalDmg = Math.max(1, finalDmg);
-            }
+            } else finalDmg = Math.max(1, finalDmg);
             
-            if (targetHunter.defending) {
-                addBattleLog(`🛡️ <strong>${targetHunter.name}</strong> 舉盾招架，僅受到 <span class="text-blue-400">${finalDmg}</span> 傷害！`, "text-blue-400 text-sm");
-            } else {
-                addBattleLog(`💥 <strong>${targetHunter.name}</strong> 避無可避，受到 <span class="text-red-500 font-black">${finalDmg}</span> 點致命傷害！`, "text-red-400 text-sm");
-            }
+            if (targetHunter.defending) addBattleLog(`🛡️ <strong>${targetHunter.name}</strong> 舉盾招架，僅受到 <span class="text-blue-400">${finalDmg}</span> 傷害！`, "text-blue-400 text-sm");
+            else addBattleLog(`💥 <strong>${targetHunter.name}</strong> 避無可避，受到 <span class="text-red-500 font-black">${finalDmg}</span> 點致命傷害！`, "text-red-400 text-sm");
 
             targetHunter.hp = Math.max(0, targetHunter.hp - finalDmg);
-
-            if (targetHunter.hp > 0 && !targetHunter.defending) {
-                applyStatusEffectToHunter(targetHunter, b.monster.statusEffect);
-            }
-
-            if (targetHunter.hp <= 0) {
-                addBattleLog(`💀 <strong>${targetHunter.name}</strong> 體力歸零，不支倒地！`, "text-red-600 font-bold text-sm");
-            }
+            if (targetHunter.hp > 0 && !targetHunter.defending) applyStatusEffectToHunter(targetHunter, b.monster.statusEffect);
+            if (targetHunter.hp <= 0) addBattleLog(`💀 <strong>${targetHunter.name}</strong> 體力歸零，不支倒地！`, "text-red-600 font-bold text-sm");
         }
 
         function applyStatusEffectToHunter(hunter, effect) {
@@ -1477,30 +1439,22 @@
             }
 
             if (effect === "fire") {
-                hunter.status.poison = 3;
-                addBattleLog(`🔥 陷入灼燒，連續 3 回合扣血。`, "text-orange-400 text-sm");
+                hunter.status.poison = 3; addBattleLog(`🔥 陷入灼燒，連續 3 回合扣血。`, "text-orange-400 text-sm");
             } else if (effect === "ice" || effect === "water") {
-                hunter.status.para = 1;
-                addBattleLog(`❄️ 渾身僵硬，下回合無法行動。`, "text-blue-300 text-sm");
+                hunter.status.para = 1; addBattleLog(`❄️ 渾身僵硬，下回合無法行動。`, "text-blue-300 text-sm");
             } else if (effect === "electric" || effect === "paralysis") {
-                hunter.status.para = 2; // 停止動作兩回合
-                addBattleLog(`⚡ <strong>${hunter.name}</strong> 被強烈神經麻痺！連續 2 回合動彈不得！`, "text-yellow-400 text-sm");
+                hunter.status.para = 2; addBattleLog(`⚡ <strong>${hunter.name}</strong> 被強烈神經麻痺！連續 2 回合動彈不得！`, "text-yellow-400 text-sm");
             } else if (effect === "poison") {
-                hunter.status.poison = 3; // 連續三回合扣血
-                addBattleLog(`🧪 <strong>${hunter.name}</strong> 陷入中毒！連續 3 回合流失體力！`, "text-purple-400 text-sm");
+                hunter.status.poison = 3; addBattleLog(`🧪 <strong>${hunter.name}</strong> 陷入中毒！連續 3 回合流失體力！`, "text-purple-400 text-sm");
             } else if (effect === "sleep") {
-                hunter.status.sleep = 3; // 停止直到被打醒或三回合
-                addBattleLog(`💤 <strong>${hunter.name}</strong> 陷入深層睡眠！至多昏睡 3 回合或直到被打醒！`, "text-indigo-400 text-sm");
+                hunter.status.sleep = 3; addBattleLog(`💤 <strong>${hunter.name}</strong> 陷入深層睡眠！至多昏睡 3 回合或直到被打醒！`, "text-indigo-400 text-sm");
             } else if (effect === "bleed") {
-                hunter.status.bleed = 5; // 五回合內攻擊扣血
-                addBattleLog(`🩸 <strong>${hunter.name}</strong> 受到嚴重裂傷！接下來 5 回合只要攻擊就會大出血！`, "text-red-500 text-sm");
+                hunter.status.bleed = 5; addBattleLog(`🩸 <strong>${hunter.name}</strong> 受到嚴重裂傷！接下來 5 回合只要攻擊就會大出血！`, "text-red-500 text-sm");
             } else if (effect === "stun") {
-                hunter.status.stun = 1;     // 停1回
-                hunter.status.noDefend = 3; // 禁防禦3回
+                hunter.status.stun = 1; hunter.status.noDefend = 3;
                 addBattleLog(`💫 <strong>${hunter.name}</strong> 受到強烈腦震盪暈眩 1 回合！並且 3 回合內無法舉起防禦！`, "text-amber-500 text-sm");
             } else if (effect === "explosion") {
-                hunter.status.explosion = 3; // 3回合後爆炸
-                hunter.status.defEvadeCount = 0;
+                hunter.status.explosion = 3; hunter.status.defEvadeCount = 0;
                 addBattleLog(`💣 <strong>${hunter.name}</strong> 被危險的爆炸粉塵附著！3回合後將引爆！<span class="text-[10px] block">(連續防禦或閃避 2 次可解除)</span>`, "text-orange-500 text-sm font-bold");
             }
         }
@@ -1511,26 +1465,20 @@
                 if (h.hp <= 0) return;
 
                 if (h.status.poison && h.status.poison > 0) {
-                    h.hp = Math.max(1, h.hp - 10);
-                    h.status.poison -= 1;
+                    h.hp = Math.max(1, h.hp - 10); h.status.poison -= 1;
                     addBattleLog(`🧪 <strong>${h.name}</strong> 體內毒素蔓延，流失 <span class="text-purple-400 font-bold">10</span> HP！`, "text-purple-400/80 text-sm");
                 }
                 
-                // 減少其他狀態的回合數 (流血在攻擊時觸發扣血，這裡只計算回合減少)
                 if (h.status.bleed && h.status.bleed > 0) h.status.bleed -= 1;
                 if (h.status.para && h.status.para > 0) h.status.para -= 1;
                 if (h.status.stun && h.status.stun > 0) h.status.stun -= 1;
                 if (h.status.noDefend && h.status.noDefend > 0) h.status.noDefend -= 1;
                 
-                // 睡眠回合倒數
                 if (h.status.sleep && h.status.sleep > 0) {
                     h.status.sleep -= 1;
-                    if (h.status.sleep === 0) {
-                        addBattleLog(`🥱 <strong>${h.name}</strong> 經過了三回合，終於從沉睡中自然甦醒了！`, "text-cyan-300 text-sm");
-                    }
+                    if (h.status.sleep === 0) addBattleLog(`🥱 <strong>${h.name}</strong> 經過了三回合，終於從沉睡中自然甦醒了！`, "text-cyan-300 text-sm");
                 }
 
-                // 爆炸回合倒數
                 if (h.status.explosion && h.status.explosion > 0) {
                     h.status.explosion -= 1;
                     if (h.status.explosion === 0) {
@@ -1555,7 +1503,6 @@
                 if (partInfo.hp <= 0) {
                     partInfo.broken = true;
                     addBattleLog(`💥 <strong>【部位破壞】！</strong> ${b.monster.name} 的 <span class="text-yellow-400">${partInfo.name}</span> 被徹底破壞！對應必殺技遭封印！`, "text-yellow-400 text-sm");
-                    
                     b.squad.forEach(h => {
                         if (h.status.sleep > 0) {
                             h.status.sleep = 0;
@@ -1568,10 +1515,8 @@
 
         function checkBattleEnd() {
             const b = gameState.battle;
-            
             if (b.monster.hp <= 0) {
                 b.active = false;
-                
                 let brokenCount = 0;
                 PARTS.forEach(p => { if (b.monsterParts[p].broken) brokenCount++; });
                 const bonusReward = brokenCount * 2;
@@ -1583,11 +1528,9 @@
                 addBattleLog(`- 剝取素材: <span class="text-white">+${b.monster.materialsReward}</span>`, "text-gray-300 text-xs");
                 addBattleLog(`- 完美擊破 ${brokenCount} 個部位: <span class="text-white">+${bonusReward}</span>`, "text-gray-300 text-xs");
                 addBattleLog(`🎉 共帶回 <span class="text-amber-400 font-bold">+${totalGained}</span> 素材！`, "text-amber-300 font-bold text-sm mt-2");
-
                 showExitBattleButton(true);
                 return true;
             }
-
             const allDead = b.squad.every(h => h.hp <= 0);
             if (allDead) {
                 b.active = false;
@@ -1596,7 +1539,6 @@
                 showExitBattleButton(false);
                 return true;
             }
-
             return false;
         }
 
