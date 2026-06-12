@@ -286,7 +286,7 @@
                         <button onclick="window.localLoad()" class="bg-teal-900/60 hover:bg-teal-800 border border-teal-600/50 text-teal-200 py-2.5 rounded text-sm font-bold transition">📂 本地讀檔</button>
                     </div>
                     <div class="border-t border-gray-800 pt-4 flex flex-col gap-2">
-                        <label class="text-xs text-gray-400">繼承碼 (附魔與素材)：</label>
+                        <label class="text-xs text-gray-400">繼承碼 (附魔與素材與小隊設定)：</label>
                         <textarea id="save-code-input" class="w-full h-24 bg-[#1b2230] border border-gray-700 rounded p-2 text-xs text-gray-300 focus:outline-none focus:border-indigo-400 font-mono break-all"></textarea>
                         <div class="grid grid-cols-2 gap-2 mt-2">
                             <button onclick="window.exportSaveCode()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 rounded text-xs transition">📤 產生繼承碼</button>
@@ -417,17 +417,9 @@
         ];
 
         let gameState = {
-            activeTab: "setup",
-            materials: 10,
-            playerName: "傳奇獵人",
-            playerWeapon: "swordShield",
-            squad: [],
-            quests: [],
-            selectedQuestIndex: null,
-            enchants: {}, 
-            battle: {
-                active: false, auto: false, monster: null, monsterParts: {}, turn: 1, squad: [] 
-            }
+            activeTab: "setup", materials: 10, playerName: "傳奇獵人", playerWeapon: "swordShield",
+            squad: [], quests: [], selectedQuestIndex: null, enchants: {}, 
+            battle: { active: false, auto: false, monster: null, monsterParts: {}, turn: 1, squad: [] }
         };
 
         let currentBattleTab = "summary";
@@ -492,10 +484,7 @@
             toast.textContent = message;
             toast.classList.remove("opacity-0", "pointer-events-none");
             toast.classList.add("opacity-100");
-            setTimeout(() => {
-                toast.classList.remove("opacity-100");
-                toast.classList.add("opacity-0", "pointer-events-none");
-            }, 2500);
+            setTimeout(() => { toast.classList.remove("opacity-100"); toast.classList.add("opacity-0", "pointer-events-none"); }, 2500);
         }
 
         /* ====== 存檔與繼承系統 ====== */
@@ -503,10 +492,8 @@
         window.closeSaveLoadModal = () => document.getElementById('saveload-modal').classList.add('hidden');
 
         const getSaveData = () => JSON.stringify({
-            m: gameState.materials,
-            n: gameState.playerName,
-            w: gameState.playerWeapon,
-            e: gameState.enchants
+            m: gameState.materials, n: gameState.playerName, w: gameState.playerWeapon,
+            e: gameState.enchants, s: gameState.squad
         });
 
         const loadSaveData = (jsonStr) => {
@@ -516,6 +503,7 @@
                     gameState.materials = data.m;
                     if (data.n) gameState.playerName = data.n;
                     if (data.w) gameState.playerWeapon = data.w;
+                    if (data.s) gameState.squad = data.s;
                     gameState.enchants = data.e;
                     renderHub();
                     document.getElementById('player-name-display').innerHTML = `✦ ${gameState.playerName} (您) <i class="fa-solid fa-pen text-[10px] ml-1 opacity-50"></i>`;
@@ -523,40 +511,21 @@
                     showNotification("✅ 讀檔成功！資料已覆蓋。");
                     window.closeSaveLoadModal();
                 } else throw new Error("Format");
-            } catch (err) {
-                showNotification("❌ 存檔損壞或繼承碼無效！");
-            }
+            } catch (err) { showNotification("❌ 存檔損壞或繼承碼無效！"); }
         };
 
-        window.localSave = () => {
-            localStorage.setItem('huntLogSave', getSaveData());
-            showNotification("💾 已儲存至本地瀏覽器！");
-        };
-
-        window.localLoad = () => {
-            const data = localStorage.getItem('huntLogSave');
-            if (data) loadSaveData(data);
-            else showNotification("⚠️ 沒有找到本地存檔！");
-        };
-
+        window.localSave = () => { localStorage.setItem('huntLogSave', getSaveData()); showNotification("💾 已儲存至本地瀏覽器！"); };
+        window.localLoad = () => { const data = localStorage.getItem('huntLogSave'); if (data) loadSaveData(data); else showNotification("⚠️ 沒有找到本地存檔！"); };
         window.exportSaveCode = () => {
             const code = btoa(encodeURIComponent(getSaveData()));
             const ta = document.getElementById('save-code-input');
-            ta.value = code;
-            ta.select();
-            document.execCommand('copy');
+            ta.value = code; ta.select(); document.execCommand('copy');
             showNotification("📤 繼承碼已產生！(已嘗試複製)");
         };
-
         window.importSaveCode = () => {
             const code = document.getElementById('save-code-input').value.trim();
             if (!code) { showNotification("⚠️ 請先輸入繼承碼！"); return; }
-            try {
-                const jsonStr = decodeURIComponent(atob(code));
-                loadSaveData(jsonStr);
-            } catch (err) {
-                showNotification("❌ 繼承碼解析失敗！請確認格式正確。");
-            }
+            try { loadSaveData(decodeURIComponent(atob(code))); } catch (err) { showNotification("❌ 繼承碼解析失敗！請確認格式正確。"); }
         };
 
         /* ====== 其他系統 ====== */
@@ -564,8 +533,7 @@
             if (gameState.battle.active) return;
             renamingTarget = index;
             const input = document.getElementById("rename-input");
-            if (index === -1) input.value = gameState.playerName;
-            else input.value = gameState.squad[index].name;
+            input.value = index === -1 ? gameState.playerName : gameState.squad[index].name;
             document.getElementById("rename-modal").classList.remove("hidden");
             input.focus();
         };
@@ -595,9 +563,7 @@
         }
 
         function initDefaultEnchants() {
-            ENCHANT_PARTS.forEach(part => {
-                gameState.enchants[part] = [ getRandomEnchant(), getRandomEnchant(), getRandomEnchant() ];
-            });
+            ENCHANT_PARTS.forEach(part => { gameState.enchants[part] = [ getRandomEnchant(), getRandomEnchant(), getRandomEnchant() ]; });
         }
 
         window.openEnchantModal = function() {
@@ -605,11 +571,7 @@
             document.getElementById("enchant-modal").classList.remove("hidden");
             renderEnchantModal();
         };
-
-        window.closeEnchantModal = function() {
-            document.getElementById("enchant-modal").classList.add("hidden");
-            renderHub();
-        };
+        window.closeEnchantModal = function() { document.getElementById("enchant-modal").classList.add("hidden"); renderHub(); };
 
         window.rerollEnchant = function(part, slotIndex) {
             if (gameState.materials < 1) { showNotification("❌ 龍之素材不足！"); return; }
@@ -627,14 +589,11 @@
         function getEnchantSum() {
             let sum = {
                 maxHp: 0, atk: 0, def: 0, hitRate: 0, evadeRate: 0, critRate: 0, critDmg: 0,
-                fireDmg: 0, iceDmg: 0, waterDmg: 0, electricDmg: 0,
-                earthDmg: 0, poisonDmg: 0, sleepDmg: 0, paraDmg: 0, bleedDmg: 0, explosionDmg: 0,
+                fireDmg: 0, iceDmg: 0, waterDmg: 0, electricDmg: 0, earthDmg: 0, poisonDmg: 0, sleepDmg: 0, paraDmg: 0, bleedDmg: 0, explosionDmg: 0,
                 fireRes: 0, iceRes: 0, waterRes: 0, poisonRes: 0, paraRes: 0, sleepRes: 0, explosionRes: 0
             };
             for (let part in gameState.enchants) {
-                gameState.enchants[part].forEach(e => {
-                    if (sum[e.type] !== undefined) sum[e.type] += e.val;
-                });
+                gameState.enchants[part].forEach(e => { if (sum[e.type] !== undefined) sum[e.type] += e.val; });
             }
             return sum;
         }
@@ -689,8 +648,8 @@
             for (let i = 0; i < 3; i++) {
                 const card = document.getElementById(`quest-card-${i}`);
                 if (card) {
-                    if (i === index) card.className = "p-3 rounded-lg border-2 border-amber-500 bg-amber-950/20 text-left transition cursor-pointer";
-                    else card.className = "p-3 rounded-lg border border-gray-800 bg-black/40 text-left hover:border-gray-700 transition cursor-pointer";
+                    card.className = i === index ? "p-3 rounded-lg border-2 border-amber-500 bg-amber-950/20 text-left transition cursor-pointer" 
+                                                 : "p-3 rounded-lg border border-gray-800 bg-black/40 text-left hover:border-gray-700 transition cursor-pointer";
                 }
             }
         };
@@ -705,9 +664,7 @@
                 div.onclick = () => window.openRenameModal(idx);
                 div.innerHTML = `
                     <span class="font-bold text-gray-200 text-sm">👥 ${member.name} <i class="fa-solid fa-pen text-[10px] ml-1 opacity-50"></i></span>
-                    <span class="text-xs text-cyan-400 bg-cyan-950/50 border border-cyan-800/30 px-2 py-0.5 rounded-full">
-                        ${WEAPONS[member.weapon].name}
-                    </span>
+                    <span class="text-xs text-cyan-400 bg-cyan-950/50 border border-cyan-800/30 px-2 py-0.5 rounded-full">${WEAPONS[member.weapon].name}</span>
                 `;
                 squadContainer.appendChild(div);
             });
@@ -719,30 +676,18 @@
                 if (val > 0) summaryHtml += `<div class="bg-black/40 p-1.5 rounded border border-gray-800/40">${icon} ${label}: <span class="${colorClass} font-bold">+${val}${suf}</span></div>`;
             };
 
-            renderItem("❤️", "生命", sum.maxHp, "", "text-green-400");
-            renderItem("⚔️", "攻擊", sum.atk, "", "text-red-400");
-            renderItem("🛡️", "防禦", sum.def, "", "text-blue-300");
-            renderItem("🎯", "命中", sum.hitRate, "%", "text-yellow-300");
-            renderItem("💨", "閃躲", sum.evadeRate, "%", "text-purple-300");
-            renderItem("🔥", "爆擊", sum.critRate, "%", "text-orange-500");
-            renderItem("💥", "爆傷", sum.critDmg, "%", "text-red-500");
-            renderItem("🔥", "剋火", sum.fireDmg, "%", "text-orange-400");
-            renderItem("❄️", "剋冰", sum.iceDmg, "%", "text-blue-400");
-            renderItem("💧", "剋水", sum.waterDmg, "%", "text-cyan-400");
-            renderItem("⚡", "剋電", sum.electricDmg, "%", "text-yellow-400");
-            renderItem("⛰️", "剋地", sum.earthDmg, "%", "text-amber-500");
-            renderItem("🧪", "剋毒", sum.poisonDmg, "%", "text-purple-400");
-            renderItem("💤", "剋眠", sum.sleepDmg, "%", "text-indigo-400");
-            renderItem("⚡", "剋麻", sum.paraDmg, "%", "text-yellow-500");
-            renderItem("🩸", "剋血", sum.bleedDmg, "%", "text-red-600");
-            renderItem("💣", "剋爆", sum.explosionDmg, "%", "text-orange-500");
-            renderItem("🔥", "火防", sum.fireRes, "%", "text-orange-400");
-            renderItem("❄️", "冰防", sum.iceRes, "%", "text-blue-400");
-            renderItem("💧", "水防", sum.waterRes, "%", "text-cyan-400");
-            renderItem("⚡", "抗麻", sum.paraRes, "%", "text-yellow-400");
-            renderItem("🧪", "抗毒", sum.poisonRes, "%", "text-purple-400");
-            renderItem("💤", "抗眠", sum.sleepRes, "%", "text-indigo-400");
-            renderItem("💣", "抗爆", sum.explosionRes, "%", "text-orange-500");
+            renderItem("❤️", "生命", sum.maxHp, "", "text-green-400"); renderItem("⚔️", "攻擊", sum.atk, "", "text-red-400");
+            renderItem("🛡️", "防禦", sum.def, "", "text-blue-300"); renderItem("🎯", "命中", sum.hitRate, "%", "text-yellow-300");
+            renderItem("💨", "閃躲", sum.evadeRate, "%", "text-purple-300"); renderItem("🔥", "爆擊", sum.critRate, "%", "text-orange-500");
+            renderItem("💥", "爆傷", sum.critDmg, "%", "text-red-500"); renderItem("🔥", "剋火", sum.fireDmg, "%", "text-orange-400");
+            renderItem("❄️", "剋冰", sum.iceDmg, "%", "text-blue-400"); renderItem("💧", "剋水", sum.waterDmg, "%", "text-cyan-400");
+            renderItem("⚡", "剋電", sum.electricDmg, "%", "text-yellow-400"); renderItem("⛰️", "剋地", sum.earthDmg, "%", "text-amber-500");
+            renderItem("🧪", "剋毒", sum.poisonDmg, "%", "text-purple-400"); renderItem("💤", "剋眠", sum.sleepDmg, "%", "text-indigo-400");
+            renderItem("⚡", "剋麻", sum.paraDmg, "%", "text-yellow-500"); renderItem("🩸", "剋血", sum.bleedDmg, "%", "text-red-600");
+            renderItem("💣", "剋爆", sum.explosionDmg, "%", "text-orange-500"); renderItem("🔥", "火防", sum.fireRes, "%", "text-orange-400");
+            renderItem("❄️", "冰防", sum.iceRes, "%", "text-blue-400"); renderItem("💧", "水防", sum.waterRes, "%", "text-cyan-400");
+            renderItem("⚡", "抗麻", sum.paraRes, "%", "text-yellow-400"); renderItem("🧪", "抗毒", sum.poisonRes, "%", "text-purple-400");
+            renderItem("💤", "抗眠", sum.sleepRes, "%", "text-indigo-400"); renderItem("💣", "抗爆", sum.explosionRes, "%", "text-orange-500");
             
             if (!summaryHtml) summaryHtml = `<div class="col-span-2 text-center text-gray-500 py-2">目前沒有任何加成，快去洗煉吧！</div>`;
             summaryContainer.innerHTML = summaryHtml;
@@ -787,9 +732,7 @@
                     `;
                 });
                 partBox.innerHTML = `
-                    <h4 class="font-bold text-gray-300 mb-1.5 border-b border-gray-800 pb-1 text-sm">
-                        <span>🛡️ ${ENCHANT_PART_NAMES[part]}</span>
-                    </h4>
+                    <h4 class="font-bold text-gray-300 mb-1.5 border-b border-gray-800 pb-1 text-sm"><span>🛡️ ${ENCHANT_PART_NAMES[part]}</span></h4>
                     <div class="space-y-1.5">${slotsHtml}</div>
                 `;
                 container.appendChild(partBox);
@@ -844,9 +787,7 @@
             
             const quest = gameState.quests[gameState.selectedQuestIndex];
             
-            gameState.battle.active = true;
-            gameState.battle.turn = 1;
-            gameState.battle.auto = false;
+            gameState.battle.active = true; gameState.battle.turn = 1; gameState.battle.auto = false;
             document.getElementById("auto-battle-status").textContent = "關";
             document.getElementById("auto-battle-status").className = "text-red-400";
             
@@ -910,16 +851,18 @@
             if (visualMsg) visualMsg.innerHTML = text;
 
             let isMonsterAttacking = false;
-            let dmgMatch = text.match(/(-?\d+)\s*點|(\d+)\s*HP|(-\d+)/);
             let dmgText = "";
 
-            if (dmgMatch) {
+            // 精確提取被 Span 包裹的最後一個數字 (保證不會抓到連擊數或回合數)
+            const spanMatches = [...text.matchAll(/>\s*(\d+)\s*<\/span>/g)];
+            if (spanMatches.length > 0) {
+                const val = spanMatches[spanMatches.length - 1][1];
                 if (text.includes("回復藥") || text.includes("恢復")) {
-                    dmgText = `+${dmgMatch[1] || dmgMatch[2] || "50"}`;
+                    dmgText = `+${val}`;
                 } else if (text.includes("爆擊")) {
-                    dmgText = `-${dmgMatch[1] || dmgMatch[2] || dmgMatch[3].replace('-','')} <span class="text-[10px] block mt-[-5px]">CRIT!</span>`;
+                    dmgText = `-${val} <span class="text-[10px] block mt-[-5px]">CRIT!</span>`;
                 } else {
-                    dmgText = `-${dmgMatch[1] || dmgMatch[2] || dmgMatch[3].replace('-','')}`;
+                    dmgText = `-${val}`;
                 }
             }
 
@@ -927,7 +870,7 @@
                 isMonsterAttacking = true;
             }
 
-            if (text.includes("造成") || text.includes("傷害") || text.includes("使用【") || text.includes("發射") || text.includes("大絕") || text.includes("回復藥") || text.includes("必殺技")) {
+            if (text.includes("造成") || text.includes("傷害") || text.includes("使用【") || text.includes("發射") || text.includes("大絕") || text.includes("回復藥") || text.includes("必殺技") || text.includes("引爆")) {
                 animateClash(isMonsterAttacking, dmgText);
             }
         }
@@ -937,13 +880,11 @@
             gameState.battle.auto = !gameState.battle.auto;
             const btnText = document.getElementById("auto-battle-status");
             if (gameState.battle.auto) {
-                btnText.textContent = "開";
-                btnText.className = "text-green-400";
+                btnText.textContent = "開"; btnText.className = "text-green-400";
                 addBattleLog(`🤖 <strong>自動戰鬥開啟。</strong>`, "text-green-400 font-bold text-sm");
                 triggerAutoTurn();
             } else {
-                btnText.textContent = "關";
-                btnText.className = "text-red-400";
+                btnText.textContent = "關"; btnText.className = "text-red-400";
                 addBattleLog(`🤖 <strong>自動戰鬥關閉。</strong>`, "text-red-400 font-bold text-sm");
                 renderBattleUI();
             }
