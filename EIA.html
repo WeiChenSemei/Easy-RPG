@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Emoji Infinite Adventure 3.0</title>
+    <title>Emoji Infinite Adventure 4.0</title>
     <style>
         :root {
             --bg-color: #f5f7f8;
@@ -39,6 +39,45 @@
             height: 100%;
         }
 
+        /* 無文字啟動封面 */
+        #start-screen {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(135deg, #cceedc, #ffe5d9);
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.6s ease;
+        }
+        .title-emoji {
+            font-size: 100px;
+            margin-bottom: 50px;
+            animation: float 4s ease-in-out infinite;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));
+        }
+        #btn-start {
+            font-size: 50px;
+            background: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 120px; height: 120px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; justify-content: center; align-items: center;
+            padding-left: 8px; /* 修正播放鍵視覺置中 */
+            color: #4ade80;
+        }
+        #btn-start:hover { transform: scale(1.05); box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        #btn-start:active { transform: scale(0.9); box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
+        @keyframes float { 
+            0%, 100% { transform: translateY(0); } 
+            50% { transform: translateY(-20px); } 
+        }
+
         #ui-layer {
             position: absolute;
             top: 0; left: 0;
@@ -48,6 +87,8 @@
             flex-direction: column;
             justify-content: space-between;
             padding: 16px;
+            opacity: 0; /* 封面開啟時隱藏，進入後顯示 */
+            transition: opacity 0.5s ease 0.3s;
         }
 
         .top-hud {
@@ -94,30 +135,28 @@
             box-shadow: var(--shadow);
         }
 
-        /* 虛擬方向鍵 */
+        /* 虛擬方向鍵優化 */
         #dpad-container {
             width: 100%;
             display: flex;
             justify-content: center;
             pointer-events: auto;
-            margin-bottom: 8px; /* 往下移貼齊邊緣，遠離中央角色 */
-            opacity: 0.4; /* 預設半透明，降低視覺干擾 */
+            margin-bottom: 8px;
+            opacity: 0.4;
             transition: opacity 0.2s ease-out;
         }
         
-        #dpad-container:active, #dpad-container:hover {
-            opacity: 0.85; /* 操作時才變清晰 */
-        }
+        #dpad-container:active, #dpad-container:hover { opacity: 0.85; }
         
         .dpad {
             display: grid;
-            grid-template-columns: repeat(3, 60px); /* 稍微縮小按鍵尺寸 */
+            grid-template-columns: repeat(3, 60px);
             grid-template-rows: repeat(3, 60px);
             gap: 8px;
         }
 
         .d-btn {
-            background: rgba(255, 255, 255, 0.25); /* 更通透的底色 */
+            background: rgba(255, 255, 255, 0.25);
             border-radius: 20px;
             border: 2px solid rgba(255, 255, 255, 0.3);
             font-size: 24px;
@@ -126,7 +165,7 @@
             box-shadow: 0 4px 0 rgba(0,0,0,0.08);
             transition: all 0.08s;
             cursor: pointer;
-            backdrop-filter: blur(4px); /* 療癒的毛玻璃質感 */
+            backdrop-filter: blur(4px);
             -webkit-backdrop-filter: blur(4px);
         }
         .d-btn:active {
@@ -205,137 +244,62 @@
             color: #aaa;
         }
         .close-btn:hover { color: #666; }
-        
-        .modal-title {
-            text-align: center; font-size: 32px; margin: 0 0 20px 0;
-        }
+        .modal-title { text-align: center; font-size: 32px; margin: 0 0 20px 0; }
 
         .grid-list {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            overflow-y: auto;
-            padding: 4px;
-            max-height: 280px;
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+            overflow-y: auto; padding: 4px; max-height: 280px;
         }
         .item-slot {
-            background: #fff;
-            border-radius: 18px;
-            aspect-ratio: 1;
+            background: #fff; border-radius: 18px; aspect-ratio: 1;
             display: flex; justify-content: center; align-items: center;
-            position: relative;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.03);
-            cursor: pointer;
-            border: 3px solid transparent;
-            transition: all 0.1s;
+            position: relative; box-shadow: 0 4px 8px rgba(0,0,0,0.03);
+            cursor: pointer; border: 3px solid transparent; transition: all 0.1s;
         }
         .item-slot:hover { transform: scale(1.05); }
         .item-slot:active { transform: scale(0.92); }
-        .item-slot.selected {
-            border-color: #8dcfa1;
-            background: var(--primary);
-        }
-        /* PC 鍵盤選取焦點視覺 */
-        .item-slot.focused {
-            border-color: #64748b;
-            transform: scale(1.08);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 2;
-        }
-        /* NPC 鍵盤焦點視覺 */
+        .item-slot.selected { border-color: #8dcfa1; background: var(--primary); }
+        .item-slot.focused { border-color: #64748b; transform: scale(1.08); box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 2; }
         .npc-tab.focused { border: 2px solid #64748b; transform: scale(1.05); }
         .trade-row.focused { border: 2px solid #64748b; transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .item-slot.locked {
-            background: #e2e8f0;
-            border: 3px dashed #cbd5e1;
-            cursor: default;
-        }
+        .item-slot.locked { background: #e2e8f0; border: 3px dashed #cbd5e1; cursor: default; }
         .item-slot.locked:hover { transform: none; }
-        .item-slot.locked .item-emoji {
-            opacity: 0.15; filter: grayscale(1);
-        }
-        .item-count {
-            position: absolute;
-            bottom: 4px; right: 6px;
-            font-size: 11px; font-weight: 800;
-            background: #f1f5f9;
-            padding: 1px 5px; border-radius: 10px;
-            color: #64748b;
-        }
+        .item-slot.locked .item-emoji { opacity: 0.15; filter: grayscale(1); }
+        .item-count { position: absolute; bottom: 4px; right: 6px; font-size: 11px; font-weight: 800; background: #f1f5f9; padding: 1px 5px; border-radius: 10px; color: #64748b; }
         .item-emoji { font-size: 32px; }
 
         .share-container { display: flex; flex-direction: column; gap: 16px; }
         .share-box {
-            width: 100%; height: 100px;
-            background: #fff;
-            border: 2px solid #e2e8f0; border-radius: 16px;
-            padding: 12px; font-size: 11px;
-            word-break: break-all; overflow-y: auto;
-            color: #475569;
-            user-select: text; -webkit-user-select: text;
+            width: 100%; height: 100px; background: #fff; border: 2px solid #e2e8f0; border-radius: 16px;
+            padding: 12px; font-size: 11px; word-break: break-all; overflow-y: auto; color: #475569; user-select: text; -webkit-user-select: text;
         }
         .share-btn-row { display: flex; gap: 10px; }
-        .action-btn {
-            flex: 1; background: var(--primary);
-            border: 3px solid #fff; border-radius: 16px;
-            height: 50px; font-size: 20px;
-            cursor: pointer; box-shadow: var(--shadow);
-            display: flex; justify-content: center; align-items: center;
-            transition: transform 0.1s;
-        }
+        .action-btn { flex: 1; background: var(--primary); border: 3px solid #fff; border-radius: 16px; height: 50px; font-size: 20px; cursor: pointer; box-shadow: var(--shadow); display: flex; justify-content: center; align-items: center; transition: transform 0.1s; }
         .action-btn:hover { filter: brightness(0.95); }
         .action-btn:active { transform: scale(0.95); }
-        .import-area {
-            width: 100%; height: 60px;
-            border-radius: 16px; border: 2px dashed #cbd5e1;
-            padding: 10px; font-size: 14px;
-            resize: none; background: #fff;
-        }
+        .import-area { width: 100%; height: 60px; border-radius: 16px; border: 2px dashed #cbd5e1; padding: 10px; font-size: 14px; resize: none; background: #fff; }
 
-        .progress-container {
-            width: 100%; background: #e2e8f0;
-            border-radius: 12px; height: 14px;
-            margin-bottom: 20px; overflow: hidden;
-            border: 2px solid #fff;
-        }
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #cceedc, #ffe5d9);
-            width: 0%; transition: width 0.5s ease-out;
-        }
+        .progress-container { width: 100%; background: #e2e8f0; border-radius: 12px; height: 14px; margin-bottom: 20px; overflow: hidden; border: 2px solid #fff; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, #cceedc, #ffe5d9); width: 0%; transition: width 0.5s ease-out; }
 
-        .npc-tabs {
-            display: flex; background: #e2e8f0;
-            border-radius: 16px; padding: 4px; margin-bottom: 16px;
-        }
-        .npc-tab {
-            flex: 1; text-align: center; padding: 10px;
-            font-size: 20px; cursor: pointer; border-radius: 12px;
-        }
+        .npc-tabs { display: flex; background: #e2e8f0; border-radius: 16px; padding: 4px; margin-bottom: 16px; }
+        .npc-tab { flex: 1; text-align: center; padding: 10px; font-size: 20px; cursor: pointer; border-radius: 12px; }
         .npc-tab.active { background: #fff; box-shadow: 0 4px 8px rgba(0,0,0,0.03); }
-        .trade-row {
-            display: flex; justify-content: space-between; align-items: center;
-            background: #fff; padding: 12px 16px;
-            border-radius: 16px; margin-bottom: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 2px solid #f1f5f9;
-        }
+        .trade-row { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 12px 16px; border-radius: 16px; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 2px solid #f1f5f9; }
         .trade-formula { display: flex; align-items: center; gap: 8px; font-size: 24px; }
-        .trade-btn {
-            background: var(--primary); border: none;
-            width: 44px; height: 44px; border-radius: 12px;
-            cursor: pointer; font-size: 20px;
-            display: flex; justify-content: center; align-items: center;
-            box-shadow: 0 4px 0 #9fcbb2;
-        }
+        .trade-btn { background: var(--primary); border: none; width: 44px; height: 44px; border-radius: 12px; cursor: pointer; font-size: 20px; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 0 #9fcbb2; }
         .trade-btn:hover:not(:disabled) { transform: scale(1.05); }
         .trade-btn:active:not(:disabled) { transform: translateY(3px) scale(1); box-shadow: 0 1px 0 #9fcbb2; }
-        .trade-btn:disabled {
-            background: #e2e8f0; box-shadow: none;
-            cursor: not-allowed; opacity: 0.5;
-        }
+        .trade-btn:disabled { background: #e2e8f0; box-shadow: none; cursor: not-allowed; opacity: 0.5; }
     </style>
 </head>
 <body>
+
+    <!-- 啟動封面 -->
+    <div id="start-screen">
+        <div class="title-emoji">🌍✨</div>
+        <button id="btn-start">▶️</button>
+    </div>
 
     <canvas id="game-canvas"></canvas>
 
@@ -362,92 +326,70 @@
 
     <!-- 模態框區塊 -->
     <div class="modal-overlay" id="modal-inventory" onclick="if(event.target===this) closeAllModals()">
-        <div class="modal">
-            <div class="close-btn" onclick="closeAllModals()">×</div>
-            <h2 class="modal-title">🎒</h2>
-            <div class="grid-list" id="inventory-list"></div>
-        </div>
+        <div class="modal"><div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title">🎒</h2><div class="grid-list" id="inventory-list"></div></div>
     </div>
-
     <div class="modal-overlay" id="modal-share" onclick="if(event.target===this) closeAllModals()">
         <div class="modal">
-            <div class="close-btn" onclick="closeAllModals()">×</div>
-            <h2 class="modal-title">🔗</h2>
+            <div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title">🔗</h2>
             <div class="share-container">
                 <div class="share-box" id="export-code-box"></div>
-                <div class="share-btn-row">
-                    <button class="action-btn" id="btn-copy-code">📋</button>
-                </div>
+                <div class="share-btn-row"><button class="action-btn" id="btn-copy-code">📋</button></div>
                 <hr style="border: 0; border-top: 2px dashed #e2e8f0; margin: 5px 0;">
                 <textarea class="import-area" id="import-code-area" placeholder="📥 🔗..."></textarea>
-                <div class="share-btn-row">
-                    <button class="action-btn" id="btn-import-code">✅</button>
-                </div>
+                <div class="share-btn-row"><button class="action-btn" id="btn-import-code">✅</button></div>
             </div>
         </div>
     </div>
-
     <div class="modal-overlay" id="modal-pokedex" onclick="if(event.target===this) closeAllModals()">
         <div class="modal">
-            <div class="close-btn" onclick="closeAllModals()">×</div>
-            <h2 class="modal-title">📖</h2>
+            <div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title">📖</h2>
             <div style="text-align:center; margin-bottom: 8px; font-size:24px; font-weight:bold;" id="pokedex-text">📈 0%</div>
-            <div class="progress-container">
-                <div class="progress-bar" id="pokedex-progress"></div>
-            </div>
+            <div class="progress-container"><div class="progress-bar" id="pokedex-progress"></div></div>
             <div class="grid-list" id="pokedex-list"></div>
         </div>
     </div>
-
     <div class="modal-overlay" id="modal-npc" onclick="if(event.target===this) closeAllModals()">
         <div class="modal">
-            <div class="close-btn" onclick="closeAllModals()">×</div>
-            <h2 class="modal-title" id="npc-name"></h2>
+            <div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title" id="npc-name"></h2>
             <div style="display:flex; justify-content:center; align-items:center; gap:6px; font-size:26px; margin-bottom:15px;" id="npc-affection"></div>
             <div class="npc-tabs">
                 <div class="npc-tab active" id="tab-gift" onclick="switchNpcTab('gift')">🎁</div>
                 <div class="npc-tab" id="tab-trade" onclick="switchNpcTab('trade')">⚖️</div>
             </div>
-            <div id="npc-view-gift">
-                <div class="grid-list" id="npc-inventory-list"></div>
-            </div>
-            <div id="npc-view-trade" style="display:none;">
-                <div id="trade-list"></div>
-            </div>
+            <div id="npc-view-gift"><div class="grid-list" id="npc-inventory-list"></div></div>
+            <div id="npc-view-trade" style="display:none;"><div id="trade-list"></div></div>
         </div>
     </div>
 
     <script>
+        let isGameStarted = false;
+
+        document.getElementById('btn-start').addEventListener('click', () => {
+            const startScreen = document.getElementById('start-screen');
+            startScreen.style.opacity = '0';
+            setTimeout(() => {
+                startScreen.style.display = 'none';
+                document.getElementById('ui-layer').style.opacity = '1';
+                isGameStarted = true;
+                // 啟動音效引擎
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            }, 600);
+        });
+
         const TILE_SIZE = 60;
         let FOG_RADIUS = 4.2;
 
-        const SEASONS = [
-            { icon: '🌸' }, { icon: '🌻' }, { icon: '🍁' }, { icon: '❄️' }
-        ];
-        const WEATHERS = [
-            { icon: '☀️' }, { icon: '🌧️' }, { icon: '🌫️' }
-        ];
+        const SEASONS = [{ icon: '🌸' }, { icon: '🌻' }, { icon: '🍁' }, { icon: '❄️' }];
+        const WEATHERS = [{ icon: '☀️' }, { icon: '🌧️' }, { icon: '🌫️' }];
 
         const DICT = {
-            'grass': { b: '#c4eec0', e: '🟩', r: -1 },
-            'water': { b: '#a5c9f3', e: '🌊', r: -1 },
-            'sand':  { b: '#f5e5c9', e: '🟨', r: -1 },
-            
-            '🌲': { r: 0 }, '🪨': { r: 0 }, '🌾': { r: 0 }, '🍄': { r: 0 },
-            
-            // 四季植物
-            '🌸': { r: 0 }, '🌷': { r: 0 }, '🌳': { r: 0 }, '🌻': { r: 0 },
-            '🍁': { r: 0 }, '🍂': { r: 0 }, '❄️': { r: 0 }, '☃️': { r: 0 },
-            
-            '⛰️': { r: 1 }, '💎': { r: 1 }, '🗿': { r: 1 }, '🏰': { r: 1 }, '🧊': { r: 1 },
-
-            // 奇觀
+            'grass': { b: '#c4eec0', e: '🟩', r: -1 }, 'water': { b: '#a5c9f3', e: '🌊', r: -1 }, 'sand': { b: '#f5e5c9', e: '🟨', r: -1 },
+            '🌲':{r:0}, '🪨':{r:0}, '🌾':{r:0}, '🍄':{r:0},
+            '🌸':{r:0}, '🌷':{r:0}, '🌳':{r:0}, '🌻':{r:0}, '🍁':{r:0}, '🍂':{r:0}, '❄️':{r:0}, '☃️':{r:0},
+            '⛰️':{r:1}, '💎':{r:1}, '🗿':{r:1}, '🏰':{r:1}, '🧊':{r:1},
             '🌈':{r:2}, '🌋':{r:2}, '🏛️':{r:2}, '👑':{r:2}, '🛸':{r:2},
-
-            // NPCs
             '🧙‍♂️':{r:3}, '🧚‍♀️':{r:3}, '🧝‍♂️':{r:3},
-
-            // 特殊品與漂流瓶
             '🪄':{r:4}, '✨':{r:4}, '🏹':{r:4}, '📜':{r:1}
         };
 
@@ -460,13 +402,11 @@
 
         let audioCtx = null;
         function playSound(freq, type, duration, slideTo = 0) {
+            if (!isGameStarted || !audioCtx) return;
             try {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 if (audioCtx.state === 'suspended') audioCtx.resume();
-                let osc = audioCtx.createOscillator();
-                let gain = audioCtx.createGain();
-                osc.type = type;
-                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                let osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+                osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
                 if (slideTo > 0) osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
                 gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
@@ -483,38 +423,24 @@
             invalid: () => playSound(140, 'sawtooth', 0.08)
         };
 
-        const SAVE_KEY = 'emoji_sandbox_v3_save';
+        const SAVE_KEY = 'emoji_sandbox_v4_save';
         let state = {
             seed: Math.floor(Math.random() * 999999), px: 0, py: 0,
             inv: {}, mods: {}, unlocked: {}, npcAff: { '🧙‍♂️':0, '🧚‍♀️':0, '🧝‍♂️':0 },
             time: 600, days: 0, season: 0, weather: 0
         };
 
-        let activeTool = null;
-        let currentNpc = null;
-        let pVisual = { x: 0, y: 0 };
-        let camera = { x: 0, y: 0 };
-        let moveTimer = null;
-        let isMoving = false;
-        let activeModal = null; // 紀錄目前開啟的視窗
-        let invCursor = 0; // 背包鍵盤焦點
-        let invKeys = [];  // 背包陣列映射
-        
-        let npcTab = 'gift'; // NPC 目前分頁
-        let npcFocus = 'tab'; // NPC 鍵盤焦點層級 ('tab' 或 'content')
-        let npcCursor = 0; // NPC 內容清單焦點
-        let npcGiftKeys = []; // NPC 贈禮陣列映射
-
-        let animals = [];
-        let rainDrops = [];
-        let heartParticles = [];
-
-        let lastInputTime = Date.now();
-        let skyOffset = 0;
+        let activeTool = null; let currentNpc = null;
+        let pVisual = { x: 0, y: 0 }; let camera = { x: 0, y: 0 };
+        let moveTimer = null; let isMoving = false;
+        let activeModal = null; let invCursor = 0; let invKeys = [];
+        let npcTab = 'gift'; let npcFocus = 'tab'; let npcCursor = 0; let npcGiftKeys = [];
+        let animals = []; let rainDrops = []; let heartParticles = [];
+        let lastInputTime = Date.now(); let skyOffset = 0;
 
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
-        canvas.addEventListener('contextmenu', e => e.preventDefault()); // 禁用畫布右鍵選單
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
 
         function drawRoundRect(c, x, y, w, h, r) {
             c.beginPath(); c.moveTo(x + r, y); c.lineTo(x + w - r, y);
@@ -525,8 +451,7 @@
         }
 
         function initGame() {
-            loadGame(); resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
+            loadGame(); resizeCanvas(); window.addEventListener('resize', resizeCanvas);
             pVisual.x = state.px * TILE_SIZE; pVisual.y = state.py * TILE_SIZE;
             camera.x = pVisual.x; camera.y = pVisual.y;
             updateFog(); setupInput(); initWeatherParticles();
@@ -537,38 +462,48 @@
         function loadGame() {
             const saved = localStorage.getItem(SAVE_KEY);
             if (saved) { try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {} } 
-            else { state.unlocked['grass'] = true; showToast("✨🌱"); }
+            else { state.unlocked['grass'] = true; }
         }
         function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 
         function hash(x, y, s) { let n = Math.sin(x * 12.9898 + y * 78.233 + s) * 43758.5453; return n - Math.floor(n); }
-        function getNoise(x, y) {
-            let v = Math.sin(x*0.08)*Math.cos(y*0.08) + Math.sin(x*0.02+1.5)*Math.sin(y*0.03+0.7)*0.5 + Math.sin(x*0.3)*Math.cos(y*0.3)*0.1;
-            return (v + 1.6) / 3.2;
-        }
+        function getNoise(x, y) { return (Math.sin(x*0.08)*Math.cos(y*0.08) + Math.sin(x*0.02+1.5)*Math.sin(y*0.03+0.7)*0.5 + Math.sin(x*0.3)*Math.cos(y*0.3)*0.1 + 1.6) / 3.2; }
 
+        // 升級版：包含尺寸計算與解析戳記
         function getTileData(gx, gy) {
             const key = `${gx},${gy}`;
             let bg = getBaseTerrain(gx, gy);
-            if (state.mods[key] !== undefined) return { bg, obj: state.mods[key] };
-            let obj = null;
+            let modData = state.mods[key];
+
+            // 解析玩家放置/生長的戳記：'🌸|25'
+            if (modData !== undefined) {
+                if (modData === null) return { bg, obj: null, scale: 1.0 };
+                if (typeof modData === 'string' && modData.includes('|')) {
+                    let parts = modData.split('|');
+                    let obj = parts[0];
+                    let age = state.days - parseInt(parts[1]);
+                    // 長大曲線：剛出生0.4，每天長大0.15，最高1.0
+                    return { bg, obj, scale: Math.min(1.0, 0.4 + age * 0.15) };
+                }
+                return { bg, obj: modData, scale: 1.0 }; // 舊版存檔相容
+            }
             
+            let obj = null; let scale = 1.0;
             if (bg === 'water' || bg === 'sand') {
                 if (hash(gx, gy, state.seed + 200) < 0.005) obj = '📜';
             } else if (bg === 'grass') {
                 let dist = Math.hypot(gx, gy);
-                let h = hash(gx, gy, state.seed);
                 let spawnChance = 0.11 + Math.min(0.11, dist / 600);
-                if (h < spawnChance) {
+                if (hash(gx, gy, state.seed) < spawnChance) {
                     let r = hash(gx, gy, state.seed + 100);
                     let dF = Math.min(0.15, dist / 900);
-                    if (r < dF) obj = ['🌈','🌋','🏛️','👑','🛸'][Math.floor(hash(gx, gy, state.seed + 1) * 5)];
-                    else if (r < dF + 0.01) obj = ['🧙‍♂️','🧚‍♀️','🧝‍♂️'][Math.floor(hash(gx, gy, state.seed + 2) * 3)];
-                    else if (r < dF + 0.18) obj = ['⛰️','💎','🗿','🏰','🧊'][Math.floor(hash(gx, gy, state.seed + 3) * 5)];
-                    else obj = getSeasonalVariant(['🌲','🌲','🪨','🌾','🌾','🍄'][Math.floor(hash(gx, gy, state.seed + 4) * 6)], state.season);
+                    if (r < dF) { obj = ['🌈','🌋','🏛️','👑','🛸'][Math.floor(hash(gx, gy, state.seed + 1) * 5)]; scale = 1.2 + hash(gx,gy,state.seed+400)*0.3; } // 奇觀巨大化
+                    else if (r < dF + 0.01) { obj = ['🧙‍♂️','🧚‍♀️','🧝‍♂️'][Math.floor(hash(gx, gy, state.seed + 2) * 3)]; scale = 1.0; } // NPC固定尺寸
+                    else if (r < dF + 0.18) { obj = ['⛰️','💎','🗿','🏰','🧊'][Math.floor(hash(gx, gy, state.seed + 3) * 5)]; scale = 0.7 + hash(gx,gy,state.seed+300)*0.6; } // 稀有基因尺寸
+                    else { obj = getSeasonalVariant(['🌲','🌲','🪨','🌾','🌾','🍄'][Math.floor(hash(gx, gy, state.seed + 4) * 6)], state.season); scale = 0.7 + hash(gx,gy,state.seed+300)*0.6; } // 常見基因尺寸
                 }
             }
-            return { bg, obj };
+            return { bg, obj, scale };
         }
 
         function getBaseTerrain(gx, gy) { let n = getNoise(gx, gy); return n<0.31 ? 'water' : (n<0.38 ? 'sand' : 'grass'); }
@@ -609,7 +544,8 @@
                     let nx = tx + nOff[0], ny = ty + nOff[1];
                     let nTile = getTileData(nx, ny);
                     if (nTile.bg === 'grass' && !nTile.obj && Math.random() < (state.weather===1 ? 0.25 : 0.08)) {
-                        state.mods[`${nx},${ny}`] = tile.obj; saveGame();
+                        // 戳記生長天數
+                        state.mods[`${nx},${ny}`] = tile.obj + '|' + state.days; saveGame();
                     }
                 }
             }
@@ -620,19 +556,28 @@
                 let dist = 3 + Math.floor(Math.random()*3), ang = Math.random()*Math.PI*2;
                 let ax = state.px + Math.round(Math.cos(ang)*dist), ay = state.py + Math.round(Math.sin(ang)*dist);
                 let tile = getTileData(ax, ay);
-                if (tile.bg === 'grass' || tile.bg === 'sand') animals.push({ gx: ax, gy: ay, vx: ax*TILE_SIZE, vy: ay*TILE_SIZE, tx: ax, ty: ay, emoji: ['🐇','🦋','🦆','🐢'][Math.floor(Math.random()*4)], wait: 300+Math.floor(Math.random()*400) });
+                if (tile.bg === 'grass' || tile.bg === 'sand') {
+                    // 隨機初始幼體尺寸與目標成體尺寸
+                    animals.push({ gx: ax, gy: ay, vx: ax*TILE_SIZE, vy: ay*TILE_SIZE, tx: ax, ty: ay, 
+                                   emoji: ['🐇','🦋','🦆','🐢'][Math.floor(Math.random()*4)], 
+                                   size: 0.4 + Math.random()*0.3, targetSize: 0.8 + Math.random()*0.4,
+                                   wait: 800+Math.floor(Math.random()*800) }); // 大幅增加初始發呆時間
+                }
             }
             for (let i = animals.length - 1; i >= 0; i--) {
                 let a = animals[i], tx = a.tx*TILE_SIZE, ty = a.ty*TILE_SIZE, sf = a.emoji==='🐢'?0.015:(a.emoji==='🦋'?0.05:0.03);
+                
+                a.size += (a.targetSize - a.size) * 0.001; // 動物緩慢生長
                 a.vx += (tx - a.vx)*sf; a.vy += (ty - a.vy)*sf;
                 if (a.emoji === '🦋') a.vy += Math.sin(Date.now()/200)*0.3;
+                
                 if (Math.hypot(a.vx-tx, a.vy-ty) < 2) {
                     a.gx = a.tx; a.gy = a.ty;
                     if (a.wait > 0) a.wait--;
                     else {
                         let d = [[0,-1],[0,1],[-1,0],[1,0]][Math.floor(Math.random()*4)];
                         let nx = a.gx+d[0], ny = a.gy+d[1], tile = getTileData(nx, ny);
-                        if (tile.bg && !tile.obj && (a.emoji==='🦆' || tile.bg!=='water')) { a.tx=nx; a.ty=ny; a.wait = 400+Math.floor(Math.random()*600); }
+                        if (tile.bg && !tile.obj && (a.emoji==='🦆' || tile.bg!=='water')) { a.tx=nx; a.ty=ny; a.wait = 1000+Math.floor(Math.random()*1000); } // 大幅增加移動後的發呆時間
                     }
                 }
                 if (Math.hypot(a.gx-state.px, a.gy-state.py) > 9) animals.splice(i, 1);
@@ -655,6 +600,7 @@
         }
 
         canvas.addEventListener('pointerdown', (e) => {
+            if (!isGameStarted) return;
             lastInputTime = Date.now();
             if (e.target !== canvas) return;
             let rect = canvas.getBoundingClientRect();
@@ -663,7 +609,6 @@
             processInteract(clickGx, clickGy);
         });
 
-        // 將互動邏輯獨立，讓滑鼠與鍵盤(Space)能共用
         function processInteract(gx, gy) {
             let animal = animals.find(a => (gx===a.gx && gy===a.gy) || (gx===a.tx && gy===a.ty));
             if (animal) {
@@ -683,111 +628,70 @@
                 addToInventory('📜', 1); state.mods[key] = null; sfx.discover(); showToast(`📜: ${msg}`); saveGame(); return;
             }
 
-            if (activeTool === '🧊' && tile.obj === '🌋') { if (removeFromInventory('🧊',1)) { state.mods[key]='🏛️'; addToInventory('💎',1); sfx.trade(); showToast("🧊🌋 ➡️ 🏛️💎"); saveGame(); } return; }
-            if (activeTool === '🌾' && tile.obj === '🐉') { if (removeFromInventory('🌾',1)) { state.mods[key]='🏰'; addToInventory('👑',1); sfx.trade(); showToast("🌾🐉 ➡️ 🏰👑"); saveGame(); } return; }
+            if (activeTool === '🧊' && tile.obj === '🌋') { if (removeFromInventory('🧊',1)) { state.mods[key]='🏛️|'+state.days; addToInventory('💎',1); sfx.trade(); showToast("🧊🌋 ➡️ 🏛️💎"); saveGame(); } return; }
+            if (activeTool === '🌾' && tile.obj === '🐉') { if (removeFromInventory('🌾',1)) { state.mods[key]='🏰|'+state.days; addToInventory('👑',1); sfx.trade(); showToast("🌾🐉 ➡️ 🏰👑"); saveGame(); } return; }
 
             if (activeTool === null) {
                 if (tile.obj) { addToInventory(tile.obj,1); state.mods[key]=null; sfx.harvest(); showToast(`🎒➕ ${tile.obj}`); saveGame(); }
             } else {
                 if (!tile.obj && tile.bg !== 'water') {
-                    if (removeFromInventory(activeTool,1)) { state.mods[key]=activeTool; sfx.place(); showToast(`👇 ${activeTool}`); if (!state.inv[activeTool]) setActiveTool(null); saveGame(); }
+                    // 玩家放置物件戳記天數
+                    if (removeFromInventory(activeTool,1)) { state.mods[key]=activeTool+'|'+state.days; sfx.place(); showToast(`👇 ${activeTool}`); if (!state.inv[activeTool]) setActiveTool(null); saveGame(); }
                 } else { sfx.invalid(); showToast("❌🧱"); }
             }
         }
 
-        // --- Modals & Data Mgmt ---
         function addToInventory(item, amt) { state.inv[item] = (state.inv[item]||0)+amt; discover(item); }
         function removeFromInventory(item, amt) { if (state.inv[item]>=amt) { state.inv[item]-=amt; if(state.inv[item]===0) delete state.inv[item]; return true; } return false; }
         function setActiveTool(item) { activeTool = item; const btn = document.getElementById('btn-inventory'); btn.innerHTML = item ? item : '🎒'; btn.className = item ? 'icon-btn tool-active' : 'icon-btn'; }
-        function showToast(msg) {
-            const el = document.createElement('div'); el.className = 'toast'; el.innerText = msg;
-            document.getElementById('toast-container').appendChild(el); setTimeout(()=>el.remove(), 1800);
-        }
+        function showToast(msg) { const el = document.createElement('div'); el.className = 'toast'; el.innerText = msg; document.getElementById('toast-container').appendChild(el); setTimeout(()=>el.remove(), 1800); }
 
-        function openModal(id) { 
-            document.getElementById(id).style.display = 'flex'; 
-            activeModal = id;
-            if (id === 'modal-inventory') { invCursor = 0; renderInvFocus(); }
-        }
-        function closeModal(id) { 
-            document.getElementById(id).style.display = 'none'; 
-            if (activeModal === id) activeModal = null;
-        }
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; activeModal = id; if (id === 'modal-inventory') { invCursor = 0; renderInvFocus(); } }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; if (activeModal === id) activeModal = null; }
         function closeAllModals() { ['modal-inventory','modal-share','modal-pokedex','modal-npc'].forEach(closeModal); }
 
         document.getElementById('btn-inventory').addEventListener('click', () => {
-            const list = document.getElementById('inventory-list'); list.innerHTML = '';
-            invKeys = ['hand'];
+            const list = document.getElementById('inventory-list'); list.innerHTML = ''; invKeys = ['hand'];
             for (let k in state.inv) invKeys.push(k);
-            
             invKeys.forEach((item, i) => {
-                let el = document.createElement('div');
-                el.className = `item-slot ${((item==='hand'&&!activeTool) || item===activeTool) ? 'selected' : ''}`;
+                let el = document.createElement('div'); el.className = `item-slot ${((item==='hand'&&!activeTool) || item===activeTool) ? 'selected' : ''}`;
                 el.innerHTML = item==='hand' ? `<div class="item-emoji">✋</div>` : `<div class="item-emoji">${item}</div><div class="item-count">${state.inv[item]}</div>`;
-                el.onclick = () => { setActiveTool(item==='hand'?null:item); closeAllModals(); };
-                list.appendChild(el);
-            });
-            openModal('modal-inventory');
+                el.onclick = () => { setActiveTool(item==='hand'?null:item); closeAllModals(); }; list.appendChild(el);
+            }); openModal('modal-inventory');
         });
 
-        function renderInvFocus() {
-            document.querySelectorAll('#inventory-list .item-slot').forEach((el, i) => el.classList.toggle('focused', i === invCursor));
-        }
+        function renderInvFocus() { document.querySelectorAll('#inventory-list .item-slot').forEach((el, i) => el.classList.toggle('focused', i === invCursor)); }
 
         document.getElementById('btn-pokedex').addEventListener('click', () => {
-            const list = document.getElementById('pokedex-list'); list.innerHTML = '';
-            let uC = 0;
+            const list = document.getElementById('pokedex-list'); list.innerHTML = ''; let uC = 0;
             COLLECTIBLES.forEach(item => {
                 let u = state.unlocked[item]; if (u) uC++;
                 let el = document.createElement('div'); el.className = `item-slot ${u?'':'locked'}`;
                 el.innerHTML = `<div class="item-emoji">${u?item:'❓'}</div>`; list.appendChild(el);
             });
-            let p = Math.round((uC/COLLECTIBLES.length)*100);
-            document.getElementById('pokedex-text').innerText = `📈 ${p}%`; document.getElementById('pokedex-progress').style.width = `${p}%`;
-            openModal('modal-pokedex');
+            let p = Math.round((uC/COLLECTIBLES.length)*100); document.getElementById('pokedex-text').innerText = `📈 ${p}%`; document.getElementById('pokedex-progress').style.width = `${p}%`; openModal('modal-pokedex');
         });
 
-        function openNpcMenu(npc) { 
-            currentNpc = npc; 
-            document.getElementById('npc-name').innerText = npc; 
-            npcTab = 'gift'; npcFocus = 'tab'; npcCursor = 0;
-            switchNpcTab('gift'); 
-            openModal('modal-npc'); 
-        }
+        function openNpcMenu(npc) { currentNpc = npc; document.getElementById('npc-name').innerText = npc; npcTab = 'gift'; npcFocus = 'tab'; npcCursor = 0; switchNpcTab('gift'); openModal('modal-npc'); }
         function updateNpcUI() {
-            if(!currentNpc) return;
-            const aff = state.npcAff[currentNpc]||0;
+            if(!currentNpc) return; const aff = state.npcAff[currentNpc]||0;
             document.getElementById('npc-affection').innerHTML = `${'💖'.repeat(Math.min(5, Math.ceil(aff/3)))||'🤍'} <span style="font-size:18px;">(${aff})</span>`;
-            
-            npcGiftKeys = Object.keys(state.inv);
-            const gL = document.getElementById('npc-inventory-list'); gL.innerHTML = '';
+            npcGiftKeys = Object.keys(state.inv); const gL = document.getElementById('npc-inventory-list'); gL.innerHTML = '';
             npcGiftKeys.forEach((item, i) => { 
-                let el = document.createElement('div'); 
-                el.className=`item-slot ${npcFocus==='content' && npcTab==='gift' && npcCursor===i ? 'focused' : ''}`; 
-                el.innerHTML=`<div class="item-emoji">${item}</div><div class="item-count">${state.inv[item]}</div>`; 
-                el.onclick=()=>giftItem(item); gL.appendChild(el); 
-            });
-            if(!npcGiftKeys.length) gL.innerHTML = '<div style="grid-column:1/-1; text-align:center; font-size:40px; padding:20px;">🈳</div>';
-            
+                let el = document.createElement('div'); el.className=`item-slot ${npcFocus==='content' && npcTab==='gift' && npcCursor===i ? 'focused' : ''}`; 
+                el.innerHTML=`<div class="item-emoji">${item}</div><div class="item-count">${state.inv[item]}</div>`; el.onclick=()=>giftItem(item); gL.appendChild(el); 
+            }); if(!npcGiftKeys.length) gL.innerHTML = '<div style="grid-column:1/-1; text-align:center; font-size:40px; padding:20px;">🈳</div>';
             const tL = document.getElementById('trade-list'); tL.innerHTML = '';
             (TRADES[currentNpc]||[]).forEach((t, i) => {
                 let cI=Object.keys(t.cost)[0], cA=t.cost[cI], gI=Object.keys(t.get)[0], gA=t.get[gI], hE=(state.inv[cI]||0)>=cA, uL=aff>=t.req;
-                let row = document.createElement('div'); 
-                row.className = `trade-row ${npcFocus==='content' && npcTab==='trade' && npcCursor===i ? 'focused' : ''}`;
+                let row = document.createElement('div'); row.className = `trade-row ${npcFocus==='content' && npcTab==='trade' && npcCursor===i ? 'focused' : ''}`;
                 if(!uL) row.innerHTML = `<div style="font-size:24px; color:#94a3b8;">🔒 💖(${t.req})</div>`;
                 else { row.innerHTML = `<div class="trade-formula"><span>${cI}</span><span style="font-size:14px; font-weight:800; color:#64748b;">x${cA}</span><span>➡️</span><span>${gI}</span><span style="font-size:14px; font-weight:800; color:#64748b;">x${gA}</span></div><button class="trade-btn" ${hE?'':'disabled'}>🤝</button>`; if(hE) row.querySelector('button').onclick=()=>executeTrade(i); }
                 tL.appendChild(row);
             });
-
-            document.getElementById('tab-gift').classList.toggle('focused', npcFocus==='tab' && npcTab==='gift');
-            document.getElementById('tab-trade').classList.toggle('focused', npcFocus==='tab' && npcTab==='trade');
+            document.getElementById('tab-gift').classList.toggle('focused', npcFocus==='tab' && npcTab==='gift'); document.getElementById('tab-trade').classList.toggle('focused', npcFocus==='tab' && npcTab==='trade');
         }
-        function switchNpcTab(tab) {
-            npcTab = tab; npcCursor = 0;
-            document.getElementById('tab-gift').className=`npc-tab ${tab==='gift'?'active':''}`; document.getElementById('tab-trade').className=`npc-tab ${tab==='trade'?'active':''}`;
-            document.getElementById('npc-view-gift').style.display=tab==='gift'?'block':'none'; document.getElementById('npc-view-trade').style.display=tab==='trade'?'block':'none';
-            updateNpcUI();
-        }
+        function switchNpcTab(tab) { npcTab = tab; npcCursor = 0; document.getElementById('tab-gift').className=`npc-tab ${tab==='gift'?'active':''}`; document.getElementById('tab-trade').className=`npc-tab ${tab==='trade'?'active':''}`; document.getElementById('npc-view-gift').style.display=tab==='gift'?'block':'none'; document.getElementById('npc-view-trade').style.display=tab==='trade'?'block':'none'; updateNpcUI(); }
         function giftItem(item) { if(removeFromInventory(item,1)){ let p = [0,3,10][DICT[item]?.r]||1; state.npcAff[currentNpc] = (state.npcAff[currentNpc]||0)+p; sfx.trade(); showToast(`🎁${item} 💖+${p}`); saveGame(); updateNpcUI(); } }
         function executeTrade(idx) { let t = TRADES[currentNpc][idx], cI=Object.keys(t.cost)[0], gI=Object.keys(t.get)[0]; if(removeFromInventory(cI, t.cost[cI])){ addToInventory(gI, t.get[gI]); sfx.trade(); showToast(`🤝✨ ${gI}`); saveGame(); updateNpcUI(); } }
 
@@ -801,8 +705,7 @@
             if(code && code!=="❌"){ let el = document.createElement('textarea'); el.value=code; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); sfx.trade(); showToast("📋✅"); }
         });
         document.getElementById('btn-import-code').addEventListener('click', () => {
-            const code = document.getElementById('import-code-area').value.trim();
-            if(!code) return sfx.invalid();
+            const code = document.getElementById('import-code-area').value.trim(); if(!code) return sfx.invalid();
             try {
                 let p = JSON.parse(decodeURIComponent(atob(code).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')));
                 if(p && typeof p.seed==='number'){ state=p; saveGame(); pVisual.x=state.px*TILE_SIZE; pVisual.y=state.py*TILE_SIZE; camera.x=pVisual.x; camera.y=pVisual.y; updateFog(); closeAllModals(); sfx.trade(); showToast("💾📥✨"); } 
@@ -810,137 +713,76 @@
             } catch(e){ sfx.invalid(); showToast("❌💾"); }
         });
 
-        // --- 全新 PC 鍵盤操控綁定 ---
         function setupInput() {
             const bindBtn = (id, dx, dy) => {
-                const btn = document.getElementById(id), start = (e) => { lastInputTime=Date.now(); e.preventDefault(); if(!moveTimer){ movePlayer(dx,dy); moveTimer=setInterval(()=>movePlayer(dx,dy),160); } };
+                const btn = document.getElementById(id), start = (e) => { if (!isGameStarted) return; lastInputTime=Date.now(); e.preventDefault(); if(!moveTimer){ movePlayer(dx,dy); moveTimer=setInterval(()=>movePlayer(dx,dy),160); } };
                 const stop = (e) => { e.preventDefault(); if(moveTimer){ clearInterval(moveTimer); moveTimer=null; } };
                 btn.addEventListener('touchstart', start); btn.addEventListener('touchend', stop); btn.addEventListener('mousedown', start); btn.addEventListener('mouseup', stop); btn.addEventListener('mouseleave', stop);
             };
             bindBtn('btn-up', 0, -1); bindBtn('btn-down', 0, 1); bindBtn('btn-left', -1, 0); bindBtn('btn-right', 1, 0);
 
             window.addEventListener('keydown', (e) => {
+                if (!isGameStarted) return;
                 lastInputTime = Date.now();
-                // 1. 處理全域快速鍵 (ESC)
-                if (e.key === 'Escape') {
-                    if (activeModal) closeAllModals();
-                    else document.getElementById('btn-inventory').click();
-                    return;
-                }
+                if (e.key === 'Escape') { if (activeModal) closeAllModals(); else document.getElementById('btn-inventory').click(); return; }
 
-                // 2. 視窗開啟時的特殊鍵盤控制
                 if (activeModal) {
                     if (activeModal === 'modal-inventory') {
                         let cols = 4, len = invKeys.length, c = invCursor;
-                        if (e.key === 'ArrowUp' || e.key === 'w') c -= cols;
-                        if (e.key === 'ArrowDown' || e.key === 's') c += cols;
-                        if (e.key === 'ArrowLeft' || e.key === 'a') c -= 1;
-                        if (e.key === 'ArrowRight' || e.key === 'd') c += 1;
-                        if (e.key === ' ' || e.key === 'Enter') {
-                            e.preventDefault();
-                            let s = invKeys[invCursor];
-                            setActiveTool(s === 'hand' ? null : s);
-                            closeAllModals();
-                            return;
-                        }
+                        if (e.key === 'ArrowUp' || e.key === 'w') c -= cols; if (e.key === 'ArrowDown' || e.key === 's') c += cols;
+                        if (e.key === 'ArrowLeft' || e.key === 'a') c -= 1; if (e.key === 'ArrowRight' || e.key === 'd') c += 1;
+                        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); let s = invKeys[invCursor]; setActiveTool(s === 'hand' ? null : s); closeAllModals(); return; }
                         if (c >= 0 && c < len) { invCursor = c; renderInvFocus(); }
                     } else if (activeModal === 'modal-npc') {
                         let handled = true;
-                        if (e.key === 'ArrowUp' || e.key === 'w') {
-                            if (npcFocus === 'content') {
-                                if (npcTab === 'gift') { if (npcCursor >= 4) npcCursor -= 4; else npcFocus = 'tab'; }
-                                else { if (npcCursor > 0) npcCursor -= 1; else npcFocus = 'tab'; }
-                            }
-                        } else if (e.key === 'ArrowDown' || e.key === 's') {
-                            if (npcFocus === 'tab') { npcFocus = 'content'; npcCursor = 0; }
-                            else {
-                                if (npcTab === 'gift' && npcCursor + 4 < npcGiftKeys.length) npcCursor += 4;
-                                else if (npcTab === 'trade' && npcCursor + 1 < (TRADES[currentNpc]?.length || 0)) npcCursor += 1;
-                            }
-                        } else if (e.key === 'ArrowLeft' || e.key === 'a') {
-                            if (npcFocus === 'tab') switchNpcTab('gift');
-                            else if (npcTab === 'gift' && npcCursor > 0) npcCursor -= 1;
-                        } else if (e.key === 'ArrowRight' || e.key === 'd') {
-                            if (npcFocus === 'tab') switchNpcTab('trade');
-                            else if (npcTab === 'gift' && npcCursor + 1 < npcGiftKeys.length) npcCursor += 1;
-                        } else if (e.key === ' ' || e.key === 'Enter') {
-                            if (npcFocus === 'tab') { npcFocus = 'content'; npcCursor = 0; }
-                            else if (npcFocus === 'content') {
-                                if (npcTab === 'gift' && npcGiftKeys.length > 0) giftItem(npcGiftKeys[npcCursor]);
-                                else if (npcTab === 'trade') {
-                                    let t = TRADES[currentNpc][npcCursor], aff = state.npcAff[currentNpc] || 0, cI = Object.keys(t.cost)[0];
-                                    if (aff >= t.req && (state.inv[cI] || 0) >= t.cost[cI]) executeTrade(npcCursor);
-                                    else sfx.invalid();
-                                }
-                            }
-                        } else handled = false;
+                        if (e.key === 'ArrowUp' || e.key === 'w') { if (npcFocus === 'content') { if (npcTab === 'gift') { if (npcCursor >= 4) npcCursor -= 4; else npcFocus = 'tab'; } else { if (npcCursor > 0) npcCursor -= 1; else npcFocus = 'tab'; } } } 
+                        else if (e.key === 'ArrowDown' || e.key === 's') { if (npcFocus === 'tab') { npcFocus = 'content'; npcCursor = 0; } else { if (npcTab === 'gift' && npcCursor + 4 < npcGiftKeys.length) npcCursor += 4; else if (npcTab === 'trade' && npcCursor + 1 < (TRADES[currentNpc]?.length || 0)) npcCursor += 1; } } 
+                        else if (e.key === 'ArrowLeft' || e.key === 'a') { if (npcFocus === 'tab') switchNpcTab('gift'); else if (npcTab === 'gift' && npcCursor > 0) npcCursor -= 1; } 
+                        else if (e.key === 'ArrowRight' || e.key === 'd') { if (npcFocus === 'tab') switchNpcTab('trade'); else if (npcTab === 'gift' && npcCursor + 1 < npcGiftKeys.length) npcCursor += 1; } 
+                        else if (e.key === ' ' || e.key === 'Enter') { if (npcFocus === 'tab') { npcFocus = 'content'; npcCursor = 0; } else if (npcFocus === 'content') { if (npcTab === 'gift' && npcGiftKeys.length > 0) giftItem(npcGiftKeys[npcCursor]); else if (npcTab === 'trade') { let t = TRADES[currentNpc][npcCursor], aff = state.npcAff[currentNpc] || 0, cI = Object.keys(t.cost)[0]; if (aff >= t.req && (state.inv[cI] || 0) >= t.cost[cI]) executeTrade(npcCursor); else sfx.invalid(); } } } else handled = false;
                         if (handled) { e.preventDefault(); updateNpcUI(); }
-                    }
-                    return; // 只要有開視窗，就阻斷主角移動與採集
+                    } return;
                 }
 
-                // 3. 智能地圖互動 (Spacebar)
                 if (e.key === ' ' || e.key === 'Spacebar') {
-                    e.preventDefault();
-                    // 智能索敵機制：1. 如果手持空手，嘗試搜索周圍 9 宮格內的物件互動；2. 若手持物品或周圍皆空，則對腳下進行互動。
-                    let tX = state.px, tY = state.py;
+                    e.preventDefault(); let tX = state.px, tY = state.py;
                     if (activeTool === null) {
-                        for (let d of [[0,0],[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,-1],[-1,1],[1,1]]) {
-                            let tile = getTileData(state.px + d[0], state.py + d[1]);
-                            if (tile.obj) { tX = state.px + d[0]; tY = state.py + d[1]; break; }
-                        }
-                    }
-                    processInteract(tX, tY);
-                    return;
+                        for (let d of [[0,0],[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,-1],[-1,1],[1,1]]) { let tile = getTileData(state.px + d[0], state.py + d[1]); if (tile.obj) { tX = state.px + d[0]; tY = state.py + d[1]; break; } }
+                    } processInteract(tX, tY); return;
                 }
 
-                // 4. 方向移動
                 if (isMoving) return;
                 let dx = 0, dy = 0;
-                if (e.key === 'ArrowUp' || e.key === 'w') dy = -1;
-                if (e.key === 'ArrowDown' || e.key === 's') dy = 1;
-                if (e.key === 'ArrowLeft' || e.key === 'a') dx = -1;
-                if (e.key === 'ArrowRight' || e.key === 'd') dx = 1;
-                if (dx !== 0 || dy !== 0) {
-                    movePlayer(dx, dy); isMoving = true;
-                    moveTimer = setInterval(() => movePlayer(dx, dy), 160);
-                }
+                if (e.key === 'ArrowUp' || e.key === 'w') dy = -1; if (e.key === 'ArrowDown' || e.key === 's') dy = 1;
+                if (e.key === 'ArrowLeft' || e.key === 'a') dx = -1; if (e.key === 'ArrowRight' || e.key === 'd') dx = 1;
+                if (dx !== 0 || dy !== 0) { movePlayer(dx, dy); isMoving = true; moveTimer = setInterval(() => movePlayer(dx, dy), 160); }
             });
             window.addEventListener('keyup', () => { isMoving = false; if(moveTimer){ clearInterval(moveTimer); moveTimer=null; } });
         }
 
-        // --- 主循環與渲染 ---
         let frameCount = 0, lastHour = -1;
         function gameLoop() {
             frameCount++;
             
-            // 閒置掛機狀態判斷與平滑仰角過渡
-            let isIdle = (Date.now() - lastInputTime) > 5000;
+            // 閒置狀態與天空偏移
+            let isIdle = isGameStarted && (Date.now() - lastInputTime) > 5000;
             skyOffset += ((isIdle && !activeModal ? 150 : 0) - skyOffset) * 0.05;
 
-            // 掛機模式下：自動漫步與自然採集
+            // 掛機自動採集 (智慧避開玩家手做與奇觀/NPC)
             if (isIdle && !activeModal && frameCount % 90 === 0) {
                 let dx = 0, dy = 0;
-                if (Math.random() < 0.5) dx = Math.random() < 0.5 ? 1 : -1;
-                else dy = Math.random() < 0.5 ? 1 : -1;
+                if (Math.random() < 0.5) dx = Math.random() < 0.5 ? 1 : -1; else dy = Math.random() < 0.5 ? 1 : -1;
                 movePlayer(dx, dy);
-
-                let key = `${state.px},${state.py}`;
-                let nTile = getTileData(state.px, state.py);
-                // 智能判定：只採集原生生成的常見與稀有資源 (不會破壞玩家手作，不會干擾NPC/奇觀)
+                let key = `${state.px},${state.py}`; let nTile = getTileData(state.px, state.py);
                 if (nTile.obj && DICT[nTile.obj]?.r <= 1 && state.mods[key] === undefined && nTile.obj !== '📜') {
-                    addToInventory(nTile.obj, 1);
-                    state.mods[key] = null;
-                    sfx.harvest();
-                    showToast(`🤖🎒 ${nTile.obj}`);
-                    saveGame();
+                    addToInventory(nTile.obj, 1); state.mods[key] = null; sfx.harvest(); showToast(`🤖🎒 ${nTile.obj}`); saveGame();
                 }
             }
 
             pVisual.x += (state.px*TILE_SIZE - pVisual.x)*0.22; pVisual.y += (state.py*TILE_SIZE - pVisual.y)*0.22;
             camera.x += (pVisual.x - camera.x)*0.12; camera.y += (pVisual.y - camera.y)*0.12;
 
-            state.time = (state.time + 0.15) % 2400;
+            if (isGameStarted) state.time = (state.time + 0.15) % 2400;
             let cH = Math.floor(state.time / 100);
             if (cH !== lastHour) {
                 lastHour = cH;
@@ -952,8 +794,9 @@
                 }
             }
 
-            if (frameCount % 300 === 0) runEcologicalGrowth();
-            updateAnimals(); draw();
+            if (isGameStarted && frameCount % 300 === 0) runEcologicalGrowth();
+            if (isGameStarted) updateAnimals(); 
+            draw();
             requestAnimationFrame(gameLoop);
         }
 
@@ -969,15 +812,31 @@
                     let tile = getTileData(x, y);
                     ctx.fillStyle = DICT[tile.bg].b; ctx.fillRect(sx, sy, TILE_SIZE, TILE_SIZE);
                     ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.strokeRect(sx, sy, TILE_SIZE, TILE_SIZE);
-                    if (tile.obj) { ctx.fillStyle='#000'; ctx.fillText(tile.obj, sx+TILE_SIZE/2, sy+TILE_SIZE/2+2); if (DICT[tile.obj]?.r===3 && dTP<=2) nOS.push({ npc: tile.obj, sx, sy }); }
+                    
+                    if (tile.obj) { 
+                        // 物件基因縮放與成長渲染
+                        ctx.save();
+                        ctx.translate(sx+TILE_SIZE/2, sy+TILE_SIZE/2+2);
+                        ctx.scale(tile.scale, tile.scale);
+                        ctx.fillStyle='#000'; 
+                        ctx.fillText(tile.obj, 0, 0); 
+                        ctx.restore();
+                        if (DICT[tile.obj]?.r===3 && dTP<=2) nOS.push({ npc: tile.obj, sx, sy }); 
+                    }
                     if ((state.time>=1800 || state.time<500) && tile.bg==='grass') { let gS = hash(x,y,77); if(gS<0.05){ ctx.fillStyle = `rgba(180,240,150,${0.15+0.5*Math.sin(Date.now()/500+gS*200)})`; ctx.beginPath(); ctx.arc(sx+TILE_SIZE*gS, sy+TILE_SIZE*(1-gS), 2, 0, Math.PI*2); ctx.fill(); } }
                 } else { ctx.fillStyle = '#141724'; ctx.fillRect(sx, sy, TILE_SIZE+0.5, TILE_SIZE+0.5); }
             }
 
             animals.forEach(a => {
                 let asx = cx+(a.vx-camera.x), asy = cy+(a.vy-camera.y);
-                ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.beginPath(); ctx.ellipse(asx+TILE_SIZE/2, asy+TILE_SIZE-6, 12, 4, 0, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#000'; ctx.fillText(a.emoji, asx+TILE_SIZE/2, asy+TILE_SIZE/2);
+                
+                ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.beginPath(); ctx.ellipse(asx+TILE_SIZE/2, asy+TILE_SIZE-6, 12*a.size, 4*a.size, 0, 0, Math.PI*2); ctx.fill();
+                
+                ctx.save();
+                ctx.translate(asx+TILE_SIZE/2, asy+TILE_SIZE/2);
+                ctx.scale(a.size, a.size);
+                ctx.fillStyle = '#000'; ctx.fillText(a.emoji, 0, 0);
+                ctx.restore();
             });
 
             let psx = cx+(pVisual.x-camera.x), psy = cy+(pVisual.y-camera.y);
@@ -995,7 +854,6 @@
                 ctx.font = '16px sans-serif'; ctx.fillStyle = '#000'; ctx.fillText(`${gI}🔄${geI}`, bx, by+1); ctx.font = `${TILE_SIZE*0.65}px sans-serif`;
             });
 
-            // 繪製閒置仰望星空/天空特效
             if (skyOffset > 1) {
                 let isNight = (state.time >= 1800 || state.time < 500);
                 let skyColor = isNight ? '15,20,35' : '150,200,235';
@@ -1003,30 +861,20 @@
                 else if (state.time >= 450 && state.time < 650) skyColor = '150,120,220';
 
                 let grad = ctx.createLinearGradient(0, 0, 0, skyOffset * 2.5);
-                grad.addColorStop(0, `rgba(${skyColor}, 1)`);
-                grad.addColorStop(0.5, `rgba(${skyColor}, 0.8)`);
-                grad.addColorStop(1, `rgba(${skyColor}, 0)`);
-                ctx.fillStyle = grad;
-                ctx.fillRect(0, 0, canvas.width, skyOffset * 3);
+                grad.addColorStop(0, `rgba(${skyColor}, 1)`); grad.addColorStop(0.5, `rgba(${skyColor}, 0.8)`); grad.addColorStop(1, `rgba(${skyColor}, 0)`);
+                ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, skyOffset * 3);
 
                 let progress = isNight ? ((state.time < 500 ? state.time+2400 : state.time) - 1800)/1100 : (state.time - 500)/1300;
-                let cX = canvas.width * progress;
-                let cY = (skyOffset * 0.8) + Math.sin(progress * Math.PI) * -40;
-                ctx.font = `${40 * (skyOffset/150)}px sans-serif`;
-                ctx.fillText(isNight ? '🌙' : '☀️', cX, cY);
+                let cX = canvas.width * progress, cY = (skyOffset * 0.8) + Math.sin(progress * Math.PI) * -40;
+                ctx.font = `${40 * (skyOffset/150)}px sans-serif`; ctx.fillText(isNight ? '🌙' : '☀️', cX, cY);
 
                 if (isNight) {
                     for(let i=0; i<15; i++) {
-                        let sX = hash(i, 1, state.seed) * canvas.width;
-                        let sY = hash(i, 2, state.seed) * skyOffset * 1.5;
+                        let sX = hash(i, 1, state.seed) * canvas.width, sY = hash(i, 2, state.seed) * skyOffset * 1.5;
                         let twinkle = Math.sin(Date.now()/(200 + i*50) + i);
-                        if (twinkle > 0) {
-                            ctx.fillStyle = `rgba(255,255,255,${twinkle * (skyOffset/150)})`;
-                            ctx.fillText('✨', sX, sY);
-                        }
+                        if (twinkle > 0) { ctx.fillStyle = `rgba(255,255,255,${twinkle * (skyOffset/150)})`; ctx.fillText('✨', sX, sY); }
                     }
-                }
-                ctx.font = `${TILE_SIZE*0.65}px sans-serif`; // 恢復字體大小
+                } ctx.font = `${TILE_SIZE*0.65}px sans-serif`;
             }
 
             let ol = null;
