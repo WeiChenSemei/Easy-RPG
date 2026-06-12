@@ -13,6 +13,8 @@
         header { background: var(--panel); padding: 12px; text-align: center; font-weight: bold; border-bottom: 1px solid var(--border); letter-spacing: 1px; position: relative; }
         .settings-btn { position: absolute; right: 15px; top: 10px; cursor: pointer; font-size: 1.2em; transition: 0.2s; }
         .settings-btn:active { transform: rotate(45deg); }
+        .log-btn { position: absolute; left: 15px; top: 10px; cursor: pointer; font-size: 1.2em; transition: 0.2s; }
+        .log-btn:active { transform: scale(0.9); }
         
         #relics-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; background: #08080b; padding: 5px; font-size: 1.2em; min-height: 35px; border-bottom: 1px solid #222;}
         #inventory { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 8px 10px; background: #121218; min-height: 45px; }
@@ -75,11 +77,12 @@
 <body>
 
 <div id="app">
-    <header id="top-header">元素之塔 <div class="settings-btn" onclick="openSaveMenu()">⚙️</div></header>
+    <header id="top-header"><div class="log-btn" onclick="toggleLog()">📜</div> 元素之塔 <div class="settings-btn" onclick="openSaveMenu()">⚙️</div></header>
     <div id="relics-bar"></div>
     <div id="inventory"></div>
     <div id="canvas-container">
         <canvas id="game-canvas" width="400" height="300"></canvas>
+        <div id="full-log-view" style="display:none; overflow-y:auto; height:100%; padding:15px; background:#111; color:#ccc; font-size:0.95em; line-height:1.5;"></div>
         <div id="click-prompt">▶ 點擊繼續</div>
         <div id="battle-log"></div>
     </div>
@@ -160,7 +163,17 @@ const SKILLS = {
     'L_W': { n:'洞察之眼', target:'ENEMIES', action:'REVEAL', aoe:true, desc:'揭露隱藏情報與詞綴' }, 'E_L': { n:'大地護盾', target:'ALLIES', action:'SHIELD', val:50, aoe:true, desc:'全體50護盾' },
     'F_L': { n:'激昂戰意', target:'ALLIES', action:'BUFF', buff:'ATK_UP', aoe:true, desc:'全體下次攻擊增傷' }, 'D_W': { n:'治癒之雨', target:'ALLIES', action:'HEAL', val:40, aoe:true, desc:'全體恢復生命' },
     'M': { n:'熔岩爆發', dmg:45, apply:'BURN', aoe:true, leave:'F', desc:'全體極大火傷' }, 'C': { n:'雷霆萬鈞', dmg:35, apply:'SHOCK', aoe:true, leave:'C', desc:'全場落雷' },
-    'G': { n:'絕對零度', dmg:30, apply:'STUN', aoe:true, leave:'G', desc:'全體凍結暈眩' }, 'X': { n:'終極爆裂', dmg:70, desc:'單體毀滅破壞' }, 'Z': { n:'混沌一擊', dmg:60, aoe:true, desc:'光闇交融全體毀滅' }, 'A_A_F_F': { n:'末日炎災', dmg:90, apply:'BURN', leave:'F', aoe:true, desc:'四階極致魔法' }
+    'G': { n:'絕對零度', dmg:30, apply:'STUN', aoe:true, leave:'G', desc:'全體凍結暈眩' }, 'X': { n:'終極爆裂', dmg:70, desc:'單體毀滅破壞' }, 'Z': { n:'混沌一擊', dmg:60, aoe:true, desc:'光闇交融全體毀滅' }, 'A_A_F_F': { n:'末日炎災', dmg:90, apply:'BURN', leave:'F', aoe:true, desc:'四階極致魔法' },
+    'S': { n:'高壓蒸氣', dmg:25, apply:'BURN', leave:'S', aoe:true, desc:'高溫蒸氣全場燙傷' }, 'O': { n:'泥沼深淵', dmg:20, apply:'SLOW', leave:'P', aoe:true, desc:'全體緩速與毒沼' },
+    'H': { n:'聖物庇護', action:'HEAL', val:60, action2:'SHIELD', val2:40, target:'ALLIES', aoe:true, desc:'全體大幅治癒與護盾' }, 'V': { n:'虛空吞噬', dmg:50, action:'DEBUFF', buff:'SLOW', aoe:true, desc:'吞噬全場生命並緩速' },
+    
+    // 二階煉金合成技 (Advanced Alchemy Fusions)
+    'C_M': { n:'毀滅天劫', dmg:85, apply:'BURN', aoe:true, leave:'F', desc:'🌋+🌩️：火山與落雷的末日打擊' }, 
+    'G_S': { n:'霜寒迷霧', dmg:50, apply:'FROZEN', action:'DEBUFF', buff:'SLOW', aoe:true, leave:'S', desc:'🧊+☁️：全體凍結並嚴重緩速' },
+    'O_X': { n:'致命沼氣', dmg:80, apply:'POISON', aoe:true, leave:'P', desc:'🟤+💥：引燃泥沼的劇毒爆裂' }, 
+    'H_Z': { n:'神之制裁', dmg:100, action:'HEAL', val:100, aoe:true, desc:'🕊️+☯️：光闇打擊與全體極致治癒' },
+    'C_V': { n:'虛空崩塌', dmg:90, apply:'SLOW', aoe:true, desc:'🌩️+🌌：扭曲空間的雷擊' }, 
+    'G_G_G': { n:'冰霜王座', dmg:60, action:'SHIELD', val:100, aoe:true, leave:'G', desc:'🧊x3：獲取極大護盾並凍結全場' }
 };
 
 const REACTIONS = { 'FROZEN_F': { n:'融化', dmg:30, apply:'WET', clear:true, txt:'💥融化!' }, 'WET_T': { n:'感電擴散', dmg:20, apply:'SHOCK', isAoe:true, txt:'⚡連鎖!' }, 'WET_I': { n:'急凍', dmg:10, apply:'FROZEN', clear:true, txt:'❄️急凍!' }, 'POISON_F': { n:'毒爆', dmg:40, apply:'BURN', clear:true, txt:'🔥毒爆!' }, 'STUN_E': { n:'碎岩', dmg:50, clear:true, txt:'🪨碎擊!' } };
@@ -222,7 +235,7 @@ function switchView(vid) {
 }
 
 function updateTop() {
-    $('top-header').innerHTML = `元素之塔 - 第 ${state.floor} 層 (${state.room}/10) <div class="settings-btn" onclick="openSaveMenu()">⚙️</div>`;
+    $('top-header').innerHTML = `<div class="log-btn" onclick="toggleLog()">📜</div> 元素之塔 - 第 ${state.floor} 層 (${state.room}/10) <div class="settings-btn" onclick="openSaveMenu()">⚙️</div>`;
     let rb = $('relics-bar'); rb.innerHTML = '';
     state.relics.forEach(r => { let e = document.createElement('span'); e.innerText = RELICS[r].i; e.title = RELICS[r].n; rb.appendChild(e); });
     
@@ -356,13 +369,7 @@ function confirmAction() {
     }
     
     let comboStr = [...currSel].sort().join('_');
-    let action = { hero: state.currentHero, elements: [...currSel], baseEl: currSel[0] || 'NONE', comboStr: comboStr };
-    
-    if(EVO[comboStr]) {
-        let evoKey = EVO[comboStr];
-        if(!state.codex.has('E_'+evoKey)) { state.codex.add('E_'+evoKey); state.inventory[evoKey] = (state.inventory[evoKey]||0) + 1; logMsg(`🌟 煉金突破！解鎖【${EL[evoKey].i}${EL[evoKey].n}】！`); }
-        action.comboStr = evoKey;
-    }
+    let action = { hero: state.currentHero, elements: [...currSel], baseEl: currSel[0] || 'NONE', origCombo: comboStr };
     
     state.heroActions.push(action); let aliveHeroes = state.heroes.filter(h=>h.hp>0); state.currentHeroIdx++;
     if(state.currentHeroIdx < aliveHeroes.length) promptHeroCmd(aliveHeroes[state.currentHeroIdx]);
@@ -375,7 +382,8 @@ function buildExecutionQueue() {
     for(let c of COMBOS) {
         let matched = [], req = [...c.req];
         for(let i=0; i<actions.length; i++) {
-            if(used.has(i)) continue;
+            // 邏輯修正：如果該角色放入了 2 顆以上的元素，視為單人煉金合成，拒絕參與團隊合體技！
+            if(used.has(i) || actions[i].elements.length > 1) continue;
             let idx = req.indexOf(actions[i].baseEl); if(idx !== -1) { matched.push(i); req.splice(idx, 1); }
         }
         if(req.length === 0) {
@@ -387,10 +395,9 @@ function buildExecutionQueue() {
     
     for(let i=0; i<actions.length; i++) {
         if(!used.has(i)) {
-            let act = actions[i]; let skill = SKILLS[act.comboStr] || { n: '元素反噬', dmg: 5 };
-            if(SKILLS[act.comboStr] && act.comboStr !== '' && !state.codex.has('S_'+act.comboStr)) state.codex.add('S_'+act.comboStr);
+            let act = actions[i]; 
             let hSpd = Math.random()*100 + (state.relics.includes('R_A')?100:0);
-            state.execQueue.push({ isCombo: false, actor: act.hero, skill: skill, baseEl: act.baseEl, spd: hSpd });
+            state.execQueue.push({ isCombo: false, actor: act.hero, origCombo: act.origCombo, baseEl: act.baseEl, spd: hSpd });
         }
     }
     
@@ -415,12 +422,31 @@ function nextAction() {
         if(act.actor.affix === 'VAMP') { act.actor.hp = Math.min(act.actor.maxHp, act.actor.hp+dmg); spTxt(act.actor, `💚吸血`, '#0f0', -20); }
         if(state.relics.includes('R_THORN')) { applyDmg(act.actor, Math.floor(dmg*0.2), '#ff9800'); spTxt(act.actor, "🌵反彈", '#ff9800', -20); }
     } else {
-        logMsg(`${act.isCombo ? '💫 奧義：' : act.actor.i+' 施放 '}${act.skill.n}`);
-        executeSkill(act.skill, act.baseEl, act.actor);
+        if(act.isCombo) {
+            logMsg(`💫 奧義：${act.skill.n}`);
+            executeSkill(act.skill, act.baseEl, act.actor);
+        } else {
+            let cStr = act.origCombo; let skill = SKILLS[cStr] || { n: '元素反噬', dmg: 5 }; let eKey = act.baseEl;
+            
+            // 執行時的煉金判定
+            if(EVO[cStr]) {
+                let eKeyNew = EVO[cStr]; let isNew = !state.codex.has('E_'+eKeyNew);
+                state.codex.add('E_'+eKeyNew); state.inventory[eKeyNew] = (state.inventory[eKeyNew]||0) + 1;
+                if(isNew) logMsg(`🌟 煉金突破！解鎖新元素【${EL[eKeyNew].i}${EL[eKeyNew].n}】！`);
+                else logMsg(`✨ 煉金合成：獲得【${EL[eKeyNew].i}${EL[eKeyNew].n}】`);
+                skill = SKILLS[eKeyNew] || skill; eKey = eKeyNew;
+            }
+            
+            let sKey = EVO[cStr] || cStr;
+            if(sKey !== '' && !state.codex.has('S_'+sKey)) state.codex.add('S_'+sKey);
+            
+            logMsg(`${act.actor.i} 施放 ${skill.n}`);
+            executeSkill(skill, eKey, act.actor);
+        }
     }
     
     resolveEndOfTurn(act.actor);
-    state.battlePhase = 'WAIT'; setTimeout(() => { $('click-prompt').style.display='block'; }, 1000);
+    state.battlePhase = 'WAIT'; setTimeout(() => { if(state.battlePhase === 'WAIT') $('click-prompt').style.display='block'; }, 1000);
 }
 
 function executeSkill(skill, baseEl, actor) {
@@ -602,8 +628,29 @@ function render() {
 }
 function loop() { render(); requestAnimationFrame(loop); }
 
-/** 6. 圖鑑系統 */
-function logMsg(m) { let div = $('battle-log'); let el = document.createElement('div'); el.className='log-msg'; el.innerText=m; div.appendChild(el); if(div.children.length>4) div.firstChild.remove(); }
+/** 6. 圖鑑系統與文字日誌 */
+let showLogView = false;
+function toggleLog() {
+    showLogView = !showLogView;
+    $('full-log-view').style.display = showLogView ? 'block' : 'none';
+    $('game-canvas').style.display = showLogView ? 'none' : 'block';
+    $('battle-log').style.display = showLogView ? 'none' : 'flex';
+    if(showLogView) $('full-log-view').scrollTop = $('full-log-view').scrollHeight;
+}
+
+function logMsg(m) { 
+    // 底部浮動日誌
+    let div = $('battle-log'); let el = document.createElement('div'); el.className='log-msg'; el.innerText=m; div.appendChild(el); 
+    if(div.children.length>4) div.firstChild.remove(); 
+    
+    // 全螢幕詳細日誌 (保留最新 100 筆)
+    let flv = $('full-log-view'); let fel = document.createElement('div');
+    fel.innerText = m; fel.style.marginBottom = '6px'; fel.style.borderBottom = '1px solid rgba(255,255,255,0.05)'; fel.style.paddingBottom = '4px';
+    flv.appendChild(fel);
+    if(flv.children.length > 100) flv.firstChild.remove();
+    flv.scrollTop = flv.scrollHeight;
+}
+
 function renderCodex() {
     let tot = Object.keys(EL).length + Object.keys(SKILLS).length + Object.keys(REACTIONS).length + Object.keys(F_REACT).length + COMBOS.length + Object.keys(RELICS).length; 
     let uCount = 0; let h = '';
