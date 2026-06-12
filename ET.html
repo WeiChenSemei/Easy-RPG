@@ -11,10 +11,9 @@
         #app { width: 100%; max-width: 500px; display: flex; flex-direction: column; background: #0d0d12; position: relative; }
         
         header { background: var(--panel); padding: 12px; text-align: center; font-weight: bold; border-bottom: 1px solid var(--border); letter-spacing: 1px; position: relative; }
-        .settings-btn { position: absolute; right: 15px; top: 10px; cursor: pointer; font-size: 1.2em; transition: 0.2s; }
-        .settings-btn:active { transform: rotate(45deg); }
-        .log-btn { position: absolute; left: 15px; top: 10px; cursor: pointer; font-size: 1.2em; transition: 0.2s; }
-        .log-btn:active { transform: scale(0.9); }
+        .settings-btn, .log-btn { position: absolute; top: 10px; cursor: pointer; font-size: 1.2em; transition: 0.2s; }
+        .settings-btn { right: 15px; } .settings-btn:active { transform: rotate(45deg); }
+        .log-btn { left: 15px; } .log-btn:active { transform: scale(0.9); }
         
         #relics-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; background: #08080b; padding: 5px; font-size: 1.2em; min-height: 35px; border-bottom: 1px solid #222;}
         #inventory { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 8px 10px; background: #121218; min-height: 45px; }
@@ -40,6 +39,11 @@
         .door-text h4 { color: var(--text); margin-bottom: 4px; font-size: 1.1em; }
         .door-text p { color: var(--muted); font-size: 0.85em; }
         
+        /* Resonance & Overload UI */
+        #res-ovl-display { text-align: center; font-weight: bold; height: 20px; font-size: 0.95em; margin-bottom: 5px; }
+        #energy-bar { display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; min-height: 25px; margin-bottom: 5px; }
+        .e-badge { background: rgba(255,255,255,0.1); border: 1px solid #444; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
+
         .turn-box { text-align: center; margin-bottom: 12px; font-size: 1.1em; color: var(--hl); font-weight: bold; background: rgba(77, 168, 218, 0.1); padding: 8px; border-radius: 8px; }
         .sel-container { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
         .sel-slot { width: 45px; height: 45px; background: #2a2a35; border: 2px dashed #555; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 1.6em; }
@@ -93,13 +97,11 @@
             <p>輪迴次數: <span id="st-runs" style="color:var(--warn); font-weight:bold;">0</span></p>
             <p>歷史最高層: <span id="st-maxf" style="color:var(--success); font-weight:bold;">1</span></p>
         </div>
-        
         <input type="text" id="save-io" placeholder="在此產生或貼上繼承碼..." style="width:90%; padding:12px; margin: 10px 0; border-radius:8px; border:1px solid #444; background:#222; color:#fff; text-align:center; font-size:0.9em; font-family:monospace;">
         <div id="save-msg" style="color:var(--hl); font-size:0.95em; margin-bottom:15px; height:1em; font-weight:bold;"></div>
-
         <div style="display:flex; flex-direction:column; gap:12px; width:90%;">
-            <button class="btn" style="background:#2a2a35; border:1px solid var(--hl); color:var(--hl);" onclick="exportSave()">匯出繼承碼 (產生並複製)</button>
-            <button class="btn" style="background:#2a2a35; border:1px solid var(--success); color:var(--success);" onclick="importSave()">匯入繼承碼 (貼上後讀取)</button>
+            <button class="btn" style="background:#2a2a35; border:1px solid var(--hl); color:var(--hl);" onclick="exportSave()">匯出繼承碼</button>
+            <button class="btn" style="background:#2a2a35; border:1px solid var(--success); color:var(--success);" onclick="importSave()">匯入繼承碼</button>
             <button class="btn" id="btn-reset" style="background:var(--danger); margin-top:10px;" onclick="confirmReset()">重置所有進度</button>
             <button class="btn" style="background:#555;" onclick="$('save-modal').style.display='none'">返回遊戲</button>
         </div>
@@ -116,6 +118,10 @@
             </div>
         </div>
         <div id="battle-view" class="view">
+            <!-- Resonance / Overload UI -->
+            <div id="res-ovl-display"></div>
+            <div id="energy-bar"></div>
+            
             <div class="turn-box"><span id="theme-display" style="color:var(--danger); margin-right:10px;"></span>指令: <span id="current-hero-name" style="color:#fff; font-size:1.2em;"></span></div>
             <div class="sel-container"><div class="sel-slot" id="slot-0"></div><div class="sel-slot" id="slot-1"></div><div class="sel-slot" id="slot-2"></div><div class="sel-slot" id="slot-3"></div></div>
             <div class="element-grid" id="element-buttons"></div>
@@ -140,7 +146,7 @@
 <script>
 /** 1. 核心資料映射 (Data-Driven) */
 const EL = {
-    E: { i:'🪨', n:'地', t:'B' }, W: { i:'💧', n:'水', t:'B' }, F: { i:'🔥', n:'火', t:'B' }, A: { i:'🌪️', n:'風', t:'B' }, I: { i:'❄️', n:'冰', t:'B' }, T: { i:'⚡', n:'雷', t:'B' }, P: { i:'☠️', n:'毒', t:'B' }, L: { i:'✨', n:'光', t:'B' }, D: { i:'🌑', n:'闇', t:'B' },
+    E: { i:'🪨', n:'地', t:'B', c:'#8b5a2b' }, W: { i:'💧', n:'水', t:'B', c:'#03a9f4' }, F: { i:'🔥', n:'火', t:'B', c:'#ff5722' }, A: { i:'🌪️', n:'風', t:'B', c:'#ccc' }, I: { i:'❄️', n:'冰', t:'B', c:'#81d4fa' }, T: { i:'⚡', n:'雷', t:'B', c:'#ffeb3b' }, P: { i:'☠️', n:'毒', t:'B', c:'#9c27b0' }, L: { i:'✨', n:'光', t:'B', c:'#fff9c4' }, D: { i:'🌑', n:'闇', t:'B', c:'#444' },
     M: { i:'🌋', n:'熔岩', t:'A', req:'F_F' }, C: { i:'🌩️', n:'雷暴', t:'A', req:'T_T' }, G: { i:'🧊', n:'堅冰', t:'A', req:'I_W' }, S: { i:'☁️', n:'蒸氣', t:'A', req:'F_W' },
     O: { i:'🟤', n:'泥沼', t:'A', req:'E_W' }, X: { i:'💥', n:'爆裂', t:'A', req:'F_P' }, H: { i:'🕊️', n:'聖物', t:'A', req:'L_L' }, V: { i:'🌌', n:'虛空', t:'A', req:'D_D' }, Z: { i:'☯️', n:'混沌', t:'A', req:'D_L' }
 };
@@ -149,14 +155,14 @@ const EVO = {}; for(let k in EL) if(EL[k].req) EVO[EL[k].req] = k;
 const STATUS = { BURN: { i:'🔥', c:'#ff5722' }, WET: { i:'💧', c:'#03a9f4' }, FROZEN: { i:'❄️', c:'#81d4fa' }, SHOCK: { i:'⚡', c:'#ffeb3b' }, POISON: { i:'☠️', c:'#9c27b0' }, STUN: { i:'💫', c:'#e0e0e0', skip:true }, SLOW: { i:'🐢', c:'#888' }, HASTE: { i:'🐇', c:'#fff' }, SHIELD: { i:'🛡️', c:'#eee' }, ATK_UP: { i:'⚔️', c:'#ff9800' } };
 const FIELD = { F: { n:'火海', i:'🔥', fx:'每回合燃燒' }, W: { n:'水窪', i:'💧', fx:'強化雷冰' }, P: { n:'毒沼', i:'☠️', fx:'每回合中毒' }, S: { n:'蒸氣', i:'☁️', fx:'遮蔽視線' }, G: { n:'冰域', i:'🧊', fx:'全場緩速' }, C: { n:'雷場', i:'🌩️', fx:'隨機感電' } };
 
-const RELICS = {
-    'R_F': { i:'🔥', n:'火炎核心', d:'火屬性傷害 +50%' }, 'R_I': { i:'❄️', n:'永凍冰晶', d:'冰屬性傷害 +50%' }, 'R_T': { i:'⚡', n:'超導線圈', d:'雷屬性傷害 +50%' },
-    'R_E': { i:'🪨', n:'大地之核', d:'戰鬥開始全體獲得 30 護盾' }, 'R_A': { i:'🌪️', n:'輕靈之羽', d:'全體初始速度大幅提升' }, 'R_W': { i:'💧', n:'潮濕護符', d:'施放水屬技能回復自身 15 HP' },
-    'R_ALCH': { i:'♻️', n:'煉金之心', d:'施放時 25% 機率不消耗元素' }, 'R_HEAL': { i:'💚', n:'活力之泉', d:'離開房間全體恢復 10% 生命' },
-    'R_LUCK': { i:'🍀', n:'幸運草', d:'戰鬥勝利額外掉落基礎元素' }, 'R_THORN': { i:'🌵', n:'反甲圖騰', d:'英雄受擊時反彈 20% 傷害' }
-};
+// 共鳴與失控規則
+const RES_FX = { F:'火傷+50%', W:'水系附加護盾', T:'雷電額外連鎖', I:'碎冰增傷50%', P:'劇毒傷害加倍', A:'我方神速', E:'我方減傷30%', L:'治癒護盾強化', D:'闇系附帶吸血' };
+const OVL_FX = { F:{n:'🌋火山爆發',d:'全場火傷'}, W:{n:'🌊大洪水',d:'全場潮濕'}, T:{n:'🌩️末日雷暴',d:'隨機落雷'}, I:{n:'🥶極寒風暴',d:'全場緩速'}, P:{n:'☣️瘟疫蔓延',d:'全場中毒'}, A:{n:'🌪️狂怒龍捲',d:'單體目標錯亂'}, E:{n:'⛰️大地震擊',d:'全場地傷'}, L:{n:'☀️聖光普照',d:'全場治癒'}, D:{n:'🌑無盡永夜',d:'攻擊易Miss'} };
 
-const AFFIXES = { VAMP: { n:'吸血', fx:'攻擊時回復等量生命' }, THORN: { n:'荊棘', fx:'受擊反彈20%傷害' }, QUICK: { n:'疾風', fx:'極高初始速度' }, TOUGH: { n:'重甲', fx:'初始獲得護盾' }, REGEN: { n:'再生', fx:'每回合恢復生命' } };
+const RELICS = {
+    'R_F': { i:'🔥', n:'火炎核心', d:'火傷+50%' }, 'R_I': { i:'❄️', n:'永凍冰晶', d:'冰傷+50%' }, 'R_T': { i:'⚡', n:'超導線圈', d:'雷傷+50%' }, 'R_E': { i:'🪨', n:'大地之核', d:'戰鬥全體30護盾' }, 'R_A': { i:'🌪️', n:'輕靈之羽', d:'初始速度提升' }, 'R_W': { i:'💧', n:'潮濕護符', d:'施放水屬回血' }, 'R_ALCH': { i:'♻️', n:'煉金之心', d:'25%不耗元素' }, 'R_HEAL': { i:'💚', n:'活力之泉', d:'離開房間回血' }, 'R_LUCK': { i:'🍀', n:'幸運草', d:'勝利額外掉落' }, 'R_THORN': { i:'🌵', n:'反甲圖騰', d:'反彈20%傷害' }
+};
+const AFFIXES = { VAMP: { n:'吸血', fx:'攻擊時回復' }, THORN: { n:'荊棘', fx:'受擊反彈' }, QUICK: { n:'疾風', fx:'極高速度' }, TOUGH: { n:'重甲', fx:'獲得護盾' }, REGEN: { n:'再生', fx:'每回合恢復' } };
 
 const SKILLS = {
     '': { n:'普通攻擊', dmg:12, p:'E', desc:'未注入元素的普通攻擊' },
@@ -173,9 +179,9 @@ const SKILLS = {
     'G': { n:'絕對零度', dmg:30, apply:'STUN', aoe:true, leave:'G', desc:'全體凍結暈眩' }, 'X': { n:'終極爆裂', dmg:70, desc:'單體毀滅破壞' }, 'Z': { n:'混沌一擊', dmg:60, aoe:true, desc:'光闇交融全體毀滅' }, 'A_A_F_F': { n:'末日炎災', dmg:90, apply:'BURN', leave:'F', aoe:true, desc:'四階極致魔法' },
     'S': { n:'高壓蒸氣', dmg:25, apply:'BURN', leave:'S', aoe:true, desc:'高溫蒸氣全場燙傷' }, 'O': { n:'泥沼深淵', dmg:20, apply:'SLOW', leave:'P', aoe:true, desc:'全體緩速與毒沼' },
     'H': { n:'聖物庇護', action:'HEAL', val:60, action2:'SHIELD', val2:40, target:'ALLIES', aoe:true, desc:'全體大幅治癒與護盾' }, 'V': { n:'虛空吞噬', dmg:50, action:'DEBUFF', buff:'SLOW', aoe:true, desc:'吞噬全場生命並緩速' },
-    'C_M': { n:'毀滅天劫', dmg:85, apply:'BURN', aoe:true, leave:'F', desc:'🌋+🌩️：火山與落雷的末日打擊' }, 'G_S': { n:'霜寒迷霧', dmg:50, apply:'FROZEN', action:'DEBUFF', buff:'SLOW', aoe:true, leave:'S', desc:'🧊+☁️：全體凍結並嚴重緩速' },
-    'O_X': { n:'致命沼氣', dmg:80, apply:'POISON', aoe:true, leave:'P', desc:'🟤+💥：引燃泥沼的劇毒爆裂' }, 'H_Z': { n:'神之制裁', dmg:100, action:'HEAL', val:100, aoe:true, desc:'🕊️+☯️：光闇打擊與全體極致治癒' },
-    'C_V': { n:'虛空崩塌', dmg:90, apply:'SLOW', aoe:true, desc:'🌩️+🌌：扭曲空間的雷擊' }, 'G_G_G': { n:'冰霜王座', dmg:60, action:'SHIELD', val:100, aoe:true, leave:'G', desc:'🧊x3：獲取極大護盾並凍結全場' }
+    'C_M': { n:'毀滅天劫', dmg:85, apply:'BURN', aoe:true, leave:'F', desc:'🌋+🌩️：火山落雷打擊' }, 'G_S': { n:'霜寒迷霧', dmg:50, apply:'FROZEN', action:'DEBUFF', buff:'SLOW', aoe:true, leave:'S', desc:'🧊+☁️：全體凍結緩速' },
+    'O_X': { n:'致命沼氣', dmg:80, apply:'POISON', aoe:true, leave:'P', desc:'🟤+💥：引燃泥沼劇毒' }, 'H_Z': { n:'神之制裁', dmg:100, action:'HEAL', val:100, aoe:true, desc:'🕊️+☯️：光闇打擊極致治癒' },
+    'C_V': { n:'虛空崩塌', dmg:90, apply:'SLOW', aoe:true, desc:'🌩️+🌌：扭曲空間的雷擊' }, 'G_G_G': { n:'冰霜王座', dmg:60, action:'SHIELD', val:100, aoe:true, leave:'G', desc:'🧊x3：獲取極大護盾凍結全場' }
 };
 
 const REACTIONS = { 'FROZEN_F': { n:'融化', dmg:30, apply:'WET', clear:true, txt:'💥融化!' }, 'WET_T': { n:'感電擴散', dmg:20, apply:'SHOCK', isAoe:true, txt:'⚡連鎖!' }, 'WET_I': { n:'急凍', dmg:10, apply:'FROZEN', clear:true, txt:'❄️急凍!' }, 'POISON_F': { n:'毒爆', dmg:40, apply:'BURN', clear:true, txt:'🔥毒爆!' }, 'STUN_E': { n:'碎岩', dmg:50, clear:true, txt:'🪨碎擊!' } };
@@ -210,12 +216,13 @@ const ENEMY_DATA = [
 let state = {
     floor: 1, room: 1, maxFloor: 1, deaths: 0,
     inventory: { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }, relics: [],
+    energy: {}, reso: {e:null, t:0}, ovl: {e:null, t:0}, // Resonance & Overload states
     heroes: Array.from({length:4}, (_,i) => ({ id:'h'+i, i:['🧙‍♂️','🧝‍♀️','🥷','🧑‍🎤'][i], hp:100, maxHp:100, status:[], shield:0, buffs:[], atkAnim:0, hit:0 })),
     enemies: [], codex: new Set(), battlePhase: 'NONE', execQueue: [], heroActions: [], field: null, currentHero: null, theme: null
 };
 
 function saveGame() { state.maxFloor = Math.max(state.maxFloor, state.floor); const s = { ...state, codex: Array.from(state.codex) }; localStorage.setItem('toe_sv2', JSON.stringify(s)); }
-function loadGame() { let s = localStorage.getItem('toe_sv2'); if(s) { let p = JSON.parse(s); Object.assign(state, p); state.codex = new Set(p.codex); if(!state.relics) state.relics=[]; } }
+function loadGame() { let s = localStorage.getItem('toe_sv2'); if(s) { let p = JSON.parse(s); Object.assign(state, p); state.codex = new Set(p.codex); if(!state.relics) state.relics=[]; if(!state.energy) { state.energy={}; state.reso={e:null,t:0}; state.ovl={e:null,t:0};} } }
 
 function openSaveMenu() { 
     $('st-runs').innerText = state.deaths; $('st-maxf').innerText = state.maxFloor; 
@@ -225,17 +232,15 @@ function openSaveMenu() {
 }
 
 function exportSave() { 
-    saveGame(); let d = btoa(encodeURIComponent(localStorage.getItem('toe_sv2'))); 
-    let io = $('save-io'); io.value = d; io.select();
+    saveGame(); let d = btoa(encodeURIComponent(localStorage.getItem('toe_sv2'))); let io = $('save-io'); io.value = d; io.select();
     try { document.execCommand('copy'); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 繼承碼已複製到剪貼簿！"; } 
     catch (err) { $('save-msg').style.color = "var(--warn)"; $('save-msg').innerText = "⚠️ 請手動複製上方繼承碼"; } 
 }
 
 function importSave() { 
-    let c = $('save-io').value.trim(); 
-    if(!c) { $('save-msg').style.color = "var(--warn)"; $('save-msg').innerText = "⚠️ 請貼上繼承碼！"; return; }
+    let c = $('save-io').value.trim(); if(!c) { $('save-msg').style.color = "var(--warn)"; $('save-msg').innerText = "⚠️ 請貼上繼承碼！"; return; }
     try { 
-        let s = decodeURIComponent(atob(c)); let p = JSON.parse(s); localStorage.setItem('toe_sv2', s); 
+        let s = decodeURIComponent(atob(c)); JSON.parse(s); localStorage.setItem('toe_sv2', s); 
         $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 讀取成功！"; 
         setTimeout(() => { loadGame(); state.battlePhase = 'NONE'; $('save-modal').style.display='none'; goMainView(); genDoors(); updateTop(); }, 1000); 
     } catch(e) { $('save-msg').style.color = "var(--danger)"; $('save-msg').innerText = "❌ 無效的繼承碼！"; } 
@@ -246,10 +251,7 @@ function confirmReset() {
     if(btn.innerText === '重置所有進度') { btn.innerText = '⚠️ 再次點擊以確認重置'; btn.style.background = '#800'; $('save-msg').style.color = "var(--danger)"; $('save-msg').innerText = "警告：將刪除所有圖鑑與輪迴進度！"; } 
     else { 
         localStorage.removeItem('toe_sv2'); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 已重置！"; 
-        setTimeout(() => { 
-            state = { floor: 1, room: 1, maxFloor: 1, deaths: 0, inventory: { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }, relics: [], heroes: Array.from({length:4}, (_,i) => ({ id:'h'+i, i:['🧙‍♂️','🧝‍♀️','🥷','🧑‍🎤'][i], hp:100, maxHp:100, status:[], shield:0, buffs:[], atkAnim:0, hit:0 })), enemies: [], codex: new Set(), battlePhase: 'NONE', execQueue: [], heroActions: [], field: null, currentHero: null, theme: null }; 
-            $('save-modal').style.display='none'; goMainView(); genDoors(); updateTop(); 
-        }, 1000); 
+        setTimeout(() => { location.reload(); }, 1000); 
     }
 }
 
@@ -270,6 +272,7 @@ function switchView(vid) {
 function getAvail(k) {
     if (k === state.theme) return 999;
     let used = currSel.filter(x => x===k).length;
+    state.heroActions.forEach(a => used += a.elements.filter(x => x===k).length);
     return (state.inventory[k] || 0) - used;
 }
 
@@ -300,7 +303,6 @@ function genDoors() {
     
     let baseKeys = Object.keys(EL).filter(x=>EL[x].t==='B'); let doors = [ {t:'BATTLE', arg:null, i:'⚔️', n:'幽暗通道', d:'遭遇未知魔物'} ];
     let themeEl = baseKeys[Math.floor(Math.random()*baseKeys.length)];
-    
     let totalEls = 0; baseKeys.forEach(k => totalEls += state.inventory[k] || 0); let needEls = totalEls < 40; 
     
     let evPool = []; let addEv = (w, obj) => { for(let i=0; i<w; i++) evPool.push(obj); };
@@ -328,15 +330,13 @@ function resolveEvent(arg) {
         let avg = Math.floor(sum / bKeys.length); bKeys.forEach(k => state.inventory[k] = avg);
         msg = "天平傾斜，萬物歸於平衡！"; loot = `<span style="color:var(--hl)">基礎元素已平均為 ${avg} 個</span>`;
     } else if(arg === 'GAMEOVER') {
-        msg = "💀 隊伍全滅... 塔的輪迴已開啟"; 
-        let mf = state.floor; 
+        msg = "💀 隊伍全滅... 塔的輪迴已開啟"; let mf = state.floor; 
         loot = `<div style="font-size:0.8em; color:#aaa; line-height:1.5;">失去所有合成元素與遺物<br>繼承先前的意志<br>最大生命上限 +${mf}<br>初始基礎元素 +1</div>`;
         $('event-btn').onclick = () => { 
             state.deaths++; state.maxFloor = Math.max(state.maxFloor, mf); state.floor = 1; state.room = 1;
             let initC = { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }; state.inventory = {}; for(let k in initC) state.inventory[k] = initC[k] + state.deaths;
             state.heroes.forEach(h => { h.maxHp += mf; h.hp = h.maxHp; h.status=[]; h.shield=0; h.buffs=[]; });
-            state.relics = []; state.battlePhase = 'NONE'; $('event-btn').onclick = nextRoom;
-            saveGame(); genDoors(); updateTop();
+            state.relics = []; state.battlePhase = 'NONE'; $('event-btn').onclick = nextRoom; saveGame(); genDoors(); updateTop();
         };
     }
     $('event-msg').innerHTML = msg; $('event-loot').innerHTML = loot; updateTop(); saveGame();
@@ -349,9 +349,10 @@ function nextRoom() {
     genDoors(); updateTop();
 }
 
-/** 4. 戰鬥系統 */
+/** 4. 戰鬥系統 (共鳴與失控) */
 function startBattle(isBoss, themeArg = null) {
     state.battlePhase = 'EXECUTE'; state.field = null; state.execQueue = []; state.heroActions = []; state.theme = themeArg;
+    state.energy = {}; state.reso = {e:null, t:0}; state.ovl = {e:null, t:0}; // 重置能量與共鳴
     state.heroes.forEach(h => { h.shield = state.relics.includes('R_E') ? 30 : 0; h.buffs = []; h.status = []; });
     if(state.relics.includes('R_E')) state.heroes.forEach(h=>spTxt(h, "🛡️磐石", '#eee'));
     
@@ -361,7 +362,7 @@ function startBattle(isBoss, themeArg = null) {
     state.enemies = []; const count = isBoss ? 1 : Math.floor(Math.random()*3)+1;
     for(let i=0; i<count; i++) {
         let t = pool[Math.floor(Math.random()*pool.length)];
-        let hp = t[3] + state.floor*15;
+        let hp = t[3] + state.floor * (isBoss ? 40 : 15); // 首領血量成長加強
         let afx = (isBoss || Math.random() < 0.2) ? affixKeys[Math.floor(Math.random()*affixKeys.length)] : null;
         let s = afx === 'TOUGH' ? 100 : 0; let fn = afx ? `[${AFFIXES[afx].n}] ${t[2]}` : t[2];
         state.enemies.push({ id:'e'+i, el:t[0], i:t[1], n:fn, hp:hp, maxHp:hp, status:[], shield:s, buffs:[], weak:t[4], immu:t[5], abs:t[6], insta:t[7], tr:t[8], isBoss:isBoss, revealed:false, isEnemy:true, atkAnim:0, hit:0, affix:afx });
@@ -370,7 +371,37 @@ function startBattle(isBoss, themeArg = null) {
     logMsg(`⚠️ 遭遇魔物！`); switchView('battle-view'); if(particles.length === 0) loop(); planRound();
 }
 
+function renderBattleUI() {
+    let eb = $('energy-bar'); eb.innerHTML = '';
+    for(let k in state.energy) { if(state.energy[k]>0) eb.innerHTML += `<span class="e-badge" style="color:${EL[k].c}">${EL[k].i} ${state.energy[k]}</span>`; }
+    let ro = $('res-ovl-display');
+    if(state.ovl.e) ro.innerHTML = `<span style="color:var(--danger)">⚠️ 元素失控：${OVL_FX[state.ovl.e].n} (${state.ovl.t}回合)</span>`;
+    else if(state.reso.e) ro.innerHTML = `<span style="color:var(--hl)">🌟 共鳴：${EL[state.reso.e].i} (${state.reso.t}回合) - ${RES_FX[state.reso.e]}</span>`;
+    else ro.innerHTML = '';
+}
+
+function checkEnergy() {
+    for(let k in state.energy) {
+        let v = state.energy[k];
+        if(v >= 11 && state.ovl.e !== k) {
+            if(Math.random() < 0.1 + (v-11)*0.1 || v >= 20) {
+                state.ovl = {e:k, t:3}; state.reso = {e:null, t:0}; state.energy[k]=0;
+                logMsg(`⚠️ 能量過載！引發大災難【${OVL_FX[k].n}】！`); renderBattleUI(); return;
+            }
+        } else if(v >= 6 && v <= 10 && state.reso.e !== k && !state.ovl.e) {
+            if(Math.random() < 0.2 + (v-6)*0.2 || v >= 10) {
+                state.reso = {e:k, t:3};
+                logMsg(`🌟 元素共鳴！【${EL[k].i}${EL[k].n}系】能力強化！`); renderBattleUI(); return;
+            }
+        }
+    }
+    renderBattleUI();
+}
+
 function planRound() {
+    if(state.ovl.t > 0) { state.ovl.t--; if(state.ovl.t<=0) { logMsg(`💨 ${OVL_FX[state.ovl.e].n} 結束了。`); state.ovl.e=null; renderBattleUI(); } }
+    if(state.reso.t > 0) { state.reso.t--; if(state.reso.t<=0) { logMsg(`💨 共鳴狀態結束。`); state.reso.e=null; renderBattleUI(); } }
+    
     state.heroActions = []; let aliveHeroes = state.heroes.filter(h=>h.hp>0);
     if(aliveHeroes.length === 0) return triggerGameOver();
     state.currentHeroIdx = 0; promptHeroCmd(aliveHeroes[0]);
@@ -379,7 +410,7 @@ function planRound() {
 let currSel = [];
 function promptHeroCmd(hero) { 
     $('click-prompt').style.display = 'none'; // 防呆
-    state.battlePhase = 'COMMAND'; state.currentHero = hero; currSel = []; renderCmdUI(); 
+    state.battlePhase = 'COMMAND'; state.currentHero = hero; currSel = []; renderCmdUI(); renderBattleUI();
 }
 
 function renderCmdUI() {
@@ -436,7 +467,7 @@ function buildExecutionQueue() {
     
     for(let i=0; i<actions.length; i++) {
         if(!used.has(i)) {
-            let act = actions[i]; let hSpd = Math.random()*100 + (state.relics.includes('R_A')?100:0);
+            let act = actions[i]; let hSpd = Math.random()*100 + (state.relics.includes('R_A')?100:0) + (state.reso.e==='A'?100:0);
             state.execQueue.push({ isCombo: false, actor: act.hero, origCombo: act.origCombo, baseEl: act.baseEl, spd: hSpd, consumeEls: act.elements });
         }
     }
@@ -465,6 +496,12 @@ function nextAction() {
         if(state.relics.includes('R_ALCH') && act.consumeEls.length > 0 && Math.random() < 0.25) { logMsg("♻️ 煉金之心發動，未消耗元素！"); } 
         else { act.consumeEls.forEach(k => { if(k !== state.theme) state.inventory[k]--; }); }
         
+        // 累積元素能量
+        if(act.consumeEls.length > 0) {
+            act.consumeEls.forEach(k => { if(EL[k].t === 'B') state.energy[k] = (state.energy[k]||0)+1; });
+            checkEnergy();
+        }
+        
         if(act.isCombo) {
             logMsg(`💫 奧義：${act.skill.n}`); executeSkill(act.skill, act.baseEl, act.actor);
         } else {
@@ -491,6 +528,9 @@ function executeSkill(skill, baseEl, actor) {
     else if(p === 'E') targets = [enemies[0]];
     else targets = [enemies.sort(()=>Math.random()-0.5)[0]]; 
     
+    // 失控 A: 狂怒龍捲干擾目標
+    if(state.ovl.e === 'A' && Math.random() < 0.5 && !skill.aoe) { targets = [[...enemies, ...heroes].sort(()=>Math.random()-0.5)[0]]; logMsg("🌪️ 狂風干擾了施法目標！"); }
+    
     let fReacted = false; let rKey = state.field + '_' + baseEl;
     if(state.field && F_REACT[rKey]) {
         let rx = F_REACT[rKey]; logMsg(rx.txt); state.field = rx.new;
@@ -500,17 +540,27 @@ function executeSkill(skill, baseEl, actor) {
         fReacted = true;
     }
     
+    let chains = (state.reso.e === 'T' && baseEl === 'T') ? 2 : 1; // 共鳴 T: 額外連鎖
     targets.forEach(t => hitTarget(t, skill, baseEl, actor));
-    if(skill.chain && enemies.length > 1) { let next = enemies.find(e => !targets.includes(e)); if(next) hitTarget(next, { dmg: Math.floor(skill.dmg/2), apply: skill.apply }, baseEl, actor); }
+    
+    for(let i=0; i<chains; i++) {
+        if(skill.chain && enemies.length > 1) { 
+            let next = enemies.find(e => !targets.includes(e)); 
+            if(next) { hitTarget(next, { dmg: Math.floor(skill.dmg/2), apply: skill.apply }, baseEl, actor); targets.push(next); }
+        }
+    }
     if(!fReacted && skill.leave) { state.field = skill.leave; logMsg(`場地化為【${FIELD[state.field].i}${FIELD[state.field].n}】`); }
 }
 
 function hitTarget(t, skill, elKey, actor) {
+    if(state.ovl.e === 'D' && Math.random() < 0.3) { return spTxt(t, "MISS", '#888'); } // 失控 D: 命中下降
+    
+    let isLReso = state.reso.e === 'L';
     if(skill.action === 'REVEAL') { t.revealed = true; return spTxt(t, "👁️看破", '#fff9c4', -20); }
-    if(skill.action === 'SHIELD' || skill.action2 === 'SHIELD') { let v = skill.val2 || skill.val; t.shield += v; spTxt(t, `🛡️+${v}`, '#eee'); if(!skill.action2) return; }
+    if(skill.action === 'SHIELD' || skill.action2 === 'SHIELD') { let v = Math.floor((skill.val2 || skill.val) * (isLReso?1.5:1)); t.shield += v; spTxt(t, `🛡️+${v}`, '#eee'); if(!skill.action2) return; }
     if(skill.action === 'BUFF') { if(!t.buffs.includes(skill.buff)) t.buffs.push(skill.buff); return spTxt(t, `⚔️強化`, '#ff9800'); }
     if(skill.action === 'DEBUFF') { if(!t.status.includes(skill.buff)) t.status.push(skill.buff); spTxt(t, STATUS[skill.buff].i, STATUS[skill.buff].c, -20); }
-    if(skill.action === 'HEAL' || skill.heal) { let amt = skill.val || skill.heal; t.hp = Math.min(t.maxHp, t.hp + amt); spTxt(t, `💚+${amt}`, '#00d26a'); if(!skill.dmg) return; }
+    if(skill.action === 'HEAL' || skill.heal) { let amt = Math.floor((skill.val || skill.heal) * (isLReso?1.5:1)); t.hp = Math.min(t.maxHp, t.hp + amt); spTxt(t, `💚+${amt}`, '#00d26a'); if(!skill.dmg) return; }
 
     if(skill.dmg) {
         let dmg = skill.dmg; let c = '#fff';
@@ -519,6 +569,9 @@ function hitTarget(t, skill, elKey, actor) {
         if(state.relics.includes('R_I') && elKey==='I') dmg = Math.floor(dmg*1.5);
         if(state.relics.includes('R_T') && elKey==='T') dmg = Math.floor(dmg*1.5);
         
+        if(state.reso.e === 'F' && elKey === 'F') dmg = Math.floor(dmg*1.5); // 共鳴 F
+        if(state.reso.e === 'I' && elKey === 'I' && t.status.includes('FROZEN')) dmg = Math.floor(dmg*1.5); // 共鳴 I
+
         if(t.isEnemy) {
             if(elKey && t.insta && t.insta.includes(elKey)) { dmg = 999; c = '#f00'; logMsg(`🎯 致命弱點觸發！`); }
             else if(elKey && t.abs && t.abs.includes(elKey)) { t.hp = Math.min(t.maxHp, t.hp + dmg); return spTxt(t, `吸收+${dmg}`, '#0f0'); }
@@ -529,6 +582,8 @@ function hitTarget(t, skill, elKey, actor) {
         applyDmg(t, dmg, c);
         
         if(state.relics.includes('R_W') && elKey==='W' && actor) { actor.hp = Math.min(actor.maxHp, actor.hp+15); spTxt(actor, "💧護符", '#00d26a', -20); }
+        if(state.reso.e === 'D' && elKey === 'D' && actor) { actor.hp = Math.min(actor.maxHp, actor.hp+Math.floor(dmg*0.5)); spTxt(actor, "🌑吸血", '#888', -20); } // 共鳴 D
+        if(state.reso.e === 'W' && elKey === 'W' && actor) { actor.shield += 20; spTxt(actor, "💧護盾", '#03a9f4', -20); } // 共鳴 W
     }
     
     if(skill.apply) applyStatus(t, skill.apply);
@@ -553,6 +608,7 @@ function applyStatus(t, s) {
 }
 
 function applyDmg(t, v, c='#fff') {
+    if(state.reso.e === 'E' && !t.isEnemy) v = Math.max(1, Math.floor(v*0.7)); // 共鳴 E: 減傷
     if(t.shield > 0) { if(t.shield >= v) { t.shield -= v; return spTxt(t, "🛡️抵消", '#aaa'); } else { v -= t.shield; t.shield = 0; } }
     t.hp -= v; spTxt(t, `-${v}`, c); t.hit = 25; 
 }
@@ -560,19 +616,26 @@ function applyDmg(t, v, c='#fff') {
 function resolveEndOfTurn(ent) {
     if(ent.hp<=0) return;
     if(ent.status.includes('BURN')) { applyDmg(ent, 5, '#f52'); spTxt(ent, '🔥', '#f52', 15); }
-    if(ent.status.includes('POISON')) { applyDmg(ent, 8, '#92b'); spTxt(ent, '☠️', '#92b', 15); }
+    if(ent.status.includes('POISON')) { applyDmg(ent, state.reso.e==='P'?16:8, '#92b'); spTxt(ent, '☠️', '#92b', 15); } // 共鳴 P
     if(state.field === 'F') applyDmg(ent, 3, '#f52');
     if(state.field === 'P') applyStatus(ent, 'POISON');
     if(ent.isEnemy && ent.affix === 'REGEN') { ent.hp = Math.min(ent.maxHp, ent.hp+15); spTxt(ent, "💚再生", '#0f0'); }
+    
+    // 失控回合效果 (Overload Global Effects)
+    if(state.ovl.e && state.ovl.t > 0) {
+        let oe = state.ovl.e;
+        if(oe==='F') { applyDmg(ent, 15, '#f52'); spTxt(ent, '🌋', '#f52', 15); }
+        if(oe==='W') applyStatus(ent, 'WET');
+        if(oe==='P') applyStatus(ent, 'POISON');
+        if(oe==='I') applyStatus(ent, 'SLOW');
+        if(oe==='T' && Math.random()<0.3) { applyDmg(ent, 25, '#ffeb3b'); applyStatus(ent, 'SHOCK'); }
+        if(oe==='E') applyDmg(ent, 20, '#8b5a2b');
+        if(oe==='L') { ent.hp = Math.min(ent.maxHp, ent.hp+15); spTxt(ent, '☀️', '#ffeb3b', 15); }
+    }
 }
 
-// 全域綁定推進
 $('app').addEventListener('click', (e) => { 
-    if(state.battlePhase === 'WAIT') { 
-        state.battlePhase = 'PROCESSING'; 
-        $('click-prompt').style.display='none'; 
-        nextAction(); 
-    } 
+    if(state.battlePhase === 'WAIT') { state.battlePhase = 'PROCESSING'; $('click-prompt').style.display='none'; nextAction(); } 
 });
 
 function checkWinLoss() {
@@ -644,13 +707,8 @@ function render() {
     for(let i=particles.length-1; i>=0; i--) { let p=particles[i]; ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,2.5,0,Math.PI*2); ctx.fill(); p.x+=p.vx; p.y+=p.vy; p.l--; if(p.l<=0) particles.splice(i,1); }
     
     for(let i=floatTexts.length-1; i>=0; i--) { 
-        let t=floatTexts[i]; 
-        ctx.globalAlpha = Math.min(1, t.l/20);
-        ctx.fillStyle=t.c; ctx.font="bold 16px Arial"; ctx.strokeStyle="#000"; ctx.lineWidth=3; 
-        ctx.strokeText(t.t,t.x,t.y); ctx.fillText(t.t,t.x,t.y); 
-        ctx.globalAlpha = 1.0;
-        t.y-=0.3; t.l--; 
-        if(t.l<=0) floatTexts.splice(i,1); 
+        let t=floatTexts[i]; ctx.globalAlpha = Math.min(1, t.l/20); ctx.fillStyle=t.c; ctx.font="bold 16px Arial"; ctx.strokeStyle="#000"; ctx.lineWidth=3; 
+        ctx.strokeText(t.t,t.x,t.y); ctx.fillText(t.t,t.x,t.y); ctx.globalAlpha = 1.0; t.y-=0.3; t.l--; if(t.l<=0) floatTexts.splice(i,1); 
     }
 }
 function loop() { render(); requestAnimationFrame(loop); }
