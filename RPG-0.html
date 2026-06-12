@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>勇者口袋大冒險 - Endless Edition</title>
+    
+    <!-- 引入 Tailwind CSS 進行排版 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 React 18 與 Babel (用於在瀏覽器直接編譯 JSX) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* 基礎樣式重置，確保全螢幕且禁用預設的滑動行為 */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: black; overflow: hidden; touch-action: none; }
+        #root { width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // 從全域 React 物件中取出我們需要的 Hooks
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        const MAP_W = 14; const MAP_H = 9;
+
+        const THEMES = {
+          1: { name: '史萊姆草原', bg: 'bg-green-500', wall: '🌲', wallBg: 'bg-green-800', floorBg: 'bg-green-600' },
+          2: { name: '烈日沙漠', bg: 'bg-yellow-400', wall: '🌵', wallBg: 'bg-yellow-700', floorBg: 'bg-yellow-600' },
+          3: { name: '焦熱火山', bg: 'bg-red-800', wall: '🌋', wallBg: 'bg-red-950', floorBg: 'bg-red-900' },
+          4: { name: '極寒冰谷', bg: 'bg-cyan-800', wall: '🧊', wallBg: 'bg-cyan-950', floorBg: 'bg-cyan-900' },
+          5: { name: '幽暗森林', bg: 'bg-emerald-900', wall: '🌳', wallBg: 'bg-emerald-950', floorBg: 'bg-emerald-800' },
+          6: { name: '腐敗沼澤', bg: 'bg-lime-900', wall: '🌿', wallBg: 'bg-lime-950', floorBg: 'bg-lime-800' },
+          7: { name: '廢棄礦坑', bg: 'bg-stone-700', wall: '🪨', wallBg: 'bg-stone-900', floorBg: 'bg-stone-800' },
+          8: { name: '靜謐湖泊', bg: 'bg-blue-800', wall: '🌊', wallBg: 'bg-blue-950', floorBg: 'bg-blue-900' },
+          9: { name: '迷霧高山', bg: 'bg-slate-600', wall: '⛰️', wallBg: 'bg-slate-800', floorBg: 'bg-slate-700' },
+          10:{ name: '死亡墓地', bg: 'bg-zinc-900', wall: '🪦', wallBg: 'bg-zinc-950', floorBg: 'bg-zinc-800' },
+          11:{ name: '荒蕪古城', bg: 'bg-orange-950', wall: '🏛️', wallBg: 'bg-black', floorBg: 'bg-orange-900' },
+          12:{ name: '鋼鐵要塞', bg: 'bg-gray-800', wall: '🧱', wallBg: 'bg-gray-950', floorBg: 'bg-gray-900' },
+          13:{ name: '浮空島嶼', bg: 'bg-sky-600', wall: '☁️', wallBg: 'bg-sky-800', floorBg: 'bg-sky-700' },
+          14:{ name: '虛空神殿', bg: 'bg-fuchsia-900', wall: '🌌', wallBg: 'bg-fuchsia-950', floorBg: 'bg-fuchsia-800' },
+        };
+        const ALL_WALLS = ['🌲', '🌵', '🌋', '🧊', '🌳', '🌿', '🪨', '🌊', '⛰️', '🪦', '🏛️', '🧱', '☁️', '🌌'];
+
+        const ENEMIES = {
+          1: [{n:'綠史萊姆',hp:25,atk:5,def:1,xp:5,g:3,e:'💧',weak:'m'},{n:'毒蛇',hp:20,atk:8,def:0,xp:8,g:5,e:'🐍',sp:'poison',weak:'s'},{n:'吸血蝙蝠',hp:30,atk:10,def:0,xp:12,g:5,e:'🦇',sp:'lifesteal',weak:'s'}],
+          2: [{n:'毒蠍子',hp:65,atk:18,def:5,xp:25,g:15,e:'🦂',sp:'poison',weak:'m'},{n:'木乃伊',hp:95,atk:15,def:10,xp:35,g:20,e:'🧟',weak:'m'},{n:'人魚',hp:70,atk:22,def:8,xp:30,g:18,e:'🧜‍♀️',sp:'sleep',weak:'s'}],
+          3: [{n:'火妖',hp:130,atk:35,def:10,xp:60,g:40,e:'🔥',sp:'burn',weak:'m'},{n:'地獄犬',hp:160,atk:45,def:15,xp:80,g:50,e:'🐺',weak:'s'},{n:'惡魔',hp:220,atk:55,def:25,xp:120,g:80,e:'👿',weak:'m'}],
+          4: [{n:'冰雪史萊姆',hp:280,atk:75,def:30,xp:150,g:100,e:'🧊',sp:'freeze',weak:'m'},{n:'狂暴雪人',hp:380,atk:85,def:45,xp:180,g:120,e:'⛄',sp:'stun',weak:'m'},{n:'冰晶鳥',hp:300,atk:100,def:20,xp:160,g:110,e:'❄️',weak:'s'}],
+          5: [{n:'食人花',hp:400,atk:120,def:40,xp:250,g:150,e:'🌺',sp:'poison',weak:'s'},{n:'猛毒蜘蛛',hp:450,atk:135,def:35,xp:280,g:160,e:'🕷️',sp:'poison',weak:'s'},{n:'樹精',hp:550,atk:110,def:55,xp:300,g:170,e:'🌲',weak:'s'}],
+          6: [{n:'泥泥怪',hp:650,atk:160,def:60,xp:350,g:220,e:'💩',weak:'m'},{n:'沼澤鱷魚',hp:750,atk:190,def:80,xp:400,g:250,e:'🐊',sp:'bleed',weak:'s'},{n:'瘟疫蚊',hp:500,atk:210,def:30,xp:380,g:230,e:'🦟',sp:'poison',weak:'s'}],
+          7: [{n:'穴居人',hp:850,atk:230,def:80,xp:500,g:300,e:'🧌',weak:'m'},{n:'礦坑蝙蝠',hp:750,atk:260,def:50,xp:520,g:320,e:'🦇',sp:'lifesteal',weak:'s'},{n:'岩石魔像',hp:1200,atk:200,def:150,xp:600,g:350,e:'🗿',weak:'m'}],
+          8: [{n:'湖中精靈',hp:1000,atk:290,def:90,xp:650,g:420,e:'🧚',sp:'sleep',weak:'s'},{n:'水元素',hp:1150,atk:310,def:100,xp:700,g:450,e:'💧',weak:'m'},{n:'巨蛙',hp:1300,atk:270,def:120,xp:680,g:430,e:'🐸',weak:'s'}],
+          9: [{n:'巨鷹',hp:1300,atk:360,def:100,xp:850,g:550,e:'🦅',sp:'bleed',weak:'s'},{n:'山地羊',hp:1500,atk:330,def:130,xp:800,g:500,e:'🐐',weak:'m'},{n:'暴風元素',hp:1200,atk:400,def:80,xp:900,g:580,e:'🌪️',weak:'m'}],
+          10: [{n:'骷髏兵',hp:1600,atk:450,def:150,xp:1100,g:700,e:'💀',weak:'m'},{n:'幽靈',hp:1400,atk:500,def:50,xp:1150,g:750,e:'👻',sp:'sleep',weak:'m'},{n:'殭屍',hp:2000,atk:420,def:180,xp:1200,g:800,e:'🧟',sp:'poison',weak:'m'}],
+          11: [{n:'幽魂騎士',hp:2200,atk:560,def:200,xp:1400,g:950,e:'🏇',weak:'m'},{n:'石像鬼',hp:2500,atk:510,def:250,xp:1500,g:1000,e:'🦇',weak:'s'},{n:'古代怨靈',hp:1900,atk:620,def:120,xp:1450,g:980,e:'🏺',sp:'burn',weak:'m'}],
+          12: [{n:'鐵甲守衛',hp:3000,atk:650,def:350,xp:1800,g:1250,e:'🤖',weak:'m'},{n:'機械兵',hp:2700,atk:720,def:280,xp:1900,g:1300,e:'⚙️',weak:'m'},{n:'火炮車',hp:2400,atk:800,def:200,xp:1950,g:1350,e:'🚜',sp:'burn',weak:'s'}],
+          13: [{n:'雲妖',hp:3100,atk:850,def:200,xp:2300,g:1600,e:'☁️',weak:'s'},{n:'風精靈',hp:2900,atk:920,def:180,xp:2400,g:1650,e:'🍃',sp:'sleep',weak:'m'},{n:'天使守衛',hp:3600,atk:800,def:300,xp:2500,g:1700,e:'👼',weak:'s'}],
+          14: [{n:'虛空行者',hp:4000,atk:1050,def:300,xp:3000,g:2200,e:'🕳️',weak:'m'},{n:'混沌魔',hp:4500,atk:980,def:350,xp:3200,g:2300,e:'👾',sp:'burn',weak:'m'},{n:'深淵觸手',hp:3800,atk:1150,def:250,xp:3100,g:2250,e:'🦑',sp:'lifesteal',weak:'s'}]
+        };
+        const BOSSES = {
+          1: { n: '哥布林王', hp: 180, atk: 25, def: 5, xp: 100, g: 100, e:'👹', weak:'m' },
+          2: { n: '獅身獸', hp: 400, atk: 45, def: 15, xp: 300, g: 300, e:'🦁', weak:'s' },
+          3: { n: '炎魔王', hp: 900, atk: 85, def: 40, xp: 1000, g: 1000, e:'🐉', sp:'burn', weak:'m' },
+          4: { n: '冰霜巨龍', hp: 1800, atk: 140, def: 60, xp: 2000, g: 2000, e:'🐲', sp:'freeze', weak:'s' },
+          5: { n: '巨型樹人', hp: 2800, atk: 200, def: 80, xp: 3500, g: 3000, e:'🌳', sp:'stun', weak:'s' },
+          6: { n: '沼澤之王', hp: 4000, atk: 280, def: 120, xp: 5000, g: 4500, e:'🦠', sp:'poison', weak:'m' },
+          7: { n: '巨石王', hp: 5500, atk: 380, def: 250, xp: 7500, g: 6500, e:'🪨', sp:'stun', weak:'m' },
+          8: { n: '湖之領主', hp: 7000, atk: 500, def: 180, xp: 10000, g: 8500, e:'🦑', sp:'sleep', weak:'s' },
+          9: { n: '風暴巨雕', hp: 9000, atk: 650, def: 220, xp: 13000, g: 11000, e:'🦅', sp:'bleed', weak:'s' },
+          10: { n: '巫妖', hp: 11500, atk: 820, def: 280, xp: 17000, g: 14000, e:'🧙‍♂️', sp:'lifesteal', weak:'m' },
+          11: { n: '亡國君王', hp: 14500, atk: 1000, def: 400, xp: 22000, g: 18000, e:'👑', sp:'bleed', weak:'m' },
+          12: { n: '堡壘機甲', hp: 18000, atk: 1250, def: 600, xp: 28000, g: 23000, e:'🤖', sp:'stun', weak:'m' },
+          13: { n: '天空聖獸', hp: 22000, atk: 1550, def: 450, xp: 35000, g: 30000, e:'🦄', sp:'sleep', weak:'s' },
+          14: { n: '虛空大帝', hp: 28000, atk: 1900, def: 550, xp: 45000, g: 40000, e:'💠', sp:'freeze', weak:'m' }
+        };
+
+        const ITEMS = {
+          w1: { t:'w', n:'木劍', atk:5, sell:5, e:'🗡️' }, a1: { t:'a', n:'皮衣', def:3, sell:5, e:'👕' }, c1: { t:'c', n:'力量護腕', atk:12, sell:40, e:'🥊' },
+          w2: { t:'w', n:'鐵劍', atk:25, sell:20, e:'⚔️' }, a2: { t:'a', n:'鎖子甲', def:12, sell:20, e:'🛡️' }, c2: { t:'c', n:'防禦戒指', def:8, sell:40, e:'💍' },
+          w3: { t:'w', n:'勇者之劍', atk:60, sell:60, e:'🗡️✨' }, a3: { t:'a', n:'勇者之鎧', def:35, sell:60, e:'🛡️✨' }, c3: { t:'c', n:'生命墜飾', hp:50, sell:100, e:'📿' },
+          w4: { t:'w', n:'神聖光劍', atk:120, sell:150, e:'✨⚔️' }, a4: { t:'a', n:'神聖護甲', def:65, sell:150, e:'✨🛡️' }, c4: { t:'c', n:'萬能護符', def:15, sp:'immune', sell:250, e:'🎀' },
+          w5: { t:'w', n:'暗影匕首', atk:200, sp:'poison', sell:300, e:'🗡️🐍' }, a5: { t:'a', n:'暗影披風', def:100, sell:300, e:'🦇' }, c5: { t:'c', n:'吸血鬼指環', atk:20, sp:'lifesteal', sell:500, e:'🧛' },
+          w6: { t:'w', n:'破壞者巨斧', atk:350, sp:'bleed', sell:600, e:'🪓' }, a6: { t:'a', n:'破壞者重甲', def:180, sell:600, e:'🦾' }, c6: { t:'c', n:'龍血寶珠', hp:150, sp:'burn', sell:800, e:'🩸' },
+          w7: { t:'w', n:'虛空神劍', atk:600, sp:'stun', sell:1200, e:'🌌' }, a7: { t:'a', n:'虛空神鎧', def:300, sell:1200, e:'🌌' }, c7: { t:'c', n:'虛空核心', atk:60, def:60, hp:200, sell:1500, e:'⚛️' },
+        };
+        const ITEM_KEYS_ORDER = Object.keys(ITEMS); 
+        const ST_NAMES = { poison: '中毒', burn: '燃燒', sleep: '沉睡', freeze: '凍結', stun: '暈眩', bleed: '流血', immune: '免疫' };
+
+        const SKILLS = {
+          m_fire: { n: '火球術', t: 'm', oj: 'mag', mp: 15, e:'🔥', d: '造成基礎魔法傷害', mul: 1.5 }, 
+          m_bliz: { n: '暴風雪', t: 'm', oj: 'mag', mp: 25, e:'❄️', d: '造成大範圍魔法傷害', mul: 2.5 }, 
+          m_holy: { n: '神聖之光', t: 'm', oj: 'clr', mp: 20, e:'🌟', d: '對邪惡造成強大重擊', mul: 3.0 },
+          m_drain: { n: '吸取生命', t: 'm', oj: 'mgk', mp: 12, e:'🧛', d: '造成傷害並吸取50%生命', mul: 1.0, ls: 0.5 },
+          m_pois: { n: '猛毒咒', t: 'm', oj: 'asn', mp: 12, e:'🤢', d: '造成微量傷害，使敵人中毒3回合', mul: 0.5, eff: 'poison', trn: 3 },
+          m_slp: { n: '催眠曲', t: 'm', oj: 'mag', mp: 15, e:'💤', d: '使敵人沉睡2回合 (被打會醒)', mul: 0, eff: 'sleep', trn: 2 },
+          m_frz: { n: '冰凍術', t: 'm', oj: 'mgk', mp: 20, e:'🧊', d: '魔法傷害並凍結敵人2回合', mul: 1.5, eff: 'freeze', trn: 2 },
+          m_cure: { n: '淨化術', t: 'm', oj: 'clr', mp: 15, e:'✨', d: '解除自身所有異常狀態', isCure: true },
+          m_heal: { n: '治癒術', t: 'm', oj: 'clr', mp: 10, e:'💚', d: '恢復自身 50% 最大HP', isHeal: 0.5 },
+          m_met: { n: '隕石術', t: 'm', oj: 'wiz', mp: 35, e:'☄️', d: '召喚隕石造成毀滅傷害並附加燃燒', mul: 3.5, eff: 'burn', trn: 3 }, 
+          m_hwa: { n: '聖療術', t: 'm', oj: 'bis', mp: 25, e:'👼', d: '完全恢復HP並解除所有異常', isHeal: 1.0, isCure: true }, 
+
+          s_hev: { n: '奮力一擊', t: 's', oj: 'war', mp: 8, e:'💥', d: '1.5 倍的物理傷害', mul: 1.5 }, 
+          s_multi: { n: '雙連擊', t: 's', oj: 'thf', mp: 12, e:'⚔️', d: '連續造成兩次傷害', mul: 1.2, hits: 2 },
+          s_crs: { n: '聖十字斬', t: 's', oj: 'pal', mp: 15, e:'✝️', d: '造成物理與神聖雙重高傷', mul: 2.5, flat: 20 }, 
+          s_mgsw: { n: '魔法劍', t: 's', oj: 'mgk', mp: 18, e:'🗡️', d: '附魔武器，造成破壞性傷害', mul: 1.5, lvlFlat: 5 },
+          s_asn: { n: '暗殺', t: 's', oj: 'nin', mp: 20, e:'🩸', d: '20% 機率一擊必殺', mul: 2.0, instakill: 0.2 },
+          s_stl: { n: '偷竊', t: 's', oj: 'thf', mp: 5, e:'🖐️', d: '造成傷害並偷取金幣', mul: 0.5, steal: true },
+          s_stun: { n: '盾擊', t: 's', oj: 'pal', mp: 10, e:'🛡️', d: '造成傷害並暈眩敵人1回合', mul: 1.0, eff: 'stun', trn: 1 },
+          s_bld: { n: '撕裂', t: 's', oj: 'nin', mp: 12, e:'🩸', d: '造成傷害並使敵人流血3回合', mul: 1.2, eff: 'bleed', trn: 3 },
+          s_chk: { n: '查克拉', t: 's', oj: 'mnk', mp: 10, e:'🧘‍♂️', d: '恢復 20% HP/MP 並解除異常', isCure: true, isHeal: 0.2, healMp: 0.2 },
+          s_ramp: { n: '狂暴', t: 's', oj: 'zer', mp: 15, e:'💢', d: '造成3倍物理傷害，但承受部分反傷', mul: 3.0, recoil: 0.15 }, 
+          s_snp: { n: '狙擊', t: 's', oj: 'rgr', mp: 18, e:'🏹', d: '精準射擊高傷，高機率暈眩', mul: 2.0, eff: 'stun', trn: 1 }, 
+          s_def: { n: '防禦', t: 's', oj: 'nov', mp: 0, e:'🛡️', d: '本回合受到的傷害減半', special: 'def' }, 
+          s_med: { n: '冥想', t: 's', oj: 'nov', mp: 0, e:'🧘', d: '瞬間恢復 20 點 MP', special: 'med' },
+
+          p_hp: { n: '強壯', t: 'p', e:'💪', d: '最大 HP 提升 20%' }, p_mp: { n: '魔力覺醒', t: 'p', e:'🧠', d: '最大 MP 提升 20%' },
+          p_def: { n: '鐵壁', t: 'p', e:'🧱', d: '基礎防禦力 +5' }, p_dod: { n: '輕盈', t: 'p', e:'🍃', d: '10% 機率完全閃避' },
+          p_exp: { n: '勤奮', t: 'p', e:'📚', d: '獲得的經驗值增加 20%' }, p_gold: { n: '貪婪', t: 'p', e:'💰', d: '獲得的金幣增加 20%' },
+          p_atk: { n: '鬥氣', t: 'p', e:'💢', d: '基礎攻擊力 +5' },
+          p_fcs: { n: '武術', t: 'p', e:'🥋', d: '基礎攻防各提升 +3' },
+          p_brk: { n: '狂戰之血', t: 'p', e:'🩸', d: '基礎攻擊力巨幅提升 +25' }, 
+          p_eco: { n: '魔力湧動', t: 'p', e:'🌌', d: '所有魔法傷害額外提升 25%' }, 
+          p_div: { n: '神聖庇護', t: 'p', e:'👼', d: '最大 HP 與 MP 額外提升 30%' }, 
+          p_swt: { n: '風之步', t: 'p', e:'💨', d: '閃避機率巨幅提升至 25%' }, 
+          p_ult: { n: '大器晚成', t: 'p', e:'🌟', d: '【彩蛋被動】全基礎能力爆增 250%！' } 
+        };
+
+        const JOBS = {
+          nov: { id: 'nov', tier: 1, n: '初心者', e: '🥚', req: {}, s: { 1: ['s_def', 's_med'], 5: ['p_exp'] } },
+          war: { id: 'war', tier: 1, n: '戰士', e: '⚔️', req: {}, s: { 1: ['s_hev'], 5: ['p_hp'], 10: ['p_atk'] } },
+          mag: { id: 'mag', tier: 1, n: '魔法使', e: '🧙', req: {}, s: { 1: ['m_fire'], 5: ['p_mp'], 10: ['m_bliz'] } },
+          clr: { id: 'clr', tier: 1, n: '牧師', e: '✝️', req: {}, s: { 1: ['m_heal'], 5: ['p_def'], 10: ['m_holy'] } },
+          thf: { id: 'thf', tier: 1, n: '盜賊', e: '🥷', req: {}, s: { 1: ['s_stl'], 5: ['p_dod'], 10: ['s_multi'], 15: ['p_gold'] } },
+          pal: { id: 'pal', tier: 2, n: '聖騎士', e: '🛡️✨', req: { war: 10, clr: 10 }, s: { 1: ['s_crs'], 5: ['m_cure'], 10: ['s_stun'] } },
+          mgk: { id: 'mgk', tier: 2, n: '魔劍士', e: '🗡️🔥', req: { war: 10, mag: 10 }, s: { 1: ['s_mgsw'], 5: ['m_frz'], 10: ['m_drain'] } },
+          sag: { id: 'sag', tier: 2, n: '賢者', e: '📜', req: { mag: 10, clr: 10 }, s: { 1: ['m_cure'], 5: ['p_mp'], 10: ['m_bliz'] } },
+          nin: { id: 'nin', tier: 2, n: '忍者', e: '💨', req: { thf: 10, war: 10 }, s: { 1: ['s_bld'], 5: ['p_dod'], 10: ['s_asn'] } },
+          asn: { id: 'asn', tier: 2, n: '刺客', e: '🗡️🩸', req: { thf: 10, mag: 10 }, s: { 1: ['m_pois'], 5: ['s_bld'], 10: ['s_asn'] } }, 
+          mnk: { id: 'mnk', tier: 2, n: '武僧', e: '📿🥋', req: { thf: 10, clr: 10 }, s: { 1: ['s_stun'], 5: ['p_fcs'], 10: ['s_chk'] } }, 
+          zer: { id: 'zer', tier: 3, n: '狂戰士', e: '🪓', req: { war: 15 }, s: { 1: ['s_ramp'], 5: ['p_brk'] } },
+          wiz: { id: 'wiz', tier: 3, n: '巫師', e: '🔮', req: { mag: 15 }, s: { 1: ['m_met'], 5: ['p_eco'] } },
+          bis: { id: 'bis', tier: 3, n: '主教', e: '⛪', req: { clr: 15 }, s: { 1: ['m_hwa'], 5: ['p_div'] } },
+          rgr: { id: 'rgr', tier: 3, n: '遊俠', e: '🦅', req: { thf: 15 }, s: { 1: ['s_snp'], 5: ['p_swt'] } },
+        };
+
+        const INIT_PLAYER = {
+          name: '無名冒險者', lvl: 1, hp: 60, bhp: 60, mp: 20, bmp: 20, batk: 8, bdef: 2, xp: 0, g: 50,
+          x: 1, y: 1, mapLvl: 1, eq: { w: null, a: null, c: null }, inv: [], 
+          pot: { hp: 3, mp: 1, cure: 1, mBoom: 0 }, upg: {}, st: {}, sUpg: {}, 
+          job: 'nov', jLvl: { nov: 1 }, skills: ['s_def', 's_med'], defM: null, defS: null,
+          meta: { deaths: 0, maxDmg: 0, maxJob: 'nov', maxJLvl: 1 } 
+        };
+
+        const getExpReq = (lvl) => Math.floor(25 * Math.pow(lvl, 1.25));
+        const delay = ms => new Promise(r => setTimeout(r, ms));
+
+        const StIcons = ({st}) => {
+          if(!st || Object.keys(st).length===0) return null;
+          return <span className="text-[10px] sm:text-xs ml-1 flex gap-0.5">{st.poison>0&&'🤢'}{st.burn>0&&'🔥'}{st.sleep>0&&'💤'}{st.freeze>0&&'🧊'}{st.stun>0&&'😵'}{st.bleed>0&&'🩸'}{st.stunImmune>0&&'🛡️'}</span>
+        };
+
+        function App() {
+          const [scene, setScene] = useState('START'); 
+          const [menu, setMenu] = useState('MAIN');    
+          const [cMenu, setCMenu] = useState('MAIN');  
+          
+          const [p, setP] = useState({ ...INIT_PLAYER });
+          const [mapData, setMapData] = useState([]);
+          const [enemy, setEnemy] = useState(null);
+          const [logs, setLogs] = useState([]);
+          const [auto, setAuto] = useState(false);
+          const [pwr, setPwr] = useState(false);
+          
+          const [editName, setEditName] = useState(false);
+          const [tempN, setTempN] = useState('');
+          const [infoModal, setInfoModal] = useState(null); 
+          const [sellModal, setSellModal] = useState(false);
+          const [logModal, setLogModal] = useState(false);
+          const [saveCodeModal, setSaveCodeModal] = useState({ show: false, mode: '', code: '' });
+
+          const generalLogRef = useRef(null);
+          const fullLogEndRef = useRef(null);
+          const isAnimating = useRef(false);
+
+          const print = useCallback((msg) => { setLogs(prev => [...prev, `> ${msg}`].slice(-80)); }, []);
+          useEffect(() => { if (generalLogRef.current) generalLogRef.current.scrollIntoView({ behavior: 'auto' }); }, [logs]);
+          useEffect(() => { if (logModal && fullLogEndRef.current) fullLogEndRef.current.scrollIntoView({ behavior: 'auto' }); }, [logs, logModal]);
+
+          // 🌟 全局字體大小狀態
+          const [fontLevel, setFontLevel] = useState(1);
+          useEffect(() => { document.documentElement.style.fontSize = ['14px', '16px', '18px'][fontLevel]; }, [fontLevel]);
+
+          // 🌟 本地存讀檔與匯出匯入邏輯
+          const saveLocal = () => { localStorage.setItem('rpg_save_v1', JSON.stringify(p)); print('💾 遊戲進度已儲存至瀏覽器本地端。'); };
+          const loadLocal = () => {
+            try {
+              const s = localStorage.getItem('rpg_save_v1');
+              if (s) {
+                let parsed = JSON.parse(s);
+                if(parsed && parsed.lvl) { setP(parsed); setScene('PLAY'); setMenu('MAIN'); setCMenu('MAIN'); setEnemy(null); genMap(); print('📂 已成功讀取本地存檔！'); }
+              } else print('❌ 找不到本地存檔。');
+            } catch(e) { print('❌ 讀檔失敗，存檔可能已毀損。'); }
+          };
+          const exportCode = () => {
+            try {
+              const code = btoa(unescape(encodeURIComponent(JSON.stringify(p))));
+              setSaveCodeModal({ show: true, mode: 'export', code: code });
+            } catch(e) { print('❌ 產生繼承碼失敗。'); }
+          };
+          
+          const triggerImport = () => { setSaveCodeModal({ show: true, mode: 'import', code: '' }); };
+          const handleImport = (code) => {
+            if(!code) return;
+            try {
+              const parsed = JSON.parse(decodeURIComponent(escape(atob(code))));
+              if(parsed && parsed.lvl) { setP(parsed); setScene('PLAY'); setMenu('MAIN'); setCMenu('MAIN'); setEnemy(null); genMap(); print('✨ 成功載入繼承碼，歡迎回來！'); }
+              else print('❌ 繼承碼內容無效。');
+            } catch(e) { print('❌ 解析繼承碼失敗，請確認複製的代碼是否完整無缺。'); }
+            setSaveCodeModal({ show: false, mode: '', code: '' });
+          };
+
+          const getUpgVal = (id, lvl, isW) => id ? lvl * (parseInt(id.replace(/\D/g, '')) || 1) * (isW ? 5 : 3) : 0;
+
+          const getAvailableSkills = useCallback((pl) => {
+              return [...(pl.skills || [])];
+          }, []);
+
+          const getSk = useCallback((id, pl = p) => {
+              if (!id || !SKILLS[id]) return null;
+              let sk = { ...SKILLS[id] };
+              if (pl?.sUpg?.[id] || (pl?.job === 'nov' && pl?.jLvl?.nov >= 99 && (id === 's_def' || id === 's_med'))) {
+                  sk.n += '+'; 
+                  if (sk.mul) sk.mul += 0.5; 
+                  if (sk.isHeal) sk.isHeal += 0.2; 
+                  if (sk.flat) sk.flat += 10; 
+                  if (sk.lvlFlat) sk.lvlFlat += 5; 
+                  if (sk.hits) sk.hits += 1; 
+                  if (sk.instakill) sk.instakill += 0.1; 
+                  if (sk.healMp) sk.healMp += 0.1; 
+                  if (id === 's_def') sk.d = '受到的傷害降至 25%，並額外恢復少量 HP';
+                  if (id === 's_med') sk.d = '瞬間爆發恢復 50 點 MP 與 20% HP';
+              }
+              return sk;
+          }, [p]);
+
+          const hasPsv = useCallback((id, pl = p) => getAvailableSkills(pl).includes(id), [p, getAvailableSkills]);
+          const getPsvLvl = useCallback((id, pl = p) => hasPsv(id, pl) ? (pl.sUpg?.[id] ? 2 : 1) : 0, [hasPsv, p]);
+          const getPsvMult = useCallback((pl = p) => hasPsv('p_ult', pl) ? 2.5 : 1, [hasPsv, p]); 
+
+          const getMaxHp = useCallback((pl = p) => {
+             let hpMul = 1 + (getPsvLvl('p_hp', pl) * 0.2) + (hasPsv('p_div', pl) ? 0.3 : 0);
+             return Math.floor(((pl?.bhp || 60) + (pl?.eq?.c ? (ITEMS[pl.eq.c]?.hp||0) : 0)) * hpMul * getPsvMult(pl));
+          }, [getPsvLvl, hasPsv, p, getPsvMult]);
+
+          const getMaxMp = useCallback((pl = p) => {
+             let mpMul = 1 + (getPsvLvl('p_mp', pl) * 0.2) + (hasPsv('p_div', pl) ? 0.3 : 0);
+             return Math.floor((pl?.bmp || 20) * mpMul * getPsvMult(pl));
+          }, [getPsvLvl, hasPsv, p, getPsvMult]);
+
+          const getAtk = useCallback((pl = p) => {
+             let atkPsv = getPsvLvl('p_atk', pl) * 5; let fcsPsv = getPsvLvl('p_fcs', pl) * 3; let brkPsv = hasPsv('p_brk', pl) ? 25 : 0;
+             return Math.floor(((pl?.batk || 8) + (pl?.eq?.w ? (ITEMS[pl.eq.w]?.atk || 0) + getUpgVal(pl.eq.w, pl?.upg?.[pl.eq.w]||0, true) : 0) + (pl?.eq?.c ? (ITEMS[pl.eq.c]?.atk||0) : 0) + atkPsv + fcsPsv + brkPsv) * getPsvMult(pl));
+          }, [getPsvLvl, hasPsv, p, getPsvMult]);
+
+          const getDef = useCallback((pl = p) => {
+             let defPsv = getPsvLvl('p_def', pl) * 5; let fcsPsv = getPsvLvl('p_fcs', pl) * 3;
+             return Math.floor(((pl?.bdef || 2) + (pl?.eq?.a ? (ITEMS[pl.eq.a]?.def || 0) + getUpgVal(pl.eq.a, pl?.upg?.[pl.eq.a]||0, false) : 0) + (pl?.eq?.c ? (ITEMS[pl.eq.c]?.def||0) : 0) + defPsv + fcsPsv) * getPsvMult(pl));
+          }, [getPsvLvl, hasPsv, p, getPsvMult]);
+
+          const getMapName = (lvl) => (lvl && lvl <= 14) ? THEMES[lvl].name : `無盡異界 第${(lvl||15)-14}層`;
+          const getTheme = (lvl) => THEMES[lvl] || { name: `無盡異界`, bg: 'bg-black', wall: '🌌', wallBg: 'bg-black', floorBg: 'bg-gradient-to-br from-indigo-950 via-purple-900 to-black' };
+
+          const handleEquip = (id, isEquip) => {
+             let pl = JSON.parse(JSON.stringify(p)); if(!pl.inv) pl.inv=[]; let t = ITEMS[id].t;
+             if (isEquip) {
+                let curr = pl.eq[t]; if (curr) pl.inv.push(curr); 
+                let idx = pl.inv.indexOf(id); if (idx > -1) pl.inv.splice(idx, 1); 
+                pl.eq[t] = id; print(`✅ 裝備了 [${ITEMS[id].n}]`);
+             } else {
+                pl.inv.push(id); pl.eq[t] = null; print(`🎒 卸下了 [${ITEMS[id].n}]`);
+             }
+             setP(pl); setInfoModal(null);
+          };
+
+          const setDefSkill = (type, id) => {
+             const prop = type === 'm' ? 'defM' : 'defS';
+             if (p[prop] === id) {
+                 setP(pl => ({ ...pl, [prop]: null })); setInfoModal(null); print(`✅ 已取消預設${type==='m'?'魔法':'特技'}。`);
+             } else {
+                 setP(pl => ({ ...pl, [prop]: id })); setInfoModal(null); print(`✅ 已將 [${getSk(id, p).n}] 設為預設${type==='m'?'魔法':'特技'}。`);
+             }
+          };
+
+          const useFieldItem = (type) => {
+              if (auto || scene === 'COMBAT') return;
+              let pl = JSON.parse(JSON.stringify(p));
+              if (pl.pot[type] > 0) {
+                  if (type === 'hp' && pl.hp < getMaxHp(pl)) {
+                      pl.pot.hp--; pl.hp = Math.min(getMaxHp(pl), pl.hp + Math.floor(getMaxHp(pl)*0.4));
+                      print(`🧪 飲用HP水，恢復生命。`); setP(pl);
+                  } else if (type === 'mp' && pl.mp < getMaxMp(pl)) {
+                      pl.pot.mp--; pl.mp = Math.min(getMaxMp(pl), pl.mp + Math.floor(getMaxMp(pl)*0.4));
+                      print(`💧 飲用MP水，恢復魔力。`); setP(pl);
+                  } else if (type === 'cure' && Object.keys(pl.st).length > 0) {
+                      pl.pot.cure--; pl.st = {};
+                      print(`✨ 飲用萬能藥，解除了所有異常狀態。`); setP(pl);
+                  } else { print(`❌ 目前不需要使用。`); }
+              }
+          };
+
+          const useFieldSkill = (skId) => {
+              if (auto || scene === 'COMBAT') return;
+              let pl = JSON.parse(JSON.stringify(p)); let sk = getSk(skId, pl);
+              if (!sk || pl.mp < sk.mp) { print(`❌ MP 不足。`); return; }
+              if (sk.isHeal || sk.isCure || sk.healMp) {
+                  let used = false;
+                  if (sk.isHeal && pl.hp < getMaxHp(pl)) { pl.hp = Math.min(getMaxHp(pl), pl.hp + Math.floor(getMaxHp(pl)*sk.isHeal)); used = true; }
+                  if (sk.healMp && pl.mp < getMaxMp(pl)) { pl.mp = Math.min(getMaxMp(pl), pl.mp + Math.floor(getMaxMp(pl)*sk.healMp)); used = true; }
+                  if (sk.isCure && Object.keys(pl.st).length > 0) { pl.st = {}; used = true; }
+                  if (used) {
+                      pl.mp -= sk.mp; print(`✨ 施放了 [${sk.n}]！`); setP(pl);
+                  } else { print(`❌ 目前狀態不需要施放此技能。`); }
+              }
+          };
+
+          const openInfo = (type, id, isEq) => {
+            if (type === 'item') {
+              const it = ITEMS[id]; const lvl = p.upg?.[id] || 0; if(!it) return;
+              let stat = ''; let typeName = '';
+              if(it.t === 'w'){ stat = `攻擊力: +${it.atk} ${lvl>0?`(強化加成: +${getUpgVal(id,lvl,true)})`:''}\n${it.sp?`【特殊效果】${it.sp==='poison'?'攻擊附帶中毒':it.sp==='lifesteal'?'攻擊吸血':''}`:''}`; typeName = '武器'; }
+              else if(it.t === 'a'){ stat = `防禦力: +${it.def} ${lvl>0?`(強化加成: +${getUpgVal(id,lvl,false)})`:''}`; typeName = '防具'; }
+              else if(it.t === 'c'){ stat = `附加能力: ` + (it.atk ? `攻擊 +${it.atk}` : it.def ? `防禦 +${it.def}` : it.hp ? `最大HP +${it.hp}` : '') + `\n${it.sp==='immune'?'【特殊效果】完全免疫所有異常狀態':it.sp==='burn'?'【特殊效果】攻擊附帶燃燒':''}`; typeName = '飾品'; }
+              setInfoModal({ type: 'item', id, isEq, title: `${it.e} ${it.n} ${lvl>0?'+'+lvl:''}`, desc: `【${typeName}】\n\n${stat}\n賣出價值: ${it.sell} 🪙`, status: isEq ? '⚔️ 裝備中' : '🎒 存放於背包' });
+            } else if (type === 'skill') {
+              const sk = getSk(id, p); if(!sk) return; setInfoModal({ type: 'skill', id, title: `${sk.e} ${sk.n}`, desc: sk.d, status: sk.t==='p' ? '被動：自動生效' : `主動：消耗 ${sk.mp} 點 MP` });
+            } else if (type === 'job') {
+              const j = JOBS[id]; if(!j) return;
+              let reqText = Object.keys(j.req).length > 0 ? Object.keys(j.req).map(r => `${JOBS[r]?.n||''} Lv.${j.req[r]}`).join(', ') : '無';
+              let skillsText = Object.keys(j.s).map(lvl => `Lv.${lvl} 解鎖：${j.s[lvl].map(sId => SKILLS[sId]?.n||'').join('、')}`).join('\n');
+              if(!skillsText) skillsText = '此職業無特殊技能，但基礎數值成長極高\n';
+              if(id === 'nov') skillsText += '\n\nLv.99 解鎖：【大器晚成】(全屬性飆升 2.5倍！)';
+              setInfoModal({ type: 'job', id, title: `${j.e} ${j.n}`, desc: `【解鎖條件】\n${reqText}\n\n【各等級習得技能】\n${skillsText}`, status: p.job === id ? '🟢 當前修行職業' : (p.jLvl?.[id] ? '🟢 已解鎖，可免費切換' : '⚪ 未解鎖轉職') });
+            }
+          };
+
+          const getEnemyForLevel = useCallback((lvl) => {
+            let base;
+            if (lvl <= 14) { base = (ENEMIES[lvl] || ENEMIES[14])[Math.floor(Math.random() * (ENEMIES[lvl]||ENEMIES[14]).length)]; return { ...base, mhp: base.hp, isBoss: false, st: {} }; }
+            const endlessLvl = lvl - 14;
+            const statScale = Math.pow(1.08, endlessLvl); const rewardScale = Math.pow(1.04, endlessLvl); 
+            const baseList = ENEMIES[14]; base = baseList[Math.floor(Math.random()*baseList.length)]; 
+            let scaledHp = Math.floor(base.hp * statScale);
+            return { n: `[界]${base.n}`, hp: scaledHp, mhp: scaledHp, atk: Math.floor(base.atk * statScale), def: Math.floor(base.def * statScale), xp: Math.floor(base.xp * rewardScale), g: Math.floor(base.g * rewardScale), e: base.e, weak: base.weak, isBoss: false, st: {} };
+          }, []);
+          
+          const getBossForLevel = useCallback((lvl) => {
+            if (lvl <= 14) { let b = { ...(BOSSES[lvl] || BOSSES[14]) }; return { ...b, mhp: b.hp, isBoss: true, st: {} }; }
+            const endlessLvl = lvl - 14;
+            const statScale = Math.pow(1.1, endlessLvl); const rewardScale = Math.pow(1.05, endlessLvl); 
+            let scaledHp = Math.floor(28000 * statScale);
+            return { n: `[淵]異界領主`, hp: scaledHp, mhp: scaledHp, atk: Math.floor(1900 * statScale), def: Math.floor(550 * statScale), xp: Math.floor(45000 * rewardScale), g: Math.floor(40000 * rewardScale), e:'🌀', weak:'m', isBoss: true, st: {} };
+          }, []);
+
+          const genMap = () => {
+            let m = Array(MAP_H).fill(0).map(() => Array(MAP_W).fill('.'));
+            for(let y=0; y<MAP_H; y++) for(let x=0; x<MAP_W; x++) {
+               if(x===0||x===MAP_W-1||y===0||y===MAP_H-1) m[y][x] = '#'; 
+               else if(Math.random()<0.15) m[y][x] = '#'; else if(Math.random()<0.35) m[y][x] = '"'; 
+            }
+            for(let i=1; i<MAP_W-1; i++) m[1][i] = '.'; for(let i=1; i<MAP_H-1; i++) m[i][MAP_W-2] = '.';
+            m[1][1] = 'T'; m[MAP_H-2][MAP_W-2] = 'B';
+            let spots = [];
+            for(let y=1; y<MAP_H-1; y++) for(let x=1; x<MAP_W-1; x++) if(m[y][x]==='.') spots.push([x,y]);
+            for(let i=spots.length-1; i>0; i--){ let j = Math.floor(Math.random()*(i+1)); [spots[i], spots[j]] = [spots[j], spots[i]]; }
+            let c = Math.min(3, spots.length); for(let i=0; i<c; i++) m[spots[i][1]][spots[i][0]] = '$';
+            
+            if (Math.random() < 0.25 && spots.length > c) { let spot = spots[c]; m[spot[1]][spot[0]] = 'M'; }
+            setMapData(m);
+          };
+
+          const startG = () => { 
+            let oldMeta = p.meta || INIT_PLAYER.meta;
+            isAnimating.current = false; setP({ ...JSON.parse(JSON.stringify(INIT_PLAYER)), name: p.name, meta: oldMeta }); genMap(); setEnemy(null); setAuto(false); setMenu('MAIN'); setCMenu('MAIN'); setLogs([]); print('系統啟動... 進入 ASCII 網格世界。'); setScene('PLAY'); 
+          };
+          const revive = () => { setP(pl => ({ ...pl, hp: getMaxHp(pl), mp: getMaxMp(pl), x: 1, y: 1, st: {} })); setEnemy(null); setAuto(false); setScene('PLAY'); setMenu('TOWN'); setLogs(l => [...l, '✨ 女神降下了奇蹟，你在城鎮中復活了，異常狀態已清除。'].slice(-80)); };
+
+          const doCombat = async (act) => {
+            if (isAnimating.current || !enemy) return;
+            if (act !== 'ATTACK' && act !== 'FLEE' && !act.startsWith('ITEM_')) {
+               if (SKILLS[act] && p.mp < SKILLS[act].mp) { print(`❌ MP 不足，無法施放 [${getSk(act).n}]！`); return; }
+            }
+
+            isAnimating.current = true;
+            let pl = JSON.parse(JSON.stringify(p)); if(!pl.st) pl.st={}; if(!pl.meta) pl.meta = { deaths: 0, maxDmg: 0, maxJob: 'nov', maxJLvl: 1 };
+            let en = JSON.parse(JSON.stringify(enemy)); if(!en.st) en.st={};
+            let msg = [];
+            
+            const isImmune = (entity) => entity.eq?.c && ITEMS[entity.eq.c]?.sp === 'immune';
+            const applySt = (tg, type, tns, isPl) => {
+                if(type === 'stun' && tg.st.stunImmune) { msg.push(`🛡️ ${isPl?'你':'敵人'}對暈眩產生了短暫抗性！`); return; }
+                if(isPl && isImmune(pl)) { msg.push('🛡️ 萬能護符免疫了異常狀態！'); return; }
+                tg.st[type] = tns; msg.push(`⚠️ ${isPl?'你':'敵人'}陷入了[${ST_NAMES[type]}]狀態！`);
+            };
+
+            let pCanAct = true; let enDead = false; let defMult = 1; let pDealtDmg = 0;
+            
+            if (pl.st.sleep) { pCanAct = false; msg.push('💤 你正在沉睡，無法行動...'); pl.st.sleep--; }
+            else if (pl.st.stun) { 
+                pCanAct = false; msg.push('😵 你暈眩中無法行動！'); pl.st.stun--; 
+                if(pl.st.stun <= 0) pl.st.stunImmune = 1; 
+            }
+            else if (pl.st.freeze) { pCanAct = false; msg.push('🧊 你被凍結了，無法行動！'); pl.st.freeze--; }
+
+            if (pl.st.stunImmune) pl.st.stunImmune--;
+
+            if (pCanAct && act !== 'FLEE') {
+              if (act === 'ITEM_HP') { pl.pot.hp--; pl.hp=Math.min(getMaxHp(pl), pl.hp+Math.floor(getMaxHp(pl)*0.4)); msg.push(`🧪 飲用HP水。`); }
+              else if (act === 'ITEM_MP') { pl.pot.mp--; pl.mp=Math.min(getMaxMp(pl), pl.mp+Math.floor(getMaxMp(pl)*0.4)); msg.push(`💧 飲用MP水。`); }
+              else if (act === 'ITEM_CURE') { pl.pot.cure--; pl.st={}; msg.push(`✨ 飲用萬能藥，解除了所有異常狀態！`); }
+              else if (act === 'ITEM_MBOOM') { 
+                 pl.pot.mBoom--; msg.push(`🪃 扔出了金屬迴力鏢！`); 
+                 if (en.isMetal) {
+                     let dmg = en.hp; en.hp -= dmg; pDealtDmg = dmg;
+                     msg.push(`💥 命中要害！對金屬史萊姆造成了一擊必殺！`);
+                 } else {
+                     let dmg = Math.floor(Math.random() * 5) + 1; en.hp -= dmg; pDealtDmg = dmg;
+                     msg.push(`✨ 造成了 ${dmg} 點微弱傷害。`);
+                 }
+              }
+              else if (act === 'ATTACK') {
+                 let dmg = Math.max(1, Math.floor(getAtk(pl) * (0.8+Math.random()*0.4)) - (en.def||0)); 
+                 if (en.isMetal) { if (Math.random() < 0.8) { dmg = 0; msg.push(`🍃 金屬史萊姆極速閃避了攻擊！`); } else dmg = 1; }
+                 else if (en.weak === 's') { dmg = Math.floor(dmg * 1.5); msg.push('🔥 擊中弱點！'); }
+                 
+                 en.hp -= dmg; pDealtDmg = dmg;
+                 if (dmg > 0) msg.push(`⚔️ 攻擊，造成 ${dmg} 傷害。`);
+                 if(pl.eq?.w && ITEMS[pl.eq.w]?.sp==='poison' && Math.random()<0.3) applySt(en, 'poison', 3, false);
+                 if(pl.eq?.w && ITEMS[pl.eq.w]?.sp==='bleed' && Math.random()<0.3) applySt(en, 'bleed', 3, false);
+                 if(pl.eq?.w && ITEMS[pl.eq.w]?.sp==='stun' && Math.random()<0.15) applySt(en, 'stun', 1, false);
+                 if(pl.eq?.w && ITEMS[pl.eq.w]?.sp==='lifesteal' && !en.isMetal) { let ls=Math.floor(dmg*0.3); pl.hp=Math.min(getMaxHp(pl),pl.hp+ls); msg.push(`🦇 吸取了 ${ls} 生命！`); }
+                 if(pl.eq?.c && ITEMS[pl.eq.c]?.sp==='burn' && Math.random()<0.3) applySt(en, 'burn', 3, false);
+                 if(en.st.sleep) { en.st.sleep=0; msg.push('💥 敵人驚醒了！'); }
+              } else {
+                 const sk = getSk(act, pl); 
+                 if (sk) {
+                    pl.mp -= sk.mp;
+                    if(sk.special==='def') { 
+                        defMult = pl.sUpg?.['s_def'] || (pl.job==='nov'&&pl.jLvl.nov>=99) ? 0.25 : 0.5; msg.push(`🛡️ 進入防禦姿態。`); 
+                        if(defMult === 0.25) { let hv = Math.floor(getMaxHp(pl)*0.1); pl.hp=Math.min(getMaxHp(pl), pl.hp+hv); msg.push(`💚 恢復 ${hv} HP。`); }
+                    }
+                    else if(sk.special==='med') { 
+                        let isUp = pl.sUpg?.['s_med'] || (pl.job==='nov'&&pl.jLvl.nov>=99);
+                        let mv = isUp ? 50 : 20; pl.mp=Math.min(getMaxMp(pl),pl.mp+mv); msg.push(`🧘 冥想恢復 ${mv} MP。`); 
+                        if(isUp) { let hv = Math.floor(getMaxHp(pl)*0.2); pl.hp=Math.min(getMaxHp(pl), pl.hp+hv); msg.push(`💚 恢復 ${hv} HP。`); }
+                    }
+                    else if(sk.isCure || sk.isHeal || sk.healMp) {
+                        if(sk.isCure) { pl.st={}; msg.push(`✨ [${sk.n}] 解除了異常狀態！`); }
+                        if(sk.isHeal) { let hv = Math.floor(getMaxHp(pl)*sk.isHeal); pl.hp=Math.min(getMaxHp(pl), pl.hp+hv); msg.push(`💚 恢復 ${hv} 生命。`); }
+                        if(sk.healMp) { let mv = Math.floor(getMaxMp(pl)*sk.healMp); pl.mp=Math.min(getMaxMp(pl), pl.mp+mv); msg.push(`💧 恢復 ${mv} 魔力。`); }
+                    }
+                    else {
+                       let originJobLvl = pl.jLvl[sk.oj] || 1;
+                       let skMult = 1 + (originJobLvl - 1) * 0.05;
+                       let baseP = getAtk(pl); let baseM = pl.lvl*8 + baseP*0.8;
+                       let dmgBase = sk.t==='m'?baseM:baseP;
+                       let dmg = Math.floor(dmgBase * sk.mul * skMult) + (sk.flat||0) + (sk.lvlFlat?pl.lvl*sk.lvlFlat:0) - (en.def||0);
+                       
+                       if(sk.t==='m') dmg += Math.floor((en.def||0)/2); 
+                       if(sk.t==='m' && hasPsv('p_eco', pl)) dmg = Math.floor(dmg * 1.25); 
+                       dmg = Math.max(1, dmg);
+
+                       if (en.isMetal) {
+                           if (sk.t === 'm') { dmg = 0; msg.push(`✨ 魔法對金屬怪完全無效！`); }
+                           else { if (Math.random() < 0.8) { dmg = 0; msg.push(`🍃 金屬怪極速閃避了！`); } else dmg = 1; }
+                       } else {
+                           if (en.weak === sk.t) { dmg = Math.floor(dmg * 1.5); msg.push('🔥 擊中弱點！'); }
+                           if(sk.instakill && !en.isBoss && Math.random()<sk.instakill) { dmg=en.hp; msg.push(`💀 [${sk.n}] 觸發一擊必殺！`); }
+                           else if(sk.hits) { dmg *= sk.hits; msg.push(`⚔️ [${sk.n}] 連續攻擊！造成 ${dmg} 傷。`); }
+                           else { msg.push(`✨ [${sk.n}] 造成 ${dmg} 傷。`); }
+                       }
+                       
+                       en.hp -= dmg; pDealtDmg = dmg;
+                       if(sk.recoil) { let rc = Math.floor(dmg*sk.recoil); pl.hp-=rc; msg.push(`🩸 狂暴反傷 ${rc}。`); } 
+                       if(sk.ls && !en.isMetal) { let ls=Math.floor(dmg*sk.ls); pl.hp=Math.min(getMaxHp(pl),pl.hp+ls); msg.push(`🦇 吸取了 ${ls} 生命！`); }
+                       if(sk.steal && !en.isMetal) { let g=Math.floor(Math.random()*20)+10; pl.g+=g; msg.push(`🖐️ 偷到 ${g}G！`); }
+                       if(sk.eff && Math.random()<0.8 && !en.isMetal) { applySt(en, sk.eff, sk.trn, false); }
+                       if(en.st.sleep && dmg>0) { en.st.sleep=0; msg.push('💥 敵人驚醒了！'); }
+                    }
+                 }
+              }
+            } else if (act === 'FLEE') {
+              if (en.isBoss) { msg.push('Boss戰無法逃跑！'); }
+              else if (Math.random() > 0.4) { msg.push('🏃 逃跑成功。'); setEnemy(null); setScene('PLAY'); isAnimating.current = false; setLogs(l=>[...l,...msg].slice(-80)); return; }
+              else { msg.push('❌ 逃跑失敗！'); }
+            }
+
+            if (pDealtDmg > (pl.meta.maxDmg || 0)) pl.meta.maxDmg = pDealtDmg;
+
+            if (pCanAct && pl.st.bleed) { let bd=Math.floor(getMaxHp(pl)*0.05); pl.hp-=bd; msg.push(`🩸 流血造成 ${bd} 傷害！`); pl.st.bleed--; }
+            if (en.hp <= 0) enDead = true;
+
+            if (!enDead && !en.isMetal) {
+               if (en.st.poison) { let pd=Math.floor(en.mhp*0.05); en.hp-=pd; msg.push(`🤢 敵人毒發受 ${pd} 傷！`); en.st.poison--; }
+               if (en.st.burn) { let bd=Math.floor(en.mhp*0.08); en.hp-=bd; msg.push(`🔥 敵人燃燒受 ${bd} 傷！`); en.st.burn--; }
+               if (en.hp <= 0) enDead = true;
+            }
+
+            if (!enDead) {
+              await delay(250); 
+              
+              if (en.isMetal && Math.random() < 0.5) {
+                  msg.push(`💨 金屬史萊姆一溜煙地逃跑了！`);
+                  setP(pl); setEnemy(null); setScene('PLAY'); setCMenu('MAIN'); isAnimating.current = false; setLogs(l=>[...l,...msg].slice(-80)); return;
+              }
+
+              let eCanAct = true;
+              if (en.st.sleep) { eCanAct = false; msg.push('💤 敵人沉睡中...'); en.st.sleep--; }
+              else if (en.st.stun) { 
+                  eCanAct = false; msg.push('😵 敵人暈眩中！'); en.st.stun--; 
+                  if(en.st.stun <= 0) en.st.stunImmune = 1;
+              }
+              else if (en.st.freeze) { eCanAct = false; msg.push('🧊 敵人被凍結！'); en.st.freeze--; }
+
+              if (en.st.stunImmune) en.st.stunImmune--;
+
+              if (eCanAct) {
+                 let dodPsvLvl = (pl.skills||[]).includes('p_dod') ? (pl.sUpg?.['p_dod'] ? 2 : 1) : 0;
+                 let dodRate = hasPsv('p_swt', pl) ? 0.25 : (dodPsvLvl * 0.1); 
+                 if (dodRate > 0 && Math.random()<dodRate) { msg.push(`🍃 閃開了敵方攻擊！`); } 
+                 else {
+                    let ed = Math.max(1, Math.floor((en.atk||0)*(0.8+Math.random()*0.4)) - getDef(pl));
+                    if(defMult < 1) ed = Math.floor(ed * defMult);
+                    if(pl.st.freeze) ed = Math.floor(ed*1.5); 
+                    pl.hp -= ed; msg.push(`💥 ${en.n}攻擊，受 ${ed} 傷。`);
+                    if(pl.st.sleep && ed>0) { pl.st.sleep=0; msg.push('💥 你被打醒了！'); }
+                    if(en.sp && Math.random()<0.3) {
+                       if(en.sp==='lifesteal') { let ls=Math.floor(ed*0.5); en.hp=Math.min(en.mhp, en.hp+ls); msg.push(`🦇 敵人吸取了 ${ls} 生命！`); }
+                       else applySt(pl, en.sp, 3, true);
+                    }
+                 }
+              }
+              if (en.st.bleed) { let bd=Math.floor(en.mhp*0.05); en.hp-=bd; msg.push(`🩸 敵人流血受 ${bd} 傷！`); en.st.bleed--; }
+              if (en.hp <= 0) enDead = true;
+            }
+
+            if (pl.hp > 0) {
+               if (pl.st.poison) { let pd=Math.floor(getMaxHp(pl)*0.05); pl.hp-=pd; msg.push(`🤢 你毒發受 ${pd} 傷！`); pl.st.poison--; }
+               if (pl.st.burn) { let bd=Math.floor(getMaxHp(pl)*0.08); pl.hp-=bd; msg.push(`🔥 你燃燒受 ${bd} 傷！`); pl.st.burn--; }
+            }
+
+            Object.keys(pl.st).forEach(k => { if(pl.st[k]<=0) delete pl.st[k]; }); Object.keys(en.st).forEach(k => { if(en.st[k]<=0) delete en.st[k]; });
+
+            if(act !== 'FLEE' && pCanAct && !enDead) await delay(200);
+
+            if (pl.hp <= 0) {
+              pl.meta.deaths = (pl.meta.deaths || 0) + 1;
+              setP(pl); setEnemy(en); setLogs(l=>[...l,...msg,'你已死亡...'].slice(-80)); setScene('GAMEOVER'); setAuto(false); isAnimating.current = false; return;
+            }
+
+            if (enDead) {
+              let expPsvLvl = (pl.skills||[]).includes('p_exp') ? (pl.sUpg?.['p_exp'] ? 2 : 1) : 0;
+              let goldPsvLvl = (pl.skills||[]).includes('p_gold') ? (pl.sUpg?.['p_gold'] ? 2 : 1) : 0;
+              let bx = Math.floor((en.xp||0) * (1 + expPsvLvl * 0.2)); 
+              let bg = Math.floor((en.g||0) * (1 + goldPsvLvl * 0.2));
+              msg.push(`*** 擊殺 ${en.n}！得 ${bx}EXP, ${bg}G ***`); pl.xp += bx; pl.g += bg; pl.st = {}; 
+
+              if (en.isBoss && Math.random() < 0.15) {
+                 if(!pl.pot.mBoom) pl.pot.mBoom = 0; pl.pot.mBoom++; 
+                 msg.push(`🎉 奇蹟發生！首領掉落了隱藏消耗品【金屬迴力鏢】！`);
+              }
+              else if (Math.random()>0.75 && !en.isMetal) {
+                let dropTypes = ['w', 'a', 'c']; let isType = dropTypes[Math.floor(Math.random()*3)]; let dropLvl = Math.min(7, Math.ceil(pl.mapLvl/2));
+                let nid = isType === 'c' ? `c${Math.min(7, dropLvl)}` : `${isType}${dropLvl}`; let itm = ITEMS[nid];
+                if(itm) {
+                  if(!pl.inv) pl.inv = []; pl.inv.push(nid); let cid = pl.eq[itm.t];
+                  let getPwr = id => { if(ITEMS[id]?.t==='w') return ITEMS[id].atk+getUpgVal(id,pl.upg?.[id]||0,true); if(ITEMS[id]?.t==='a') return ITEMS[id].def+getUpgVal(id,pl.upg?.[id]||0,false); return (ITEMS[id]?.atk||0)+(ITEMS[id]?.def||0)+(ITEMS[id]?.hp||0); };
+                  if(!cid || getPwr(nid)>getPwr(cid)) { pl.eq[itm.t]=nid; msg.push(`🎁 換上裝備 ${itm.n}`); } else { msg.push(`🎁 獲得 ${itm.n}`); }
+                }
+              }
+
+              let leveledUp = false;
+              while (pl.xp >= getExpReq(pl.lvl)) {
+                pl.xp -= getExpReq(pl.lvl); pl.lvl++; pl.bhp += 15; pl.bmp += 5; pl.batk += 3; pl.bdef += 2; leveledUp = true;
+              }
+              if (leveledUp) { pl.hp = getMaxHp(pl); pl.mp = getMaxMp(pl); msg.push(`>>> 升級至 LV.${pl.lvl} <<<`); }
+
+              if (en.isBoss) {
+                msg.push(`### 突破地圖！進入下個次元... ###`); pl.mapLvl++; pl.x=1; pl.y=1; pl.hp=getMaxHp(pl); pl.mp=getMaxMp(pl); setP(pl); setEnemy(null); setScene('PLAY'); genMap();
+              } else { setP(pl); setEnemy(null); setScene('PLAY'); }
+              
+              setCMenu('MAIN'); isAnimating.current = false; setLogs(l=>[...l,...msg].slice(-80)); return;
+            }
+
+            setP(pl); setEnemy(en); setCMenu('MAIN'); isAnimating.current = false; setLogs(l=>[...l,...msg].slice(-80));
+          };
+
+          const move = useCallback((dx, dy) => {
+            if (scene !== 'PLAY' || menu !== 'MAIN' || mapData.length === 0 || isAnimating.current) return;
+            let pl = JSON.parse(JSON.stringify(p)); const nx = pl.x + dx, ny = pl.y + dy;
+            if (nx>=0 && nx<MAP_W && ny>=0 && ny<MAP_H && mapData[ny]?.[nx] !== '#') {
+              const t = mapData[ny][nx]; pl.x = nx; pl.y = ny;
+              
+              if (t === '$') {
+                const r = Math.random();
+                if(r<0.4) { 
+                   let baseG = Math.floor(Math.random() * 30) + 10;
+                   let g = Math.floor(baseG * Math.pow(1.3, Math.max(0, pl.mapLvl - 1)));
+                   pl.g+=g; print(`🎁 開啟寶箱，獲得 ${g} 🪙！`); 
+                }
+                else if(r<0.65) { let isHp=Math.random()>0.5; pl.pot[isHp?'hp':'mp']++; print(`🎁 開啟寶箱，獲得${isHp?'生命':'魔力'}藥水！`); }
+                else { 
+                   let dropTypes = ['w', 'a', 'c']; let isType = dropTypes[Math.floor(Math.random()*3)];
+                   let dropLvl = Math.min(7, Math.ceil(pl.mapLvl/2)); let nid = isType === 'c' ? `c${Math.min(7, dropLvl)}` : `${isType}${dropLvl}`;
+                   if(!pl.inv)pl.inv=[]; pl.inv.push(nid); print(`🎁 開啟寶箱，獲得 ${ITEMS[nid]?.n||'裝備'}！`); 
+                }
+                let newMap = JSON.parse(JSON.stringify(mapData)); newMap[ny][nx] = '.'; setMapData(newMap);
+              }
+              else if (t === 'T') { if(pl.hp<getMaxHp(pl) || pl.mp<getMaxMp(pl) || Object.keys(pl.st).length>0) { pl.hp=getMaxHp(pl); pl.mp=getMaxMp(pl); pl.st={}; print('🏥 回到城鎮，狀態完全恢復。'); } }
+              else if (t === 'B') { setEnemy(getBossForLevel(pl.mapLvl)); print('⚠️ 遭遇首領！'); setScene('COMBAT'); setCMenu('MAIN'); }
+              else if (t === 'M') {
+                let mhp = 15; 
+                let xpGained = Math.floor(5000 * Math.pow(1.5, Math.max(1, pl.mapLvl - 1)));
+                setEnemy({ n: '金屬史萊姆', hp: mhp, mhp: mhp, atk: 50*pl.mapLvl, def: 99999, xp: xpGained, g: Math.floor(xpGained/2), e: '🛡️', isMetal: true, st: {} });
+                let newMap = JSON.parse(JSON.stringify(mapData)); newMap[ny][nx] = '.'; setMapData(newMap);
+                print('⚠️ 遭遇了極其罕見的金屬史萊姆！'); setScene('COMBAT'); setCMenu('MAIN');
+              }
+              else if (t === '"' && Math.random()<0.3) { setEnemy(getEnemyForLevel(pl.mapLvl)); print('💢 草叢竄出魔物！'); setScene('COMBAT'); setCMenu('MAIN'); }
+              else if (t === '.' && Math.random()<0.08) { setEnemy(getEnemyForLevel(pl.mapLvl)); print('💢 遭遇魔物！'); setScene('COMBAT'); setCMenu('MAIN'); }
+              setP(pl);
+            }
+          }, [scene, p, mapData, menu, print, getMaxHp, getMaxMp, getEnemyForLevel, getBossForLevel]);
+
+          const evalAutoSkill = useCallback((skId) => {
+            if (!skId) return false; const sk = getSk(skId, p); if (!sk || p.mp < sk.mp) return false;
+            if (sk.isHeal && sk.isCure) return p.hp <= getMaxHp()*0.7 || Object.keys(p.st || {}).length > 0; 
+            if (sk.isHeal) return p.hp <= getMaxHp() * 0.6; 
+            if (sk.isCure) return Object.keys(p.st || {}).length > 0; 
+            if (sk.special === 'med') return p.mp <= getMaxMp() * 0.4;
+            if (sk.special === 'def') return p.hp <= getMaxHp() * 0.4;
+            return true; 
+          }, [p, getMaxHp, getMaxMp, getSk]);
+
+          useEffect(() => {
+            if (!auto || ['GAMEOVER'].includes(scene) || isAnimating.current || mapData.length === 0) return;
+            const tId = setTimeout(() => {
+              if (scene === 'PLAY') {
+                if (p.hp < getMaxHp()*0.3 && (p.pot?.hp||0) === 0) {
+                  let pl = JSON.parse(JSON.stringify(p)); if(!pl.pot) pl.pot={hp:0,mp:0,cure:0,mBoom:0};
+                  while(pl.pot.hp<5 && pl.g>=10) { pl.pot.hp++; pl.g-=10; } 
+                  while(pl.pot.mp<2 && pl.g>=15) { pl.pot.mp++; pl.g-=15; }
+                  while(pl.pot.cure<1 && pl.g>=20) { pl.pot.cure++; pl.g-=20; } 
+                  pl.x=1; pl.y=1; pl.hp=getMaxHp(pl); pl.mp=getMaxMp(pl); pl.st={}; setP(pl); print('🤖 殘血自動回城採購。'); return;
+                }
+                const dirs = [[0,1],[0,-1],[1,0],[-1,0]].filter(([dx,dy]) => { const nx=p.x+dx, ny=p.y+dy; return nx>=0 && nx<MAP_W && ny>=0 && ny<MAP_H && mapData[ny]?.[nx]!=='#' && mapData[ny]?.[nx]!=='B' && mapData[ny]?.[nx]!=='M'; });
+                if (dirs.length) { const [dx,dy] = dirs[Math.floor(Math.random()*dirs.length)]; move(dx,dy); }
+              } else if (scene === 'COMBAT') {
+                if (!enemy) return; 
+                let hasBadSt = Object.keys(p.st || {}).length > 0;
+                if (p.hp < getMaxHp()*0.4) {
+                  if ((p.pot?.hp||0)>0) doCombat('ITEM_HP'); else if (hasPsv('m_heal') && p.mp>=10) doCombat('m_heal'); else if ((p.pot?.mp||0)>0) doCombat('ITEM_MP'); else doCombat('ATTACK');
+                } else if (hasBadSt && ((p.pot?.cure||0)>0 || (hasPsv('m_cure') && p.mp>=15))) {
+                  if ((p.pot?.cure||0)>0) doCombat('ITEM_CURE'); else doCombat('m_cure');
+                } else {
+                  if (enemy.isMetal) {
+                     if ((p.pot?.mBoom || 0) > 0) doCombat('ITEM_MBOOM');
+                     else doCombat('ATTACK');
+                  } else {
+                     if (evalAutoSkill(p.defM)) doCombat(p.defM);
+                     else if (evalAutoSkill(p.defS)) doCombat(p.defS);
+                     else if (p.mp<15 && (p.pot?.mp||0)>0 && p.hp>getMaxHp()*0.6) doCombat('ITEM_MP');
+                     else doCombat('ATTACK');
+                  }
+                }
+              }
+            }, pwr ? 1500 : 600);
+            return () => clearTimeout(tId);
+          }, [auto, scene, p, enemy, mapData, move, pwr, getMaxHp, hasPsv, evalAutoSkill]); 
+
+          const townCmd = (act, val) => {
+            let pl = JSON.parse(JSON.stringify(p)); 
+            if(!pl.pot) pl.pot = {hp:0, mp:0, cure:0, mBoom: 0}; if(!pl.inv) pl.inv = []; if(!pl.upg) pl.upg = {}; if(!pl.skills) pl.skills = []; if(!pl.jLvl) pl.jLvl = {nov: 1};
+            if(!pl.meta) pl.meta = { deaths: 0, maxDmg: 0, maxJob: 'nov', maxJLvl: 1 };
+
+            if (act === 'buy') {
+              let c = val==='hp'?10:val==='mp'?15:20; 
+              if(pl.g>=c){ pl.g-=c; pl.pot[val]=(pl.pot[val]||0)+1; print(`購買 ${val==='cure'?'萬能':'藥'}水 (持: ${pl.pot[val]})`); } else print('❌ 金幣不足');
+            } else if (act === 'sell') {
+              let idx = pl.inv.indexOf(val); if (idx !== -1) { pl.inv.splice(idx, 1); pl.g += ITEMS[val]?.sell||0; print(`賣出得 ${ITEMS[val]?.sell||0}G`); }
+            } else if (act === 'upg') {
+              let cl = pl.jLvl[pl.job]||1; let tier = JOBS[pl.job].tier || 1;
+              let c = (cl * 100) + (tier === 1 ? 0 : (tier === 2 ? 1000 : 1500)); 
+              
+              if (pl.g>=c) {
+                pl.g-=c; pl.jLvl[pl.job] = cl+1; let m=`✨ 職業升至 LV.${cl+1}`;
+                if(!pl.sUpg) pl.sUpg = {};
+                
+                (JOBS[pl.job]?.s?.[cl+1]||[]).forEach(s=>{ 
+                    if(!pl.skills.includes(s)) { pl.skills.push(s); m+=`，學會[${SKILLS[s]?.n||''}]`; }
+                    else { if(!pl.sUpg[s]){ pl.sUpg[s]=1; m+=`，[${SKILLS[s]?.n}] 進階為 [+] 威力！`; } }
+                }); 
+                
+                if (pl.job === 'nov' && (cl+1) === 99 && !pl.skills.includes('p_ult')) { 
+                   pl.skills.push('p_ult'); pl.sUpg['s_def']=1; pl.sUpg['s_med']=1; 
+                   m += '\n🎉【彩蛋解鎖】初心者達到化境！\n習得[大器晚成]，且[防禦][冥想]極致進化！'; 
+                }
+                if ((cl+1) > pl.meta.maxJLvl) { pl.meta.maxJLvl = cl+1; pl.meta.maxJob = pl.job; }
+                print(m);
+              } else print('❌ 金幣不足升級');
+            } else if (act === 'job') {
+              if (pl.jLvl[val]) { pl.job = val; print(`🔁 免費切換為職業 ${JOBS[val]?.n}！`); } 
+              else {
+                if(pl.g>=50) { 
+                   pl.g-=50; pl.job = val; pl.jLvl[val]=1; 
+                   (JOBS[val]?.s?.[1]||[]).forEach(s=>{ if(!pl.skills.includes(s)) pl.skills.push(s); }); 
+                   print(`🔁 成功轉職為 ${JOBS[val]?.n}！`); 
+                } 
+                else print('❌ 金幣不足轉職');
+              }
+            } else if (act === 'upg_eq') {
+              let eqId = pl.eq?.[val]; if(!eqId || ITEMS[eqId]?.t==='c') return; let cl = pl.upg[eqId]||0, c = 20+cl*20;
+              if(pl.g>=c) { pl.g-=c; pl.upg[eqId]=cl+1; print(`🔨 強化成功：${ITEMS[eqId]?.n||''} (+${getUpgVal(eqId,cl+1,val==='w')})`); } else print('❌ 金幣不足強化');
+            }
+            setP(pl);
+          };
+          
+          const getInvCounts = () => { let counts = {}; (p.inv||[]).forEach(id => { counts[id] = (counts[id] || 0) + 1; }); return counts; };
+          const currentInvCounts = getInvCounts();
+          const sortedInvKeys = Object.keys(currentInvCounts).sort((a, b) => ITEM_KEYS_ORDER.indexOf(a) - ITEM_KEYS_ORDER.indexOf(b));
+
+          if (scene === 'START' || scene === 'GAMEOVER') {
+            return (
+              <div className="h-[100dvh] w-full bg-black text-green-500 font-mono flex flex-col items-center justify-center p-4">
+                {scene === 'START' && (
+                  <>
+                    <pre className="text-sm md:text-xl font-bold text-center mb-8 leading-relaxed text-cyan-400">{`=============================
+  勇 者 口 袋 大 冒 險
+   - ENDLESS EDITION -
+=============================`}</pre>
+                    <button onClick={startG} className="border-2 border-cyan-500 text-cyan-400 hover:bg-cyan-900 px-8 py-4 text-xl font-bold uppercase tracking-widest active:scale-95 transition-transform">[ START GAME ]</button>
+                  </>
+                )}
+                {scene === 'GAMEOVER' && (
+                  <div className="flex flex-col items-center justify-center w-full max-w-sm">
+                     <div className="text-red-500 mb-2 text-4xl font-black animate-pulse">*** YOU DIED ***</div>
+                     <div className="text-yellow-400 mb-8 text-base sm:text-lg text-center leading-loose border-y border-yellow-700 py-4 w-full">
+                        最終等級：Lv.{p.lvl}<br/>結算職業：{JOBS[p.job]?.n} (JLv.{p.jLvl?.[p.job]||1})<br/>突破區域：{getMapName(p.mapLvl)}
+                        <div className="border-t border-yellow-900 mt-4 pt-3 text-sm text-gray-400">
+                           🏆 累積死亡次數：{p.meta?.deaths || 0} 次<br/>
+                           ⚔️ 生涯最高傷害：{p.meta?.maxDmg || 0}<br/>
+                           👑 最高職業等級：{JOBS[p.meta?.maxJob || 'nov']?.n} (JLv.{p.meta?.maxJLvl || 1})
+                        </div>
+                     </div>
+                     <div className="flex flex-col gap-4 w-full">
+                       <button onClick={revive} className="border-2 border-yellow-500 text-yellow-500 bg-yellow-950/30 hover:bg-yellow-900/60 px-6 py-3 text-lg font-bold w-full transition-colors">[ 👼 保留狀態 在城鎮復活 ]</button>
+                       <button onClick={startG} className="border-2 border-red-800 text-red-500 bg-red-950/30 hover:bg-red-900/60 px-6 py-3 text-base font-bold w-full transition-colors">[ 💀 刪除紀錄 重新開始 ]</button>
+                     </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          const wN = p.eq?.w ? `${ITEMS[p.eq.w]?.n||''}${p.upg?.[p.eq.w]?' +'+p.upg[p.eq.w]:''}` : '空手';
+          const getSortedSkills = (type) => getAvailableSkills(p).filter(s => SKILLS[s]?.t === type).sort((a, b) => {
+              let isDefA = (a === p.defM || a === p.defS); let isDefB = (b === p.defM || b === p.defS);
+              if (isDefA && !isDefB) return -1; if (!isDefA && isDefB) return 1; return 0;
+          });
+
+          return (
+            <div className="h-[100dvh] w-full max-w-lg mx-auto bg-black text-green-500 font-mono flex flex-col overflow-hidden touch-none select-none relative">
+              
+              {/* 🌟 系統控制列 (字體與存檔) */}
+              <div className="flex justify-between items-center bg-gray-950 border-b-2 border-green-900 px-2 py-1.5 text-[11px] sm:text-xs text-gray-400 shrink-0 z-30">
+                 <button onClick={()=>setFontLevel(l=>(l+1)%3)} className="hover:text-white px-1 active:scale-95 transition-transform flex items-center gap-1 font-bold">
+                    🔠 字體: {['小','中','大'][fontLevel]}
+                 </button>
+                 <div className="flex gap-2 sm:gap-3 font-bold">
+                    <button onClick={saveLocal} className="hover:text-yellow-400 active:scale-95 transition-transform">💾 存檔</button>
+                    <button onClick={loadLocal} className="hover:text-yellow-400 active:scale-95 transition-transform">📂 讀檔</button>
+                    <button onClick={exportCode} className="hover:text-cyan-400 active:scale-95 transition-transform">📤 匯出</button>
+                    <button onClick={triggerImport} className="hover:text-cyan-400 active:scale-95 transition-transform">📥 匯入</button>
+                 </div>
+              </div>
+
+              {/* 🌟 客製化匯出匯入面板 */}
+              {saveCodeModal.show && (
+                <div className="absolute inset-0 z-[150] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSaveCodeModal({show: false, mode: '', code: ''})}>
+                  <div className="bg-gray-950 border-2 border-cyan-500 rounded-xl p-5 w-full max-w-sm text-white shadow-[0_0_20px_rgba(6,182,212,0.3)] flex flex-col" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-xl font-bold mb-3 text-cyan-400 border-b border-cyan-800 pb-2">
+                      {saveCodeModal.mode === 'export' ? '📤 匯出繼承碼' : '📥 匯入繼承碼'}
+                    </h3>
+                    <p className="text-sm text-gray-400 mb-2">
+                      {saveCodeModal.mode === 'export' ? '請複製以下整段代碼，妥善保存：' : '請在下方貼上你的繼承碼：'}
+                    </p>
+                    <textarea
+                      id="saveCodeTextarea"
+                      className="w-full h-40 bg-black border border-gray-700 rounded p-2 text-xs text-green-400 font-mono focus:outline-none focus:border-cyan-500 break-all resize-none"
+                      value={saveCodeModal.code}
+                      onChange={(e) => setSaveCodeModal(prev => ({...prev, code: e.target.value}))}
+                      readOnly={saveCodeModal.mode === 'export'}
+                      placeholder={saveCodeModal.mode === 'import' ? "在此貼上代碼..." : ""}
+                    />
+                    <div className="flex gap-2 mt-4">
+                      {saveCodeModal.mode === 'export' ? (
+                        <button onClick={() => {
+                            const ta = document.getElementById('saveCodeTextarea');
+                            ta.select();
+                            document.execCommand('copy');
+                            print('📋 繼承碼已成功複製！');
+                            setSaveCodeModal({show: false, mode: '', code: ''});
+                        }} className="flex-1 bg-cyan-900 border border-cyan-500 text-cyan-100 py-2 rounded font-bold text-sm active:bg-cyan-800">📋 一鍵複製</button>
+                      ) : (
+                        <button onClick={() => handleImport(saveCodeModal.code)} className="flex-1 bg-cyan-900 border border-cyan-500 text-cyan-100 py-2 rounded font-bold text-sm active:bg-cyan-800">✔️ 確認匯入</button>
+                      )}
+                      <button onClick={() => setSaveCodeModal({show: false, mode: '', code: ''})} className="flex-1 bg-gray-800 border border-gray-600 text-gray-300 py-2 rounded font-bold text-sm active:bg-gray-700">❌ 取消</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {infoModal && (
+                <div className="absolute inset-0 z-[100] bg-black/85 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setInfoModal(null)}>
+                  <div className="bg-gray-950 border-2 border-green-500 rounded-xl p-5 w-full max-w-xs text-white shadow-[0_0_20px_rgba(34,197,94,0.3)]" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-xl font-bold mb-3 text-yellow-400 border-b border-green-800 pb-2">{infoModal.title}</h3>
+                    <p className="text-sm sm:text-base leading-relaxed whitespace-pre-line mb-5 text-green-200">{infoModal.desc}</p>
+                    <div className="text-sm font-bold text-gray-400 mb-4 bg-black p-2 rounded border border-gray-800">{infoModal.status}</div>
+                    
+                    {infoModal.type === 'item' && (
+                       <button onClick={() => handleEquip(infoModal.id, !infoModal.isEq)} className={`w-full border py-2 rounded font-bold text-sm mb-3 ${infoModal.isEq ? 'bg-red-900/50 border-red-500 text-red-200 active:bg-red-800' : 'bg-blue-900 border-blue-500 text-blue-100 active:bg-blue-800 shadow-[0_0_10px_rgba(59,130,246,0.4)]'}`}>
+                         {infoModal.isEq ? '⬇️ 卸下裝備' : '⬆️ 裝備此物品'}
+                       </button>
+                    )}
+                    
+                    {infoModal.type === 'skill' && scene !== 'COMBAT' && (SKILLS[infoModal.id]?.isHeal || SKILLS[infoModal.id]?.isCure || SKILLS[infoModal.id]?.healMp) && (
+                       <button onClick={() => { useFieldSkill(infoModal.id); setInfoModal(null); }} className="w-full bg-emerald-900 border border-emerald-500 text-emerald-100 py-2 rounded font-bold text-sm mb-3 active:bg-emerald-800 shadow-[0_0_10px_rgba(16,185,129,0.4)]">
+                         💚 立即使用
+                       </button>
+                    )}
+
+                    {infoModal.type === 'skill' && SKILLS[infoModal.id]?.t !== 'p' && (
+                       <button onClick={() => setDefSkill(SKILLS[infoModal.id].t, infoModal.id)} className="w-full bg-yellow-900 border border-yellow-500 text-yellow-100 py-2 rounded font-bold text-sm mb-3 active:bg-yellow-800 shadow-[0_0_10px_rgba(234,179,8,0.4)]">
+                         {p[SKILLS[infoModal.id].t === 'm' ? 'defM' : 'defS'] === infoModal.id ? '❌ 取消預設' : `⭐ 設為預設${SKILLS[infoModal.id].t === 'm' ? '魔法' : '特技'}`}
+                       </button>
+                    )}
+                    <button onClick={() => setInfoModal(null)} className="w-full bg-green-900 border border-green-500 text-green-100 py-3 rounded font-bold text-base active:bg-green-800">關 閉</button>
+                  </div>
+                </div>
+              )}
+
+              {sellModal && (
+                <div className="absolute inset-0 z-[90] bg-gray-950 flex flex-col p-4">
+                  <div className="flex justify-between items-end border-b-2 border-yellow-700 pb-3 mb-4 mt-2">
+                     <h2 className="text-xl font-bold text-yellow-400">⚖️ 變賣背包道具</h2>
+                     <div className="text-yellow-200 font-bold text-base tabular-nums">金幣: {p.g} 🪙</div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto space-y-2 pb-4 pr-1">
+                     {sortedInvKeys.length === 0 ? <p className="text-gray-500 text-center mt-10 text-sm">背包空空如也</p> : null}
+                     {sortedInvKeys.map(id => {
+                         const it = ITEMS[id]; if(!it)return null; const count = currentInvCounts[id]; const isEq = p.eq?.w === id || p.eq?.a === id || p.eq?.c === id; const sellable = isEq ? count - 1 : count; 
+                         return (
+                            <div key={id} className={`p-3 border rounded-lg flex justify-between items-center ${isEq && sellable === 0 ? 'border-gray-800 bg-gray-900' : 'border-yellow-700 bg-yellow-900/20'}`}>
+                               <div className="flex items-center gap-3"><span className="text-2xl cursor-pointer" onClick={()=>openInfo('item',id)}>{it.e}</span><div><div className="font-bold text-white text-sm sm:text-base flex items-center gap-2 cursor-pointer" onClick={()=>openInfo('item',id)}>{it.n} <span className="text-xs text-gray-400">x{count}</span>{isEq && <span className="text-[10px] sm:text-xs bg-blue-900 text-blue-200 px-1 rounded">裝備中</span>}</div><div className="text-xs sm:text-sm text-yellow-500 mt-0.5 tabular-nums">賣出單價: {it.sell} 🪙</div></div></div>
+                               <div className="flex flex-col gap-1"><button onClick={()=>openInfo('item', id, isEq)} className="px-3 py-1 border border-cyan-700 text-cyan-400 bg-cyan-900/30 rounded text-xs sm:text-sm font-bold active:bg-cyan-800">詳情</button><button onClick={()=>townCmd('sell', id)} disabled={sellable === 0} className={`px-3 py-1 rounded text-xs sm:text-sm font-bold transition-all ${sellable === 0 ? 'bg-gray-800 text-gray-600' : 'bg-yellow-600 text-white active:bg-yellow-500'}`}>{sellable === 0 ? '無法賣' : '賣出'}</button></div>
+                            </div>
+                         )
+                     })}
+                  </div>
+                  <button onClick={() => setSellModal(false)} className="mt-2 mb-4 bg-gray-800 border-2 border-gray-600 text-white py-3 rounded font-bold text-base active:bg-gray-700">返回城鎮</button>
+                </div>
+              )}
+
+              {logModal && (
+                <div className="absolute inset-0 z-[120] bg-black flex flex-col p-4">
+                   <div className="flex justify-between items-center border-b-2 border-green-800 pb-3 mb-3 mt-2"><h2 className="text-xl font-bold text-yellow-400">📜 完整冒險紀錄</h2><button onClick={() => setLogModal(false)} className="text-red-400 font-bold px-4 py-2 border border-red-900 bg-red-950/40 rounded active:bg-red-900/60 text-sm md:text-base">關閉 [X]</button></div>
+                   <div className="flex-1 overflow-y-auto text-sm md:text-base leading-relaxed space-y-1 pb-4 pr-1">
+                      {logs.map((l, i) => <div key={i} className={l.includes('***')?'text-yellow-400 font-bold':l.includes('受')||l.includes('陷入')||l.includes('❌')?'text-red-400':l.includes('獲得')||l.includes('換上')?'text-blue-400 font-bold':l.includes('###')||l.includes('🎉')?'text-purple-400 font-bold':'text-green-500'}>{l}</div>)}
+                      <div ref={fullLogEndRef} />
+                   </div>
+                </div>
+              )}
+
+              <div className="flex-shrink-0 h-[115px] border-b-2 border-green-800 px-3 py-1.5 leading-tight bg-gray-950 flex flex-col justify-between z-20">
+                <div className="flex justify-between items-end text-yellow-400 font-bold mb-0.5">
+                  <div className="flex items-center gap-1 flex-1 min-w-0 pr-2">
+                    [ {editName ? <input type="text" maxLength={6} value={tempN} onChange={e=>setTempN(e.target.value)} onKeyDown={e => { if(e.key === 'Enter') e.target.blur(); }} className="text-black px-1 rounded outline-none w-20 text-center" style={{ fontSize: '16px' }} autoFocus onBlur={() => { setP(pl => { let npl=JSON.parse(JSON.stringify(pl)); npl.name=tempN.trim()||'無名冒險者'; return npl; }); setEditName(false); }} /> : <span className="cursor-pointer hover:bg-gray-800 px-1 rounded shrink-0" onClick={()=>{setTempN(p.name);setEditName(true);}}>{p.name}</span>} ]
+                    <span className="text-yellow-200 whitespace-nowrap">Lv.{p.lvl}</span>
+                  </div>
+                  <span className="text-cyan-400 font-bold truncate max-w-[130px] text-right shrink-0">{getMapName(p.mapLvl)}</span>
+                </div>
+                <div className="flex justify-between items-center text-gray-300 mb-1.5">
+                  <div className="flex items-center gap-1 min-w-0 pr-2">
+                    <span className="underline cursor-pointer hover:text-yellow-200 truncate" onClick={()=>openInfo('job', p.job||'nov')}>{JOBS[p.job||'nov']?.n} JLv.{p.jLvl?.[p.job||'nov']||1}</span>
+                    <StIcons st={p.st} />
+                  </div>
+                  <span className="text-yellow-400 font-bold whitespace-nowrap shrink-0">{p.g} 🪙</span>
+                </div>
+                
+                <div className="flex flex-col gap-1 w-full">
+                   <div className="flex gap-2 w-full">
+                      <div className={`flex-1 bg-gray-900 rounded h-4 relative border border-gray-700 overflow-hidden ${p.hp < getMaxHp()*0.3 ? 'shadow-[0_0_6px_rgba(248,113,113,0.8)] border-red-500' : ''}`}>
+                         <div className={`${p.hp < getMaxHp()*0.3 ? 'bg-red-500 animate-pulse' : 'bg-red-700'} h-full transition-all duration-300`} style={{width:`${Math.min(100, Math.max(0, p.hp)/getMaxHp()*100)}%`}}></div>
+                         <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">HP: {p.hp}/{getMaxHp()}</div>
+                      </div>
+                      <div className="flex-1 bg-gray-900 rounded h-4 relative border border-gray-700 overflow-hidden">
+                         <div className="bg-blue-600 h-full transition-all duration-300" style={{width:`${Math.min(100, Math.max(0, p.mp)/getMaxMp()*100)}%`}}></div>
+                         <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">MP: {p.mp}/{getMaxMp()}</div>
+                      </div>
+                   </div>
+                   <div className="w-full bg-gray-900 rounded-full h-1.5 relative overflow-hidden mt-0.5">
+                      <div className="bg-yellow-400 h-full transition-all duration-300" style={{width:`${Math.min(100, (p.xp/getExpReq(p.lvl))*100)}%`}}></div>
+                   </div>
+                </div>
+              </div>
+              
+              <div className="flex-1 min-h-0 flex flex-col p-1.5 gap-1.5 bg-black">
+                <div className="flex-shrink-0 h-[280px] bg-black flex justify-center items-center overflow-hidden relative border border-green-900 rounded">
+                  {menu === 'TOWN' && scene !== 'COMBAT' ? (
+                     <div className="text-sm sm:text-base space-y-3 w-full h-full overflow-y-auto p-3 bg-gray-900">
+                      <div className="text-cyan-400 text-center font-bold text-lg mb-1">== 邊境城鎮 ==</div>
+                      <div className="text-xs text-gray-400 mb-1">所有職業清單 (點擊查看詳情)：</div>
+                      <div className="grid grid-cols-2 gap-1.5 text-sm mb-2">
+                        {Object.values(JOBS).map(j=>{
+                          let isCur = j.id === (p.job||'nov'); let ok=true; Object.keys(j.req).forEach(r=>{if((p.jLvl?.[r]||0)<j.req[r])ok=false;});
+                          let hasJob = !!p.jLvl?.[j.id]; 
+                          let tier = j.tier || 1; let cl = p.jLvl?.[p.job]||1; let upgCost = (cl * 100) + (tier === 1 ? 0 : (tier === 2 ? 1000 : 1500));
+                          return <div key={j.id} className={`flex justify-between items-center p-1.5 rounded border ${isCur?'bg-indigo-900/40 border-indigo-700':'bg-black border-gray-800'}`}><span className={`underline cursor-pointer ${isCur?'text-indigo-300 font-bold':'text-gray-300'}`} onClick={()=>openInfo('job', j.id)}>{j.n} <span className="text-[11px] ml-0.5">Lv.{p.jLvl?.[j.id]||(hasJob?1:0)}</span></span> {isCur?<button onClick={()=>townCmd('upg')} className="bg-indigo-600 px-2 py-0.5 rounded text-xs text-white active:bg-indigo-500">升級({upgCost}G)</button>:ok?<button onClick={()=>townCmd('job',j.id)} className={`px-2 py-0.5 rounded text-xs text-white ${hasJob?'bg-blue-600 active:bg-blue-500':'bg-indigo-700 active:bg-indigo-600'}`}>{hasJob ? '切換' : '轉職(50G)'}</button>:<span className="text-gray-600 text-[10px]">[條件未滿]</span>}</div>;
+                        })}
+                      </div>
+                      <div className="flex justify-between items-center border-t border-gray-700 pt-2"><span className="text-pink-400 font-bold">[商店] HP水(10G)</span><button onClick={()=>townCmd('buy','hp')} className="bg-green-800 px-4 py-1 rounded text-sm text-white">購買</button></div>
+                      <div className="flex justify-between items-center pt-1"><span className="text-blue-400 font-bold">　　　 MP水(15G)</span><button onClick={()=>townCmd('buy','mp')} className="bg-green-800 px-4 py-1 rounded text-sm text-white">購買</button></div>
+                      <div className="flex justify-between items-center pb-2 border-b border-gray-700 pt-1"><span className="text-purple-400 font-bold">　　　 萬能藥(20G)</span><button onClick={()=>townCmd('buy','cure')} className="bg-green-800 px-4 py-1 rounded text-sm text-white">購買</button></div>
+                      <div className="flex justify-between items-center pt-2"><span className="text-orange-400 font-bold cursor-pointer underline" onClick={()=>p.eq?.w && openInfo('item', p.eq.w, true)}>[鐵匠] {p.eq?.w ? ITEMS[p.eq.w].n : '武器'}(+{p.eq?.w ? getUpgVal(p.eq.w, p.upg?.[p.eq.w]||0, true) : 0})</span><button onClick={()=>townCmd('upg_eq','w')} className="bg-green-800 px-4 py-1 rounded text-sm text-white">強化</button></div>
+                      <div className="flex justify-between items-center pb-2 border-b border-gray-700"><span className="text-orange-400 font-bold cursor-pointer underline" onClick={()=>p.eq?.a && openInfo('item', p.eq.a, true)}>　　　 {p.eq?.a ? ITEMS[p.eq.a].n : '防具'}(+{p.eq?.a ? getUpgVal(p.eq.a, p.upg?.[p.eq.a]||0, false) : 0})</span><button onClick={()=>townCmd('upg_eq','a')} className="bg-green-800 px-4 py-1 rounded text-sm text-white">強化</button></div>
+                      <div className="pt-1 pb-4"><button onClick={() => setSellModal(true)} className="w-full bg-yellow-900 border border-yellow-600 text-yellow-100 py-2.5 rounded font-bold text-base active:bg-yellow-800">🎒 打開背包變賣道具</button></div>
+                    </div>
+                  ) : menu === 'SKILL' && scene !== 'COMBAT' ? (
+                    <div className="text-sm sm:text-base w-full h-full overflow-y-auto p-3 bg-gray-900 border border-yellow-900 space-y-3">
+                      <div className="text-yellow-400 text-center font-bold text-lg mb-2">== 狀態與背包 ==</div>
+                      <div className="bg-black p-2 rounded border border-gray-700">
+                        <div className="text-gray-400 mb-1.5 font-bold border-b border-gray-800 pb-1 text-xs sm:text-sm">【目前裝備】</div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <button onClick={() => p.eq?.w ? openInfo('item', p.eq.w, true) : null} className="bg-gray-800 border border-gray-600 p-2 rounded text-left active:bg-gray-700">
+                             <div className="text-[10px] sm:text-[11px] text-gray-500 mb-0.5">武器</div><div className="text-orange-300 font-bold text-xs sm:text-sm truncate">{p.eq?.w ? `${ITEMS[p.eq.w]?.e||''} ${ITEMS[p.eq.w]?.n||''} +${p.upg?.[p.eq.w]||0}` : '空手'}</div>
+                          </button>
+                          <button onClick={() => p.eq?.a ? openInfo('item', p.eq.a, true) : null} className="bg-gray-800 border border-gray-600 p-2 rounded text-left active:bg-gray-700">
+                             <div className="text-[10px] sm:text-[11px] text-gray-500 mb-0.5">防具</div><div className="text-orange-300 font-bold text-xs sm:text-sm truncate">{p.eq?.a ? `${ITEMS[p.eq.a]?.e||''} ${ITEMS[p.eq.a]?.n||''} +${p.upg?.[p.eq.a]||0}` : '布衣'}</div>
+                          </button>
+                          <button onClick={() => p.eq?.c ? openInfo('item', p.eq.c, true) : null} className="bg-gray-800 border border-purple-800 p-2 rounded text-left active:bg-gray-700">
+                             <div className="text-[10px] sm:text-[11px] text-purple-400 mb-0.5">飾品</div><div className="text-pink-300 font-bold text-xs sm:text-sm truncate">{p.eq?.c ? `${ITEMS[p.eq.c]?.e||''} ${ITEMS[p.eq.c]?.n||''}` : '無裝備'}</div>
+                          </button>
+                        </div>
+                      </div>
+                      <div className="bg-black p-2 rounded border border-gray-700">
+                        <div className="text-gray-400 mb-1.5 font-bold border-b border-gray-800 pb-1 text-xs sm:text-sm">【背包道具與藥水】 (可點擊使用)</div>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                           <button onClick={()=>useFieldItem('hp')} className="flex-1 bg-pink-900/30 text-pink-300 border border-pink-800 rounded py-1 text-xs active:bg-pink-900/50">🧪 HP水 ({p.pot?.hp||0})</button>
+                           <button onClick={()=>useFieldItem('mp')} className="flex-1 bg-blue-900/30 text-blue-300 border border-blue-800 rounded py-1 text-xs active:bg-blue-900/50">💧 MP水 ({p.pot?.mp||0})</button>
+                           <button onClick={()=>useFieldItem('cure')} className="flex-1 bg-purple-900/30 text-purple-300 border border-purple-800 rounded py-1 text-xs active:bg-purple-900/50">✨ 萬能藥 ({p.pot?.cure||0})</button>
+                           <div className="w-full">
+                             <button className="w-full bg-orange-900/30 text-orange-300 border border-orange-800 rounded py-1 text-xs cursor-default">🪃 金屬迴力鏢 ({p.pot?.mBoom||0}) - 僅限戰鬥使用</button>
+                           </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                           {sortedInvKeys.length === 0 ? <span className="text-gray-600 text-xs">裝備背包為空</span> : null}
+                           {sortedInvKeys.map(id => { const count = currentInvCounts[id]; return <button key={id} onClick={() => openInfo('item', id)} className="bg-gray-800 border border-gray-600 px-2 py-1.5 rounded text-xs text-yellow-100 active:bg-gray-700">{ITEMS[id]?.n||'未知'} x{count}</button> })}
+                        </div>
+                      </div>
+                      <div className="bg-black p-2 rounded border border-gray-700 space-y-1.5 pb-3">
+                        <div className="text-gray-400 mb-1 font-bold border-b border-gray-800 pb-1 text-xs sm:text-sm">【習得技能】 <span className="text-[10px] font-normal text-indigo-400">(點擊查看或設為預設)</span></div>
+                        <div><span className="text-gray-500 text-xs">被動:</span> <div className="flex flex-wrap gap-1 mt-0.5">{getAvailableSkills(p).filter(id=>SKILLS[id]?.t==='p').map(id=><button key={id} onClick={()=>openInfo('skill', id)} className="bg-gray-800 border border-green-900 text-green-400 px-2 py-1 rounded text-xs active:bg-gray-700">{getSk(id, p)?.n||'未知'}</button>)}</div></div>
+                        <div><span className="text-gray-500 text-xs">魔法:</span> <div className="flex flex-wrap gap-1 mt-0.5">{getSortedSkills('m').map(id=><button key={id} onClick={()=>openInfo('skill', id)} className={`bg-gray-800 border px-2 py-1 rounded text-xs active:bg-gray-700 ${p.defM===id?'border-yellow-400 text-yellow-400 shadow-[0_0_5px_rgba(250,204,21,0.5)]':'border-purple-900 text-purple-400'}`}>{getSk(id, p)?.n||'未知'}</button>)}</div></div>
+                        <div><span className="text-gray-500 text-xs">特技:</span> <div className="flex flex-wrap gap-1 mt-0.5">{getSortedSkills('s').map(id=><button key={id} onClick={()=>openInfo('skill', id)} className={`bg-gray-800 border px-2 py-1 rounded text-xs active:bg-gray-700 ${p.defS===id?'border-yellow-400 text-yellow-400 shadow-[0_0_5px_rgba(250,204,21,0.5)]':'border-indigo-900 text-indigo-400'}`}>{getSk(id, p)?.n||'未知'}</button>)}</div></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative w-full h-full">
+                      <div className={`${getTheme(p.mapLvl).floorBg} p-1 md:p-2 rounded-sm w-full h-full`} style={{ display: 'grid', gridTemplateColumns: `repeat(${MAP_W}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${MAP_H}, minmax(0, 1fr))` }}>
+                        {mapData.map((row, y) => row.map((cell, x) => {
+                          let char = cell, color = 'text-gray-600';
+                          if (cell === '#' && p.mapLvl >= 15) { char = ALL_WALLS[(x*3 + y*7 + p.mapLvl) % ALL_WALLS.length]; color = 'text-gray-500'; }
+                          if (p.x === x && p.y === y) { char = '🤠'; color = 'text-yellow-300 drop-shadow-[0_0_6px_rgba(253,224,71,0.8)] z-10'; }
+                          else if (cell === '#') color = 'text-gray-700'; else if (cell === '"') color = 'text-green-700'; else if (cell === '$') color = 'text-yellow-500 font-bold'; else if (cell === 'T') color = 'text-cyan-400 font-bold'; else if (cell === 'B') color = 'text-red-500 font-bold'; else if (cell === 'M') color = 'text-gray-300 font-black animate-pulse drop-shadow-[0_0_8px_rgba(209,213,219,0.9)]';
+                          return <div key={`${x}-${y}`} className={`flex items-center justify-center text-xl sm:text-3xl ${color}`}>{char}</div>;
+                        }))}
+                      </div>
+                      
+                      {scene === 'COMBAT' && enemy && (
+                         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[2px]">
+                           <div 
+                              className="flex flex-col items-center cursor-pointer active:scale-95 transition-transform group" 
+                              onClick={() => !auto && doCombat('ATTACK')}
+                           >
+                              <div className="text-6xl sm:text-7xl drop-shadow-[0_0_20px_rgba(255,0,0,0.8)] animate-bounce group-hover:drop-shadow-[0_0_30px_rgba(255,50,50,1)] transition-all">{enemy.e}</div>
+                              <div className="text-red-400 font-bold text-sm bg-black/60 border border-red-800 px-3 py-1 rounded animate-pulse mt-2 mb-3 flex items-center gap-1 shadow-[0_0_10px_rgba(255,0,0,0.4)]">
+                                 <span>⚔️</span> 點擊攻擊 <span>⚔️</span>
+                              </div>
+                           </div>
+                           <div className="bg-gray-900/90 border-2 border-red-800 p-2 sm:p-3 rounded-lg w-4/5 max-w-[280px] shadow-[0_0_15px_rgba(0,0,0,0.8)]">
+                             <div className="flex justify-between font-bold text-sm sm:text-base mb-1.5">
+                                <span className="text-red-400">{enemy.n} <StIcons st={enemy.st}/></span>
+                                <span className="text-xs text-gray-400 bg-gray-800 px-1.5 rounded flex items-center">ATK {enemy.atk}</span>
+                             </div>
+                             <div className="w-full bg-black rounded-full h-3.5 border border-gray-700 relative overflow-hidden">
+                               <div className="bg-red-600 h-full transition-all duration-300" style={{width:`${Math.min(100, Math.max(0, enemy.hp)/enemy.mhp*100)}%`}}></div>
+                               <div className="absolute inset-0 flex items-center justify-center text-[10px] sm:text-xs font-bold text-white tabular-nums">{Math.max(0, enemy.hp)}/{enemy.mhp}</div>
+                             </div>
+                           </div>
+                         </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 min-h-0 border border-green-800 overflow-hidden flex flex-col bg-gray-950 rounded relative">
+                   <div className="flex-1 overflow-y-auto p-2 text-sm sm:text-base leading-relaxed cursor-pointer hover:bg-gray-900 transition-colors" onClick={() => setLogModal(true)}>
+                     <div className="absolute top-1 right-1 text-[10px] text-gray-600 font-bold bg-black/80 px-1.5 py-0.5 rounded pointer-events-none">點擊展開全紀錄</div>
+                     {logs.map((l,i) => <div key={i} className={`mb-0.5 ${l.includes('***')?'text-yellow-400 font-bold':l.includes('受')||l.includes('陷入')||l.includes('❌')?'text-red-400':l.includes('獲得')||l.includes('換上')?'text-blue-400 font-bold':l.includes('###')||l.includes('🎉')?'text-purple-400 font-bold':'text-green-500'}`}>{l}</div>)}
+                     <div ref={generalLogRef}/>
+                   </div>
+                </div>
+              </div>
+
+              <div className="flex-shrink-0 h-[150px] sm:h-[160px] border-t-2 border-green-800 p-1.5 bg-black pb-3 sm:pb-2 z-10">
+                <div className="w-full h-full font-bold">
+                  {scene === 'COMBAT' ? (
+                    cMenu === 'MAIN' ? (
+                      <div className="flex flex-col h-full gap-1.5">
+                        <div className="grid grid-cols-2 grid-rows-2 gap-1.5 flex-1">
+                          <button onClick={()=>setCMenu('MAGIC')} disabled={auto} className="border-2 border-purple-800 bg-purple-900/30 text-purple-300 text-lg sm:text-xl rounded active:bg-purple-800 flex items-center justify-center">
+                             🔮 魔法
+                          </button>
+                          <button onClick={()=>setCMenu('SKILL')} disabled={auto} className="border-2 border-indigo-800 bg-indigo-900/30 text-indigo-300 text-lg sm:text-xl rounded active:bg-indigo-800 flex items-center justify-center">
+                             ✨ 特技
+                          </button>
+                          <button onClick={()=>setCMenu('ITEM')} disabled={auto} className="border-2 border-teal-800 bg-teal-900/30 text-teal-300 text-lg sm:text-xl rounded active:bg-teal-800 flex flex-col items-center justify-center leading-none">
+                             <span>🎒 道具</span><span className="text-[10px] text-teal-400 font-normal mt-1">共 {Object.values(p.pot).reduce((a,b)=>a+b,0)} 件</span>
+                          </button>
+                          <button onClick={()=>doCombat('FLEE')} disabled={auto} className="border-2 border-gray-700 bg-gray-900/50 text-gray-400 text-lg sm:text-xl rounded active:bg-gray-800">
+                             🏃 逃跑
+                          </button>
+                        </div>
+                        <button onClick={()=>{setAuto(!auto); if(!auto)print('>>> 啟動 BOT <<<');else print('>>> 終止 BOT <<<');}} className={`w-full py-2 border-2 rounded ${auto?'border-yellow-500 text-yellow-500 animate-pulse bg-yellow-900/20':'border-green-800 text-green-500'} text-sm sm:text-base font-bold uppercase shrink-0`}>
+                           {auto?'STOP BOT':'AUTO BOT'}
+                        </button>
+                      </div>
+                    ) : cMenu === 'ITEM' ? (
+                      <div className="flex flex-col h-full gap-1.5">
+                        <div className="grid grid-cols-2 gap-1.5 flex-1 overflow-y-auto">
+                          <button onClick={()=>doCombat('ITEM_HP')} disabled={auto||(p.pot?.hp||0)<=0} className="border-2 border-pink-800 bg-pink-900/20 text-pink-300 text-sm sm:text-base active:bg-pink-900/50 rounded flex flex-col items-center justify-center"><span>🧪 HP水</span><span className="text-xs font-normal">持: {p.pot?.hp||0}</span></button>
+                          <button onClick={()=>doCombat('ITEM_MP')} disabled={auto||(p.pot?.mp||0)<=0} className="border-2 border-blue-800 bg-blue-900/20 text-blue-300 text-sm sm:text-base active:bg-blue-900/50 rounded flex flex-col items-center justify-center"><span>💧 MP水</span><span className="text-xs font-normal">持: {p.pot?.mp||0}</span></button>
+                          <button onClick={()=>doCombat('ITEM_CURE')} disabled={auto||(p.pot?.cure||0)<=0} className="border-2 border-purple-800 bg-purple-900/20 text-purple-300 text-sm sm:text-base active:bg-purple-900/50 rounded flex flex-col items-center justify-center"><span>✨ 萬能藥</span><span className="text-xs font-normal">持: {p.pot?.cure||0}</span></button>
+                          <button onClick={()=>doCombat('ITEM_MBOOM')} disabled={auto||(p.pot?.mBoom||0)<=0} className="border-2 border-orange-800 bg-orange-900/20 text-orange-300 text-sm sm:text-base active:bg-orange-900/50 rounded flex flex-col items-center justify-center"><span>🪃 迴力鏢</span><span className="text-xs font-normal">持: {p.pot?.mBoom||0}</span></button>
+                        </div>
+                        <button onClick={()=>setCMenu('MAIN')} className="w-full border border-gray-700 bg-gray-800 text-white text-base active:bg-gray-700 rounded py-1.5 shrink-0">⬅️ 返回</button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col h-full gap-1.5">
+                        <div className="grid grid-cols-2 gap-1.5 overflow-y-auto flex-1 pr-1">
+                          {getSortedSkills(cMenu==='MAGIC'?'m':'s').map(s=>(
+                            <button key={s} onClick={()=>doCombat(s)} disabled={auto} className={`border px-1 py-1 rounded flex flex-col items-center justify-center active:bg-gray-800 ${s===p.defM || s===p.defS ? 'border-yellow-500 bg-yellow-900/20 text-yellow-300 shadow-[0_0_5px_rgba(234,179,8,0.4)]' : cMenu==='MAGIC' ? 'border-purple-800 bg-purple-900/10 text-purple-300' : 'border-indigo-800 bg-indigo-900/10 text-indigo-300'}`}>
+                              <span className="truncate w-full text-center text-sm sm:text-base flex justify-center items-center gap-1">{s===p.defM || s===p.defS ? '⭐' : ''}{getSk(s, p).n}</span>
+                              <span className="text-[10px] font-normal opacity-70">-{(SKILLS[s]?.mp||0)}MP</span>
+                            </button>
+                          ))}
+                        </div>
+                        <button onClick={()=>setCMenu('MAIN')} className="border border-gray-700 bg-gray-800 text-white text-base active:bg-gray-700 rounded py-1.5 shrink-0">⬅️ 返回</button>
+                      </div>
+                    )
+                  ) : menu !== 'MAIN' ? (
+                    <button onClick={()=>setMenu('MAIN')} disabled={auto} className="w-full h-full border-2 border-green-600 bg-green-900/30 text-center uppercase text-lg active:bg-green-800 rounded">[ 返回地圖 ]</button>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-1.5 h-full">
+                      <div className="col-span-2 grid grid-cols-3 gap-1.5">
+                        <div/><button onClick={()=>move(0,-1)} disabled={auto} className="border-2 border-green-700 bg-green-900/30 text-lg sm:text-xl rounded active:bg-green-800 flex items-center justify-center leading-none pb-1">N</button><div/>
+                        <button onClick={()=>move(-1,0)} disabled={auto} className="border-2 border-green-700 bg-green-900/30 text-lg sm:text-xl rounded active:bg-green-800 flex items-center justify-center leading-none pr-1">W</button>
+                        <button onClick={()=>move(0,1)} disabled={auto} className="border-2 border-green-700 bg-green-900/30 text-lg sm:text-xl rounded active:bg-green-800 flex items-center justify-center leading-none pt-1">S</button>
+                        <button onClick={()=>move(1,0)} disabled={auto} className="border-2 border-green-700 bg-green-900/30 text-lg sm:text-xl rounded active:bg-green-800 flex items-center justify-center leading-none pl-1">E</button>
+                      </div>
+                      <div className="col-span-2 grid grid-cols-2 gap-1.5">
+                        <button onClick={()=>{if(p.x===1&&p.y===1)setMenu('TOWN');else print('需在 [T] 城鎮上方才能進入。');}} disabled={auto} className="border-2 border-cyan-800 bg-cyan-900/20 text-cyan-400 text-base rounded active:bg-cyan-900">城鎮</button>
+                        <button onClick={()=>setMenu('SKILL')} disabled={auto} className="border-2 border-yellow-800 bg-yellow-900/20 text-yellow-400 text-base rounded active:bg-yellow-900">狀態</button>
+                        <button onClick={()=>{setAuto(!auto); if(!auto)print('>>> 啟動 BOT <<<');else print('>>> 終止 BOT <<<');}} className={`col-span-2 border-2 rounded ${auto?'border-yellow-500 text-yellow-500 animate-pulse bg-yellow-900/20':'border-green-800 text-green-500'} text-base uppercase`}>{auto?'STOP BOT':'AUTO BOT'}</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
