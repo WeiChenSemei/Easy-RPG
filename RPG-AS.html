@@ -638,6 +638,21 @@
         logAndMsg(msg, 'text-yellow-400 font-bold', 'bg-yellow-800'); renderBattleScreen(); await sleep(1000);
     }
 
+    async function sweepDeadChests() {
+    // 找出所有：是寶箱怪 (baseId === 99) + 已經死亡 + 還沒被搜刮過 (!isLooted) 的怪物
+    let deadChests = gameState.enemies.filter(e => e.baseId === 99 && e.isDead && !e.isLooted);
+    for (let chest of deadChests) {
+        chest.isLooted = true; // 標記為已搜刮，防止重複開箱
+        let alives = gameState.party.filter(h => !h.isDead);
+        if (alives.length > 0) {
+            let luckyHero = alives[Math.floor(Math.random() * alives.length)]; // 隨機派一位活著的隊友去開
+            logAndMsg(`📦 『${luckyHero.name}』發現寶箱裡面是:`, 'text-yellow-300', 'bg-yellow-800');
+            await sleep(1000);
+            await triggerChestReward(luckyHero);
+          }
+        }
+      }
+
     function startRoom() { 
       if(gameState.room === 1) gameState.maxRooms = Math.floor(Math.random() * 6) + 10;
       const isBossRoom = (gameState.room >= gameState.maxRooms || gameState.room >= 15); gameState.enemies = []; 
@@ -725,10 +740,22 @@
     
     // Core Execute Loop
     async function executeRoundTurn() { 
-      await resolveRoundEffects(); if (checkEnemiesWiped() || checkPartyWiped()) return;
+      await resolveRoundEffects(); await sweepDeadChests(); // 新增打掃 (抓毒死、天氣死)
+      if (checkEnemiesWiped() || checkPartyWiped()) return;
       const pFirst = Math.random() < 0.5; 
-      if (pFirst) { await runP(); if (checkEnemiesWiped()) return; await runE(); if (checkPartyWiped()) return; } else { await runE(); if (checkPartyWiped()) return; await runP(); if (checkEnemiesWiped()) return; } 
-      if (checkEnemiesWiped()) return; if (gameState.isBattleActive) { gameState.roundCount++; startInputPhase(); } 
+      if (pFirst) { 
+        await runP(); await sweepDeadChests(); // 新增打掃 (抓玩家打死、反傷死)
+        if (checkEnemiesWiped()) return; 
+        await runE(); await sweepDeadChests(); // 新增打掃 (抓怪物打死、反傷死)
+        if (checkPartyWiped()) return; 
+       } else { 
+        await runE(); await sweepDeadChests(); // 新增打掃
+        if (checkPartyWiped()) return; 
+        await runP(); await sweepDeadChests(); // 新增打掃
+        if (checkEnemiesWiped()) return; 
+       } 
+      if (checkEnemiesWiped()) return; 
+      if (gameState.isBattleActive) { gameState.roundCount++; startInputPhase(); } 
     }
 
     async function runP() {
@@ -851,7 +878,7 @@
               }
           }
       } else {
-          let totalActionDmg = 0; let kills = 0; let chests = 0;
+          let totalActionDmg = 0; let kills = 0;
           
           for (let t of targets) {
               if(!t || t.isDead) continue; let eIdx = gameState.enemies.indexOf(t);
@@ -895,7 +922,8 @@
 
                   if (cMap[act.effect]) { if (!pwr || d > 0) { applyStatusCond(t, cMap[act.effect][0], cMap[act.effect][1], cMap[act.effect][2], cMap[act.effect][3]); } if (!pwr) continue;}
 
-                  if (d===0) { createFloatNum('MISS', 'text-gray-400', false, eIdx); hitDetails += ` (MISS)`; updateSyncLog(); } else { 
+                  if (d===0) { createFloatNum('MISS', 'text-gray-400', false, eIdx); hitDetails += ` (MISS)`; updateSyncLog(); } 
+                  else { 
                       if (!act.isAoe && t.hp - d < -t.maxHp && ['attack','special'].includes(act.type)) { let cleave = Math.floor((Math.abs(t.hp - d) - t.maxHp) / 2); let ots = gameState.enemies.filter(x=>x!==t && !x.isDead); if(ots.length>0 && cleave > 0){ let t2 = ots[Math.floor(Math.random()*ots.length)]; t2.hp = Math.max(0, t2.hp - cleave); createFloatNum(`-${cleave}`, 'text-red-500', false, gameState.enemies.indexOf(t2)); animateElement(`enemy-card-${gameState.enemies.indexOf(t2)}`, 'animate-shake'); hitDetails += ' (過量劈裂!)'; if (t2.hp <= 0) t2.isDead = true; } }
                       t.hp = Math.max(0, t.hp - d); if (t.status.sleep > 0) t.status.sleep = 0; createFloatNum(`-${Math.floor(d)}`, isCritTgt ? 'text-yellow-400' : 'text-white', false, eIdx); animateElement(`enemy-card-${eIdx}`, 'animate-shake'); 
 
@@ -910,7 +938,7 @@
                     }
 
                      if (hero.passives.some(p => p.id === 'p_18') && (act.type === 'attack' || act.type === 'special')) {
-                       let p18Pool = [ ['poison', 3, 'PSN', 'text-green-400'], ['paralyze', 1, 'PAR', 'text-yellow-600'], ['bleed', 3, 'BLD', 'text-red-500'], ['blind', 2, 'BLD', 'text-gray-400'], ['sleep', 2, 'SLP', 'text-blue-300'], ['confuse', 2, 'CNF', 'text-purple-400'], ['silence', 2, 'SIL', 'text-gray-500'], ['weak', 3, 'WEAK', 'text-orange-400'], ['stun', 1, 'STN', 'text-yellow-300'] ];
+                       let p18Pool = [ ['poison', 2, 'PSN', 'text-green-400'], ['paralyze', 1, 'PAR', 'text-yellow-600'], ['bleed', 2, 'BLD', 'text-red-500'], ['blind', 2, 'BLD', 'text-gray-400'], ['sleep', 1, 'SLP', 'text-blue-300'], ['confuse', 1, 'CNF', 'text-purple-400'], ['silence', 1, 'SIL', 'text-gray-500'], ['weak', 2, 'WEAK', 'text-orange-400'], ['stun', 1, 'STN', 'text-yellow-300'] ];
                        let rndCond = p18Pool[Math.floor(Math.random() * p18Pool.length)];
                        if (t.status[rndCond[0]] <= 0) {applyStatusCond(t, rndCond[0], rndCond[1], rndCond[2], rndCond[3]);}
                      }
@@ -923,19 +951,17 @@
                       
                       if (t.hp <= 0) { 
                           t.isDead = true; kills++;
-                          if (t.baseId === 99) chests++;
                           let dK = { details: "" };
                           if (hero.hooks?.onKill) hero.hooks.onKill.forEach(hk => hk(hero, t, act, dK));
                           hitDetails += dK.details;
                       }
                       if (lifestealRate > 0) { let hl = Math.floor(d * lifestealRate); hero.hp = Math.min(hero.getMaxHp(), hero.hp + hl); createFloatNum(`+${hl}`, 'text-green-400', true, heroIdx); }
                       totalActionDmg += d; hitDetails = ` (-${formatNum(totalActionDmg)} total)` + ((kills > 0) ? (act.isAoe ? ` (${kills}殺!)` : ` (擊殺!)`) : ""); updateSyncLog();
-                  }
+                      }
                   renderBattleScreen();
                   await sleep(hitDetails.includes('!') ? 600 : 250);
               }
           }
-          while(chests-- > 0) { logAndMsg(`📦 『${hero.name}』發現寶箱裡面是:`, 'text-yellow-300', 'bg-yellow-800'); await sleep(1000); await triggerChestReward(hero); }
       }
       if (hero.hp <= 0) { hero.isDead = true; logAndMsg(`💀 『${hero.name}』力竭倒下！`, 'text-red-500'); } 
       
@@ -966,6 +992,7 @@
 
     async function eSPA(e, eIdx, skId) { 
       let sk = E_SKILLS[skId];
+      if (e.status.bleed > 0) { let bd = Math.floor(e.maxHp * 0.1);e.hp = Math.max(0, e.hp - bd); createFloatNum(`-${bd}`, 'text-red-500', false, eIdx); logAndMsg(`🩸 【${e.shortName}】流血失血！`, 'text-red-400'); if (e.hp <= 0) { e.isDead = true; return; await sleep(1000); }}
       let eMap = {
           'enrage': async () => { e.s = e.s.filter(x => x !== 'enrage'); e.status.berserk = 999; logAndMsg(`😡 【${e.shortName}】露出滿嘴獠牙，進入狂暴狀態！`, 'text-red-500 font-bold', 'bg-red-900'); renderBattleScreen(); await sleep(800); return true; },
           'flee': async () => { e.isDead = true; e.hp = 0; createFloatNum('FLEE', 'text-gray-400', false, eIdx); logAndMsg(`💨 【${e.shortName}】逃離了戰場！`, 'text-gray-400'); renderBattleScreen(); await sleep(1000); return true; },
