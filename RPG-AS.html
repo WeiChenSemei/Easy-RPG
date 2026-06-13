@@ -825,7 +825,7 @@
       let targets = act.isAoe ? (act.targetFriendly ? gameState.party : gameState.enemies.filter(e => !e.isDead)) : [act.target];
       let hits = act.isAoe ? 1 : ({'double_strike':2, 'triple_strike':3, 'omnislash':5, 'musou_tensei':7}[act.effect] || 1);
       
-      let cMap = {'sleep':['sleep',2,'SLP','text-blue-300'], 'paralyze':['paralyze',1,'PAR','text-yellow-600'], 'damage_paralyze':['paralyze',1,'PAR','text-yellow-600'], 'silence':['silence',2,'SIL','text-gray-500'], 'aoe_blind':['blind',3,'BLD','text-gray-400'], 'aoe_confuse':['confuse',2,'CNF','text-purple-400'], 'aoe_poison_miasma':['poison',3,'PSN','text-green-400'], 'damage_poison':['poison',3,'PSN','text-green-400'], 'shiva':['stun',1,'STN','text-blue-300'], 'aoe_damage_stun':['stun',1,'STN','text-blue-300'], 'kotr':['bleed',3,'BLD','text-red-500']};
+      let cMap = {'sleep':['sleep',2,'SLP','text-blue-300'], 'paralyze':['paralyze',1,'PAR','text-yellow-600'], 'damage_paralyze':['paralyze',1,'PAR','text-yellow-600'], 'silence':['silence',2,'SIL','text-gray-500'], 'aoe_blind':['blind',3,'BLD','text-gray-400'], 'aoe_confuse':['confuse',2,'CNF','text-purple-400'], 'aoe_poison_miasma':['poison',3,'PSN','text-green-400'], 'damage_poison':['poison',3,'PSN','text-green-400'], 'shiva':['stun',1,'STN','text-blue-300'], 'aoe_damage_stun':['stun',1,'STN','text-blue-300'], 'kotr':['bleed',3,'BLD','text-red-500'],'aoe_poison':['poison',3,'PSN','text-green-400'], 'poison':['poison',3,'PSN','text-green-400'], 'damage_stun':['stun',1,'STN','text-blue-300'],};
       
       if (act.targetFriendly) {
           let healP = Math.floor(pwr);
@@ -884,7 +884,6 @@
                   if (isFire && t.status.poison > 0) { t.status.poison = 0; d += Math.floor(t.maxHp * 0.15); hitDetails += '【💥毒爆!】'; }
                   if (isIce && t.status.sleep > 0) { t.status.sleep = 0; applyStatusCond(t, 'stun', 1, 'STN', 'text-blue-300'); hitDetails += '【❄️深度凍結!】'; }
                   if (isIce) t.wetTimer = 2; if (isLightning && t.wetTimer > 0) { t.wetTimer = 0; applyStatusCond(t, 'stun', 1, 'STN', 'text-blue-300'); hitDetails += '【⚡感電!】'; }
-                  if (act.effect === 'damage_mark' || act.skillId === 's_05') { t.assassinMarks = (t.assassinMarks || 0) + 1; hitDetails += ` (🎯印記:${t.assassinMarks}層)`; }
                   if (act.skillId === 's_08' && t.assassinMarks > 0) { d = Math.floor(d * (1 + t.assassinMarks * 0.2)); hitDetails += ` (引爆${t.assassinMarks}層印記!)`; t.assassinMarks = 0; }
                   if (actTags.some(tag => t.weaknesses.includes(tag)) && Math.random() < 0.5) { t.weaknesses = []; t.affixes = t.affixes.filter(a => !a.includes('弱')); createFloatNum('BREAK', 'text-yellow-300', false, eIdx); hitDetails += ` (BREAK)`; }
                   if (t.isMetal && act.effect !== 'metal_slash' && act.type !== 'magic' && Math.random() < 0.85) { createFloatNum('MISS', 'text-gray-400', false, eIdx); hitDetails += ` (MISS)`; updateSyncLog(); await sleep(300); continue; }
@@ -894,22 +893,32 @@
                   if (act.skillId === 'm_11' && t.status.poison > 0) { d = Math.floor(t.maxHp * 0.2); t.status.poison = 0; hitDetails += '【☠️腐化爆炸!】'; }
                   if (act.skillId === 'i_02' && t.status.enchant_fire > 0) { d = 60; hitDetails += '【💥引燃!】'; }
 
-                  if (cMap[act.effect]) { applyStatusCond(t, cMap[act.effect][0], cMap[act.effect][1], cMap[act.effect][2], cMap[act.effect][3]); if(!pwr) { if(!act.isAoe) break; else return; } }
-                  
-                  if (act.type === 'attack' && hero.equips.weapon) {
-                      let wp = hero.equips.weapon;
-                      if (wp.poisonChance && Math.random() < wp.poisonChance) applyStatusCond(t, 'poison', 3, 'PSN', 'text-green-400');
-                      if (wp.sleepChance && Math.random() < wp.sleepChance) applyStatusCond(t, 'sleep', 2, 'SLP', 'text-blue-300');
-                      if (wp.paralyzeChance && Math.random() < wp.paralyzeChance) applyStatusCond(t, 'paralyze', 1, 'PAR', 'text-yellow-600');
-                      if (wp.bleedChance && Math.random() < wp.bleedChance) applyStatusCond(t, 'bleed', 3, 'BLD', 'text-red-500');
-                  }
-
-                  if (act.effect === 'damage_slow') { t.speed = Math.max(1, t.speed - 3); createFloatNum(`SLW`, 'text-blue-400', false, eIdx); }
-                  if (act.effect === 'armor_break' || hero.equips.weapon?.id === 'w_09') { t.def = Math.max(0, t.def - 5); createFloatNum(`DEF DWN`, 'text-yellow-400', false, eIdx); if(act.effect==='armor_break') hitDetails += ` (防禦-5)`; }
+                  if (cMap[act.effect]) { if (!pwr || d > 0) { applyStatusCond(t, cMap[act.effect][0], cMap[act.effect][1], cMap[act.effect][2], cMap[act.effect][3]); } if (!pwr) continue;}
 
                   if (d===0) { createFloatNum('MISS', 'text-gray-400', false, eIdx); hitDetails += ` (MISS)`; updateSyncLog(); } else { 
                       if (!act.isAoe && t.hp - d < -t.maxHp && ['attack','special'].includes(act.type)) { let cleave = Math.floor((Math.abs(t.hp - d) - t.maxHp) / 2); let ots = gameState.enemies.filter(x=>x!==t && !x.isDead); if(ots.length>0 && cleave > 0){ let t2 = ots[Math.floor(Math.random()*ots.length)]; t2.hp = Math.max(0, t2.hp - cleave); createFloatNum(`-${cleave}`, 'text-red-500', false, gameState.enemies.indexOf(t2)); animateElement(`enemy-card-${gameState.enemies.indexOf(t2)}`, 'animate-shake'); hitDetails += ' (過量劈裂!)'; if (t2.hp <= 0) t2.isDead = true; } }
                       t.hp = Math.max(0, t.hp - d); if (t.status.sleep > 0) t.status.sleep = 0; createFloatNum(`-${Math.floor(d)}`, isCritTgt ? 'text-yellow-400' : 'text-white', false, eIdx); animateElement(`enemy-card-${eIdx}`, 'animate-shake'); 
+
+                     if (act.type === 'attack') {
+                     [hero.equips.weapon, hero.equips.offhand].forEach(wp => {
+                     if (!wp) return;
+                     if (wp.poisonChance && Math.random() < wp.poisonChance) applyStatusCond(t, 'poison', 3, 'PSN', 'text-green-400');
+                     if (wp.sleepChance && Math.random() < wp.sleepChance) applyStatusCond(t, 'sleep', 2, 'SLP', 'text-blue-300');
+                     if (wp.paralyzeChance && Math.random() < wp.paralyzeChance) applyStatusCond(t, 'paralyze', 1, 'PAR', 'text-yellow-600');
+                     if (wp.bleedChance && Math.random() < wp.bleedChance) applyStatusCond(t, 'bleed', 3, 'BLD', 'text-red-500');
+                     });
+                    }
+
+                     if (hero.passives.some(p => p.id === 'p_18') && (act.type === 'attack' || act.type === 'special')) {
+                       let p18Pool = [ ['poison', 3, 'PSN', 'text-green-400'], ['paralyze', 1, 'PAR', 'text-yellow-600'], ['bleed', 3, 'BLD', 'text-red-500'], ['blind', 2, 'BLD', 'text-gray-400'], ['sleep', 2, 'SLP', 'text-blue-300'], ['confuse', 2, 'CNF', 'text-purple-400'], ['silence', 2, 'SIL', 'text-gray-500'], ['weak', 3, 'WEAK', 'text-orange-400'], ['stun', 1, 'STN', 'text-yellow-300'] ];
+                       let rndCond = p18Pool[Math.floor(Math.random() * p18Pool.length)];
+                       if (t.status[rndCond[0]] <= 0) {applyStatusCond(t, rndCond[0], rndCond[1], rndCond[2], rndCond[3]);}
+                     }
+
+                      if (act.effect === 'damage_slow') { t.speed = Math.max(1, t.speed - 3); createFloatNum(`SLW`, 'text-blue-400', false, eIdx); }
+                      if (act.effect === 'armor_break' || hero.equips.weapon?.id === 'w_09') { t.def = Math.max(0, t.def - 5); createFloatNum(`DEF DWN`, 'text-yellow-400', false, eIdx); if(act.effect==='armor_break') hitDetails += ` (防禦-5)`; }
+                      if (act.effect === 'damage_mark' || act.skillId === 's_05') { t.assassinMarks = (t.assassinMarks || 0) + 1; hitDetails += ` (🎯印記:${t.assassinMarks}層)`; }
+
                       if (t.status.reflect_buff > 0 && d > 0 && act.type !== 'items') { let rD = Math.floor(d * 0.8); hero.hp = Math.max(0, hero.hp - rD); createFloatNum(`反射-${rD}`, 'text-blue-300', true, heroIdx); } 
                       
                       if (t.hp <= 0) { 
