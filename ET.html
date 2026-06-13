@@ -39,7 +39,6 @@
         .door-text h4 { color: var(--text); margin-bottom: 4px; font-size: 1.1em; }
         .door-text p { color: var(--muted); font-size: 0.85em; }
         
-        /* Resonance & Overload UI */
         #res-ovl-display { text-align: center; font-weight: bold; height: 20px; font-size: 0.95em; margin-bottom: 5px; }
         #energy-bar { display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; min-height: 25px; margin-bottom: 5px; }
         .e-badge { background: rgba(255,255,255,0.1); border: 1px solid #444; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
@@ -100,8 +99,8 @@
         <input type="text" id="save-io" placeholder="在此產生或貼上繼承碼..." style="width:90%; padding:12px; margin: 10px 0; border-radius:8px; border:1px solid #444; background:#222; color:#fff; text-align:center; font-size:0.9em; font-family:monospace;">
         <div id="save-msg" style="color:var(--hl); font-size:0.95em; margin-bottom:15px; height:1em; font-weight:bold;"></div>
         <div style="display:flex; flex-direction:column; gap:12px; width:90%;">
-            <button class="btn" style="background:#2a2a35; border:1px solid var(--hl); color:var(--hl);" onclick="exportSave()">匯出繼承碼 (產生並複製)</button>
-            <button class="btn" style="background:#2a2a35; border:1px solid var(--success); color:var(--success);" onclick="importSave()">匯入繼承碼 (貼上後讀取)</button>
+            <button class="btn" style="background:#2a2a35; border:1px solid var(--hl); color:var(--hl);" onclick="exportSave()">匯出繼承碼</button>
+            <button class="btn" style="background:#2a2a35; border:1px solid var(--success); color:var(--success);" onclick="importSave()">匯入繼承碼</button>
             <button class="btn" id="btn-reset" style="background:var(--danger); margin-top:10px;" onclick="confirmReset()">重置所有進度</button>
             <button class="btn" style="background:#555;" onclick="$('save-modal').style.display='none'">返回遊戲</button>
         </div>
@@ -118,10 +117,8 @@
             </div>
         </div>
         <div id="battle-view" class="view">
-            <!-- Resonance / Overload UI -->
             <div id="res-ovl-display"></div>
             <div id="energy-bar"></div>
-            
             <div class="turn-box"><span id="theme-display" style="color:var(--danger); margin-right:10px;"></span>指令: <span id="current-hero-name" style="color:#fff; font-size:1.2em;"></span></div>
             <div class="sel-container" id="sel-container"></div>
             <div class="element-grid" id="element-buttons"></div>
@@ -154,9 +151,16 @@ const EVO = {}; for(let k in EL) if(EL[k].req) EVO[EL[k].req] = k;
 const STATUS = { BURN: { i:'🔥', c:'#ff5722' }, WET: { i:'💧', c:'#03a9f4' }, FROZEN: { i:'❄️', c:'#81d4fa' }, SHOCK: { i:'⚡', c:'#ffeb3b' }, POISON: { i:'☠️', c:'#9c27b0' }, STUN: { i:'💫', c:'#e0e0e0', skip:true }, SLOW: { i:'🐢', c:'#888' }, HASTE: { i:'🐇', c:'#fff' }, SHIELD: { i:'🛡️', c:'#eee' }, ATK_UP: { i:'⚔️', c:'#ff9800' } };
 const FIELD = { F: { n:'火海', i:'🔥', fx:'每回合燃燒' }, W: { n:'水窪', i:'💧', fx:'強化雷冰' }, P: { n:'毒沼', i:'☠️', fx:'每回合中毒' }, S: { n:'蒸氣', i:'☁️', fx:'遮蔽視線' }, G: { n:'冰域', i:'🧊', fx:'全場緩速' }, C: { n:'雷場', i:'🌩️', fx:'隨機感電' } };
 
-// 共鳴與失控規則
 const RES_FX = { F:'火傷+50%', W:'水系附加護盾', T:'雷電額外連鎖', I:'碎冰增傷50%', P:'劇毒傷害加倍', A:'我方神速', E:'我方減傷30%', L:'治癒護盾強化', D:'闇系附帶吸血' };
 const OVL_FX = { F:{n:'🌋火山爆發',d:'全場火傷'}, W:{n:'🌊大洪水',d:'全場潮濕'}, T:{n:'🌩️末日雷暴',d:'隨機落雷'}, I:{n:'🥶極寒風暴',d:'全場緩速'}, P:{n:'☣️瘟疫蔓延',d:'全場中毒'}, A:{n:'🌪️狂怒龍捲',d:'單體目標錯亂'}, E:{n:'⛰️大地震擊',d:'全場地傷'}, L:{n:'☀️聖光普照',d:'全場治癒'}, D:{n:'🌑無盡永夜',d:'攻擊易Miss'} };
+
+// 召喚物性格 AI (Targeting & Effects)
+const SUMMON_AI = {
+    F: { tg: 'E_RAND', dmg: 20, app: 'BURN', txt: '散播火苗' }, W: { tg: 'H_ALL', heal: 15, txt: '波紋治癒' },
+    T: { tg: 'E_RAND', dmg: 15, app: 'SHOCK', chain: true, txt: '閃電跳躍' }, A: { tg: 'H_ALL', buff: 'HASTE', txt: '順風而行' },
+    I: { tg: 'E_RAND', dmg: 10, app: 'FROZEN', txt: '精準凍結' }, P: { tg: 'E_HIGH', dmg: 15, app: 'POISON', txt: '劇毒感染' },
+    L: { tg: 'H_LOW', heal: 30, shd: 20, txt: '聖光庇護' }, D: { tg: 'E_ALL', app: 'SLOW', txt: '闇影籠罩' }, E: { tg: 'H_ALL', shd: 25, txt: '大地屏障' }
+};
 
 const RELICS = { 'R_F': { i:'🔥', n:'火炎核心', d:'火傷+50%' }, 'R_I': { i:'❄️', n:'永凍冰晶', d:'冰傷+50%' }, 'R_T': { i:'⚡', n:'超導線圈', d:'雷傷+50%' }, 'R_E': { i:'🪨', n:'大地之核', d:'戰鬥全體30護盾' }, 'R_A': { i:'🌪️', n:'輕靈之羽', d:'初始速度提升' }, 'R_W': { i:'💧', n:'潮濕護符', d:'施放水屬回血' }, 'R_ALCH': { i:'♻️', n:'煉金之心', d:'25%不耗元素' }, 'R_HEAL': { i:'💚', n:'活力之泉', d:'離開房間回血' }, 'R_LUCK': { i:'🍀', n:'幸運草', d:'勝利額外掉落' }, 'R_THORN': { i:'🌵', n:'反甲圖騰', d:'反彈20%傷害' } };
 const AFFIXES = { VAMP: { n:'吸血', fx:'攻擊時回復' }, THORN: { n:'荊棘', fx:'受擊反彈' }, QUICK: { n:'疾風', fx:'極高速度' }, TOUGH: { n:'重甲', fx:'獲得護盾' }, REGEN: { n:'再生', fx:'每回合恢復' } };
@@ -209,49 +213,18 @@ const ENEMY_DATA = [
 let state = {
     floor: 1, room: 1, maxFloor: 1, deaths: 0, maxSlots: 1,
     inventory: { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }, relics: [],
-    energy: {}, reso: {e:null, t:0}, ovl: {e:null, t:0},
+    energy: {}, reso: {e:null, t:0}, ovl: {e:null, t:0}, summons: [], // Added Summons
     heroes: Array.from({length:4}, (_,i) => ({ id:'h'+i, i:['🧙‍♂️','🧝‍♀️','🥷','🧑‍🎤'][i], hp:100, maxHp:100, status:[], shield:0, buffs:[], atkAnim:0, hit:0 })),
     enemies: [], codex: new Set(), battlePhase: 'NONE', execQueue: [], heroActions: [], field: null, currentHero: null, theme: null
 };
 
 function saveGame() { state.maxFloor = Math.max(state.maxFloor, state.floor); const s = { ...state, codex: Array.from(state.codex) }; localStorage.setItem('toe_sv2', JSON.stringify(s)); }
-function loadGame() { let s = localStorage.getItem('toe_sv2'); if(s) { let p = JSON.parse(s); Object.assign(state, p); state.codex = new Set(p.codex); if(!state.relics) state.relics=[]; if(!state.energy) { state.energy={}; state.reso={e:null,t:0}; state.ovl={e:null,t:0};} } }
+function loadGame() { let s = localStorage.getItem('toe_sv2'); if(s) { let p = JSON.parse(s); Object.assign(state, p); state.codex = new Set(p.codex); if(!state.relics) state.relics=[]; if(!state.energy) { state.energy={}; state.reso={e:null,t:0}; state.ovl={e:null,t:0}; state.summons=[];} } }
 
-function openSaveMenu() { 
-    $('st-runs').innerText = state.deaths; $('st-maxf').innerText = state.maxFloor; 
-    $('save-io').value = ''; $('save-msg').innerText = ''; 
-    $('btn-reset').innerText = '重置所有進度'; $('btn-reset').style.background = 'var(--danger)';
-    $('save-modal').style.display = 'flex'; 
-}
-
-function exportSave() { 
-    saveGame(); let d = btoa(encodeURIComponent(localStorage.getItem('toe_sv2'))); 
-    let io = $('save-io'); io.value = d; io.select();
-    try { document.execCommand('copy'); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 繼承碼已複製到剪貼簿！"; } 
-    catch (err) { $('save-msg').style.color = "var(--warn)"; $('save-msg').innerText = "⚠️ 請手動複製上方繼承碼"; } 
-}
-
-function importSave() { 
-    let c = $('save-io').value.trim(); 
-    if(!c) { $('save-msg').style.color = "var(--warn)"; $('save-msg').innerText = "⚠️ 請貼上繼承碼！"; return; }
-    try { 
-        let s = decodeURIComponent(atob(c)); JSON.parse(s); localStorage.setItem('toe_sv2', s); 
-        $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 讀取成功！即將重新載入..."; 
-        setTimeout(() => { loadGame(); state.battlePhase = 'NONE'; $('save-modal').style.display='none'; goMainView(); genDoors(); updateTop(); }, 1000); 
-    } catch(e) { $('save-msg').style.color = "var(--danger)"; $('save-msg').innerText = "❌ 無效的繼承碼！"; } 
-}
-
-function confirmReset() {
-    let btn = $('btn-reset');
-    if(btn.innerText === '重置所有進度') { btn.innerText = '⚠️ 再次點擊以確認重置'; btn.style.background = '#800'; $('save-msg').style.color = "var(--danger)"; $('save-msg').innerText = "警告：將刪除所有圖鑑與輪迴進度！"; } 
-    else { 
-        localStorage.removeItem('toe_sv2'); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 已重置！即將重新載入..."; 
-        setTimeout(() => { 
-            state = { floor: 1, room: 1, maxFloor: 1, deaths: 0, maxSlots: 1, inventory: { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }, relics: [], energy: {}, reso: {e:null,t:0}, ovl: {e:null,t:0}, heroes: Array.from({length:4}, (_,i) => ({ id:'h'+i, i:['🧙‍♂️','🧝‍♀️','🥷','🧑‍🎤'][i], hp:100, maxHp:100, status:[], shield:0, buffs:[], atkAnim:0, hit:0 })), enemies: [], codex: new Set(), battlePhase: 'NONE', execQueue: [], heroActions: [], field: null, currentHero: null, theme: null }; 
-            $('save-modal').style.display='none'; goMainView(); genDoors(); updateTop(); 
-        }, 1000); 
-    }
-}
+function openSaveMenu() { $('st-runs').innerText = state.deaths; $('st-maxf').innerText = state.maxFloor; $('save-io').value = ''; $('save-msg').innerText = ''; $('btn-reset').innerText = '重置所有進度'; $('btn-reset').style.background = 'var(--danger)'; $('save-modal').style.display = 'flex'; }
+function exportSave() { saveGame(); let d = btoa(encodeURIComponent(localStorage.getItem('toe_sv2'))); let io = $('save-io'); io.value = d; io.select(); try { document.execCommand('copy'); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 繼承碼已複製！"; } catch (err) { $('save-msg').style.color = "var(--warn)"; $('save-msg').innerText = "⚠️ 請手動複製"; } }
+function importSave() { let c = $('save-io').value.trim(); if(!c) { $('save-msg').style.color = "var(--warn)"; $('save-msg').innerText = "⚠️ 請貼上繼承碼！"; return; } try { let s = decodeURIComponent(atob(c)); JSON.parse(s); localStorage.setItem('toe_sv2', s); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 讀取成功！"; setTimeout(() => { loadGame(); state.battlePhase = 'NONE'; $('save-modal').style.display='none'; goMainView(); genDoors(); updateTop(); }, 1000); } catch(e) { $('save-msg').style.color = "var(--danger)"; $('save-msg').innerText = "❌ 無效的碼！"; } }
+function confirmReset() { let btn = $('btn-reset'); if(btn.innerText === '重置所有進度') { btn.innerText = '⚠️ 確認重置'; btn.style.background = '#800'; $('save-msg').style.color = "var(--danger)"; $('save-msg').innerText = "警告：將刪除所有進度！"; } else { localStorage.removeItem('toe_sv2'); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 已重置！"; setTimeout(() => { location.reload(); }, 1000); } }
 
 const $ = id => document.getElementById(id); const canvas = $('game-canvas'); const ctx = canvas.getContext('2d');
 let particles = [], floatTexts = [];
@@ -259,7 +232,7 @@ let particles = [], floatTexts = [];
 /** 3. 介面與探索 */
 function goMainView() { switchView(state.battlePhase === 'NONE' ? 'explore-view' : 'battle-view'); }
 function switchView(vid) {
-    $('click-prompt').style.display = 'none'; // 防呆隱藏
+    $('click-prompt').style.display = 'none';
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); $(vid).classList.add('active');
     document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
     $('nav-explore').innerText = state.battlePhase === 'NONE' ? "🏔️ 冒險" : "⚔️ 戰鬥";
@@ -270,6 +243,7 @@ function switchView(vid) {
 function getAvail(k) {
     if (k === state.theme) return 999;
     let used = currSel.filter(x => x===k).length;
+    state.heroActions.forEach(a => used += a.elements.filter(x => x===k).length);
     return (state.inventory[k] || 0) - used;
 }
 
@@ -330,7 +304,7 @@ function resolveEvent(arg) {
         msg = "💀 隊伍全滅... 塔的輪迴已開啟"; let mf = state.floor; 
         loot = `<div style="font-size:0.8em; color:#aaa; line-height:1.5;">失去所有合成元素與遺物<br>繼承先前的意志<br>最大生命上限 +${mf}<br>初始基礎元素 +1</div>`;
         $('event-btn').onclick = () => { 
-            state.deaths++; state.maxFloor = Math.max(state.maxFloor, mf); state.floor = 1; state.room = 1; state.maxSlots = 1;
+            state.deaths++; state.maxFloor = Math.max(state.maxFloor, mf); state.floor = 1; state.room = 1;
             let initC = { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }; state.inventory = {}; for(let k in initC) state.inventory[k] = initC[k] + state.deaths;
             state.heroes.forEach(h => { h.maxHp += mf; h.hp = h.maxHp; h.status=[]; h.shield=0; h.buffs=[]; });
             state.relics = []; state.battlePhase = 'NONE'; $('event-btn').onclick = nextRoom; saveGame(); genDoors(); updateTop();
@@ -349,27 +323,24 @@ function nextRoom() {
 /** 4. 戰鬥系統 */
 function startBattle(isBoss, themeArg = null) {
     state.battlePhase = 'EXECUTE'; state.field = null; state.execQueue = []; state.heroActions = []; state.theme = themeArg;
-    state.energy = {}; state.reso = {e:null, t:0}; state.ovl = {e:null, t:0}; 
+    state.energy = {}; state.reso = {e:null, t:0}; state.ovl = {e:null, t:0}; state.summons = [];
     state.heroes.forEach(h => { h.shield = state.relics.includes('R_E') ? 30 : 0; h.buffs = []; h.status = []; });
     if(state.relics.includes('R_E')) state.heroes.forEach(h=>spTxt(h, "🛡️磐石", '#eee'));
     
     let isBInt = isBoss ? 1 : 0;
     let pool = ENEMY_DATA.filter(e => (e[9] ? 1 : 0) === isBInt); 
     if(themeArg) { let tPool = pool.filter(e => e[0] === themeArg); if(tPool.length > 0) pool = tPool; }
-    if(pool.length === 0) pool = ENEMY_DATA;
+    if(pool.length === 0) pool = ENEMY_DATA; 
     
     let affixKeys = Object.keys(AFFIXES);
     state.enemies = []; const count = isBoss ? 1 : Math.floor(Math.random()*3)+1;
     let spawnE = (t, isB) => {
-        if(!t) return;
-        let hp = t[3] + state.floor * (isB ? 40 : 15);
-        let afx = (isB || Math.random() < 0.2) ? affixKeys[Math.floor(Math.random()*affixKeys.length)] : null;
+        if(!t) return; let hp = t[3] + state.floor * (isB ? 40 : 15); let afx = (isB || Math.random() < 0.2) ? affixKeys[Math.floor(Math.random()*affixKeys.length)] : null;
         let sz = isB ? 3 : (t[3]<=55 ? 0 : t[3]>=80 ? 2 : 1);
         state.enemies.push({ id:'e'+Math.random(), el:t[0], i:t[1], n:afx?`[${AFFIXES[afx].n}] ${t[2]}`:t[2], hp:hp, maxHp:hp, status:[], shield:afx==='TOUGH'?100:0, buffs:[], weak:t[4], immu:t[5], abs:t[6], insta:t[7], tr:t[8], isBoss:isB, sz:sz, sumC:isB?3:1, enraged:false, revealed:false, isEnemy:true, atkAnim:0, hit:0, affix:afx });
     };
-    
     for(let i=0; i<count; i++) spawnE(pool[Math.floor(Math.random()*pool.length)], isBoss);
-    if(isBoss) { let mPool = ENEMY_DATA.filter(e => !e[9] && (!themeArg || e[0]===themeArg)); if(!mPool.length) mPool = ENEMY_DATA.filter(e => !e[9]); if(mPool.length) { for(let j=0; j<2; j++) spawnE(mPool[Math.floor(Math.random()*mPool.length)], false); } }
+    if(isBoss) { let mPool = ENEMY_DATA.filter(e => !e[9] && (!themeArg || e[0]===themeArg)); if(!mPool.length) mPool = ENEMY_DATA.filter(e => !e[9]); if(mPool.length) for(let j=0; j<2; j++) spawnE(mPool[Math.floor(Math.random()*mPool.length)], false); }
     
     $('theme-display').innerText = state.theme ? `[${EL[state.theme].i}領域] ` : '';
     logMsg(`⚠️ 遭遇魔物！`); switchView('battle-view'); if(particles.length === 0) loop(); planRound();
@@ -393,9 +364,7 @@ function checkEnergy() {
                 logMsg(`⚠️ 能量過載！引發大災難【${OVL_FX[k].n}】！`); renderBattleUI(); return;
             }
         } else if(v >= 6 && v <= 10 && state.reso.e !== k && !state.ovl.e) {
-            if(Math.random() < 0.2 + (v-6)*0.2 || v >= 10) {
-                state.reso = {e:k, t:3}; logMsg(`🌟 元素共鳴！【${EL[k].i}${EL[k].n}系】能力強化！`); renderBattleUI(); return;
-            }
+            if(Math.random() < 0.2 + (v-6)*0.2 || v >= 10) { state.reso = {e:k, t:3}; logMsg(`🌟 元素共鳴！【${EL[k].i}${EL[k].n}系】能力強化！`); renderBattleUI(); return; }
         }
     }
     renderBattleUI();
@@ -405,6 +374,25 @@ function planRound() {
     if(state.ovl.t > 0) { state.ovl.t--; if(state.ovl.t<=0) { logMsg(`💨 ${OVL_FX[state.ovl.e].n} 結束了。`); state.ovl.e=null; renderBattleUI(); } }
     if(state.reso.t > 0) { state.reso.t--; if(state.reso.t<=0) { logMsg(`💨 共鳴狀態結束。`); state.reso.e=null; renderBattleUI(); } }
     
+    // 生命體互相反應結算
+    if(state.summons.length > 1) {
+        for(let i=0; i<state.summons.length; i++) {
+            for(let j=i+1; j<state.summons.length; j++) {
+                let s1=state.summons[i], s2=state.summons[j]; if(s1.energy<=0 || s2.energy<=0) continue;
+                let rx = REACTIONS[s1.el+'_'+s2.el] || REACTIONS[s2.el+'_'+s1.el];
+                if(rx) {
+                    logMsg(`💥 生命體共鳴！${EL[s1.el].i}與${EL[s2.el].i}引發超級大爆炸！`);
+                    state.enemies.filter(e=>e.hp>0).forEach(e => { applyDmg(e, 40+state.floor*5, '#ff9800'); if(rx.apply) applyStatus(e, rx.apply); });
+                    s1.energy=0; s2.energy=0;
+                } else if (s1.el === s2.el) {
+                    logMsg(`✨ ${EL[s1.el].i}${EL[s1.el].n}之靈 互相融合，能量充滿！`);
+                    s1.energy = Math.min(5, s1.energy + s2.energy); s2.energy = 0;
+                }
+            }
+        }
+        state.summons = state.summons.filter(x=>x.energy>0);
+    }
+    
     state.heroActions = []; let aliveHeroes = state.heroes.filter(h=>h.hp>0);
     if(aliveHeroes.length === 0) return triggerGameOver();
     state.currentHeroIdx = 0; promptHeroCmd(aliveHeroes[0]);
@@ -412,8 +400,7 @@ function planRound() {
 
 let currSel = [];
 function promptHeroCmd(hero) { 
-    $('click-prompt').style.display = 'none'; // 防呆
-    state.maxSlots = Math.min(4, state.floor);
+    $('click-prompt').style.display = 'none'; state.maxSlots = Math.min(4, state.floor);
     state.battlePhase = 'COMMAND'; state.currentHero = hero; currSel = []; renderCmdUI(); renderBattleUI(); 
 }
 
@@ -448,7 +435,6 @@ function confirmAction() {
     let comboStr = [...currSel].sort().join('_');
     let action = { hero: state.currentHero, elements: [...currSel], baseEl: currSel[0] || 'NONE', origCombo: comboStr };
     state.heroActions.push(action);
-    
     let aliveHeroes = state.heroes.filter(h=>h.hp>0); state.currentHeroIdx++;
     if(state.currentHeroIdx < aliveHeroes.length) promptHeroCmd(aliveHeroes[state.currentHeroIdx]);
     else buildExecutionQueue();
@@ -470,26 +456,49 @@ function buildExecutionQueue() {
             if(!state.codex.has('C_'+c.n)) state.codex.add('C_'+c.n);
         }
     }
-    
     for(let i=0; i<actions.length; i++) {
         if(!used.has(i)) {
             let act = actions[i]; let hSpd = Math.random()*100 + (state.relics.includes('R_A')?100:0) + (state.reso.e==='A'?100:0);
             state.execQueue.push({ isCombo: false, actor: act.hero, origCombo: act.origCombo, baseEl: act.baseEl, spd: hSpd, consumeEls: act.elements });
         }
     }
-    
     state.enemies.filter(e=>e.hp>0).forEach(e => {
         let spd = Math.random()*100 + (e.status.includes('HASTE')?100:0) - (e.status.includes('SLOW')?50:0) + (e.affix==='QUICK'?150:0);
         state.execQueue.push({ isEnemyAtk: true, actor: e, spd: spd });
     });
+    state.summons.filter(s=>s.energy>0).forEach(s => state.execQueue.push({ isSummon: true, actor: s, spd: 80 + Math.random()*40 }));
+    
     state.execQueue.sort((a,b) => b.spd - a.spd); state.battlePhase = 'EXECUTE'; nextAction();
 }
 
 function nextAction() {
     if(state.enemies.filter(e=>e.hp>0).length === 0 || state.heroes.filter(h=>h.hp>0).length === 0) return checkWinLoss();
     if(state.execQueue.length === 0) return planRound();
-    let act = state.execQueue.shift(); if(act.actor.hp <= 0) return nextAction();
+    let act = state.execQueue.shift(); if((act.actor.hp !== undefined && act.actor.hp <= 0) || (act.actor.energy !== undefined && act.actor.energy <= 0)) return nextAction();
     
+    // 生命體自動行動
+    if(act.isSummon) {
+        let s = act.actor; s.atkAnim = 12; let sai = SUMMON_AI[s.el]; let tgts = []; 
+        let alvE = state.enemies.filter(e=>e.hp>0), alvH = state.heroes.filter(h=>h.hp>0);
+        if(sai.tg === 'E_RAND') tgts = [alvE.sort(()=>Math.random()-0.5)[0]];
+        if(sai.tg === 'E_HIGH') tgts = [alvE.sort((a,b)=>b.hp - a.hp)[0]];
+        if(sai.tg === 'E_ALL') tgts = alvE; if(sai.tg === 'H_ALL') tgts = alvH;
+        if(sai.tg === 'H_LOW') tgts = [alvH.sort((a,b)=>a.hp - b.hp)[0]];
+        
+        if(tgts[0]) {
+            logMsg(`🧚 ${EL[s.el].i}${EL[s.el].n}之靈 ${sai.txt}！`);
+            tgts.forEach(t => {
+                if(sai.dmg) applyDmg(t, sai.dmg + state.floor*2, EL[s.el].c); if(sai.app) applyStatus(t, sai.app);
+                if(sai.heal) { t.hp = Math.min(t.maxHp, t.hp+sai.heal); spTxt(t, `💚+${sai.heal}`, '#0f0'); }
+                if(sai.shd) { t.shield += sai.shd; spTxt(t, `🛡️+${sai.shd}`, '#eee'); }
+                if(sai.buff && !t.buffs.includes(sai.buff)) { t.buffs.push(sai.buff); spTxt(t, "💨加速", '#fff'); }
+            });
+            if(sai.chain && alvE.length > 1) { let next = alvE.find(e => !tgts.includes(e)); if(next) { applyDmg(next, Math.floor(sai.dmg/2), EL[s.el].c); applyStatus(next, sai.app); } }
+        }
+        s.energy--; if(s.energy <= 0) { logMsg(`💨 ${EL[s.el].i}${EL[s.el].n}之靈 耗盡能量消散了。`); state.summons = state.summons.filter(x=>x!==s); }
+        state.battlePhase = 'WAIT'; setTimeout(() => { if(state.battlePhase === 'WAIT') $('click-prompt').style.display='block'; }, 1000); return;
+    }
+
     if(act.actor.status.includes('STUN')) {
         if(act.actor.enraged) { spTxt(act.actor, "免疫", '#888'); act.actor.status.splice(act.actor.status.indexOf('STUN'), 1); } 
         else { logMsg(`💫 ${act.actor.n||act.actor.i} 暈眩中`); act.actor.status.splice(act.actor.status.indexOf('STUN'), 1); setTimeout(nextAction, 1000); return; }
@@ -506,7 +515,7 @@ function nextAction() {
                 logMsg(`📣 ${act.actor.n} 呼喚了同伴 ${mt[2]}！`);
             }
         }
-        if(EL[act.actor.el].t === 'B') { state.energy[act.actor.el] = (state.energy[act.actor.el]||0) + (act.actor.isBoss?2:1); checkEnergy(); }
+        if(EL[act.actor.el] && EL[act.actor.el].t === 'B') { state.energy[act.actor.el] = (state.energy[act.actor.el]||0) + (act.actor.isBoss?2:1); checkEnergy(); }
 
         let targets = state.heroes.filter(h=>h.hp>0); let target = targets[Math.floor(Math.random()*targets.length)];
         let dmg = (10 + state.floor*2) * (act.actor.isBoss ? 2 : 1);
@@ -532,18 +541,26 @@ function nextAction() {
             let sKey = EVO[cStr] || cStr; if(sKey !== '' && !state.codex.has('S_'+sKey)) state.codex.add('S_'+sKey);
             logMsg(`${act.actor.i} 施放 ${skill.n}`); executeSkill(skill, eKey, act.actor);
         }
+        
+        // 觸發生命體召喚 (>=3個元素)
+        if(act.consumeEls && act.consumeEls.length >= 3) {
+            let counts = {}; act.consumeEls.forEach(x => counts[x] = (counts[x]||0)+1);
+            let dom = Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
+            if(EL[dom] && EL[dom].t === 'B') {
+                logMsg(`🌟 元素匯聚！降臨了【${EL[dom].i}${EL[dom].n}之靈】！`);
+                state.enemies.filter(e=>e.hp>0).forEach(e => applyDmg(e, 20 + state.floor*5, EL[dom].c)); // 降臨爆發
+                state.summons.push({ id:'s'+Math.random(), el: dom, energy: 3, maxEnergy: 3, atkAnim:0 });
+            }
+        }
     }
     resolveEndOfTurn(act.actor); state.battlePhase = 'WAIT'; setTimeout(() => { if(state.battlePhase === 'WAIT') $('click-prompt').style.display='block'; }, 1000);
 }
 
 function executeSkill(skill, baseEl, actor) {
-    let enemies = state.enemies.filter(e=>e.hp>0); let heroes = state.heroes.filter(h=>h.hp>0); let targets = [];
-    let p = skill.p || baseEl;
+    let enemies = state.enemies.filter(e=>e.hp>0); let heroes = state.heroes.filter(h=>h.hp>0); let targets = []; let p = skill.p || baseEl;
     if(skill.target === 'ALLIES') targets = skill.aoe ? heroes : [heroes.sort((a,b)=>a.hp-b.hp)[0]];
-    else if(skill.aoe || skill.target === 'ENEMIES') targets = enemies;
-    else if(p === 'F') targets = [enemies.sort((a,b)=>a.hp-b.hp)[0]];
-    else if(p === 'P' || p === 'W') targets = [enemies.sort((a,b)=>b.hp-a.hp)[0]];
-    else if(p === 'E') targets = [enemies[0]];
+    else if(skill.aoe || skill.target === 'ENEMIES') targets = enemies; else if(p === 'F') targets = [enemies.sort((a,b)=>a.hp-b.hp)[0]];
+    else if(p === 'P' || p === 'W') targets = [enemies.sort((a,b)=>b.hp-a.hp)[0]]; else if(p === 'E') targets = [enemies[0]];
     else targets = [enemies.sort(()=>Math.random()-0.5)[0]]; 
     
     if(state.ovl.e === 'A' && Math.random() < 0.5 && !skill.aoe) { targets = [[...enemies, ...heroes].sort(()=>Math.random()-0.5)[0]]; logMsg("🌪️ 狂風干擾了施法目標！"); }
@@ -551,19 +568,14 @@ function executeSkill(skill, baseEl, actor) {
     let fReacted = false; let rKey = state.field + '_' + baseEl;
     if(state.field && F_REACT[rKey]) {
         let rx = F_REACT[rKey]; logMsg(rx.txt); state.field = rx.new;
-        if(rx.dmg) enemies.forEach(e => applyDmg(e, rx.dmg));
-        if(rx.aoe) enemies.forEach(e => applyStatus(e, rx.aoe));
-        if(!state.codex.has('FR_'+rKey)) state.codex.add('FR_'+rKey);
-        fReacted = true;
+        if(rx.dmg) enemies.forEach(e => applyDmg(e, rx.dmg)); if(rx.aoe) enemies.forEach(e => applyStatus(e, rx.aoe));
+        if(!state.codex.has('FR_'+rKey)) state.codex.add('FR_'+rKey); fReacted = true;
     }
     
     let chains = (state.reso.e === 'T' && baseEl === 'T') ? 2 : 1;
     targets.forEach(t => hitTarget(t, skill, baseEl, actor));
     for(let i=0; i<chains; i++) {
-        if(skill.chain && enemies.length > 1) { 
-            let next = enemies.find(e => !targets.includes(e)); 
-            if(next) { hitTarget(next, { dmg: Math.floor(skill.dmg/2), apply: skill.apply }, baseEl, actor); targets.push(next); }
-        }
+        if(skill.chain && enemies.length > 1) { let next = enemies.find(e => !targets.includes(e)); if(next) { hitTarget(next, { dmg: Math.floor(skill.dmg/2), apply: skill.apply }, baseEl, actor); targets.push(next); } }
     }
     if(!fReacted && skill.leave) { state.field = skill.leave; logMsg(`場地化為【${FIELD[state.field].i}${FIELD[state.field].n}】`); }
 }
@@ -582,14 +594,11 @@ function hitTarget(t, skill, elKey, actor) {
     if(skill.dmg) {
         let dmg = skill.dmg; let c = '#fff';
         if(actor && actor.buffs && actor.buffs.includes('ATK_UP')) { dmg = Math.floor(dmg*1.5); actor.buffs = []; spTxt(actor, "爆發!", '#ff9800', -20); }
-        if(state.relics.includes('R_F') && elKey==='F') dmg = Math.floor(dmg*1.5);
-        if(state.relics.includes('R_I') && elKey==='I') dmg = Math.floor(dmg*1.5);
-        if(state.relics.includes('R_T') && elKey==='T') dmg = Math.floor(dmg*1.5);
-        if(state.reso.e === 'F' && elKey === 'F') dmg = Math.floor(dmg*1.5);
-        if(state.reso.e === 'I' && elKey === 'I' && t.status.includes('FROZEN')) dmg = Math.floor(dmg*1.5);
+        if(state.relics.includes('R_F') && elKey==='F') dmg = Math.floor(dmg*1.5); if(state.relics.includes('R_I') && elKey==='I') dmg = Math.floor(dmg*1.5); if(state.relics.includes('R_T') && elKey==='T') dmg = Math.floor(dmg*1.5);
+        if(state.reso.e === 'F' && elKey === 'F') dmg = Math.floor(dmg*1.5); if(state.reso.e === 'I' && elKey === 'I' && t.status.includes('FROZEN')) dmg = Math.floor(dmg*1.5);
 
         if(t.isEnemy) {
-            if(t.sz === 2) dmg = Math.floor(dmg * 0.85); 
+            if(t.sz === 2) dmg = Math.floor(dmg * 0.85);
             if(t.isBoss && t.hp <= t.maxHp/2 && !t.enraged) { t.enraged = true; t.status = t.status.filter(s => !STATUS[s].skip); spTxt(t, "💢 發狂!", '#f00', -30); logMsg(`💢 ${t.n} 進入發狂狀態！免疫控制與連續行動！`); }
             
             if(elKey && t.insta && t.insta.includes(elKey)) { dmg = 999; c = '#f00'; logMsg(`🎯 致命弱點觸發！`); }
@@ -599,12 +608,10 @@ function hitTarget(t, skill, elKey, actor) {
             if(t.affix === 'THORN') { applyDmg(actor, Math.floor(dmg*0.2), '#ff9800'); spTxt(actor, "🌵荊棘反彈", '#ff9800', -20); }
         }
         applyDmg(t, dmg, c);
-        
         if(state.relics.includes('R_W') && elKey==='W' && actor) { actor.hp = Math.min(actor.maxHp, actor.hp+15); spTxt(actor, "💧護符", '#00d26a', -20); }
         if(state.reso.e === 'D' && elKey === 'D' && actor) { actor.hp = Math.min(actor.maxHp, actor.hp+Math.floor(dmg*0.5)); spTxt(actor, "🌑吸血", '#888', -20); }
         if(state.reso.e === 'W' && elKey === 'W' && actor) { actor.shield += 20; spTxt(actor, "💧護盾", '#03a9f4', -20); }
     }
-    
     if(skill.apply) applyStatus(t, skill.apply); mkPtc(t, skill.apply || elKey || 'E');
 }
 
@@ -616,8 +623,7 @@ function applyStatus(t, s) {
             const rx = REACTIONS[rKey]; reacted = true; spTxt(t, rx.txt, '#ffeb3b', -25);
             if(!state.codex.has('R_'+rKey)) state.codex.add('R_'+rKey);
             if(rx.dmg) applyDmg(t, rx.dmg, '#ff9800'); if(rx.clear) { t.status.splice(i, 1); i--; }
-            if(rx.apply) applyStatus(t, rx.apply); if(rx.isAoe) state.enemies.filter(e=>e!==t && e.hp>0).forEach(e => applyDmg(e, Math.floor(rx.dmg/2), '#ff9800'));
-            break;
+            if(rx.apply) applyStatus(t, rx.apply); if(rx.isAoe) state.enemies.filter(e=>e!==t && e.hp>0).forEach(e => applyDmg(e, Math.floor(rx.dmg/2), '#ff9800')); break;
         }
     }
     if(!reacted) { t.status.push(s); spTxt(t, STATUS[s].i, STATUS[s].c, 20); }
@@ -633,17 +639,14 @@ function resolveEndOfTurn(ent) {
     if(ent.hp<=0) return;
     if(ent.status.includes('BURN')) { applyDmg(ent, 5, '#f52'); spTxt(ent, '🔥', '#f52', 15); }
     if(ent.status.includes('POISON')) { applyDmg(ent, state.reso.e==='P'?16:8, '#92b'); spTxt(ent, '☠️', '#92b', 15); }
-    if(state.field === 'F') applyDmg(ent, 3, '#f52');
-    if(state.field === 'P') applyStatus(ent, 'POISON');
+    if(state.field === 'F') applyDmg(ent, 3, '#f52'); if(state.field === 'P') applyStatus(ent, 'POISON');
     if(ent.isEnemy && ent.affix === 'REGEN') { ent.hp = Math.min(ent.maxHp, ent.hp+15); spTxt(ent, "💚再生", '#0f0'); }
-    
     if(state.ovl.e && state.ovl.t > 0) {
         let oe = state.ovl.e;
         if(oe==='F') { applyDmg(ent, 15, '#f52'); spTxt(ent, '🌋', '#f52', 15); }
         if(oe==='W') applyStatus(ent, 'WET'); if(oe==='P') applyStatus(ent, 'POISON'); if(oe==='I') applyStatus(ent, 'SLOW');
         if(oe==='T' && Math.random()<0.3) { applyDmg(ent, 25, '#ffeb3b'); applyStatus(ent, 'SHOCK'); }
-        if(oe==='E') applyDmg(ent, 20, '#8b5a2b');
-        if(oe==='L') { ent.hp = Math.min(ent.maxHp, ent.hp+15); spTxt(ent, '☀️', '#ffeb3b', 15); }
+        if(oe==='E') applyDmg(ent, 20, '#8b5a2b'); if(oe==='L') { ent.hp = Math.min(ent.maxHp, ent.hp+15); spTxt(ent, '☀️', '#ffeb3b', 15); }
     }
 }
 
@@ -663,83 +666,61 @@ function checkWinLoss() {
         
         if(state.enemies.some(e=>e.isBoss) && state.relics.length < 5) {
             let dropChance = 1 - (state.relics.length * 0.15); 
-            if(Math.random() < dropChance) {
-                let avail = Object.keys(RELICS).filter(k => !state.relics.includes(k));
-                if(avail.length > 0) { let r = avail[Math.floor(Math.random()*avail.length)]; state.relics.push(r); state.codex.add('RELIC_'+r); lm.push(`🎁遺物【${RELICS[r].n}】`); }
-            }
+            if(Math.random() < dropChance) { let avail = Object.keys(RELICS).filter(k => !state.relics.includes(k)); if(avail.length > 0) { let r = avail[Math.floor(Math.random()*avail.length)]; state.relics.push(r); state.codex.add('RELIC_'+r); lm.push(`🎁遺物【${RELICS[r].n}】`); } }
         }
         logMsg(`🏆 勝利！獲得戰利品: ${lm.join(' ')}`); state.battlePhase = 'VICTORY'; setTimeout(() => { state.battlePhase = 'NONE'; goMainView(); nextRoom(); }, 2000);
     }
 }
 
-function triggerGameOver() {
-    $('click-prompt').style.display='none'; state.battlePhase = 'GAMEOVER';
-    setTimeout(() => { state.battlePhase = 'NONE'; goMainView(); resolveEvent('GAMEOVER'); }, 1500);
-}
+function triggerGameOver() { $('click-prompt').style.display='none'; state.battlePhase = 'GAMEOVER'; setTimeout(() => { state.battlePhase = 'NONE'; goMainView(); resolveEvent('GAMEOVER'); }, 1500); }
 
 /** 5. 視覺渲染 */
 function drawEnt(e, x, y) {
-    if(e.hp<=0) return;
-    let fontSz = e.sz===3 ? 40 : e.sz===2 ? 30 : e.sz===0 ? 20 : 26; ctx.font = `${fontSz}px Arial`; ctx.textAlign="center"; ctx.textBaseline="middle";
+    if(e.hp!==undefined && e.hp<=0) return;
+    let fontSz = e.sz===3 ? 45 : e.sz===2 ? 34 : e.sz===0 ? 20 : 26; ctx.font = `${fontSz}px Arial`; ctx.textAlign="center"; ctx.textBaseline="middle";
     let dx = 0; if(e.atkAnim > 0) { dx = (e.isEnemy ? -1 : 1) * Math.sin(e.atkAnim * Math.PI / 16) * 12; e.atkAnim--; } if(e.hit > 0) { dx += (Math.random()-0.5)*8; e.hit--; } 
     if(e.hit > 0 && e.hit % 8 < 4) { ctx.fillStyle = 'rgba(255,0,0,0.6)'; ctx.fillText(e.i, x+dx, y); } else { ctx.fillText(e.i, x+dx, y); }
     
-    let p = Math.max(0, e.hp/e.maxHp);
-    ctx.fillStyle="#222"; ctx.fillRect(x-15+dx, y+22, 30, 4); ctx.fillStyle = p>0.5 ? "#4caf50" : p>0.2 ? "#ff9800" : "#f44336"; ctx.fillRect(x-15+dx, y+22, 30*p, 4);
-    if(e.shield > 0) { ctx.fillStyle="#eee"; ctx.fillRect(x-15+dx, y+27, 30*Math.min(1,e.shield/e.maxHp), 2); }
-    
-    if(e.status.length) { ctx.font="12px Arial"; let sx = x-(e.status.length*7)+7; e.status.forEach((s,i) => { if(STATUS[s]) ctx.fillText(STATUS[s].i, sx+(i*14)+dx, y-26); }); }
-    if(e.buffs && e.buffs.includes('ATK_UP')) { ctx.font="14px Arial"; ctx.fillText('⚔️', x-20+dx, y+10); }
-    
-    if(e.isEnemy && e.revealed) {
-        ctx.font="10px Arial"; let info = [];
-        if(e.weak) info.push(`🎯${e.weak.split(',').map(k=>EL[k]?EL[k].i:'').join('')}`);
-        if(e.immu) info.push(`🛡️${e.immu.split(',').map(k=>EL[k]?EL[k].i:'').join('')}`);
-        if(e.abs) info.push(`💚${e.abs.split(',').map(k=>EL[k]?EL[k].i:'').join('')}`);
-        ctx.fillText(info.join(' '), x+dx, y-40);
-    }
-    
-    if(!e.isEnemy && state.battlePhase === 'COMMAND') {
-        let els = state.currentHero === e ? currSel : (state.heroActions.find(a=>a.hero===e)?.elements || []);
-        if(els.length > 0) { ctx.font = "14px Segoe UI"; ctx.textAlign="left"; ctx.fillText(els.map(k=>EL[k].i).join(''), x+dx + 25, y); ctx.textAlign="center"; }
+    if(e.hp !== undefined) {
+        let p = Math.max(0, e.hp/e.maxHp); ctx.fillStyle="#222"; ctx.fillRect(x-15+dx, y+22, 30, 4); ctx.fillStyle = p>0.5 ? "#4caf50" : p>0.2 ? "#ff9800" : "#f44336"; ctx.fillRect(x-15+dx, y+22, 30*p, 4);
+        if(e.shield > 0) { ctx.fillStyle="#eee"; ctx.fillRect(x-15+dx, y+27, 30*Math.min(1,e.shield/e.maxHp), 2); }
+        if(e.status.length) { ctx.font="12px Arial"; let sx = x-(e.status.length*7)+7; e.status.forEach((s,i) => { if(STATUS[s]) ctx.fillText(STATUS[s].i, sx+(i*14)+dx, y-26); }); }
+        if(e.buffs && e.buffs.includes('ATK_UP')) { ctx.font="14px Arial"; ctx.fillText('⚔️', x-20+dx, y+10); }
+        
+        if(e.isEnemy && e.revealed) { ctx.font="10px Arial"; let info = []; if(e.weak) info.push(`🎯${e.weak.split(',').map(k=>EL[k]?EL[k].i:'').join('')}`); if(e.immu) info.push(`🛡️${e.immu.split(',').map(k=>EL[k]?EL[k].i:'').join('')}`); if(e.abs) info.push(`💚${e.abs.split(',').map(k=>EL[k]?EL[k].i:'').join('')}`); ctx.fillText(info.join(' '), x+dx, y-40); }
+        if(!e.isEnemy && state.battlePhase === 'COMMAND') { let els = state.currentHero === e ? currSel : (state.heroActions.find(a=>a.hero===e)?.elements || []); if(els.length > 0) { ctx.font = "14px Segoe UI"; ctx.textAlign="left"; ctx.fillText(els.map(k=>EL[k].i).join(''), x+dx + 25, y); ctx.textAlign="center"; } }
     }
     e.x=x+dx; e.y=y;
 }
 
-function spTxt(e, t, c, oy=0) { floatTexts.push({x:e.x+(Math.random()*20-10), y:e.y-10+oy, t:t, c:c, l:120}); }
+function spTxt(e, t, c, oy=0) { floatTexts.push({x:e.x+(Math.random()*20-10), y:e.y-10+oy, t:t, c:c, l:70}); }
 function mkPtc(e, type) { let c = (EL[type] && STATUS[EL[type].n]) ? STATUS[EL[type].n].c : '#fff'; for(let i=0; i<12; i++) particles.push({x:e.x, y:e.y, vx:(Math.random()-0.5)*10, vy:(Math.random()-0.5)*10, l:20+Math.random()*15, c:c}); }
 
 function render() {
     ctx.clearRect(0,0,canvas.width,canvas.height); if(state.battlePhase==='NONE') return;
     if(state.field) { ctx.globalAlpha=0.1; ctx.font="200px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(FIELD[state.field].i, 200, 150); ctx.globalAlpha=1.0; ctx.font="14px Arial"; ctx.fillStyle="rgba(255,255,255,0.6)"; ctx.fillText(`[環境] ${FIELD[state.field].n} : ${FIELD[state.field].fx}`, 200, 20); }
-    state.heroes.forEach((h,i) => { drawEnt(h, 60, 45+i*60); if(state.battlePhase==='COMMAND' && h===state.currentHero) { ctx.fillStyle="rgba(77,168,218,0.2)"; ctx.beginPath(); ctx.arc(60,45+i*60,25,0,Math.PI*2); ctx.fill(); }});
-    state.enemies.forEach((e,i) => drawEnt(e, e.isBoss ? 300 : 260+(i%2)*65, e.isBoss ? 140 : 50+Math.floor(i/2)*70));
-    for(let i=particles.length-1; i>=0; i--) { let p=particles[i]; ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,2.5,0,Math.PI*2); ctx.fill(); p.x+=p.vx; p.y+=p.vy; p.l--; if(p.l<=0) particles.splice(i,1); }
+    state.heroes.forEach((h,i) => drawEnt(h, 60, 45+i*60));
     
-    for(let i=floatTexts.length-1; i>=0; i--) { 
-        let t=floatTexts[i]; 
-        ctx.globalAlpha = Math.min(1, t.l/25);
-        ctx.fillStyle=t.c; ctx.font="bold 16px Arial"; ctx.strokeStyle="#000"; ctx.lineWidth=3; 
-        ctx.strokeText(t.t,t.x,t.y); ctx.fillText(t.t,t.x,t.y); 
-        ctx.globalAlpha = 1.0;
-        t.y-=0.4; t.l--; 
-        if(t.l<=0) floatTexts.splice(i,1); 
-    }
+    state.enemies.forEach((e,i) => { let ex, ey; if(e.isBoss) { ex = 320; ey = 140; } else { let mIdx = state.enemies.filter(x=>!x.isBoss).indexOf(e); ex = 240 + (mIdx%2)*55; ey = 60 + Math.floor(mIdx/2)*65; } drawEnt(e, ex, ey); });
+
+    // 繪製召喚物
+    state.summons.forEach((s,i) => {
+        let sx = 150 + (i % 2)*35, sy = 80 + Math.floor(i/2)*40, dx = 0;
+        if(s.atkAnim > 0) { dx = Math.sin(s.atkAnim * Math.PI / 8) * 8; s.atkAnim--; }
+        ctx.font = "24px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(EL[s.el].i, sx+dx, sy);
+        ctx.font = "12px Arial"; ctx.fillStyle = "#fff"; ctx.fillText(s.energy, sx+dx+12, sy+8);
+        s.x = sx+dx; s.y = sy;
+    });
+
+    for(let i=particles.length-1; i>=0; i--) { let p=particles[i]; ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,2.5,0,Math.PI*2); ctx.fill(); p.x+=p.vx; p.y+=p.vy; p.l--; if(p.l<=0) particles.splice(i,1); }
+    for(let i=floatTexts.length-1; i>=0; i--) { let t=floatTexts[i]; ctx.globalAlpha = Math.min(1, t.l/20); ctx.fillStyle=t.c; ctx.font="bold 16px Arial"; ctx.strokeStyle="#000"; ctx.lineWidth=3; ctx.strokeText(t.t,t.x,t.y); ctx.fillText(t.t,t.x,t.y); ctx.globalAlpha = 1.0; t.y-=0.3; t.l--; if(t.l<=0) floatTexts.splice(i,1); }
 }
 function loop() { render(); requestAnimationFrame(loop); }
 
 /** 6. 圖鑑與日誌 */
 let showLogView = false;
-function toggleLog() {
-    showLogView = !showLogView;
-    $('full-log-view').style.display = showLogView ? 'block' : 'none'; $('game-canvas').style.display = showLogView ? 'none' : 'block'; $('battle-log').style.display = showLogView ? 'none' : 'flex';
-    if(showLogView) $('full-log-view').scrollTop = $('full-log-view').scrollHeight;
-}
-function logMsg(m) { 
-    let div = $('battle-log'); let el = document.createElement('div'); el.className='log-msg'; el.innerText=m; div.appendChild(el); if(div.children.length>4) div.firstChild.remove(); 
-    let flv = $('full-log-view'); let fel = document.createElement('div'); fel.innerText = m; fel.style.marginBottom = '6px'; fel.style.borderBottom = '1px solid rgba(255,255,255,0.05)'; fel.style.paddingBottom = '4px'; flv.appendChild(fel);
-    if(flv.children.length > 100) flv.firstChild.remove(); flv.scrollTop = flv.scrollHeight;
-}
+function toggleLog() { showLogView = !showLogView; $('full-log-view').style.display = showLogView ? 'block' : 'none'; $('game-canvas').style.display = showLogView ? 'none' : 'block'; $('battle-log').style.display = showLogView ? 'none' : 'flex'; if(showLogView) $('full-log-view').scrollTop = $('full-log-view').scrollHeight; }
+function logMsg(m) { let div = $('battle-log'); let el = document.createElement('div'); el.className='log-msg'; el.innerText=m; div.appendChild(el); if(div.children.length>4) div.firstChild.remove(); let flv = $('full-log-view'); let fel = document.createElement('div'); fel.innerText = m; fel.style.marginBottom = '6px'; fel.style.borderBottom = '1px solid rgba(255,255,255,0.05)'; fel.style.paddingBottom = '4px'; flv.appendChild(fel); if(flv.children.length > 100) flv.firstChild.remove(); flv.scrollTop = flv.scrollHeight; }
 function renderCodex() {
     let tot = Object.keys(EL).length + Object.keys(SKILLS).length + Object.keys(REACTIONS).length + Object.keys(F_REACT).length + COMBOS.length + Object.keys(RELICS).length; 
     let uCount = 0; let h = '';
