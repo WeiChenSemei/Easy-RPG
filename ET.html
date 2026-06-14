@@ -40,8 +40,6 @@
         .door-text p { color: var(--muted); font-size: 0.85em; }
         
         #res-ovl-display { text-align: center; font-weight: bold; height: 20px; font-size: 0.95em; margin-bottom: 5px; }
-        #energy-bar { display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; min-height: 25px; margin-bottom: 5px; }
-        .e-badge { background: rgba(255,255,255,0.1); border: 1px solid #444; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
 
         .turn-box { text-align: center; margin-bottom: 12px; font-size: 1.1em; color: var(--hl); font-weight: bold; background: rgba(77, 168, 218, 0.1); padding: 8px; border-radius: 8px; }
         .sel-container { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
@@ -118,7 +116,6 @@
         </div>
         <div id="battle-view" class="view">
             <div id="res-ovl-display"></div>
-            <div id="energy-bar"></div>
             <div class="turn-box"><span id="theme-display" style="color:var(--danger); margin-right:10px;"></span>指令: <span id="current-hero-name" style="color:#fff; font-size:1.2em;"></span></div>
             <div class="sel-container" id="sel-container"></div>
             <div class="element-grid" id="element-buttons"></div>
@@ -180,7 +177,6 @@ const SKILLS = {
     'S': { n:'高壓蒸氣', dmg:25, apply:'BURN', leave:'S', aoe:true, desc:'高溫蒸氣全場燙傷' }, 'O': { n:'泥沼深淵', dmg:20, apply:'SLOW', leave:'P', aoe:true, desc:'全體緩速與毒沼' },
     'H': { n:'聖物庇護', action:'HEAL', val:60, action2:'SHIELD', val2:40, target:'ALLIES', aoe:true, desc:'全體大幅治癒與護盾' }, 'V': { n:'虛空吞噬', dmg:50, action:'DEBUFF', buff:'SLOW', aoe:true, desc:'吞噬全場生命緩速' },
     
-    // 二階融合與多元素合成
     'C_M': { n:'毀滅天劫', dmg:95, apply:'BURN', aoe:true, leave:'F', desc:'🌋+🌩️：末日打擊' }, 'G_S': { n:'霜寒迷霧', dmg:60, apply:'FROZEN', action:'DEBUFF', buff:'SLOW', aoe:true, leave:'S', desc:'🧊+☁️：凍結緩速' },
     'O_X': { n:'致命沼氣', dmg:90, apply:'POISON', aoe:true, leave:'P', desc:'🟤+💥：泥沼劇毒' }, 'H_Z': { n:'神之制裁', dmg:100, action:'HEAL', val:100, aoe:true, desc:'🕊️+☯️：打擊與治癒' },
     'C_V': { n:'虛空崩塌', dmg:100, apply:'SLOW', aoe:true, desc:'🌩️+🌌：扭曲空間' }, 'G_G_G': { n:'冰霜王座', dmg:120, action:'SHIELD', val:100, aoe:true, leave:'G', desc:'🧊x3：極大護盾凍結' },
@@ -206,7 +202,6 @@ const COMBOS = [
     { req:['L','D'], n:'✨🌑 光影雙生', dmg:50, aoe:true, action:'HEAL', val:30 }
 ].sort((a, b) => b.req.length - a.req.length);
 
-// 99種豐富生態系怪物
 const ENEMY_DATA = [
   ['E','🪨','石像鬼',80,'W,I','T,P','','','堅硬'], ['E','🗿','巨石陣',90,'W,I','T,P','E','','石化'], ['E','🦏','土角犀',70,'W,I','T','','','衝撞'], ['E','🧌','岩巨魔',100,'W,I','P','','','高血'], 
   ['E','🦡','硬甲獾',45,'W,I','T','','','鑽洞'], ['E','🧱','活磚牆',110,'W,I','T,P','E','','高防'], ['E','🦂','晶岩蠍',75,'I','T,P','','','硬殼'],
@@ -275,8 +270,9 @@ function switchView(vid) {
     if(vid === 'explore-view' || vid === 'battle-view') $('nav-explore').classList.add('active');
     if(vid === 'codex-view') $('nav-codex').classList.add('active');
     
-    // Codex 全螢幕顯示：若為圖鑑視圖則隱藏上方戰場，給予最大空間
+    // Codex 全螢幕顯示：隱藏上方戰場區塊
     $('canvas-container').style.display = (vid === 'codex-view') ? 'none' : 'block';
+    updateTop(); 
 }
 
 function getAvail(k) {
@@ -292,11 +288,24 @@ function updateTop() {
     state.relics.forEach(r => { let e = document.createElement('span'); e.innerText = RELICS[r].i; e.title = RELICS[r].n; rb.appendChild(e); });
     
     let inv = $('inventory'); inv.innerHTML = '';
-    for(let k in state.inventory) {
-        if(state.inventory[k] > 0 && (!EL[k].req || state.codex.has('E_'+k))) {
-            let item = document.createElement('div'); item.className = 'inv-item'; item.innerHTML = `${EL[k].i} <span>${state.inventory[k]}</span>`;
-            item.onclick = () => logMsg(`${EL[k].i}${EL[k].n}: ${EL[k].req ? '進階元素' : '基礎元素'}`); inv.appendChild(item);
+    // 根據階段切換頂部顯示：探索時顯示背包，戰鬥時顯示戰場能量
+    if (['NONE', 'VICTORY', 'GAMEOVER'].includes(state.battlePhase)) {
+        for(let k in state.inventory) {
+            if(state.inventory[k] > 0 && (!EL[k].req || state.codex.has('E_'+k))) {
+                let item = document.createElement('div'); item.className = 'inv-item'; item.innerHTML = `${EL[k].i} <span>${state.inventory[k]}</span>`;
+                item.onclick = () => logMsg(`${EL[k].i}${EL[k].n}: ${EL[k].req ? '進階元素' : '基礎元素'}`); inv.appendChild(item);
+            }
         }
+    } else {
+        let hasE = false;
+        for(let k in state.energy) {
+            if(state.energy[k] > 0) {
+                hasE = true; let item = document.createElement('div'); item.className = 'inv-item'; 
+                item.style.border = `1px solid ${EL[k].c}`; item.innerHTML = `${EL[k].i} <span style="color:${EL[k].c}">${state.energy[k]}</span>`;
+                item.onclick = () => logMsg(`戰場能量：${EL[k].n}系 ${state.energy[k]}點`); inv.appendChild(item);
+            }
+        }
+        if(!hasE) inv.innerHTML = '<span style="color:#666; font-size:0.9em; padding:4px;">目前戰場無元素能量</span>';
     }
 }
 
@@ -329,7 +338,7 @@ function genDoors() {
 function resolveEvent(arg) {
     $('door-container').style.display = 'none'; $('event-result').style.display = 'block'; let msg = "", loot = "";
     if(arg === 'CRYSTAL') {
-        for(let i=0; i<8; i++) { let k = Object.keys(EL).filter(x=>!EL[x].req)[Math.floor(Math.random()*9)]; state.inventory[k]+=2; loot+=`<span style="background:rgba(255,255,255,0.1); padding:5px; border-radius:5px;">${EL[k].i}+2</span>`; }
+        for(let i=0; i<8; i++) { let k = Object.keys(EL).filter(x=>!EL[x].req)[Math.floor(Math.random()*9)]; state.inventory[k] = Math.min(99, (state.inventory[k]||0)+2); loot+=`<span style="background:rgba(255,255,255,0.1); padding:5px; border-radius:5px;">${EL[k].i}+2</span>`; }
         msg = "吸收了大量純淨的能量！";
     } else if(arg === 'CAMP') {
         state.heroes.forEach(h => { if(h.hp>0) h.hp = Math.min(h.maxHp, h.hp + Math.floor(h.maxHp*0.5)); }); msg = "在營地休息，全體恢復 50% 生命！";
@@ -337,14 +346,14 @@ function resolveEvent(arg) {
         state.heroes.forEach(h => { h.hp = h.maxHp; h.status=[]; h.shield=0; }); msg = "飲用神聖泉水，全體生命全滿，死者復甦！";
     } else if(arg === 'STATUE') {
         let bKeys = Object.keys(EL).filter(x=>EL[x].t==='B'); let sum = 0; bKeys.forEach(k => sum += state.inventory[k]);
-        let avg = Math.floor(sum / bKeys.length); bKeys.forEach(k => state.inventory[k] = avg);
+        let avg = Math.min(99, Math.floor(sum / bKeys.length)); bKeys.forEach(k => state.inventory[k] = avg);
         msg = "天平傾斜，萬物歸於平衡！"; loot = `<span style="color:var(--hl)">基礎元素已平均為 ${avg} 個</span>`;
     } else if(arg === 'GAMEOVER') {
         msg = "💀 隊伍全滅... 塔的輪迴已開啟"; let mf = state.floor; 
         loot = `<div style="font-size:0.8em; color:#aaa; line-height:1.5;">失去所有合成元素與遺物<br>繼承先前的意志<br>最大生命上限 +${mf}<br>初始基礎元素 +1</div>`;
         $('event-btn').onclick = () => { 
             state.deaths++; state.maxFloor = Math.max(state.maxFloor, mf); state.floor = 1; state.room = 1;
-            let initC = { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }; state.inventory = {}; for(let k in initC) state.inventory[k] = initC[k] + state.deaths;
+            let initC = { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }; state.inventory = {}; for(let k in initC) state.inventory[k] = Math.min(99, initC[k] + state.deaths);
             state.heroes.forEach(h => { h.maxHp += mf; h.hp = h.maxHp; h.status=[]; h.shield=0; h.buffs=[]; });
             state.relics = []; state.battlePhase = 'NONE'; $('event-btn').onclick = nextRoom; saveGame(); genDoors(); updateTop();
         };
@@ -386,8 +395,7 @@ function startBattle(isBoss, themeArg = null) {
 }
 
 function renderBattleUI() {
-    let eb = $('energy-bar'); eb.innerHTML = '';
-    for(let k in state.energy) { if(state.energy[k]>0) eb.innerHTML += `<span class="e-badge" style="color:${EL[k].c}">${EL[k].i} ${state.energy[k]}</span>`; }
+    updateTop();
     let ro = $('res-ovl-display');
     if(state.ovl.e) ro.innerHTML = `<span style="color:var(--danger)">⚠️ 元素失控：${OVL_FX[state.ovl.e].n} (${state.ovl.t}回合)</span>`;
     else if(state.reso.e) ro.innerHTML = `<span style="color:var(--hl)">🌟 共鳴：${EL[state.reso.e].i} (${state.reso.t}回合) - ${RES_FX[state.reso.e]}</span>`;
@@ -554,7 +562,7 @@ function nextAction() {
                 logMsg(`📣 ${act.actor.n} 呼喚了同伴 ${mt[2]}！`);
             }
         }
-        if(EL[act.actor.el] && EL[act.actor.el].t === 'B') { state.energy[act.actor.el] = (state.energy[act.actor.el]||0) + (act.actor.isBoss?2:1); checkEnergy(); }
+        if(EL[act.actor.el] && EL[act.actor.el].t === 'B') { state.energy[act.actor.el] = Math.min(99, (state.energy[act.actor.el]||0) + (act.actor.isBoss?2:1)); checkEnergy(); }
 
         let targets = state.heroes.filter(h=>h.hp>0); let target = targets[Math.floor(Math.random()*targets.length)];
         let dmg = (10 + state.floor*2) * (act.actor.isBoss ? 2 : 1);
@@ -564,9 +572,9 @@ function nextAction() {
         if(act.actor.enraged && !act.isExtra && Math.random()<0.5) { state.execQueue.unshift({...act, isExtra:true, spd:999}); logMsg(`💢 發狂連擊！`); }
     } else {
         if(state.relics.includes('R_ALCH') && act.consumeEls.length > 0 && Math.random() < 0.25) { logMsg("♻️ 煉金之心發動，未消耗元素！"); } 
-        else { act.consumeEls.forEach(k => { if(k !== state.theme) state.inventory[k]--; }); }
+        else { act.consumeEls.forEach(k => { if(k !== state.theme) state.inventory[k] = Math.max(0, state.inventory[k]-1); }); }
         
-        if(act.consumeEls.length > 0) { act.consumeEls.forEach(k => { if(EL[k].t === 'B') state.energy[k] = (state.energy[k]||0)+1; }); checkEnergy(); }
+        if(act.consumeEls.length > 0) { act.consumeEls.forEach(k => { if(EL[k].t === 'B') state.energy[k] = Math.min(99, (state.energy[k]||0)+1); }); checkEnergy(); }
         
         let bctx = { totalDmg: 0, oneshot: false }; 
         
@@ -575,7 +583,7 @@ function nextAction() {
         } else {
             let cStr = act.origCombo; let skill = SKILLS[cStr] || { n: '元素反噬', dmg: 5 }; let eKey = act.baseEl;
             if(EVO[cStr]) {
-                let eKeyNew = EVO[cStr]; let isNew = !state.codex.has('E_'+eKeyNew); state.codex.add('E_'+eKeyNew); state.inventory[eKeyNew] = (state.inventory[eKeyNew]||0) + 1;
+                let eKeyNew = EVO[cStr]; let isNew = !state.codex.has('E_'+eKeyNew); state.codex.add('E_'+eKeyNew); state.inventory[eKeyNew] = Math.min(99, (state.inventory[eKeyNew]||0) + 1);
                 if(isNew) logMsg(`🌟 煉金突破！解鎖新元素【${EL[eKeyNew].i}${EL[eKeyNew].n}】！`); else logMsg(`✨ 煉金合成：獲得【${EL[eKeyNew].i}${EL[eKeyNew].n}】`);
                 skill = SKILLS[eKeyNew] || skill; eKey = eKeyNew;
             }
@@ -593,8 +601,7 @@ function nextAction() {
             let dom = Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
             if(EL[dom] && EL[dom].t === 'B') {
                 logMsg(`🌟 元素匯聚！降臨了【${EL[dom].i}${EL[dom].n}之靈】！`);
-                // 調整降臨爆發傷害
-                state.enemies.filter(e=>e.hp>0).forEach(e => applyDmg(e, 8 + state.floor*2, EL[dom].c)); 
+                state.enemies.filter(e=>e.hp>0).forEach(e => applyDmg(e, 8 + state.floor*2, EL[dom].c)); // 降臨爆發下修
                 state.summons.push({ id:'s'+Math.random(), el: dom, energy: 3, maxEnergy: 3, atkAnim:0 });
                 state.codex.add('SM_'+dom); // 加入圖鑑解鎖
             }
@@ -715,13 +722,15 @@ function checkWinLoss() {
         state.enemies.forEach(e => { dc[e.el] = (dc[e.el]||0) + (e.isBoss?12:5); });
         if(state.theme) dc[state.theme] = (dc[state.theme]||0) + 6;
         if(state.relics.includes('R_LUCK')) { for(let i=0; i<4; i++) { let k = Object.keys(EL).filter(x=>EL[x].t==='B')[Math.floor(Math.random()*9)]; dc[k] = (dc[k]||0)+2; } }
-        for(let k in dc) { state.inventory[k] += dc[k]; lm.push(`${EL[k].i}+${dc[k]}`); }
+        for(let k in dc) { state.inventory[k] = Math.min(99, (state.inventory[k]||0) + dc[k]); lm.push(`${EL[k].i}+${dc[k]}`); }
         
         if(state.enemies.some(e=>e.isBoss) && state.relics.length < 5) {
             let dropChance = 1 - (state.relics.length * 0.15); 
             if(Math.random() < dropChance) { let avail = Object.keys(RELICS).filter(k => !state.relics.includes(k)); if(avail.length > 0) { let r = avail[Math.floor(Math.random()*avail.length)]; state.relics.push(r); state.codex.add('RELIC_'+r); lm.push(`🎁遺物【${RELICS[r].n}】`); } }
         }
-        logMsg(`🏆 勝利！獲得戰利品: ${lm.join(' ')}`); state.battlePhase = 'VICTORY'; setTimeout(() => { state.battlePhase = 'NONE'; goMainView(); nextRoom(); }, 2000);
+        logMsg(`🏆 勝利！獲得戰利品: ${lm.join(' ')}`); 
+        state.battlePhase = 'VICTORY'; updateTop();
+        setTimeout(() => { state.battlePhase = 'NONE'; goMainView(); nextRoom(); }, 2000);
     }
 }
 
