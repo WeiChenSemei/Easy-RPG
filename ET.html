@@ -274,6 +274,9 @@ function switchView(vid) {
     $('nav-explore').innerText = state.battlePhase === 'NONE' ? "🏔️ 冒險" : "⚔️ 戰鬥";
     if(vid === 'explore-view' || vid === 'battle-view') $('nav-explore').classList.add('active');
     if(vid === 'codex-view') $('nav-codex').classList.add('active');
+    
+    // Codex 全螢幕顯示：若為圖鑑視圖則隱藏上方戰場，給予最大空間
+    $('canvas-container').style.display = (vid === 'codex-view') ? 'none' : 'block';
 }
 
 function getAvail(k) {
@@ -535,7 +538,7 @@ function nextAction() {
         state.battlePhase = 'WAIT'; setTimeout(() => { if(state.battlePhase === 'WAIT') $('click-prompt').style.display='block'; }, 1000); return;
     }
 
-    if(act.actor.status.includes('STUN')) {
+    if(act.actor.status && act.actor.status.includes('STUN')) {
         if(act.actor.enraged) { spTxt(act.actor, "免疫", '#888'); act.actor.status.splice(act.actor.status.indexOf('STUN'), 1); } 
         else { logMsg(`💫 ${act.actor.n||act.actor.i} 暈眩中`); act.actor.status.splice(act.actor.status.indexOf('STUN'), 1); setTimeout(nextAction, 1000); return; }
     }
@@ -590,8 +593,10 @@ function nextAction() {
             let dom = Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
             if(EL[dom] && EL[dom].t === 'B') {
                 logMsg(`🌟 元素匯聚！降臨了【${EL[dom].i}${EL[dom].n}之靈】！`);
-                state.enemies.filter(e=>e.hp>0).forEach(e => applyDmg(e, 20 + state.floor*5, EL[dom].c)); 
+                // 調整降臨爆發傷害
+                state.enemies.filter(e=>e.hp>0).forEach(e => applyDmg(e, 8 + state.floor*2, EL[dom].c)); 
                 state.summons.push({ id:'s'+Math.random(), el: dom, energy: 3, maxEnergy: 3, atkAnim:0 });
+                state.codex.add('SM_'+dom); // 加入圖鑑解鎖
             }
         }
     }
@@ -684,9 +689,9 @@ function applyDmg(t, v, c='#fff') {
 }
 
 function resolveEndOfTurn(ent) {
-    if(ent.hp<=0) return;
-    if(ent.status.includes('BURN')) { applyDmg(ent, 5, '#f52'); spTxt(ent, '🔥', '#f52', 15); }
-    if(ent.status.includes('POISON')) { applyDmg(ent, state.reso.e==='P'?16:8, '#92b'); spTxt(ent, '☠️', '#92b', 15); }
+    if(ent.hp!==undefined && ent.hp<=0) return;
+    if(ent.status && ent.status.includes('BURN')) { applyDmg(ent, 5, '#f52'); spTxt(ent, '🔥', '#f52', 15); }
+    if(ent.status && ent.status.includes('POISON')) { applyDmg(ent, state.reso.e==='P'?16:8, '#92b'); spTxt(ent, '☠️', '#92b', 15); }
     if(state.field === 'F') applyDmg(ent, 3, '#f52'); if(state.field === 'P') applyStatus(ent, 'POISON');
     if(ent.isEnemy && ent.affix === 'REGEN') { ent.hp = Math.min(ent.maxHp, ent.hp+15); spTxt(ent, "💚再生", '#0f0'); }
     if(state.ovl.e && state.ovl.t > 0) {
@@ -694,7 +699,7 @@ function resolveEndOfTurn(ent) {
         if(oe==='F') { applyDmg(ent, 15, '#f52'); spTxt(ent, '🌋', '#f52', 15); }
         if(oe==='W') applyStatus(ent, 'WET'); if(oe==='P') applyStatus(ent, 'POISON'); if(oe==='I') applyStatus(ent, 'SLOW');
         if(oe==='T' && Math.random()<0.3) { applyDmg(ent, 25, '#ffeb3b'); applyStatus(ent, 'SHOCK'); }
-        if(oe==='E') applyDmg(ent, 20, '#8b5a2b'); if(oe==='L') { ent.hp = Math.min(ent.maxHp, ent.hp+15); spTxt(ent, '☀️', '#ffeb3b', 15); }
+        if(oe==='E') applyDmg(ent, 20, '#8b5a2b'); if(oe==='L' && ent.hp !== undefined) { ent.hp = Math.min(ent.maxHp, ent.hp+15); spTxt(ent, '☀️', '#ffeb3b', 15); }
     }
 }
 
@@ -751,7 +756,16 @@ function mkPtc(e, type) { let c = (EL[type] && STATUS[EL[type].n]) ? STATUS[EL[t
 function render() {
     ctx.clearRect(0,0,canvas.width,canvas.height); if(state.battlePhase==='NONE') return;
     if(state.field) { ctx.globalAlpha=0.1; ctx.font="200px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(FIELD[state.field].i, 200, 150); ctx.globalAlpha=1.0; ctx.font="14px Arial"; ctx.fillStyle="rgba(255,255,255,0.6)"; ctx.fillText(`[環境] ${FIELD[state.field].n} : ${FIELD[state.field].fx}`, 200, 20); }
-    state.heroes.forEach((h,i) => drawEnt(h, 60, 45+i*60));
+    
+    // Render Heroes (Background highlight aura goes first)
+    state.heroes.forEach((h,i) => { 
+        if(state.battlePhase === 'COMMAND' && h === state.currentHero) { 
+            ctx.shadowColor = '#4da8da'; ctx.shadowBlur = 15; 
+            ctx.fillStyle = "rgba(77,168,218,0.4)"; ctx.beginPath(); ctx.arc(60, 45+i*60, 32, 0, Math.PI*2); ctx.fill(); 
+            ctx.strokeStyle = "#4da8da"; ctx.lineWidth = 2; ctx.stroke(); ctx.shadowBlur = 0; 
+        } 
+        drawEnt(h, 60, 45+i*60); 
+    });
     
     state.enemies.forEach((e,i) => { let ex, ey; if(e.isBoss) { ex = 320; ey = 140; } else { let mIdx = state.enemies.filter(x=>!x.isBoss).indexOf(e); ex = 240 + (mIdx%2)*55; ey = 60 + Math.floor(mIdx/2)*65; } drawEnt(e, ex, ey); });
 
@@ -773,13 +787,14 @@ let showLogView = false;
 function toggleLog() { showLogView = !showLogView; $('full-log-view').style.display = showLogView ? 'block' : 'none'; $('game-canvas').style.display = showLogView ? 'none' : 'block'; $('battle-log').style.display = showLogView ? 'none' : 'flex'; if(showLogView) $('full-log-view').scrollTop = $('full-log-view').scrollHeight; }
 function logMsg(m) { let div = $('battle-log'); let el = document.createElement('div'); el.className='log-msg'; el.innerText=m; div.appendChild(el); if(div.children.length>4) div.firstChild.remove(); let flv = $('full-log-view'); let fel = document.createElement('div'); fel.innerText = m; fel.style.marginBottom = '6px'; fel.style.borderBottom = '1px solid rgba(255,255,255,0.05)'; fel.style.paddingBottom = '4px'; flv.appendChild(fel); if(flv.children.length > 100) flv.firstChild.remove(); flv.scrollTop = flv.scrollHeight; }
 function renderCodex() {
-    let tot = Object.keys(EL).length + Object.keys(SKILLS).length + Object.keys(REACTIONS).length + Object.keys(F_REACT).length + COMBOS.length + Object.keys(RELICS).length; 
+    let tot = Object.keys(EL).length + Object.keys(SKILLS).length + Object.keys(REACTIONS).length + Object.keys(F_REACT).length + COMBOS.length + Object.keys(RELICS).length + Object.keys(SUMMON_AI).length; 
     let uCount = 0; let h = '';
     h += '<div class="codex-section"><div class="codex-title">💎 煉金元素</div><div class="codex-grid">'; for(let k in EL) { let u = !EL[k].req || state.codex.has('E_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?EL[k].i+EL[k].n:'？？？'}</div><div class="c-req">${u?(EL[k].req?EL[k].req.split('_').map(x=>EL[x].i).join('+'):'基礎'):'未知'}</div></div>`; }
     h += '</div></div><div class="codex-section"><div class="codex-title">📜 魔法與多人奧義</div><div class="codex-grid">'; for(let k in SKILLS) { let u = state.codex.has('S_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?SKILLS[k].n:'？？？'}</div><div class="c-req">${k.split('_').map(x=>EL[x]?EL[x].i:'').join('+')}</div></div>`; }
     COMBOS.forEach(c => { let u = state.codex.has('C_'+c.n); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?c.n:'？？？'}</div><div class="c-req">${c.req.map(x=>EL[x].i).join('+')} (多人)</div></div>`; });
     h += '</div></div><div class="codex-section"><div class="codex-title">🧪 狀態與環境反應</div><div class="codex-grid">'; for(let k in REACTIONS) { let u = state.codex.has('R_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?REACTIONS[k].n:'？？？'}</div><div class="c-desc">${u?REACTIONS[k].txt:'未知'}</div></div>`; }
     for(let k in F_REACT) { let u = state.codex.has('FR_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?'環境變異':'？？？'}</div><div class="c-desc">${u?F_REACT[k].txt:'未知'}</div></div>`; }
+    h += '</div></div><div class="codex-section"><div class="codex-title">🧚 元素生命體</div><div class="codex-grid">'; for(let k in SUMMON_AI) { let u = state.codex.has('SM_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?EL[k].i+' '+EL[k].n+'之靈':'？？？'}</div><div class="c-desc">${u?SUMMON_AI[k].txt:'未知'}</div></div>`; }
     h += '</div></div><div class="codex-section"><div class="codex-title">🎁 神秘遺物</div><div class="codex-grid">'; for(let k in RELICS) { let u = state.codex.has('RELIC_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?RELICS[k].i+' '+RELICS[k].n:'？？？'}</div><div class="c-desc">${u?RELICS[k].d:'未知'}</div></div>`; }
     $('codex-content').innerHTML = h + '</div></div>'; $('completion-rate').innerText = Math.floor((uCount/tot)*100);
 }
