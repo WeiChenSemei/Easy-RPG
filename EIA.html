@@ -68,7 +68,7 @@
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             display: flex; justify-content: center; align-items: center;
-            padding-left: 8px; /* 修正播放鍵視覺置中 */
+            padding-left: 8px;
             color: #4ade80;
         }
         #btn-start:hover { transform: scale(1.05); box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
@@ -87,7 +87,7 @@
             flex-direction: column;
             justify-content: space-between;
             padding: 16px;
-            opacity: 0; /* 封面開啟時隱藏，進入後顯示 */
+            opacity: 0;
             transition: opacity 0.5s ease 0.3s;
         }
 
@@ -295,7 +295,6 @@
 </head>
 <body>
 
-    <!-- 啟動封面 -->
     <div id="start-screen">
         <div class="title-emoji">🌍✨</div>
         <button id="btn-start">▶️</button>
@@ -324,7 +323,6 @@
         </div>
     </div>
 
-    <!-- 模態框區塊 -->
     <div class="modal-overlay" id="modal-inventory" onclick="if(event.target===this) closeAllModals()">
         <div class="modal"><div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title">🎒</h2><div class="grid-list" id="inventory-list"></div></div>
     </div>
@@ -371,7 +369,6 @@
                 startScreen.style.display = 'none';
                 document.getElementById('ui-layer').style.opacity = '1';
                 isGameStarted = true;
-                // 啟動音效引擎
                 if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 if (audioCtx.state === 'suspended') audioCtx.resume();
             }, 600);
@@ -383,8 +380,9 @@
         const SEASONS = [{ icon: '🌸' }, { icon: '🌻' }, { icon: '🍁' }, { icon: '❄️' }];
         const WEATHERS = [{ icon: '☀️' }, { icon: '🌧️' }, { icon: '🌫️' }];
 
+        // 移除固定的 b 屬性顏色，改由動態 HSL 引擎生成
         const DICT = {
-            'grass': { b: '#c4eec0', e: '🟩', r: -1 }, 'water': { b: '#a5c9f3', e: '🌊', r: -1 }, 'sand': { b: '#f5e5c9', e: '🟨', r: -1 },
+            'grass': { e: '🟩', r: -1 }, 'water': { e: '🌊', r: -1 }, 'sand': { e: '🟨', r: -1 },
             '🌲':{r:0}, '🪨':{r:0}, '🌾':{r:0}, '🍄':{r:0},
             '🌸':{r:0}, '🌷':{r:0}, '🌳':{r:0}, '🌻':{r:0}, '🍁':{r:0}, '🍂':{r:0}, '❄️':{r:0}, '☃️':{r:0},
             '⛰️':{r:1}, '💎':{r:1}, '🗿':{r:1}, '🏰':{r:1}, '🧊':{r:1},
@@ -467,46 +465,87 @@
         function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 
         function hash(x, y, s) { let n = Math.sin(x * 12.9898 + y * 78.233 + s) * 43758.5453; return n - Math.floor(n); }
-        function getNoise(x, y) { return (Math.sin(x*0.08)*Math.cos(y*0.08) + Math.sin(x*0.02+1.5)*Math.sin(y*0.03+0.7)*0.5 + Math.sin(x*0.3)*Math.cos(y*0.3)*0.1 + 1.6) / 3.2; }
+        function getNoise(x, y) {
+            let v = Math.sin(x*0.08)*Math.cos(y*0.08) + Math.sin(x*0.02+1.5)*Math.sin(y*0.03+0.7)*0.5 + Math.sin(x*0.3)*Math.cos(y*0.3)*0.1;
+            return (v + 1.6) / 3.2;
+        }
+        
+        // 新增：生態氣候噪音 (決定植被與地貌深淺)
+        function getBiomeNoise(x, y) { 
+            return (Math.sin(x*0.012)*Math.cos(y*0.012) + Math.sin(x*0.004+2)*Math.sin(y*0.004+1)*0.8 + 1.8) / 3.6; 
+        }
 
-        // 升級版：包含尺寸計算與解析戳記
         function getTileData(gx, gy) {
             const key = `${gx},${gy}`;
-            let bg = getBaseTerrain(gx, gy);
-            let modData = state.mods[key];
+            let base = getBaseTerrain(gx, gy);
+            let bg = base.type;
+            let color = base.color; // 取得動態 HSL 顏色
 
-            // 解析玩家放置/生長的戳記：'🌸|25'
-            if (modData !== undefined) {
-                if (modData === null) return { bg, obj: null, scale: 1.0 };
+            // 1. 如果玩家修改過這個格子，直接回傳修改後的值
+            if (state.mods[key] !== undefined) {
+                let modData = state.mods[key];
+                if (modData === null) return { bg, color, obj: null, scale: 1.0 };
                 if (typeof modData === 'string' && modData.includes('|')) {
                     let parts = modData.split('|');
-                    let obj = parts[0];
                     let age = state.days - parseInt(parts[1]);
-                    // 長大曲線：剛出生0.4，每天長大0.15，最高1.0
-                    return { bg, obj, scale: Math.min(1.0, 0.4 + age * 0.15) };
+                    return { bg, color, obj: parts[0], scale: Math.min(1.0, 0.4 + age * 0.15) };
                 }
-                return { bg, obj: modData, scale: 1.0 }; // 舊版存檔相容
+                return { bg, color, obj: modData, scale: 1.0 }; 
             }
+
+            let obj = null;
+            let scale = 1.0;
             
-            let obj = null; let scale = 1.0;
             if (bg === 'water' || bg === 'sand') {
                 if (hash(gx, gy, state.seed + 200) < 0.005) obj = '📜';
             } else if (bg === 'grass') {
                 let dist = Math.hypot(gx, gy);
+                let h = hash(gx, gy, state.seed);
                 let spawnChance = 0.11 + Math.min(0.11, dist / 600);
-                if (hash(gx, gy, state.seed) < spawnChance) {
+                if (h < spawnChance) {
                     let r = hash(gx, gy, state.seed + 100);
                     let dF = Math.min(0.15, dist / 900);
-                    if (r < dF) { obj = ['🌈','🌋','🏛️','👑','🛸'][Math.floor(hash(gx, gy, state.seed + 1) * 5)]; scale = 1.2 + hash(gx,gy,state.seed+400)*0.3; } // 奇觀巨大化
-                    else if (r < dF + 0.01) { obj = ['🧙‍♂️','🧚‍♀️','🧝‍♂️'][Math.floor(hash(gx, gy, state.seed + 2) * 3)]; scale = 1.0; } // NPC固定尺寸
-                    else if (r < dF + 0.18) { obj = ['⛰️','💎','🗿','🏰','🧊'][Math.floor(hash(gx, gy, state.seed + 3) * 5)]; scale = 0.7 + hash(gx,gy,state.seed+300)*0.6; } // 稀有基因尺寸
-                    else { obj = getSeasonalVariant(['🌲','🌲','🪨','🌾','🌾','🍄'][Math.floor(hash(gx, gy, state.seed + 4) * 6)], state.season); scale = 0.7 + hash(gx,gy,state.seed+300)*0.6; } // 常見基因尺寸
+                    if (r < dF) { obj = ['🌈','🌋','🏛️','👑','🛸'][Math.floor(hash(gx, gy, state.seed + 1) * 5)]; scale = 1.2 + hash(gx,gy,state.seed+400)*0.3; }
+                    else if (r < dF + 0.01) { obj = ['🧙‍♂️','🧚‍♀️','🧝‍♂️'][Math.floor(hash(gx, gy, state.seed + 2) * 3)]; scale = 1.0; }
+                    else if (r < dF + 0.18) { obj = ['⛰️','💎','🗿','🏰','🧊'][Math.floor(hash(gx, gy, state.seed + 3) * 5)]; scale = 0.7 + hash(gx,gy,state.seed+300)*0.6; }
+                    else { obj = getSeasonalVariant(['🌲','🌲','🪨','🌾','🌾','🍄'][Math.floor(hash(gx, gy, state.seed + 4) * 6)], state.season); scale = 0.7 + hash(gx,gy,state.seed+300)*0.6; }
                 }
             }
-            return { bg, obj, scale };
+            return { bg, color, obj, scale };
         }
 
-        function getBaseTerrain(gx, gy) { let n = getNoise(gx, gy); return n<0.31 ? 'water' : (n<0.38 ? 'sand' : 'grass'); }
+        // 優化版：加入誇張一點的 HSL 漸變邏輯，大幅增強立體層次感！
+        function getBaseTerrain(gx, gy) { 
+            let ele = getNoise(gx, gy);
+            let bio = getBiomeNoise(gx, gy);
+            let t = 'grass', h, s, l;
+
+            if (ele < 0.31) { 
+                t = 'water'; 
+                let depth = ele / 0.31; // 0~1 (淺到深)
+                h = 195 + depth * 35; // 195(清澈淺藍) -> 230(深邃海藍)
+                s = 60 + depth * 30;  // 60% -> 90% (深海更飽和)
+                l = 75 - depth * 40;  // 75% -> 35% (深海變暗)
+            } else if (ele < 0.38) { 
+                t = 'sand'; 
+                let dist = (ele - 0.31) / 0.07; // 0(靠水濕潤) -> 1(內陸乾燥)
+                h = 35 + bio * 15;    // 35(偏橘褐) -> 50(金黃)
+                s = 45 + bio * 30;    // 45% -> 75%
+                l = 55 + dist * 25 + bio * 10; // 55%(濕暗) -> 90%(乾亮)
+            } else { 
+                t = 'grass'; 
+                // bio 控制地質: 0.0(火山/岩地) -> 1.0(翠綠草原)
+                h = 15 + bio * 120; // 15(紅褐) -> 135(翠綠)
+                s = 20 + bio * 50;  // 20%(死寂灰) -> 70%(生機盎然)
+                l = 35 + bio * 30;  // 35%(暗沉) -> 65%(明亮)
+                
+                // 加入一點海拔對亮度的微調，讓高山有厚重感
+                let alt = (ele - 0.38) / 0.62;
+                l -= alt * 10; 
+            }
+            return { type: t, color: `hsl(${h},${s}%,${l}%)` };
+        }
+
         function getSeasonalVariant(b, s) {
             if (b === '🌲') return ['🌸','🌳','🍁','❄️'][s];
             if (b === '🌾') return ['🌷','🌻','🍂','☃️'][s];
@@ -544,7 +583,6 @@
                     let nx = tx + nOff[0], ny = ty + nOff[1];
                     let nTile = getTileData(nx, ny);
                     if (nTile.bg === 'grass' && !nTile.obj && Math.random() < (state.weather===1 ? 0.25 : 0.08)) {
-                        // 戳記生長天數
                         state.mods[`${nx},${ny}`] = tile.obj + '|' + state.days; saveGame();
                     }
                 }
@@ -557,17 +595,16 @@
                 let ax = state.px + Math.round(Math.cos(ang)*dist), ay = state.py + Math.round(Math.sin(ang)*dist);
                 let tile = getTileData(ax, ay);
                 if (tile.bg === 'grass' || tile.bg === 'sand') {
-                    // 隨機初始幼體尺寸與目標成體尺寸
                     animals.push({ gx: ax, gy: ay, vx: ax*TILE_SIZE, vy: ay*TILE_SIZE, tx: ax, ty: ay, 
                                    emoji: ['🐇','🦋','🦆','🐢'][Math.floor(Math.random()*4)], 
                                    size: 0.4 + Math.random()*0.3, targetSize: 0.8 + Math.random()*0.4,
-                                   wait: 800+Math.floor(Math.random()*800) }); // 大幅增加初始發呆時間
+                                   wait: 800+Math.floor(Math.random()*800) }); 
                 }
             }
             for (let i = animals.length - 1; i >= 0; i--) {
                 let a = animals[i], tx = a.tx*TILE_SIZE, ty = a.ty*TILE_SIZE, sf = a.emoji==='🐢'?0.015:(a.emoji==='🦋'?0.05:0.03);
                 
-                a.size += (a.targetSize - a.size) * 0.001; // 動物緩慢生長
+                a.size += (a.targetSize - a.size) * 0.001; 
                 a.vx += (tx - a.vx)*sf; a.vy += (ty - a.vy)*sf;
                 if (a.emoji === '🦋') a.vy += Math.sin(Date.now()/200)*0.3;
                 
@@ -577,7 +614,7 @@
                     else {
                         let d = [[0,-1],[0,1],[-1,0],[1,0]][Math.floor(Math.random()*4)];
                         let nx = a.gx+d[0], ny = a.gy+d[1], tile = getTileData(nx, ny);
-                        if (tile.bg && !tile.obj && (a.emoji==='🦆' || tile.bg!=='water')) { a.tx=nx; a.ty=ny; a.wait = 1000+Math.floor(Math.random()*1000); } // 大幅增加移動後的發呆時間
+                        if (tile.bg && !tile.obj && (a.emoji==='🦆' || tile.bg!=='water')) { a.tx=nx; a.ty=ny; a.wait = 1000+Math.floor(Math.random()*1000); } 
                     }
                 }
                 if (Math.hypot(a.gx-state.px, a.gy-state.py) > 9) animals.splice(i, 1);
@@ -635,7 +672,6 @@
                 if (tile.obj) { addToInventory(tile.obj,1); state.mods[key]=null; sfx.harvest(); showToast(`🎒➕ ${tile.obj}`); saveGame(); }
             } else {
                 if (!tile.obj && tile.bg !== 'water') {
-                    // 玩家放置物件戳記天數
                     if (removeFromInventory(activeTool,1)) { state.mods[key]=activeTool+'|'+state.days; sfx.place(); showToast(`👇 ${activeTool}`); if (!state.inv[activeTool]) setActiveTool(null); saveGame(); }
                 } else { sfx.invalid(); showToast("❌🧱"); }
             }
@@ -764,11 +800,9 @@
         function gameLoop() {
             frameCount++;
             
-            // 閒置狀態與天空偏移
             let isIdle = isGameStarted && (Date.now() - lastInputTime) > 5000;
             skyOffset += ((isIdle && !activeModal ? 150 : 0) - skyOffset) * 0.05;
 
-            // 掛機自動採集 (智慧避開玩家手做與奇觀/NPC)
             if (isIdle && !activeModal && frameCount % 90 === 0) {
                 let dx = 0, dy = 0;
                 if (Math.random() < 0.5) dx = Math.random() < 0.5 ? 1 : -1; else dy = Math.random() < 0.5 ? 1 : -1;
@@ -810,11 +844,15 @@
                 let sx = cx+(x*TILE_SIZE-camera.x), sy = cy+(y*TILE_SIZE-camera.y), dTP = Math.hypot(x-state.px, y-state.py);
                 if (dTP <= FOG_RADIUS) {
                     let tile = getTileData(x, y);
-                    ctx.fillStyle = DICT[tile.bg].b; ctx.fillRect(sx, sy, TILE_SIZE, TILE_SIZE);
-                    ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.strokeRect(sx, sy, TILE_SIZE, TILE_SIZE);
                     
+                    // 改用計算出來的 HSL 顏色渲染底色，體驗無縫生態系！
+                    ctx.fillStyle = tile.color; 
+                    ctx.fillRect(sx, sy, TILE_SIZE, TILE_SIZE);
+
+                    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                    ctx.strokeRect(sx, sy, TILE_SIZE, TILE_SIZE);
+
                     if (tile.obj) { 
-                        // 物件基因縮放與成長渲染
                         ctx.save();
                         ctx.translate(sx+TILE_SIZE/2, sy+TILE_SIZE/2+2);
                         ctx.scale(tile.scale, tile.scale);
@@ -829,9 +867,7 @@
 
             animals.forEach(a => {
                 let asx = cx+(a.vx-camera.x), asy = cy+(a.vy-camera.y);
-                
                 ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.beginPath(); ctx.ellipse(asx+TILE_SIZE/2, asy+TILE_SIZE-6, 12*a.size, 4*a.size, 0, 0, Math.PI*2); ctx.fill();
-                
                 ctx.save();
                 ctx.translate(asx+TILE_SIZE/2, asy+TILE_SIZE/2);
                 ctx.scale(a.size, a.size);
