@@ -16,9 +16,12 @@
         .log-btn { left: 15px; } .log-btn:active { transform: scale(0.9); }
         
         #relics-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; background: #08080b; padding: 5px; font-size: 1.2em; min-height: 35px; border-bottom: 1px solid #222;}
-        #inventory { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 8px 10px; background: #121218; min-height: 45px; }
-        .inv-item { display: flex; align-items: center; background: rgba(255,255,255,0.08); padding: 4px 8px; border-radius: 6px; font-size: 0.9em; font-weight: bold; cursor: pointer;}
-        .inv-item span { margin-left: 5px; color: var(--hl); }
+        
+        /* 動態元素狀態列：不換行、可橫向滑動 */
+        #inventory { display: flex; flex-wrap: nowrap; justify-content: center; gap: 4px; padding: 6px; background: #121218; min-height: 40px; overflow-x: auto; scrollbar-width: none; }
+        #inventory::-webkit-scrollbar { display: none; }
+        .inv-item { display: flex; align-items: center; background: rgba(255,255,255,0.08); padding: 4px 6px; border-radius: 6px; font-size: 0.85em; font-weight: bold; cursor: pointer; white-space: nowrap; flex-shrink: 0;}
+        .inv-item span { margin-left: 3px; color: var(--hl); font-size: 0.95em; }
 
         #canvas-container { position: relative; width: 100%; aspect-ratio: 16/11; background: #111; border-bottom: 2px solid var(--border); overflow: hidden; }
         canvas { width: 100%; height: 100%; display: block; cursor: pointer; }
@@ -72,7 +75,7 @@
         nav { display: flex; background: #15151a; border-top: 1px solid var(--border); height: 55px; }
         nav button { flex: 1; background: transparent; color: var(--muted); border: none; font-size: 1.1em; cursor: pointer; transition: 0.2s; }
         nav button.active { color: var(--hl); font-weight: bold; background: rgba(255,255,255,0.05); }
-        #save-modal { display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:100; flex-direction:column; justify-content:center; align-items:center; padding:20px; }
+        .modal { display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:100; flex-direction:column; justify-content:center; align-items:center; padding:20px; }
     </style>
 </head>
 <body>
@@ -88,7 +91,7 @@
         <div id="battle-log"></div>
     </div>
     
-    <div id="save-modal">
+    <div id="save-modal" class="modal">
         <h2 style="color:var(--hl); margin-bottom:15px;">冒險紀錄與繼承</h2>
         <div style="display:flex; gap:20px; margin-bottom:10px;">
             <p>輪迴次數: <span id="st-runs" style="color:var(--warn); font-weight:bold;">0</span></p>
@@ -101,6 +104,15 @@
             <button class="btn" style="background:#2a2a35; border:1px solid var(--success); color:var(--success);" onclick="importSave()">匯入繼承碼</button>
             <button class="btn" id="btn-reset" style="background:var(--danger); margin-top:10px;" onclick="confirmReset()">重置所有進度</button>
             <button class="btn" style="background:#555;" onclick="$('save-modal').style.display='none'">返回遊戲</button>
+        </div>
+    </div>
+
+    <!-- 檢視怪物情報面板 -->
+    <div id="info-modal" class="modal" style="z-index:150;">
+        <div style="background:#1a1a24; border:2px solid var(--hl); border-radius:10px; padding:20px; width:90%; color:#eee;">
+            <h2 id="info-name" style="color:var(--hl); margin-bottom:10px; text-align:center;"></h2>
+            <div id="info-details" style="font-size:0.95em; line-height:1.6; margin-bottom:15px;"></div>
+            <button class="btn" style="width:100%; background:#555;" onclick="$('info-modal').style.display='none'">關閉情報</button>
         </div>
     </div>
 
@@ -202,6 +214,7 @@ const COMBOS = [
     { req:['L','D'], n:'✨🌑 光影雙生', dmg:50, aoe:true, action:'HEAL', val:30 }
 ].sort((a, b) => b.req.length - a.req.length);
 
+// 99種豐富生態系怪物
 const ENEMY_DATA = [
   ['E','🪨','石像鬼',80,'W,I','T,P','','','堅硬'], ['E','🗿','巨石陣',90,'W,I','T,P','E','','石化'], ['E','🦏','土角犀',70,'W,I','T','','','衝撞'], ['E','🧌','岩巨魔',100,'W,I','P','','','高血'], 
   ['E','🦡','硬甲獾',45,'W,I','T','','','鑽洞'], ['E','🧱','活磚牆',110,'W,I','T,P','E','','高防'], ['E','🦂','晶岩蠍',75,'I','T,P','','','硬殼'],
@@ -290,18 +303,18 @@ function updateTop() {
     let inv = $('inventory'); inv.innerHTML = '';
     // 根據階段切換頂部顯示：探索時顯示背包，戰鬥時顯示戰場能量
     if (['NONE', 'VICTORY', 'GAMEOVER'].includes(state.battlePhase)) {
-        for(let k in state.inventory) {
-            if(state.inventory[k] > 0 && (!EL[k].req || state.codex.has('E_'+k))) {
-                let item = document.createElement('div'); item.className = 'inv-item'; item.innerHTML = `${EL[k].i} <span>${state.inventory[k]}</span>`;
-                item.onclick = () => logMsg(`${EL[k].i}${EL[k].n}: ${EL[k].req ? '進階元素' : '基礎元素'}`); inv.appendChild(item);
-            }
-        }
+        let baseKeys = ['E','W','F','A','I','T','P','L','D'];
+        baseKeys.forEach(k => {
+            let item = document.createElement('div'); item.className = 'inv-item'; 
+            item.innerHTML = `${EL[k].i}<span>${state.inventory[k]||0}</span>`;
+            item.onclick = () => logMsg(`${EL[k].i}${EL[k].n}: 基礎元素`); inv.appendChild(item);
+        });
     } else {
         let hasE = false;
         for(let k in state.energy) {
             if(state.energy[k] > 0) {
                 hasE = true; let item = document.createElement('div'); item.className = 'inv-item'; 
-                item.style.border = `1px solid ${EL[k].c}`; item.innerHTML = `${EL[k].i} <span style="color:${EL[k].c}">${state.energy[k]}</span>`;
+                item.style.border = `1px solid ${EL[k].c}`; item.innerHTML = `${EL[k].i}<span style="color:${EL[k].c}">${state.energy[k]}</span>`;
                 item.onclick = () => logMsg(`戰場能量：${EL[k].n}系 ${state.energy[k]}點`); inv.appendChild(item);
             }
         }
@@ -710,8 +723,30 @@ function resolveEndOfTurn(ent) {
     }
 }
 
+function showEnemyInfo(e) {
+    $('info-name').innerText = `${e.i} ${e.n}`;
+    let szTxt = e.sz===3 ? '極巨大 (首領)' : e.sz===2 ? '大 (防禦+)' : e.sz===0 ? '小 (閃避+)' : '一般';
+    let h = `<b>血量:</b> ${e.hp} / ${e.maxHp}<br><b>體型:</b> ${szTxt}<br><b>屬性:</b> ${EL[e.el].i}${EL[e.el].n}<br>`;
+    if(e.weak) h += `<b>🎯 弱點:</b> ${e.weak.split(',').map(k=>EL[k]?EL[k].i:'').join('')}<br>`;
+    if(e.immu) h += `<b>🛡️ 免疫:</b> ${e.immu.split(',').map(k=>EL[k]?EL[k].i:'').join('')}<br>`;
+    if(e.abs) h += `<b>💚 吸收:</b> ${e.abs.split(',').map(k=>EL[k]?EL[k].i:'').join('')}<br>`;
+    if(e.insta) h += `<b>💀 致命:</b> ${e.insta.split(',').map(k=>EL[k]?EL[k].i:'').join('')}<br>`;
+    if(e.tr) h += `<b>✨ 特性:</b> ${e.tr}<br>`;
+    if(e.status.length) h += `<b>異常:</b> ${e.status.map(s=>STATUS[s].i).join('')}<br>`;
+    $('info-details').innerHTML = h; $('info-modal').style.display = 'flex';
+}
+
 $('app').addEventListener('click', (e) => { 
-    if(state.battlePhase === 'WAIT') { state.battlePhase = 'PROCESSING'; $('click-prompt').style.display='none'; nextAction(); } 
+    if(e.target === canvas && state.battlePhase !== 'NONE') {
+        const rect = canvas.getBoundingClientRect();
+        const cx = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const cy = (e.clientY - rect.top) * (canvas.height / rect.height);
+        let ce = state.enemies.find(en => en.hp>0 && en.revealed && Math.hypot(cx - en.x, cy - en.y) <= (en.sz===3?45:en.sz===2?30:20));
+        if(ce) return showEnemyInfo(ce);
+    }
+    if(state.battlePhase === 'WAIT' && !e.target.closest('#info-modal')) { 
+        state.battlePhase = 'PROCESSING'; $('click-prompt').style.display='none'; nextAction(); 
+    } 
 });
 
 function checkWinLoss() {
@@ -753,7 +788,7 @@ function drawEnt(e, x, y) {
         if(e.status.length) { ctx.font="12px Arial"; let sx = x-(e.status.length*7)+7; e.status.forEach((s,i) => { if(STATUS[s]) ctx.fillText(STATUS[s].i, sx+(i*14)+dx, y-offsetY-10); }); }
         if(e.buffs && e.buffs.includes('ATK_UP')) { ctx.font="14px Arial"; ctx.fillText('⚔️', x-20+dx, y+10); }
         
-        if(e.isEnemy && e.revealed) { ctx.font="10px Arial"; let info = []; if(e.weak) info.push(`🎯${e.weak.split(',').map(k=>EL[k]?EL[k].i:'').join('')}`); if(e.immu) info.push(`🛡️${e.immu.split(',').map(k=>EL[k]?EL[k].i:'').join('')}`); if(e.abs) info.push(`💚${e.abs.split(',').map(k=>EL[k]?EL[k].i:'').join('')}`); ctx.fillText(info.join(' '), x+dx, y-offsetY-24); }
+        if(e.isEnemy && e.revealed) { ctx.font="20px Arial"; ctx.fillText('🔍', x+dx, y-offsetY-25); }
         if(!e.isEnemy && state.battlePhase === 'COMMAND') { let els = state.currentHero === e ? currSel : (state.heroActions.find(a=>a.hero===e)?.elements || []); if(els.length > 0) { ctx.font = "14px Segoe UI"; ctx.textAlign="left"; ctx.fillText(els.map(k=>EL[k].i).join(''), x+dx + 25, y); ctx.textAlign="center"; } }
     }
     e.x=x+dx; e.y=y;
