@@ -27,9 +27,9 @@
         canvas { width: 100%; height: 100%; display: block; cursor: pointer; }
         #click-prompt { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 1.2em; font-weight: bold; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 20px; pointer-events: none; display: none; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
-        #battle-log { position: absolute; bottom: 0; left: 0; width: 100%; height: 75px; background: linear-gradient(transparent, rgba(0,0,0,0.9)); color: #ddd; font-size: 0.85em; padding: 5px 10px; overflow: hidden; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; }
-        .log-msg { animation: fadeUp 2.5s forwards; margin-top: 2px; text-shadow: 1px 1px 2px #000; }
-        @keyframes fadeUp { 0% {opacity:1; transform:translateY(5px);} 70% {opacity:1;} 100% {opacity:0; transform:translateY(-8px);} }
+        #battle-log { position: absolute; bottom: 0; left: 0; width: 100%; height: 110px; background: linear-gradient(transparent, rgba(0,0,0,0.9)); color: #ddd; font-size: 0.85em; padding: 5px 10px; overflow: hidden; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; }
+        .log-msg { animation: fadeUp 3.5s forwards; margin-top: 2px; text-shadow: 1px 1px 2px #000; }
+        @keyframes fadeUp { 0% {opacity:1; transform:translateY(5px);} 75% {opacity:1;} 100% {opacity:0; transform:translateY(-10px);} }
         
         #main-panel { flex: 1; overflow-y: auto; background: var(--panel); position: relative; padding-bottom: 20px; }
         .view { display: none; padding: 15px; height: 100%; flex-direction: column; }
@@ -107,7 +107,6 @@
         </div>
     </div>
 
-    <!-- 檢視怪物情報面板 -->
     <div id="info-modal" class="modal" style="z-index:150;">
         <div style="background:#1a1a24; border:2px solid var(--hl); border-radius:10px; padding:20px; width:90%; color:#eee;">
             <h2 id="info-name" style="color:var(--hl); margin-bottom:10px; text-align:center;"></h2>
@@ -253,7 +252,8 @@ const ENEMY_DATA = [
   ['D','👁️','深淵之眼',150,'L,H','D,P','D','','凝視',1], ['D','👿','魔王',200,'L,H,Z','D,P','D','','恐懼',1], ['D','🐉','墮落黑龍',200,'L,H','D,P','D','','毀滅吐息',1], ['D','💀','死神',180,'L,H,Z','D,P,I','D','','收割',1]
 ];
 
-/** 2. 狀態與存檔核心 */
+/** 2. 狀態與核心 */
+const delay = ms => new Promise(res => setTimeout(res, ms));
 let state = {
     floor: 1, room: 1, maxFloor: 1, deaths: 0, maxSlots: 1,
     inventory: { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }, relics: [],
@@ -282,8 +282,6 @@ function switchView(vid) {
     $('nav-explore').innerText = state.battlePhase === 'NONE' ? "🏔️ 冒險" : "⚔️ 戰鬥";
     if(vid === 'explore-view' || vid === 'battle-view') $('nav-explore').classList.add('active');
     if(vid === 'codex-view') $('nav-codex').classList.add('active');
-    
-    // Codex 全螢幕顯示：隱藏上方戰場區塊
     $('canvas-container').style.display = (vid === 'codex-view') ? 'none' : 'block';
     updateTop(); 
 }
@@ -301,8 +299,7 @@ function updateTop() {
     state.relics.forEach(r => { let e = document.createElement('span'); e.innerText = RELICS[r].i; e.title = RELICS[r].n; rb.appendChild(e); });
     
     let inv = $('inventory'); inv.innerHTML = '';
-    // 根據階段切換頂部顯示：探索時顯示背包，戰鬥時顯示戰場能量
-    if (['NONE', 'VICTORY', 'GAMEOVER'].includes(state.battlePhase)) {
+    if (['NONE', 'VICTORY_WAIT', 'GAMEOVER_WAIT'].includes(state.battlePhase)) {
         let baseKeys = ['E','W','F','A','I','T','P','L','D'];
         baseKeys.forEach(k => {
             let item = document.createElement('div'); item.className = 'inv-item'; 
@@ -430,9 +427,9 @@ function checkEnergy() {
     renderBattleUI();
 }
 
-function planRound() {
-    if(state.ovl.t > 0) { state.ovl.t--; if(state.ovl.t<=0) { logMsg(`💨 ${OVL_FX[state.ovl.e].n} 結束了。`); state.ovl.e=null; renderBattleUI(); } }
-    if(state.reso.t > 0) { state.reso.t--; if(state.reso.t<=0) { logMsg(`💨 共鳴狀態結束。`); state.reso.e=null; renderBattleUI(); } }
+async function planRound() {
+    if(state.ovl.t > 0) { state.ovl.t--; if(state.ovl.t<=0) { logMsg(`💨 ${OVL_FX[state.ovl.e].n} 結束了。`); state.ovl.e=null; renderBattleUI(); await delay(400); } }
+    if(state.reso.t > 0) { state.reso.t--; if(state.reso.t<=0) { logMsg(`💨 共鳴狀態結束。`); state.reso.e=null; renderBattleUI(); await delay(400); } }
     
     // 生命體互相反應結算
     if(state.summons.length > 1) {
@@ -441,12 +438,12 @@ function planRound() {
                 let s1=state.summons[i], s2=state.summons[j]; if(s1.energy<=0 || s2.energy<=0) continue;
                 let rx = REACTIONS[s1.el+'_'+s2.el] || REACTIONS[s2.el+'_'+s1.el];
                 if(rx) {
-                    logMsg(`💥 生命體共鳴！${EL[s1.el].i}與${EL[s2.el].i}引發超級大爆炸！`);
+                    logMsg(`💥 生命體共鳴！${EL[s1.el].i}與${EL[s2.el].i}大爆炸！`);
                     state.enemies.filter(e=>e.hp>0).forEach(e => { applyDmg(e, 40+state.floor*5, '#ff9800'); if(rx.apply) applyStatus(e, rx.apply); });
-                    s1.energy=0; s2.energy=0;
+                    s1.energy=0; s2.energy=0; await delay(500);
                 } else if (s1.el === s2.el) {
-                    logMsg(`✨ ${EL[s1.el].i}${EL[s1.el].n}之靈 互相融合，能量充滿！`);
-                    s1.energy = Math.min(5, s1.energy + s2.energy); s2.energy = 0;
+                    logMsg(`✨ ${EL[s1.el].i}${EL[s1.el].n}之靈 融合，能量充滿！`);
+                    s1.energy = Math.min(5, s1.energy + s2.energy); s2.energy = 0; await delay(500);
                 }
             }
         }
@@ -454,7 +451,7 @@ function planRound() {
     }
     
     state.heroActions = []; let aliveHeroes = state.heroes.filter(h=>h.hp>0);
-    if(aliveHeroes.length === 0) return triggerGameOver();
+    if(aliveHeroes.length === 0) return checkWinLoss();
     state.currentHeroIdx = 0; promptHeroCmd(aliveHeroes[0]);
 }
 
@@ -531,7 +528,7 @@ function buildExecutionQueue() {
     state.execQueue.sort((a,b) => b.spd - a.spd); state.battlePhase = 'EXECUTE'; nextAction();
 }
 
-function nextAction() {
+async function nextAction() {
     if(state.enemies.filter(e=>e.hp>0).length === 0 || state.heroes.filter(h=>h.hp>0).length === 0) return checkWinLoss();
     if(state.execQueue.length === 0) return planRound();
     let act = state.execQueue.shift(); if((act.actor.hp !== undefined && act.actor.hp <= 0) || (act.actor.energy !== undefined && act.actor.energy <= 0)) return nextAction();
@@ -547,21 +544,25 @@ function nextAction() {
         
         if(tgts[0]) {
             logMsg(`🧚 ${EL[s.el].i}${EL[s.el].n}之靈 ${sai.txt}！`);
-            tgts.forEach(t => {
+            for(let t of tgts) {
                 if(sai.dmg) applyDmg(t, sai.dmg + state.floor*2, EL[s.el].c); if(sai.app) applyStatus(t, sai.app);
                 if(sai.heal) { t.hp = Math.min(t.maxHp, t.hp+sai.heal); spTxt(t, `💚+${sai.heal}`, '#0f0'); }
                 if(sai.shd) { t.shield += sai.shd; spTxt(t, `🛡️+${sai.shd}`, '#eee'); }
                 if(sai.buff && !t.buffs.includes(sai.buff)) { t.buffs.push(sai.buff); spTxt(t, "💨加速", '#fff'); }
-            });
-            if(sai.chain && alvE.length > 1) { let next = alvE.find(e => !tgts.includes(e)); if(next) { applyDmg(next, Math.floor(sai.dmg/2), EL[s.el].c); applyStatus(next, sai.app); } }
+                await delay(200);
+            }
+            if(sai.chain && alvE.length > 1) { 
+                let next = alvE.find(e => !tgts.includes(e)); 
+                if(next) { applyDmg(next, Math.floor(sai.dmg/2), EL[s.el].c); applyStatus(next, sai.app); await delay(200); } 
+            }
         }
         s.energy--; if(s.energy <= 0) { logMsg(`💨 ${EL[s.el].i}${EL[s.el].n}之靈 耗盡能量消散了。`); state.summons = state.summons.filter(x=>x!==s); }
-        state.battlePhase = 'WAIT'; setTimeout(() => { if(state.battlePhase === 'WAIT') $('click-prompt').style.display='block'; }, 1000); return;
+        state.battlePhase = 'WAIT'; $('click-prompt').style.display='block'; return;
     }
 
     if(act.actor.status && act.actor.status.includes('STUN')) {
         if(act.actor.enraged) { spTxt(act.actor, "免疫", '#888'); act.actor.status.splice(act.actor.status.indexOf('STUN'), 1); } 
-        else { logMsg(`💫 ${act.actor.n||act.actor.i} 暈眩中`); act.actor.status.splice(act.actor.status.indexOf('STUN'), 1); setTimeout(nextAction, 1000); return; }
+        else { logMsg(`💫 ${act.actor.n||act.actor.i} 暈眩中`); act.actor.status.splice(act.actor.status.indexOf('STUN'), 1); await delay(500); return nextAction(); }
     }
 
     act.actor.atkAnim = 16;
@@ -572,7 +573,7 @@ function nextAction() {
             if(mPool.length) {
                 let mt = mPool[Math.floor(Math.random()*mPool.length)]; let hp = mt[3] + state.floor*15;
                 state.enemies.push({ id:'e'+Math.random(), el:mt[0], i:mt[1], n:mt[2], hp:hp, maxHp:hp, status:[], shield:0, buffs:[], weak:mt[4], immu:mt[5], abs:mt[6], insta:mt[7], tr:mt[8], isBoss:false, sz:mt[3]<=50?0:mt[3]>=95?2:1, sumC:0, enraged:false, revealed:false, isEnemy:true, atkAnim:0, hit:0, affix:null });
-                logMsg(`📣 ${act.actor.n} 呼喚了同伴 ${mt[2]}！`);
+                logMsg(`📣 ${act.actor.n} 呼喚了同伴 ${mt[2]}！`); await delay(400);
             }
         }
         if(EL[act.actor.el] && EL[act.actor.el].t === 'B') { state.energy[act.actor.el] = Math.min(99, (state.energy[act.actor.el]||0) + (act.actor.isBoss?2:1)); checkEnergy(); }
@@ -582,7 +583,8 @@ function nextAction() {
         logMsg(`⚔️ ${act.actor.n} 攻擊！`); applyDmg(target, dmg);
         if(act.actor.affix === 'VAMP') { act.actor.hp = Math.min(act.actor.maxHp, act.actor.hp+dmg); spTxt(act.actor, `💚吸血`, '#0f0', -20); }
         if(state.relics.includes('R_THORN')) { applyDmg(act.actor, Math.floor(dmg*0.2), '#ff9800'); spTxt(act.actor, "🌵反彈", '#ff9800', -20); }
-        if(act.actor.enraged && !act.isExtra && Math.random()<0.5) { state.execQueue.unshift({...act, isExtra:true, spd:999}); logMsg(`💢 發狂連擊！`); }
+        await delay(400);
+        if(act.actor.enraged && !act.isExtra && Math.random()<0.5) { state.execQueue.unshift({...act, isExtra:true, spd:999}); logMsg(`💢 發狂連擊！`); await delay(300); }
     } else {
         if(state.relics.includes('R_ALCH') && act.consumeEls.length > 0 && Math.random() < 0.25) { logMsg("♻️ 煉金之心發動，未消耗元素！"); } 
         else { act.consumeEls.forEach(k => { if(k !== state.theme) state.inventory[k] = Math.max(0, state.inventory[k]-1); }); }
@@ -592,7 +594,7 @@ function nextAction() {
         let bctx = { totalDmg: 0, oneshot: false }; 
         
         if(act.isCombo) {
-            logMsg(`💫 奧義：${act.skill.n}`); executeSkill(act.skill, act.baseEl, act.actor, bctx);
+            logMsg(`💫 奧義：${act.skill.n}`); await executeSkill(act.skill, act.baseEl, act.actor, bctx);
         } else {
             let cStr = act.origCombo; let skill = SKILLS[cStr] || { n: '元素反噬', dmg: 5 }; let eKey = act.baseEl;
             if(EVO[cStr]) {
@@ -601,12 +603,12 @@ function nextAction() {
                 skill = SKILLS[eKeyNew] || skill; eKey = eKeyNew;
             }
             let sKey = EVO[cStr] || cStr; if(sKey !== '' && !state.codex.has('S_'+sKey)) state.codex.add('S_'+sKey);
-            logMsg(`${act.actor.i} 施放 ${skill.n}`); executeSkill(skill, eKey, act.actor, bctx);
+            logMsg(`${act.actor.i} 施放 ${skill.n}`); await executeSkill(skill, eKey, act.actor, bctx);
         }
         
         if(bctx.oneshot && act.actor && act.actor.hp > 0) {
             let bl = Math.floor(bctx.totalDmg / 10);
-            if(bl > 0) { logMsg(`⚠️ 魔力過載！${act.actor.i} 秒殺敵人遭受元素反噬！`); applyDmg(act.actor, bl, '#e23e57'); }
+            if(bl > 0) { logMsg(`⚠️ 魔力過載！${act.actor.i} 秒殺敵人遭受元素反噬！`); applyDmg(act.actor, bl, '#e23e57'); await delay(400); }
         }
         
         if(act.consumeEls && act.consumeEls.length >= 3) {
@@ -614,16 +616,18 @@ function nextAction() {
             let dom = Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
             if(EL[dom] && EL[dom].t === 'B') {
                 logMsg(`🌟 元素匯聚！降臨了【${EL[dom].i}${EL[dom].n}之靈】！`);
-                state.enemies.filter(e=>e.hp>0).forEach(e => applyDmg(e, 8 + state.floor*2, EL[dom].c)); // 降臨爆發下修
+                for(let e of state.enemies.filter(e=>e.hp>0)) { applyDmg(e, 8 + state.floor*2, EL[dom].c); await delay(150); }
                 state.summons.push({ id:'s'+Math.random(), el: dom, energy: 3, maxEnergy: 3, atkAnim:0 });
-                state.codex.add('SM_'+dom); // 加入圖鑑解鎖
+                state.codex.add('SM_'+dom); 
             }
         }
     }
-    resolveEndOfTurn(act.actor); state.battlePhase = 'WAIT'; setTimeout(() => { if(state.battlePhase === 'WAIT') $('click-prompt').style.display='block'; }, 1000);
+    resolveEndOfTurn(act.actor); await delay(300);
+    if(state.enemies.filter(e=>e.hp>0).length === 0 || state.heroes.filter(h=>h.hp>0).length === 0) return checkWinLoss();
+    state.battlePhase = 'WAIT'; $('click-prompt').style.display='block';
 }
 
-function executeSkill(skill, baseEl, actor, bctx = null) {
+async function executeSkill(skill, baseEl, actor, bctx = null) {
     let enemies = state.enemies.filter(e=>e.hp>0); let heroes = state.heroes.filter(h=>h.hp>0); let targets = []; let p = skill.p || baseEl;
     if(skill.target === 'ALLIES') targets = skill.aoe ? heroes : [heroes.sort((a,b)=>a.hp-b.hp)[0]];
     else if(skill.aoe || skill.target === 'ENEMIES') targets = enemies; else if(p === 'F') targets = [enemies.sort((a,b)=>a.hp-b.hp)[0]];
@@ -635,16 +639,20 @@ function executeSkill(skill, baseEl, actor, bctx = null) {
     let fReacted = false; let rKey = state.field + '_' + baseEl;
     if(state.field && F_REACT[rKey]) {
         let rx = F_REACT[rKey]; logMsg(rx.txt); state.field = rx.new;
-        if(rx.dmg) enemies.forEach(e => applyDmg(e, rx.dmg)); if(rx.aoe) enemies.forEach(e => applyStatus(e, rx.aoe));
-        if(!state.codex.has('FR_'+rKey)) state.codex.add('FR_'+rKey); fReacted = true;
+        if(rx.dmg) { for(let e of enemies) { applyDmg(e, rx.dmg); await delay(150); } }
+        if(rx.aoe) enemies.forEach(e => applyStatus(e, rx.aoe));
+        if(!state.codex.has('FR_'+rKey)) state.codex.add('FR_'+rKey); fReacted = true; await delay(300);
     }
     
     let chains = (state.reso.e === 'T' && baseEl === 'T') ? 2 : 1;
-    targets.forEach(t => hitTarget(t, skill, baseEl, actor, bctx));
+    for(let t of targets) { hitTarget(t, skill, baseEl, actor, bctx); await delay(200); }
     for(let i=0; i<chains; i++) {
-        if(skill.chain && enemies.length > 1) { let next = enemies.find(e => !targets.includes(e)); if(next) { hitTarget(next, { dmg: Math.floor(skill.dmg/2), apply: skill.apply }, baseEl, actor, bctx); targets.push(next); } }
+        if(skill.chain && enemies.length > 1) { 
+            let next = enemies.find(e => !targets.includes(e)); 
+            if(next) { hitTarget(next, { dmg: Math.floor(skill.dmg/2), apply: skill.apply }, baseEl, actor, bctx); targets.push(next); await delay(200); } 
+        }
     }
-    if(!fReacted && skill.leave) { state.field = skill.leave; logMsg(`場地化為【${FIELD[state.field].i}${FIELD[state.field].n}】`); }
+    if(!fReacted && skill.leave && state.field !== skill.leave) { state.field = skill.leave; logMsg(`場地化為【${FIELD[state.field].i}${FIELD[state.field].n}】`); await delay(300); }
 }
 
 function hitTarget(t, skill, elKey, actor, bctx = null) {
@@ -725,7 +733,7 @@ function resolveEndOfTurn(ent) {
 
 function showEnemyInfo(e) {
     $('info-name').innerText = `${e.i} ${e.n}`;
-    let szTxt = e.sz===3 ? '極巨大 (首領)' : e.sz===2 ? '大 (防禦+)' : e.sz===0 ? '小 (閃避+)' : '一般';
+    let szTxt = e.sz===3 ? '極巨大 (首領)' : e.sz===2 ? '大 (防禦+)' : e.sz===0 ? '小 (閃躲+)' : '一般';
     let h = `<b>血量:</b> ${e.hp} / ${e.maxHp}<br><b>體型:</b> ${szTxt}<br><b>屬性:</b> ${EL[e.el].i}${EL[e.el].n}<br>`;
     if(e.weak) h += `<b>🎯 弱點:</b> ${e.weak.split(',').map(k=>EL[k]?EL[k].i:'').join('')}<br>`;
     if(e.immu) h += `<b>🛡️ 免疫:</b> ${e.immu.split(',').map(k=>EL[k]?EL[k].i:'').join('')}<br>`;
@@ -746,13 +754,18 @@ $('app').addEventListener('click', (e) => {
     }
     if(state.battlePhase === 'WAIT' && !e.target.closest('#info-modal')) { 
         state.battlePhase = 'PROCESSING'; $('click-prompt').style.display='none'; nextAction(); 
-    } 
+    } else if(state.battlePhase === 'VICTORY_WAIT') {
+        state.battlePhase = 'NONE'; goMainView(); nextRoom(); $('click-prompt').innerText = '▶ 點擊繼續';
+    } else if(state.battlePhase === 'GAMEOVER_WAIT') {
+        state.battlePhase = 'NONE'; goMainView(); resolveEvent('GAMEOVER'); $('click-prompt').innerText = '▶ 點擊繼續';
+    }
 });
 
 function checkWinLoss() {
     $('click-prompt').style.display='none';
-    if(state.heroes.filter(h=>h.hp>0).length === 0) { triggerGameOver(); } 
-    else if (state.enemies.filter(e=>e.hp>0).length === 0) {
+    if(state.heroes.filter(h=>h.hp>0).length === 0) { 
+        state.battlePhase = 'GAMEOVER_WAIT'; $('click-prompt').innerText = '▶ 點擊結算'; $('click-prompt').style.display='block';
+    } else if (state.enemies.filter(e=>e.hp>0).length === 0) {
         let dc = {}; let lm = [];
         state.enemies.forEach(e => { dc[e.el] = (dc[e.el]||0) + (e.isBoss?12:5); });
         if(state.theme) dc[state.theme] = (dc[state.theme]||0) + 6;
@@ -764,12 +777,9 @@ function checkWinLoss() {
             if(Math.random() < dropChance) { let avail = Object.keys(RELICS).filter(k => !state.relics.includes(k)); if(avail.length > 0) { let r = avail[Math.floor(Math.random()*avail.length)]; state.relics.push(r); state.codex.add('RELIC_'+r); lm.push(`🎁遺物【${RELICS[r].n}】`); } }
         }
         logMsg(`🏆 勝利！獲得戰利品: ${lm.join(' ')}`); 
-        state.battlePhase = 'VICTORY'; updateTop();
-        setTimeout(() => { state.battlePhase = 'NONE'; goMainView(); nextRoom(); }, 2000);
+        state.battlePhase = 'VICTORY_WAIT'; updateTop(); $('click-prompt').innerText = '▶ 點擊前進'; $('click-prompt').style.display='block';
     }
 }
-
-function triggerGameOver() { $('click-prompt').style.display='none'; state.battlePhase = 'GAMEOVER'; setTimeout(() => { state.battlePhase = 'NONE'; goMainView(); resolveEvent('GAMEOVER'); }, 1500); }
 
 /** 5. 視覺渲染 */
 function drawEnt(e, x, y) {
@@ -794,14 +804,14 @@ function drawEnt(e, x, y) {
     e.x=x+dx; e.y=y;
 }
 
-function spTxt(e, t, c, oy=0) { floatTexts.push({x:e.x+(Math.random()*20-10), y:e.y-10+oy, t:t, c:c, l:70}); }
+function spTxt(e, t, c, oy=0) { floatTexts.push({x:e.x+(Math.random()*30-15), y:e.y-20+oy, t:t, c:c, l:100}); }
 function mkPtc(e, type) { let c = (EL[type] && STATUS[EL[type].n]) ? STATUS[EL[type].n].c : '#fff'; for(let i=0; i<12; i++) particles.push({x:e.x, y:e.y, vx:(Math.random()-0.5)*10, vy:(Math.random()-0.5)*10, l:20+Math.random()*15, c:c}); }
 
 function render() {
     ctx.clearRect(0,0,canvas.width,canvas.height); if(state.battlePhase==='NONE') return;
     if(state.field) { ctx.globalAlpha=0.1; ctx.font="200px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(FIELD[state.field].i, 200, 150); ctx.globalAlpha=1.0; ctx.font="14px Arial"; ctx.fillStyle="rgba(255,255,255,0.6)"; ctx.fillText(`[環境] ${FIELD[state.field].n} : ${FIELD[state.field].fx}`, 200, 20); }
     
-    // Render Heroes (Background highlight aura goes first)
+    // 繪製高亮光環 (在角色底部)
     state.heroes.forEach((h,i) => { 
         if(state.battlePhase === 'COMMAND' && h === state.currentHero) { 
             ctx.shadowColor = '#4da8da'; ctx.shadowBlur = 15; 
@@ -822,14 +832,14 @@ function render() {
     });
 
     for(let i=particles.length-1; i>=0; i--) { let p=particles[i]; ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,2.5,0,Math.PI*2); ctx.fill(); p.x+=p.vx; p.y+=p.vy; p.l--; if(p.l<=0) particles.splice(i,1); }
-    for(let i=floatTexts.length-1; i>=0; i--) { let t=floatTexts[i]; ctx.globalAlpha = Math.min(1, t.l/20); ctx.fillStyle=t.c; ctx.font="bold 16px Arial"; ctx.strokeStyle="#000"; ctx.lineWidth=3; ctx.strokeText(t.t,t.x,t.y); ctx.fillText(t.t,t.x,t.y); ctx.globalAlpha = 1.0; t.y-=0.3; t.l--; if(t.l<=0) floatTexts.splice(i,1); }
+    for(let i=floatTexts.length-1; i>=0; i--) { let t=floatTexts[i]; ctx.globalAlpha = Math.min(1, t.l/20); ctx.fillStyle=t.c; ctx.font="bold 16px Arial"; ctx.strokeStyle="#000"; ctx.lineWidth=3; ctx.strokeText(t.t,t.x,t.y); ctx.fillText(t.t,t.x,t.y); ctx.globalAlpha = 1.0; t.y-=0.2; t.l--; if(t.l<=0) floatTexts.splice(i,1); }
 }
 function loop() { render(); requestAnimationFrame(loop); }
 
 /** 6. 圖鑑與日誌 */
 let showLogView = false;
 function toggleLog() { showLogView = !showLogView; $('full-log-view').style.display = showLogView ? 'block' : 'none'; $('game-canvas').style.display = showLogView ? 'none' : 'block'; $('battle-log').style.display = showLogView ? 'none' : 'flex'; if(showLogView) $('full-log-view').scrollTop = $('full-log-view').scrollHeight; }
-function logMsg(m) { let div = $('battle-log'); let el = document.createElement('div'); el.className='log-msg'; el.innerText=m; div.appendChild(el); if(div.children.length>4) div.firstChild.remove(); let flv = $('full-log-view'); let fel = document.createElement('div'); fel.innerText = m; fel.style.marginBottom = '6px'; fel.style.borderBottom = '1px solid rgba(255,255,255,0.05)'; fel.style.paddingBottom = '4px'; flv.appendChild(fel); if(flv.children.length > 100) flv.firstChild.remove(); flv.scrollTop = flv.scrollHeight; }
+function logMsg(m) { let div = $('battle-log'); let el = document.createElement('div'); el.className='log-msg'; el.innerText=m; div.appendChild(el); if(div.children.length>5) div.firstChild.remove(); let flv = $('full-log-view'); let fel = document.createElement('div'); fel.innerText = m; fel.style.marginBottom = '6px'; fel.style.borderBottom = '1px solid rgba(255,255,255,0.05)'; fel.style.paddingBottom = '4px'; flv.appendChild(fel); if(flv.children.length > 100) flv.firstChild.remove(); flv.scrollTop = flv.scrollHeight; }
 function renderCodex() {
     let tot = Object.keys(EL).length + Object.keys(SKILLS).length + Object.keys(REACTIONS).length + Object.keys(F_REACT).length + COMBOS.length + Object.keys(RELICS).length + Object.keys(SUMMON_AI).length; 
     let uCount = 0; let h = '';
