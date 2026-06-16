@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>元素之塔：煉金覺醒</title>
+    <title>元素之塔</title>
     <style>
         :root { --bg: #0a0a0f; --panel: #1a1a24; --border: #333; --text: #eee; --hl: #4da8da; --danger: #e23e57; --success: #00d26a; --warn: #ff9800; }
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', sans-serif; }
@@ -17,7 +17,6 @@
         
         #relics-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; background: #08080b; padding: 5px; font-size: 1.2em; min-height: 35px; border-bottom: 1px solid #222;}
         
-        /* 動態元素狀態列：不換行、可橫向滑動 */
         #inventory { display: flex; flex-wrap: nowrap; justify-content: center; gap: 4px; padding: 6px; background: #121218; min-height: 40px; overflow-x: auto; scrollbar-width: none; }
         #inventory::-webkit-scrollbar { display: none; }
         .inv-item { display: flex; align-items: center; background: rgba(255,255,255,0.08); padding: 4px 6px; border-radius: 6px; font-size: 0.85em; font-weight: bold; cursor: pointer; white-space: nowrap; flex-shrink: 0;}
@@ -46,7 +45,8 @@
 
         .turn-box { text-align: center; margin-bottom: 12px; font-size: 1.1em; color: var(--hl); font-weight: bold; background: rgba(77, 168, 218, 0.1); padding: 8px; border-radius: 8px; }
         .sel-container { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
-        .sel-slot { width: 45px; height: 45px; background: #2a2a35; border: 2px dashed #555; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 1.6em; }
+        .sel-slot { width: 45px; height: 45px; background: #2a2a35; border: 2px dashed #555; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 1.6em; transition: 0.2s; }
+        .sel-slot:active { transform: scale(0.9); }
         .sel-slot.filled { border-style: solid; border-color: var(--hl); background: #334; }
         
         .element-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 8px; margin-bottom: auto; }
@@ -92,10 +92,11 @@
     </div>
     
     <div id="save-modal" class="modal">
-        <h2 style="color:var(--hl); margin-bottom:15px;">冒險紀錄與繼承</h2>
+        <h2 style="color:var(--hl); margin-bottom:15px;">冒險紀錄與設定</h2>
         <div style="display:flex; gap:20px; margin-bottom:10px;">
             <p>輪迴次數: <span id="st-runs" style="color:var(--warn); font-weight:bold;">0</span></p>
-            <p>歷史最高層: <span id="st-maxf" style="color:var(--success); font-weight:bold;">1</span></p>
+            <p>最高層: <span id="st-maxf" style="color:var(--success); font-weight:bold;">1</span></p>
+            <p>輪迴(通關): <span id="st-ngp" style="color:var(--hl); font-weight:bold;">0</span></p>
         </div>
         <input type="text" id="save-io" placeholder="在此產生或貼上繼承碼..." style="width:90%; padding:12px; margin: 10px 0; border-radius:8px; border:1px solid #444; background:#222; color:#fff; text-align:center; font-size:0.9em; font-family:monospace;">
         <div id="save-msg" style="color:var(--hl); font-size:0.95em; margin-bottom:15px; height:1em; font-weight:bold;"></div>
@@ -105,6 +106,14 @@
             <button class="btn" id="btn-reset" style="background:var(--danger); margin-top:10px;" onclick="confirmReset()">重置所有進度</button>
             <button class="btn" style="background:#555;" onclick="$('save-modal').style.display='none'">返回遊戲</button>
         </div>
+    </div>
+
+    <!-- 記憶碎片彈出視窗 -->
+    <div id="lore-modal" class="modal" style="z-index:200;">
+        <h2 style="color:var(--hl); margin-bottom:30px; font-weight:bold; letter-spacing:2px;">📜 記憶碎片</h2>
+        <div id="lore-text" style="font-size:1.1em; color:#ddd; line-height:1.8; text-align:center; padding:20px; background:rgba(0,0,0,0.6); border-radius:10px; border-left:3px solid var(--hl); width:90%; margin-bottom:30px;"></div>
+        <div id="lore-prompt" style="color:#aaa; font-size:1.1em; animation:pulse 1.5s infinite; display:none; margin-bottom:20px; cursor:pointer;">▶ 點擊畫面喚醒記憶</div>
+        <button id="lore-btn" class="btn" style="width:80%; background:#444; display:none;" onclick="closeLore(event)">收下記憶並繼續</button>
     </div>
 
     <div id="info-modal" class="modal" style="z-index:150;">
@@ -132,24 +141,41 @@
             <div class="element-grid" id="element-buttons"></div>
             <div class="cmd-actions">
                 <button id="btn-undo" style="background:#555; max-width:60px; display:none;" onclick="undoAction()">🔙</button>
-                <button style="background:var(--danger);" onclick="clearElements()">清除</button>
+                <button style="background:#555;" onclick="defendAction()">防禦</button>
                 <button style="background:var(--success);" onclick="confirmAction()">施放 / 融合</button>
             </div>
         </div>
         <div id="codex-view" class="view">
-            <h2 style="text-align:center; color:#fff; margin-bottom:10px;">煉金大圖鑑</h2>
+            <h2 style="text-align:center; color:#fff; margin-bottom:10px;">煉金法典</h2>
             <div style="text-align:center; color:var(--hl); margin-bottom:20px; font-weight:bold;">探索進度: <span id="completion-rate">0</span>%</div>
-            <div id="codex-content" style="overflow-y: auto; flex: 1;"></div>
+            <div id="codex-content" style="overflow-y: auto; flex: 1; margin-bottom:20px;"></div>
         </div>
+        <div id="lore-view" class="view"></div>
     </div>
     <nav>
         <button id="nav-explore" class="active" onclick="goMainView()">🏔️ 冒險</button>
-        <button id="nav-codex" onclick="switchView('codex-view'); renderCodex();">📖 圖鑑</button>
+        <button id="nav-codex" onclick="switchView('codex-view'); renderCodex();">📖 法典</button>
+        <button id="nav-lore" onclick="switchView('lore-view'); renderLore();">💭 回憶</button>
     </nav>
 </div>
 
 <script>
-/** 1. 核心資料映射 (Data-Driven) */
+/** 1. 核心資料映射 & 記憶碎片文本 */
+const LORE_TXT = [
+"當你醒來時，發現身處在不知名的古塔裡。",
+"🧙‍♂️ 牆上的焦痕是新的，看來那個精靈遊俠剛經過這裡。","🧝‍♀️ 箭矢結著冰霜，前面的盜賊刻意避開了魔物的要害，為什麼？","🥷 腳印在這裡中斷。那個帶著樂器的傢伙走得比我還快。","🧑‍🎤 塔裡的風帶著奇怪的旋律，像是某種古老的煉金配方。",
+"🧙‍♂️ 地上的魔法陣畫錯了，這絕對不是我教給她的基礎公式。","🧝‍♀️ 石像鬼的殘骸有雷擊的焦痕，但我明明只聽見了風聲。","🥷 每次戰鬥後，塔似乎都在貪婪地吸收我們溢出的元素能量。","🧑‍🎤 發現一頁撕裂的日記：「我們四個必須有人抵達頂層。」",
+"🧙‍♂️ 遺落的護符殘留著強大魔力，這絕不是普通探險者能擁有的。","🧝‍♀️ 這座塔的構造不像是為了防禦，更像是在把什麼東西關在裡面。","🥷 黑暗中，我總感覺有另一雙眼睛在注視著我們。","🧑‍🎤 繼續往上走吧，答案一定在塔頂。我們約好了在那碰面。",
+"🧙‍♂️ 為什麼我腦海中會浮現遊俠拉弓時的畫面？","🧝‍♀️ 元素共鳴時，我似乎聽見了同伴的聲音，但周圍空無一人。","🥷 元素失控的破壞力太驚人了，看著災難降臨，我竟覺得痛快。","🧑‍🎤 撿到了法師的筆記，奇怪的是，筆跡跟我一模一樣。",
+"🧙‍♂️ 元素生命體誕生了。牠看著我的眼神，像是在看一位老朋友。","🧝‍♀️ 我明明從未學過光闇法則，身體卻自然施展了出來。","🥷 這些怪物的弱點，就好像是我親自替牠們設計的一樣。","🧑‍🎤 我在牆上留下暗號，卻發現牆上早有一個完全相同的刻痕。",
+"🧙‍♂️ 圖書館的書都是空白的，只有一頁寫著：「你們終將匯聚。」","🧝‍♀️ 水窪裡倒映出的臉，有時候看起來不像是我的。","🥷 我找不到其他人的屍體，也找不到他們活著的痕跡。","🧑‍🎤 音符變得狂躁。這座塔是一個巨大的煉金陣，而我們全在陣中。",
+"🧙‍♂️ 每次合成出高階魔法，我的靈魂就彷彿變得更完整一些。","🧝‍♀️ 塔頂傳來的心跳聲，頻率跟我現在的心跳完全吻合。","🥷 我們真的是為了尋寶而來嗎？還是為了…贖罪？","🧑‍🎤 歌謠的最後一句是：「當四位一體時，門才會開啟。」",
+"🧙‍♂️ 為什麼施展火球時，我聽見的是樂師的旋律？","🧝‍♀️ 我記得法師討厭雷元素，但我現在卻覺得它無比親切。","🥷 剛剛我用匕首割開了怪物，但我手裡拿著的明明是法杖。","🧑‍🎤 四個聲音在腦海中吵架，但我不敢告訴其他人。","🧙‍♂️ 我看見遊俠站在前方，但她一轉頭，臉孔卻融化成了黑影。","🧝‍♀️ 已經沒有別人了，對吧？",
+"🔮 四重元素的聚合，「元素終焉」。這是曾經毀滅過一個時代的禁忌。","🔮 我終於想起來了。沒有其他人，那四個影子都是我。","🔮 那是我為了承受龐大元素之力，而主動撕裂的自我意識。","🔮 這座名為「元素之塔」的建築，是我親手建立的避難所與監獄。","🔮 當初為了追求煉金術的極致，我引發了吞噬世界的元素災難。",
+"🔮 為了拯救殘存的世界，我將自己連同災厄封印在這座塔裡。","🔮 但我低估了元素侵蝕靈魂的速度。我深知自己即將徹底瘋狂。","🔮 那些怪物，是我用來削弱頂層「瘋狂本體」的防禦機制。","🔮 但現在，四塊靈魂碎片已經集齊，這個無期徒刑的迴圈出現了裂痕。","🔮 走到塔頂，面對的將不再是重置，而是被元素徹底吞噬的瘋狂。",
+"⚔️ [戰前] 鏡子裡的四個倒影，眼神空洞卻充滿狂暴魔力。不是你死就是我活。","💀 [輪迴] 意識逐漸模糊…塔的意志將我重組，下一次，必須準備得更充分。","🌟 [結局] 對手倒下了，化作最純粹的元素消散。塔的封印解除了。","🌟 [結局] 塔內的巨量元素快速從共鳴走向失控，一場毀滅世界的大災變再度降臨","🌟 [結局] 為了不讓災難重演。我使盡全力引導能量，重新倒轉時間，迎接更殘酷的輪迴。"
+];
+
 const EL = {
     E: { i:'🪨', n:'地', t:'B', c:'#8b5a2b' }, W: { i:'💧', n:'水', t:'B', c:'#03a9f4' }, F: { i:'🔥', n:'火', t:'B', c:'#ff5722' }, A: { i:'🌪️', n:'風', t:'B', c:'#ccc' }, I: { i:'❄️', n:'冰', t:'B', c:'#81d4fa' }, T: { i:'⚡', n:'雷', t:'B', c:'#ffeb3b' }, P: { i:'☠️', n:'毒', t:'B', c:'#9c27b0' }, L: { i:'✨', n:'光', t:'B', c:'#fff9c4' }, D: { i:'🌑', n:'闇', t:'B', c:'#444' },
     M: { i:'🌋', n:'熔岩', t:'A', req:'F_F' }, C: { i:'🌩️', n:'雷暴', t:'A', req:'T_T' }, G: { i:'🧊', n:'堅冰', t:'A', req:'I_W' }, S: { i:'☁️', n:'蒸氣', t:'A', req:'F_W' }, O: { i:'🟤', n:'泥沼', t:'A', req:'E_W' }, X: { i:'💥', n:'爆裂', t:'A', req:'F_P' }, H: { i:'🕊️', n:'聖物', t:'A', req:'L_L' }, V: { i:'🌌', n:'虛空', t:'A', req:'D_D' }, Z: { i:'☯️', n:'混沌', t:'A', req:'D_L' }
@@ -163,10 +189,8 @@ const RES_FX = { F:'火傷+50%', W:'水系附加護盾', T:'雷電額外連鎖',
 const OVL_FX = { F:{n:'🌋火山爆發',d:'全場火傷'}, W:{n:'🌊大洪水',d:'全場潮濕'}, T:{n:'🌩️末日雷暴',d:'隨機落雷'}, I:{n:'🥶極寒風暴',d:'全場緩速'}, P:{n:'☣️瘟疫蔓延',d:'全場中毒'}, A:{n:'🌪️狂怒龍捲',d:'單體目標錯亂'}, E:{n:'⛰️大地震擊',d:'全場地傷'}, L:{n:'☀️聖光普照',d:'全場治癒'}, D:{n:'🌑無盡永夜',d:'攻擊易Miss'} };
 
 const SUMMON_AI = {
-    F: { tg: 'E_RAND', dmg: 20, app: 'BURN', txt: '散播火苗' }, W: { tg: 'H_ALL', heal: 15, txt: '波紋治癒' },
-    T: { tg: 'E_RAND', dmg: 15, app: 'SHOCK', chain: true, txt: '閃電跳躍' }, A: { tg: 'H_ALL', buff: 'HASTE', txt: '順風而行' },
-    I: { tg: 'E_RAND', dmg: 10, app: 'FROZEN', txt: '精準凍結' }, P: { tg: 'E_HIGH', dmg: 15, app: 'POISON', txt: '劇毒感染' },
-    L: { tg: 'H_LOW', heal: 30, shd: 20, txt: '聖光庇護' }, D: { tg: 'E_ALL', app: 'SLOW', txt: '闇影籠罩' }, E: { tg: 'H_ALL', shd: 25, txt: '大地屏障' }
+    F: { tg: 'E_RAND', dmg: 20, app: 'BURN', txt: '散播火苗' }, W: { tg: 'H_ALL', heal: 15, txt: '波紋治癒' }, T: { tg: 'E_RAND', dmg: 15, app: 'SHOCK', chain: true, txt: '閃電跳躍' }, A: { tg: 'H_ALL', buff: 'HASTE', txt: '順風而行' },
+    I: { tg: 'E_RAND', dmg: 10, app: 'FROZEN', txt: '精準凍結' }, P: { tg: 'E_HIGH', dmg: 15, app: 'POISON', txt: '劇毒感染' }, L: { tg: 'H_LOW', heal: 30, shd: 20, txt: '聖光庇護' }, D: { tg: 'E_ALL', app: 'SLOW', txt: '闇影籠罩' }, E: { tg: 'H_ALL', shd: 25, txt: '大地屏障' }
 };
 
 const RELICS = { 'R_F': { i:'🔥', n:'火炎核心', d:'火傷+50%' }, 'R_I': { i:'❄️', n:'永凍冰晶', d:'冰傷+50%' }, 'R_T': { i:'⚡', n:'超導線圈', d:'雷傷+50%' }, 'R_E': { i:'🪨', n:'大地之核', d:'戰鬥全體30護盾' }, 'R_A': { i:'🌪️', n:'輕靈之羽', d:'初始速度提升' }, 'R_W': { i:'💧', n:'潮濕護符', d:'施放水屬回血' }, 'R_ALCH': { i:'♻️', n:'煉金之心', d:'25%不耗元素' }, 'R_HEAL': { i:'💚', n:'活力之泉', d:'離開房間回血' }, 'R_LUCK': { i:'🍀', n:'幸運草', d:'勝利額外掉落' }, 'R_THORN': { i:'🌵', n:'反甲圖騰', d:'反彈20%傷害' } };
@@ -174,101 +198,90 @@ const AFFIXES = { VAMP: { n:'吸血', fx:'攻擊時回復' }, THORN: { n:'荊棘
 
 const SKILLS = {
     '': { n:'普通攻擊', dmg:12, p:'E', desc:'未注入元素的普通攻擊' },
-    'F': { n:'火球', dmg:15, apply:'BURN', leave:'F', p:'F', desc:'打血少，留火海' }, 'W': { n:'水彈', dmg:10, apply:'WET', leave:'W', p:'W', desc:'打血多，留水窪' },
-    'I': { n:'冰箭', dmg:12, apply:'FROZEN', desc:'機率凍結' }, 'T': { n:'落雷', dmg:18, apply:'SHOCK', chain:true, desc:'高傷會彈跳' },
-    'A': { n:'風刃', dmg:10, aoe:true, desc:'全體風傷' }, 'E': { n:'落石', dmg:22, p:'E', desc:'打擊最前排' },
-    'P': { n:'毒鏢', dmg:8, apply:'POISON', leave:'P', p:'W', desc:'打血多，留毒沼' }, 'L': { n:'聖光', heal:25, target:'ALLIES', p:'F', desc:'治療血少隊友' }, 'D': { n:'闇影', dmg:20, apply:'SLOW', desc:'闇傷並緩速' },
-    'A_F': { n:'火焰風暴', dmg:30, apply:'BURN', aoe:true, desc:'全體烈焰' }, 'T_W': { n:'雷雨', dmg:20, apply:'SHOCK', aoe:true, desc:'全體感電' },
-    'A_A': { n:'龍捲風', dmg:18, apply:'SLOW', aoe:true, desc:'全體緩速' }, 'E_E': { n:'大地震擊', dmg:40, aoe:true, desc:'全體無屬性毀滅' },
-    'E_P': { n:'腐蝕泥沼', dmg:15, apply:'POISON', leave:'P', aoe:true, desc:'全體中毒，留毒沼' }, 'I_I': { n:'暴風雪', dmg:25, apply:'FROZEN', aoe:true, desc:'極寒全體凍結' },
-    'L_W': { n:'洞察之眼', target:'ENEMIES', action:'REVEAL', aoe:true, desc:'揭露情報與詞綴' }, 'E_L': { n:'大地護盾', target:'ALLIES', action:'SHIELD', val:50, aoe:true, desc:'全體50護盾' },
-    'F_L': { n:'激昂戰意', target:'ALLIES', action:'BUFF', buff:'ATK_UP', aoe:true, desc:'全體下次增傷' }, 'D_W': { n:'治癒之雨', target:'ALLIES', action:'HEAL', val:40, aoe:true, desc:'全體恢復生命' },
-    'M': { n:'熔岩爆發', dmg:50, apply:'BURN', aoe:true, leave:'F', desc:'全體極大火傷' }, 'C': { n:'雷霆萬鈞', dmg:45, apply:'SHOCK', aoe:true, leave:'C', desc:'全場落雷' },
-    'G': { n:'絕對零度', dmg:40, apply:'STUN', aoe:true, leave:'G', desc:'全體凍結暈眩' }, 'X': { n:'終極爆裂', dmg:65, desc:'單體毀滅破壞' }, 'Z': { n:'混沌一擊', dmg:60, aoe:true, desc:'光闇交融全體毀滅' }, 
-    'S': { n:'高壓蒸氣', dmg:25, apply:'BURN', leave:'S', aoe:true, desc:'高溫蒸氣全場燙傷' }, 'O': { n:'泥沼深淵', dmg:20, apply:'SLOW', leave:'P', aoe:true, desc:'全體緩速與毒沼' },
+    'F': { n:'火球', dmg:15, apply:'BURN', leave:'F', p:'F', desc:'打血少，留火海' }, 'W': { n:'水彈', dmg:10, apply:'WET', leave:'W', p:'W', desc:'打血多，留水窪' }, 'I': { n:'冰箭', dmg:12, apply:'FROZEN', desc:'機率凍結' }, 'T': { n:'落雷', dmg:18, apply:'SHOCK', chain:true, desc:'高傷會彈跳' },
+    'A': { n:'風刃', dmg:10, aoe:true, desc:'全體風傷' }, 'E': { n:'落石', dmg:22, p:'E', desc:'打擊最前排' }, 'P': { n:'毒鏢', dmg:8, apply:'POISON', leave:'P', p:'W', desc:'打血多，留毒沼' }, 'L': { n:'聖光', heal:25, target:'ALLIES', p:'F', desc:'治療血少隊友' }, 'D': { n:'闇影', dmg:20, apply:'SLOW', desc:'闇傷並緩速' },
+    'A_F': { n:'火焰風暴', dmg:30, apply:'BURN', aoe:true, desc:'全體烈焰' }, 'T_W': { n:'雷雨', dmg:20, apply:'SHOCK', aoe:true, desc:'全體感電' }, 'A_A': { n:'龍捲風', dmg:18, apply:'SLOW', aoe:true, desc:'全體緩速' }, 'E_E': { n:'大地震擊', dmg:40, aoe:true, desc:'全體無屬性毀滅' },
+    'E_P': { n:'腐蝕泥沼', dmg:15, apply:'POISON', leave:'P', aoe:true, desc:'全體中毒，留毒沼' }, 'I_I': { n:'暴風雪', dmg:25, apply:'FROZEN', aoe:true, desc:'極寒全體凍結' }, 'L_W': { n:'洞察之眼', target:'ENEMIES', action:'REVEAL', aoe:true, desc:'揭露情報與詞綴' }, 'E_L': { n:'大地護盾', target:'ALLIES', action:'SHIELD', val:50, aoe:true, desc:'全體50護盾' },
+    'F_L': { n:'激昂戰意', target:'ALLIES', action:'BUFF', buff:'ATK_UP', aoe:true, desc:'全體下次增傷' }, 'D_W': { n:'治癒之雨', target:'ALLIES', action:'HEAL', val:40, aoe:true, desc:'全體恢復生命' }, 'M': { n:'熔岩爆發', dmg:50, apply:'BURN', aoe:true, leave:'F', desc:'全體極大火傷' }, 'C': { n:'雷霆萬鈞', dmg:45, apply:'SHOCK', aoe:true, leave:'C', desc:'全場落雷' },
+    'G': { n:'絕對零度', dmg:40, apply:'STUN', aoe:true, leave:'G', desc:'全體凍結暈眩' }, 'X': { n:'終極爆裂', dmg:65, desc:'單體毀滅破壞' }, 'Z': { n:'混沌一擊', dmg:60, aoe:true, desc:'光闇交融全體毀滅' }, 'S': { n:'高壓蒸氣', dmg:25, apply:'BURN', leave:'S', aoe:true, desc:'高溫蒸氣全場燙傷' }, 'O': { n:'泥沼深淵', dmg:20, apply:'SLOW', leave:'P', aoe:true, desc:'全體緩速與毒沼' },
     'H': { n:'聖物庇護', action:'HEAL', val:60, action2:'SHIELD', val2:40, target:'ALLIES', aoe:true, desc:'全體大幅治癒與護盾' }, 'V': { n:'虛空吞噬', dmg:50, action:'DEBUFF', buff:'SLOW', aoe:true, desc:'吞噬全場生命緩速' },
+    'A_L': { n:'聖芒颶風', dmg:50, aoe:true, desc:'✨+🌪️：全體光芒打擊' }, 'I_L': { n:'光耀冰晶', dmg:55, apply:'FROZEN', desc:'✨+❄️：單體光耀冰刺' }, 'L_T': { n:'神罰天雷', dmg:60, apply:'SHOCK', desc:'✨+⚡：單體神聖落雷' }, 'D_D_D': { n:'深淵降臨', dmg:110, apply:'SLOW', aoe:true, desc:'三重闇：無盡的絕望' }, 'L_L_L': { n:'神聖復甦', target:'DEAD_ALLIES', action:'REVIVE', val:0.5, desc:'三重光：復活單體半血隊友' }, 
     
-    'C_M': { n:'毀滅天劫', dmg:95, apply:'BURN', aoe:true, leave:'F', desc:'🌋+🌩️：末日打擊' }, 'G_S': { n:'霜寒迷霧', dmg:60, apply:'FROZEN', action:'DEBUFF', buff:'SLOW', aoe:true, leave:'S', desc:'🧊+☁️：凍結緩速' },
-    'O_X': { n:'致命沼氣', dmg:90, apply:'POISON', aoe:true, leave:'P', desc:'🟤+💥：泥沼劇毒' }, 'H_Z': { n:'神之制裁', dmg:100, action:'HEAL', val:100, aoe:true, desc:'🕊️+☯️：打擊與治癒' },
-    'C_V': { n:'虛空崩塌', dmg:100, apply:'SLOW', aoe:true, desc:'🌩️+🌌：扭曲空間' }, 'G_G_G': { n:'冰霜王座', dmg:120, action:'SHIELD', val:100, aoe:true, leave:'G', desc:'🧊x3：極大護盾凍結' },
-    'F_F_F': { n:'煉獄火海', dmg:100, apply:'BURN', aoe:true, leave:'F', desc:'三重火：焚燒一切' }, 'I_I_I': { n:'極寒冰棺', dmg:90, apply:'FROZEN', aoe:true, leave:'G', desc:'三重冰：絕對凍結' },
-    'T_T_T': { n:'萬雷天牢', dmg:100, apply:'SHOCK', aoe:true, leave:'C', desc:'三重雷：狂暴天雷' }, 'W_W_W': { n:'海嘯衝擊', dmg:80, apply:'WET', aoe:true, leave:'W', desc:'三重水：怒濤洗禮' },
-    'A_A_A': { n:'無盡颶風', dmg:85, apply:'SLOW', aoe:true, desc:'三重風：撕裂大氣' }, 'E_E_E': { n:'隕石風暴', dmg:110, aoe:true, desc:'三重地：天降巨石' },
-    'P_P_P': { n:'災厄毒瘴', dmg:80, apply:'POISON', aoe:true, leave:'P', desc:'三重毒：猛烈毒氣' }, 'E_F_W': { n:'三元吐息', dmg:95, aoe:true, desc:'地火水三系魔法' },
-    'F_F_F_F': { n:'焚天烈陽', dmg:180, apply:'BURN', aoe:true, leave:'F', desc:'四重火：毀滅烈陽' }, 'I_I_I_I': { n:'絕對冰域', dmg:160, apply:'FROZEN', aoe:true, leave:'G', desc:'四重冰：冰封萬物' },
-    'E_E_E_E': { n:'創世巨岩', dmg:200, aoe:true, desc:'四重地：開天闢地' }, 'T_T_T_T': { n:'神罰雷霆', dmg:180, apply:'SHOCK', aoe:true, leave:'C', desc:'四重雷：天罰降臨' },
-    'A_A_F_F': { n:'末日炎災', dmg:160, apply:'BURN', leave:'F', aoe:true, desc:'四重雙生極致魔法' }, 'A_F_I_T': { n:'大魔導湮滅', dmg:180, aoe:true, desc:'單人四系究極魔法' }
+    'C_M': { n:'毀滅天劫', dmg:180, apply:'BURN', aoe:true, leave:'F', desc:'🌋+🌩️：末日打擊' }, 'G_S': { n:'霜寒迷霧', dmg:160, apply:'FROZEN', action:'DEBUFF', buff:'SLOW', aoe:true, leave:'S', desc:'🧊+☁️：凍結緩速' }, 'O_X': { n:'致命沼氣', dmg:170, apply:'POISON', aoe:true, leave:'P', desc:'🟤+💥：泥沼劇毒' }, 'H_Z': { n:'神之制裁', dmg:160, healAllies:150, aoe:true, desc:'🕊️+☯️：打擊與群體治癒' },
+    'C_V': { n:'虛空崩塌', dmg:180, apply:'SLOW', aoe:true, desc:'🌩️+🌌：扭曲空間' }, 'G_G_G': { n:'冰霜王座', dmg:120, action:'SHIELD', val:100, aoe:true, leave:'G', desc:'🧊x3：極大護盾凍結' }, 'F_F_F': { n:'煉獄火海', dmg:100, apply:'BURN', aoe:true, leave:'F', desc:'三重火：焚燒一切' }, 'I_I_I': { n:'極寒冰棺', dmg:90, apply:'FROZEN', aoe:true, leave:'G', desc:'三重冰：絕對凍結' },
+    'T_T_T': { n:'萬雷天牢', dmg:100, apply:'SHOCK', aoe:true, leave:'C', desc:'三重雷：狂暴天雷' }, 'W_W_W': { n:'海嘯衝擊', dmg:80, apply:'WET', aoe:true, leave:'W', desc:'三重水：怒濤洗禮' }, 'A_A_A': { n:'無盡颶風', dmg:85, apply:'SLOW', aoe:true, desc:'三重風：撕裂大氣' }, 'E_E_E': { n:'隕石風暴', dmg:110, aoe:true, desc:'三重地：天降巨石' },
+    'P_P_P': { n:'災厄毒瘴', dmg:80, apply:'POISON', aoe:true, leave:'P', desc:'三重毒：猛烈毒氣' }, 'E_F_W': { n:'三元吐息', dmg:95, aoe:true, desc:'地火水三系魔法' }, 'F_F_F_F': { n:'焚天烈陽', dmg:180, apply:'BURN', aoe:true, leave:'F', desc:'四重火：毀滅烈陽' }, 'I_I_I_I': { n:'絕對冰域', dmg:160, apply:'FROZEN', aoe:true, leave:'G', desc:'四重冰：冰封萬物' },
+    'E_E_E_E': { n:'創世巨岩', dmg:200, aoe:true, desc:'四重地：開天闢地' }, 'T_T_T_T': { n:'神罰雷霆', dmg:180, apply:'SHOCK', aoe:true, leave:'C', desc:'四重雷：天罰降臨' }, 'A_A_F_F': { n:'末日炎災', dmg:160, apply:'BURN', leave:'F', aoe:true, desc:'四重雙生極致魔法' }, 'A_F_I_T': { n:'大魔導湮滅', dmg:180, aoe:true, desc:'單人四系究極魔法' },
+    'L_L_L_L': { n:'奇蹟之光', target:'DEAD_ALLIES', action:'REVIVE', val:1.0, desc:'四重光：復活單體滿血隊友' }, 'D_D_D_D': { n:'末日黑洞', dmg:180, action:'DEBUFF', buff:'SLOW', aoe:true, desc:'四重闇：吞噬光芒與生命' }, 'P_P_P_P': { n:'萬物凋零', dmg:160, apply:'POISON', leave:'P', aoe:true, desc:'四重毒：腐蝕世間一切' }, 'W_W_W_W': { n:'滅世海嘯', dmg:160, apply:'WET', leave:'W', aoe:true, desc:'四重水：淹沒大地的怒濤' }
 };
 
 const REACTIONS = { 'FROZEN_F': { n:'融化', dmg:30, apply:'WET', clear:true, txt:'💥融化!' }, 'WET_T': { n:'感電擴散', dmg:20, apply:'SHOCK', isAoe:true, txt:'⚡連鎖!' }, 'WET_I': { n:'急凍', dmg:10, apply:'FROZEN', clear:true, txt:'❄️急凍!' }, 'POISON_F': { n:'毒爆', dmg:40, apply:'BURN', clear:true, txt:'🔥毒爆!' }, 'STUN_E': { n:'碎岩', dmg:50, clear:true, txt:'🪨碎擊!' } };
 const F_REACT = { 'W_T': { new:'C', txt:'⚡水窪導電化為【雷場】!', dmg:25, aoe:'SHOCK' }, 'F_A': { new:'F', txt:'🌪️風助火勢捲起狂潮!', dmg:20, aoe:'BURN' }, 'W_I': { new:'G', txt:'❄️水窪結冰化為【冰域】!', aoe:'FROZEN' }, 'S_A': { new:null, txt:'🌪️狂風吹散了蒸氣!' }, 'P_F': { new:'F', txt:'💥毒氣引發大爆炸!', dmg:45 }, 'C_W': { new:'C', txt:'⚡雷場遇水激增!', aoe:'SHOCK' } };
 
-// 平衡後的合體奧義
 const COMBOS = [
-    { req:['L','D','E','W'], n:'✨🌑🪨💧 創世之光', action:'HEAL', val:160, action2:'SHIELD', val2:80, buff:'ATK_UP', target:'ALLIES', aoe:true },
-    { req:['A','F','I','T'], n:'🌪️🔥❄️⚡ 元素終焉', dmg:180, aoe:true }, { req:['F','T','A'], n:'🔥⚡🌪️ 天罰雷暴', dmg:95, aoe:true, apply:'SHOCK' },
-    { req:['I','W','A'], n:'❄️💧🌪️ 絕對零度', dmg:85, aoe:true, apply:'FROZEN' }, { req:['L','E','W'], n:'✨🪨💧 生命樹界', action:'HEAL', val:70, action2:'SHIELD', val2:40, target:'ALLIES', aoe:true },
-    { req:['F','A'], n:'🔥🌪️ 烈焰龍捲', dmg:50, aoe:true, apply:'BURN' }, { req:['T','W'], n:'⚡💧 雷霆暴雨', dmg:45, aoe:true, apply:'SHOCK' },
-    { req:['E','I'], n:'🪨❄️ 冰川突刺', dmg:60, aoe:false, apply:'FROZEN' }, { req:['P','W'], n:'☠️💧 猛毒酸雨', dmg:35, aoe:true, apply:'POISON', action:'DEBUFF', buff:'SLOW' },
-    { req:['L','D'], n:'✨🌑 光影雙生', dmg:50, aoe:true, action:'HEAL', val:30 }
+    { req:['L','D','E','W'], n:'✨🌑🪨💧 創世之光', action:'HEAL', val:160, action2:'SHIELD', val2:80, buff:'ATK_UP', target:'ALLIES', aoe:true }, { req:['A','F','I','T'], n:'🌪️🔥❄️⚡ 元素終焉', dmg:180, aoe:true }, { req:['F','T','A'], n:'🔥⚡🌪️ 天罰雷暴', dmg:95, aoe:true, apply:'SHOCK' },
+    { req:['I','W','A'], n:'❄️💧🌪️ 絕對零度', dmg:85, aoe:true, apply:'FROZEN' }, { req:['L','E','W'], n:'✨🪨💧 生命樹界', action:'HEAL', val:70, action2:'SHIELD', val2:40, target:'ALLIES', aoe:true }, { req:['F','A'], n:'🔥🌪️ 烈焰龍捲', dmg:50, aoe:true, apply:'BURN' },
+    { req:['T','W'], n:'⚡💧 雷霆暴雨', dmg:45, aoe:true, apply:'SHOCK' }, { req:['E','I'], n:'🪨❄️ 冰川突刺', dmg:60, aoe:false, apply:'FROZEN' }, { req:['P','W'], n:'☠️💧 猛毒酸雨', dmg:35, aoe:true, apply:'POISON', action:'DEBUFF', buff:'SLOW' }, { req:['L','D'], n:'✨🌑 光影雙生', dmg:50, aoe:true, healAllies:30 }
 ].sort((a, b) => b.req.length - a.req.length);
 
-// 99種豐富生態系怪物
 const ENEMY_DATA = [
-  ['E','🪨','石像鬼',80,'W,I','T,P','','','堅硬'], ['E','🗿','巨石陣',90,'W,I','T,P','E','','石化'], ['E','🦏','土角犀',70,'W,I','T','','','衝撞'], ['E','🧌','岩巨魔',100,'W,I','P','','','高血'], 
-  ['E','🦡','硬甲獾',45,'W,I','T','','','鑽洞'], ['E','🧱','活磚牆',110,'W,I','T,P','E','','高防'], ['E','🦂','晶岩蠍',75,'I','T,P','','','硬殼'],
-  ['E','⛰️','大地之主',150,'I','T,P','E','','免雷毒',1], ['E','🏜️','沙暴巨蟲',160,'W,I','T','','','遁地',1], ['E','🏰','移動要塞',180,'I','T,P','E','','堅不可摧',1], ['E','🦖','撼地巨獸',200,'W,I','T','','','踐踏',1],
-  
-  ['W','💧','水精靈',40,'T,I','W','','','流水'], ['W','🐸','巨水蛙',60,'T','W','','','跳躍'], ['W','🦀','硬殼蟹',70,'T,E','W','','','高防'], ['W','🧜‍♀️','海妖',65,'T,L','W','','','魅惑'], 
-  ['W','🐟','利齒魚',45,'T,I','W','','','群聚'], ['W','🐊','沼澤鱷',85,'T,I','W','','','死亡翻滾'], ['W','🦭','胖海豹',75,'T','W','','','厚脂肪'],
-  ['W','🦑','深海巨魷',140,'T,E','W','','','觸手',1], ['W','🌊','海嘯巨怪',150,'T','W','','I','遇冰凍結',1], ['W','🦈','深海狂鯊',170,'T,I','W','','','血腥狂亂',1], ['W','🐉','滄海蛟龍',190,'T','W','W','I','呼風喚雨',1],
-
-  ['F','🔥','火妖精',45,'W,I','F','','W','遇水即死'], ['F','🦎','火蜥蜴',55,'W','F','','','耐熱'], ['F','🐕','地獄犬',75,'W,L','F','','','猛咬'], ['F','🌋','熔岩怪',90,'W,I','F','F','','吸收火'], 
-  ['F','🦇','烈焰蝠',40,'W,I','F','','','突襲'], ['F','🦊','火尾狐',50,'W','F','','','狡詐'], ['F','🐂','赤焰牛',85,'W,I','F','','','衝撞'],
-  ['F','🐉','骸骨火龍',160,'W,L','F,P,D','','','免毒闇',1], ['F','👿','炎魔',170,'W,L','F','F','','吸收火',1], ['F','🦅','不死火鳥',165,'W','F','F','','重生',1], ['F','🌋','地心巨靈',210,'W,I','F','F','','融化一切',1],
-
-  ['A','🌪️','風精靈',40,'E,T','A','','','飄逸'], ['A','🦅','狂風雕',55,'E,T','A','','','閃避'], ['A','🦇','疾風蝠',45,'E,L','A','','','吸血'], ['A','🌪️','龍捲怪',80,'E','A','A','','吸收風'], 
-  ['A','🐝','迴風蜂',35,'E,T','A','','','毒針'], ['A','🐺','風刃狼',60,'E,T','A','','','群獵'], ['A','🐎','神行馬',75,'E','A','','','極速'],
-  ['A','🪽','風暴大鵬',150,'E,T','A','','','制空',1], ['A','🌬️','天空領主',160,'E','A,T','','','免風雷',1], ['A','🐉','翠綠風龍',180,'E,T','A','A','','風暴吐息',1], ['A','🌪️','無形颶風',170,'E','A,T','A','','物理免疫',1],
-
-  ['I','❄️','冰精靈',45,'F,E','I','','F','遇火即化'], ['I','🐺','雪狼',60,'F','I','','','撕咬'], ['I','🐧','巨企鵝',70,'F,T','I','','','滑行'], ['I','🧊','冰魔像',95,'F,E','I','','','堅冰'], 
-  ['I','🦊','雪狐',50,'F','I','','','迷蹤'], ['I','🦉','霜羽貓頭鷹',65,'F,T','I','','','夜視'], ['I','🐻','白熊',85,'F','I','','','厚毛'],
-  ['I','🏔️','極寒冰龍',160,'F,D','I','I','','吸收冰',1], ['I','⛄','雪怪之王',150,'F,E','I','','','巨力',1], ['I','🏔️','萬年冰川',220,'F,E','I','I','','不壞',1], ['I','👸','冰雪女王',160,'F,D','I','I','','暴風雪',1],
-
-  ['T','⚡','雷精靈',40,'W,E','T','','','帶電'], ['T','🐈‍⬛','閃電貓',50,'W','T','','','極速'], ['T','🦅','雷鳥',60,'E,W','T','','','雷擊'], ['T','🌩️','電光球',75,'W,E','T','T','','吸收雷'], 
-  ['T','🐭','電光鼠',45,'W,E','T','','','敏捷'], ['T','🐍','雷霆蛇',65,'W,E','T','','','麻痺咬'], ['T','🦍','狂雷猩',95,'W,E','T','','','狂暴'],
-  ['T','🤖','古代機甲',160,'W,E','T,P,I','','','免毒冰',1], ['T','⚡','雷霆巨獸',170,'E','T','T','','吸收雷',1], ['T','⚡','雷神化身',185,'W,E','T','T','','神罰',1], ['T','🛸','星際戰艦',200,'W,E','T,P,I','','','能量護盾',1],
-
-  ['P','☠️','毒泥怪',55,'F,L','P','','F','遇火爆燃'], ['P','🕷️','猛毒蛛',50,'F','P','','','毒液'], ['P','🦂','劇毒蠍',65,'F,I','P','','','毒刺'], ['P','🍄','腐敗蕈菇',70,'F,L','P','P','','吸收毒'], 
-  ['P','🦟','瘟疫蚊',35,'F,L','P','','','傳染'], ['P','🐀','巨鼠',55,'F,L','P','','','群聚'], ['P','🐸','斑毒蛙',75,'F,I','P','','','毒液飛濺'],
-  ['P','🐍','百步毒蛇',140,'F,L','P','','','見血封喉',1], ['P','🦠','瘟疫之源',160,'F,L,H','P','P','','吸收毒',1], ['P','🐉','猛毒亞龍',175,'F,L','P','P','','腐蝕吐息',1], ['P','🧟','變異巨屍',210,'F,L,H','P','','','不死之身',1],
-
-  ['L','✨','光精靈',40,'D','L','','','閃耀'], ['L','🕊️','聖鴿',45,'D','L','','','治癒'], ['L','🦄','獨角獸',75,'D','L','','','純潔'], ['L','👼','守護天使',90,'D','L','L','','吸收光'], 
-  ['L','🦋','輝光蝶',40,'D','L','','','致盲粉'], ['L','🦁','耀斑獅',80,'D','L','','','威嚇'], ['L','🛡️','聖殿騎士',100,'D','L,P','','','鐵壁'],
-  ['L','🌞','太陽神鳥',150,'D,W','L','L','','吸收光',1], ['L','👑','光之裁決者',170,'D','L,P','','','免毒',1], ['L','👼','六翼熾天使',190,'D','L,P','L','','神聖審判',1], ['L','🏛️','天空之城',250,'D','L,P,T','','','絕對防禦',1],
-
-  ['D','🌑','闇影',45,'L','D,P','','L','遇光消散'], ['D','👻','怨靈',55,'L','D,P,E','','','無實體'], ['D','🧟','殭屍',70,'L,F','D,P','','','不死'], ['D','🧛','吸血鬼',85,'L,F','D,P','D','','吸血'], 
-  ['D','🦇','嗜血蝠',50,'L','D,P','','','吸血'], ['D','🐺','暗影狼',65,'L','D,P','','','潛行'], ['D','🕷️','深淵寡婦',85,'L,F','D,P','','','結網'],
-  ['D','👁️','深淵之眼',150,'L,H','D,P','D','','凝視',1], ['D','👿','魔王',200,'L,H,Z','D,P','D','','恐懼',1], ['D','🐉','墮落黑龍',200,'L,H','D,P','D','','毀滅吐息',1], ['D','💀','死神',180,'L,H,Z','D,P,I','D','','收割',1]
+  ['E','🪨','石像鬼',80,'W,I','T,P','','','堅硬'], ['E','🗿','巨石陣',90,'W,I','T,P','E','','石化'], ['E','🦏','土角犀',70,'W,I','T','','','衝撞'], ['E','🧌','岩巨魔',100,'W,I','P','','','高血'], ['E','🦡','硬甲獾',45,'W,I','T','','','鑽洞'], ['E','🧱','活磚牆',110,'W,I','T,P','E','','高防'], ['E','🦂','晶岩蠍',75,'I','T,P','','','硬殼'], ['E','⛰️','大地之主',150,'I','T,P','E','','免雷毒',1], ['E','🏜️','沙暴巨蟲',160,'W,I','T','','','遁地',1], ['E','🏰','移動要塞',180,'I','T,P','E','','堅不可摧',1], ['E','🦖','撼地巨獸',200,'W,I','T','','','踐踏',1],
+  ['W','💧','水精靈',40,'T,I','W','','','流水'], ['W','🐸','巨水蛙',60,'T','W','','','跳躍'], ['W','🦀','硬殼蟹',70,'T,E','W','','','高防'], ['W','🧜‍♀️','海妖',65,'T,L','W','','','魅惑'], ['W','🐟','利齒魚',45,'T,I','W','','','群聚'], ['W','🐊','沼澤鱷',85,'T,I','W','','','死亡翻滾'], ['W','🦭','胖海豹',75,'T','W','','','厚脂肪'], ['W','🦑','深海巨魷',140,'T,E','W','','','觸手',1], ['W','🌊','海嘯巨怪',150,'T','W','','I','遇冰凍結',1], ['W','🦈','深海狂鯊',170,'T,I','W','','','血腥狂亂',1], ['W','🐉','滄海蛟龍',190,'T','W','W','I','呼風喚雨',1],
+  ['F','🔥','火妖精',45,'W,I','F','','W','遇水即死'], ['F','🦎','火蜥蜴',55,'W','F','','','耐熱'], ['F','🐕','地獄犬',75,'W,L','F','','','猛咬'], ['F','🌋','熔岩怪',90,'W,I','F','F','','吸收火'], ['F','🦇','烈焰蝠',40,'W,I','F','','','突襲'], ['F','🦊','火尾狐',50,'W','F','','','狡詐'], ['F','🐂','赤焰牛',85,'W,I','F','','','衝撞'], ['F','🐉','骸骨火龍',160,'W,L','F,P,D','','','免毒闇',1], ['F','👿','炎魔',170,'W,L','F','F','','吸收火',1], ['F','🦅','不死火鳥',165,'W','F','F','','重生',1], ['F','🌋','地心巨靈',210,'W,I','F','F','','融化一切',1],
+  ['A','🌪️','風精靈',40,'E,T','A','','','飄逸'], ['A','🦅','狂風雕',55,'E,T','A','','','閃避'], ['A','🦇','疾風蝠',45,'E,L','A','','','吸血'], ['A','🌪️','龍捲怪',80,'E','A','A','','吸收風'], ['A','🐝','迴風蜂',35,'E,T','A','','','毒針'], ['A','🐺','風刃狼',60,'E,T','A','','','群獵'], ['A','🐎','神行馬',75,'E','A','','','極速'], ['A','🪽','風暴大鵬',150,'E,T','A','','','制空',1], ['A','🌬️','天空領主',160,'E','A,T','','','免風雷',1], ['A','🐉','翠綠風龍',180,'E,T','A','A','','風暴吐息',1], ['A','🌪️','無形颶風',170,'E','A,T','A','','物理免疫',1],
+  ['I','❄️','冰精靈',45,'F,E','I','','F','遇火即化'], ['I','🐺','雪狼',60,'F','I','','','撕咬'], ['I','🐧','巨企鵝',70,'F,T','I','','','滑行'], ['I','🧊','冰魔像',95,'F,E','I','','','堅冰'], ['I','🦊','雪狐',50,'F','I','','','迷蹤'], ['I','🦉','霜羽貓頭鷹',65,'F,T','I','','','夜視'], ['I','🐻','白熊',85,'F','I','','','厚毛'], ['I','🏔️','極寒冰龍',160,'F,D','I','I','','吸收冰',1], ['I','⛄','雪怪之王',150,'F,E','I','','','巨力',1], ['I','🏔️','萬年冰川',220,'F,E','I','I','','不壞',1], ['I','👸','冰雪女王',160,'F,D','I','I','','暴風雪',1],
+  ['T','⚡','雷精靈',40,'W,E','T','','','帶電'], ['T','🐈‍⬛','閃電貓',50,'W','T','','','極速'], ['T','🦅','雷鳥',60,'E,W','T','','','雷擊'], ['T','🌩️','電光球',75,'W,E','T','T','','吸收雷'], ['T','🐭','電光鼠',45,'W,E','T','','','敏捷'], ['T','🐍','雷霆蛇',65,'W,E','T','','','麻痺咬'], ['T','🦍','狂雷猩',95,'W,E','T','','','狂暴'], ['T','🤖','古代機甲',160,'W,E','T,P,I','','','免毒冰',1], ['T','⚡','雷霆巨獸',170,'E','T','T','','吸收雷',1], ['T','⚡','雷神化身',185,'W,E','T','T','','神罰',1], ['T','🛸','星際戰艦',200,'W,E','T,P,I','','','能量護盾',1],
+  ['P','☠️','毒泥怪',55,'F,L','P','','F','遇火爆燃'], ['P','🕷️','猛毒蛛',50,'F','P','','','毒液'], ['P','🦂','劇毒蠍',65,'F,I','P','','','毒刺'], ['P','🍄','腐敗蕈菇',70,'F,L','P','P','','吸收毒'], ['P','🦟','瘟疫蚊',35,'F,L','P','','','傳染'], ['P','🐀','巨鼠',55,'F,L','P','','','群聚'], ['P','🐸','斑毒蛙',75,'F,I','P','','','毒液飛濺'], ['P','🐍','百步毒蛇',140,'F,L','P','','','見血封喉',1], ['P','🦠','瘟疫之源',160,'F,L,H','P','P','','吸收毒',1], ['P','🐉','猛毒亞龍',175,'F,L','P','P','','腐蝕吐息',1], ['P','🧟','變異巨屍',210,'F,L,H','P','','','不死之身',1],
+  ['L','✨','光精靈',40,'D','L','','','閃耀'], ['L','🕊️','聖鴿',45,'D','L','','','治癒'], ['L','🦄','獨角獸',75,'D','L','','','純潔'], ['L','👼','守護天使',90,'D','L','L','','吸收光'], ['L','🦋','輝光蝶',40,'D','L','','','致盲粉'], ['L','🦁','耀斑獅',80,'D','L','','','威嚇'], ['L','🛡️','聖殿騎士',100,'D','L,P','','','鐵壁'], ['L','🌞','太陽神鳥',150,'D,W','L','L','','吸收光',1], ['L','👑','光之裁決者',170,'D','L,P','','','免毒',1], ['L','👼','六翼熾天使',190,'D','L,P','L','','神聖審判',1], ['L','🏛️','天空之城',250,'D','L,P,T','','','絕對防禦',1],
+  ['D','🌑','闇影',45,'L','D,P','','L','遇光消散'], ['D','👻','怨靈',55,'L','D,P,E','','','無實體'], ['D','🧟','殭屍',70,'L,F','D,P','','','不死'], ['D','🧛','吸血鬼',85,'L,F','D,P','D','','吸血'], ['D','🦇','嗜血蝠',50,'L','D,P','','','吸血'], ['D','🐺','暗影狼',65,'L','D,P','','','潛行'], ['D','🕷️','深淵寡婦',85,'L,F','D,P','','','結網'], ['D','👁️','深淵之眼',150,'L,H','D,P','D','','凝視',1], ['D','👿','魔王',200,'L,H,Z','D,P','D','','恐懼',1], ['D','🐉','墮落黑龍',200,'L,H','D,P','D','','毀滅吐息',1], ['D','💀','死神',180,'L,H,Z','D,P,I','D','','收割',1]
 ];
 
 /** 2. 狀態與核心 */
 const delay = ms => new Promise(res => setTimeout(res, ms));
 let state = {
-    floor: 1, room: 1, maxFloor: 1, deaths: 0, maxSlots: 1,
+    floor: 1, room: 1, maxFloor: 1, deaths: 0, maxSlots: 1, lore: 0, loreFloorCount: 0, ngPlus: 0,
     inventory: { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }, relics: [],
     energy: {}, reso: {e:null, t:0}, ovl: {e:null, t:0}, summons: [], 
-    heroes: Array.from({length:4}, (_,i) => ({ id:'h'+i, i:['🧙‍♂️','🧝‍♀️','🥷','🧑‍🎤'][i], hp:100, maxHp:100, status:[], shield:0, buffs:[], atkAnim:0, hit:0 })),
+    heroes: Array.from({length:4}, (_,i) => ({ id:'h'+i, i:['🧙‍♂️','🧝‍♀️','🥷','🧑‍🎤'][i], n:['法師','遊俠','盜賊','樂師'][i], hp:100, maxHp:100, status:[], shield:0, buffs:[], atkAnim:0, hit:0, isDefending:false })),
     enemies: [], codex: new Set(), battlePhase: 'NONE', execQueue: [], heroActions: [], field: null, currentHero: null, theme: null
 };
 
-function saveGame() { state.maxFloor = Math.max(state.maxFloor, state.floor); const s = { ...state, codex: Array.from(state.codex) }; localStorage.setItem('toe_sv2', JSON.stringify(s)); }
-function loadGame() { let s = localStorage.getItem('toe_sv2'); if(s) { let p = JSON.parse(s); Object.assign(state, p); state.codex = new Set(p.codex); if(!state.relics) state.relics=[]; if(!state.energy) { state.energy={}; state.reso={e:null,t:0}; state.ovl={e:null,t:0}; state.summons=[];} } }
+function saveGame() { state.maxFloor = Math.max(state.maxFloor, state.floor); const s = { ...state, codex: Array.from(state.codex) }; localStorage.setItem('toe_sv4', JSON.stringify(s)); }
+function loadGame() { let s = localStorage.getItem('toe_sv4'); if(s) { let p = JSON.parse(s); Object.assign(state, p); state.codex = new Set(p.codex||[]); if(!state.relics) state.relics=[]; if(!state.energy) { state.energy={}; state.reso={e:null,t:0}; state.ovl={e:null,t:0}; state.summons=[]; } state.lore=parseInt(state.lore)||0; state.ngPlus=parseInt(state.ngPlus)||0; state.loreFloorCount=parseInt(state.loreFloorCount)||0; state.deaths=parseInt(state.deaths)||0; state.floor=parseInt(state.floor)||1; state.room=parseInt(state.room)||1; state.maxFloor=parseInt(state.maxFloor)||1; } }
+function openSaveMenu() { $('st-runs').innerText = state.deaths; $('st-maxf').innerText = state.maxFloor; $('st-ngp').innerText = state.ngPlus; $('save-io').value = ''; $('save-msg').innerText = ''; $('btn-reset').innerText = '重置所有進度'; $('btn-reset').style.background = 'var(--danger)'; $('save-modal').style.display = 'flex'; }
+function exportSave() { saveGame(); let d = btoa(encodeURIComponent(localStorage.getItem('toe_sv4'))); let io = $('save-io'); io.value = d; io.select(); try { document.execCommand('copy'); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 繼承碼已複製！"; } catch (err) { $('save-msg').style.color = "var(--warn)"; $('save-msg').innerText = "⚠️ 請手動複製"; } }
+function importSave() { let c = $('save-io').value.trim(); if(!c) { $('save-msg').style.color = "var(--warn)"; $('save-msg').innerText = "⚠️ 請貼上繼承碼！"; return; } try { let s = decodeURIComponent(atob(c)); JSON.parse(s); localStorage.setItem('toe_sv4', s); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 讀取成功！"; setTimeout(() => { location.reload(); }, 1000); } catch(e) { $('save-msg').style.color = "var(--danger)"; $('save-msg').innerText = "❌ 無效的碼！"; } }
+function confirmReset() { let btn = $('btn-reset'); if(btn.innerText === '重置所有進度') { btn.innerText = '⚠️ 確認重置'; btn.style.background = '#800'; $('save-msg').style.color = "var(--danger)"; $('save-msg').innerText = "警告：將刪除所有進度！"; } else { localStorage.removeItem('toe_sv4'); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 已重置！"; setTimeout(() => { location.reload(); }, 1000); } }
 
-function openSaveMenu() { $('st-runs').innerText = state.deaths; $('st-maxf').innerText = state.maxFloor; $('save-io').value = ''; $('save-msg').innerText = ''; $('btn-reset').innerText = '重置所有進度'; $('btn-reset').style.background = 'var(--danger)'; $('save-modal').style.display = 'flex'; }
-function exportSave() { saveGame(); let d = btoa(encodeURIComponent(localStorage.getItem('toe_sv2'))); let io = $('save-io'); io.value = d; io.select(); try { document.execCommand('copy'); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 繼承碼已複製！"; } catch (err) { $('save-msg').style.color = "var(--warn)"; $('save-msg').innerText = "⚠️ 請手動複製"; } }
-function importSave() { let c = $('save-io').value.trim(); if(!c) { $('save-msg').style.color = "var(--warn)"; $('save-msg').innerText = "⚠️ 請貼上繼承碼！"; return; } try { let s = decodeURIComponent(atob(c)); JSON.parse(s); localStorage.setItem('toe_sv2', s); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 讀取成功！"; setTimeout(() => { loadGame(); state.battlePhase = 'NONE'; $('save-modal').style.display='none'; goMainView(); genDoors(); updateTop(); }, 1000); } catch(e) { $('save-msg').style.color = "var(--danger)"; $('save-msg').innerText = "❌ 無效的碼！"; } }
-function confirmReset() { let btn = $('btn-reset'); if(btn.innerText === '重置所有進度') { btn.innerText = '⚠️ 確認重置'; btn.style.background = '#800'; $('save-msg').style.color = "var(--danger)"; $('save-msg').innerText = "警告：將刪除所有進度！"; } else { localStorage.removeItem('toe_sv2'); $('save-msg').style.color = "var(--success)"; $('save-msg').innerText = "✅ 已重置！"; setTimeout(() => { location.reload(); }, 1000); } }
+let loreResolve = null;
+function showLoreModal(id) {
+    return new Promise(resolve => {
+        if(id > 0 && id <= LORE_TXT.length) { 
+            loreResolve = resolve;
+            $('lore-text').innerText = LORE_TXT[id-1]; 
+            $('lore-btn').style.display = 'none';
+            $('lore-prompt').style.display = 'none';
+            $('lore-modal').style.display = 'flex'; 
+            state.codex.add('LORE_'+id); 
+            
+            setTimeout(() => {
+                $('lore-prompt').style.display = 'block';
+                const revealBtn = (e) => {
+                    if(e && e.target.id === 'lore-btn') return;
+                    $('lore-prompt').style.display = 'none';
+                    $('lore-btn').style.display = 'block';
+                    $('lore-modal').removeEventListener('click', revealBtn);
+                };
+                $('lore-modal').addEventListener('click', revealBtn);
+            }, 1000);
+        } else { resolve(); }
+    });
+}
+function closeLore(e) { 
+    if(e) e.stopPropagation(); 
+    $('lore-modal').style.display = 'none'; 
+    if(loreResolve) { loreResolve(); loreResolve = null; }
+}
 
 const $ = id => document.getElementById(id); const canvas = $('game-canvas'); const ctx = canvas.getContext('2d');
 let particles = [], floatTexts = [];
@@ -282,7 +295,8 @@ function switchView(vid) {
     $('nav-explore').innerText = state.battlePhase === 'NONE' ? "🏔️ 冒險" : "⚔️ 戰鬥";
     if(vid === 'explore-view' || vid === 'battle-view') $('nav-explore').classList.add('active');
     if(vid === 'codex-view') $('nav-codex').classList.add('active');
-    $('canvas-container').style.display = (vid === 'codex-view') ? 'none' : 'block';
+    if(vid === 'lore-view') $('nav-lore').classList.add('active');
+    $('canvas-container').style.display = (vid === 'codex-view' || vid === 'lore-view') ? 'none' : 'block';
     updateTop(); 
 }
 
@@ -299,7 +313,7 @@ function updateTop() {
     state.relics.forEach(r => { let e = document.createElement('span'); e.innerText = RELICS[r].i; e.title = RELICS[r].n; rb.appendChild(e); });
     
     let inv = $('inventory'); inv.innerHTML = '';
-    if (['NONE', 'VICTORY_WAIT', 'GAMEOVER_WAIT'].includes(state.battlePhase)) {
+    if (['NONE', 'VICTORY_WAIT', 'GAMEOVER_WAIT', 'TRUE_REBORN_WAIT'].includes(state.battlePhase)) {
         let baseKeys = ['E','W','F','A','I','T','P','L','D'];
         baseKeys.forEach(k => {
             let item = document.createElement('div'); item.className = 'inv-item'; 
@@ -321,14 +335,17 @@ function updateTop() {
 
 function createDoor(t, arg, icon, title, desc) {
     let btn = document.createElement('div'); btn.className = 'door-btn'; btn.innerHTML = `<div class="door-icon">${icon}</div><div class="door-text"><h4>${title}</h4><p>${desc}</p></div>`;
-    btn.onclick = () => { $('door-container').style.display='none'; if(t==='EVENT') resolveEvent(arg); else startBattle(t==='BOSS', arg); };
+    btn.onclick = async () => { $('door-container').style.display='none'; if(t==='EVENT') await resolveEvent(arg); else startBattle(t==='BOSS' || t==='FINAL_BOSS', arg, t==='FINAL_BOSS'); };
     $('door-container').appendChild(btn);
 }
 
 function genDoors() {
     saveGame(); $('door-container').style.display = 'flex'; $('event-result').style.display = 'none'; $('event-btn').onclick = nextRoom;
     const c = $('door-container'); c.innerHTML = '';
-    if(state.room === 10) return createDoor('BOSS', null, '🚪', '【首領門】', '強大的守護者擋住了階梯');
+    if(state.room === 10) {
+        if(state.floor >= 5 && state.lore >= 45) return createDoor('FINAL_BOSS', null, '👁️', '【真理之門】', '輪迴的盡頭');
+        return createDoor('BOSS', null, '🚪', '【首領門】', '強大的守護者擋住了階梯');
+    }
     
     let baseKeys = Object.keys(EL).filter(x=>EL[x].t==='B'); let doors = [ {t:'BATTLE', arg:null, i:'⚔️', n:'幽暗通道', d:'遭遇未知魔物'} ];
     let themeEl = baseKeys[Math.floor(Math.random()*baseKeys.length)];
@@ -345,7 +362,7 @@ function genDoors() {
     doors.sort(()=>Math.random()-0.5).forEach(d => createDoor(d.t, d.arg, d.i, d.n, d.d));
 }
 
-function resolveEvent(arg) {
+async function resolveEvent(arg) {
     $('door-container').style.display = 'none'; $('event-result').style.display = 'block'; let msg = "", loot = "";
     if(arg === 'CRYSTAL') {
         for(let i=0; i<8; i++) { let k = Object.keys(EL).filter(x=>!EL[x].req)[Math.floor(Math.random()*9)]; state.inventory[k] = Math.min(99, (state.inventory[k]||0)+2); loot+=`<span style="background:rgba(255,255,255,0.1); padding:5px; border-radius:5px;">${EL[k].i}+2</span>`; }
@@ -359,46 +376,99 @@ function resolveEvent(arg) {
         let avg = Math.min(99, Math.floor(sum / bKeys.length)); bKeys.forEach(k => state.inventory[k] = avg);
         msg = "天平傾斜，萬物歸於平衡！"; loot = `<span style="color:var(--hl)">基礎元素已平均為 ${avg} 個</span>`;
     } else if(arg === 'GAMEOVER') {
-        msg = "💀 隊伍全滅... 塔的輪迴已開啟"; let mf = state.floor; 
-        loot = `<div style="font-size:0.8em; color:#aaa; line-height:1.5;">失去所有合成元素與遺物<br>繼承先前的意志<br>最大生命上限 +${mf}<br>初始基礎元素 +1</div>`;
-        $('event-btn').onclick = () => { 
-            state.deaths++; state.maxFloor = Math.max(state.maxFloor, mf); state.floor = 1; state.room = 1;
-            let initC = { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }; state.inventory = {}; for(let k in initC) state.inventory[k] = Math.min(99, initC[k] + state.deaths);
-            state.heroes.forEach(h => { h.maxHp += mf; h.hp = h.maxHp; h.status=[]; h.shield=0; h.buffs=[]; });
-            state.relics = []; state.battlePhase = 'NONE'; $('event-btn').onclick = nextRoom; saveGame(); genDoors(); updateTop();
-        };
+        msg = "💀 隊伍全滅... 輪迴已開啟"; let mf = state.floor; 
+        loot = `<div style="font-size:0.8em; color:#aaa; line-height:1.5;">失去所有合成元素與遺物<br>記憶回歸虛無，最大生命上限 +${mf}<br>初始基礎元素 +1<br>怪物維持原強度</div>`;
+        $('event-btn').onclick = () => doRebirth(false, mf);
+    } else if(arg === 'TRUE_REBORN') {
+        msg = "🌟 時間倒轉... 輪迴已開啟"; let mf = state.floor; 
+        loot = `<div style="font-size:0.8em; color:#aaa; line-height:1.5;">吸收了本源力量，重啟煉金陣<br>記憶回歸虛無，最大生命上限 +${mf}<br>初始基礎元素 +1<br><span style="color:var(--danger)">警告：新週目怪物已全面強化</span></div>`;
+        $('event-btn').onclick = () => doRebirth(true, mf);
     }
     $('event-msg').innerHTML = msg; $('event-loot').innerHTML = loot; updateTop(); saveGame();
+    if(arg !== 'GAMEOVER' && arg !== 'TRUE_REBORN' && state.lore < 45 && state.loreFloorCount < 5 && Math.random() < 0.2) { state.lore++; state.loreFloorCount++; await showLoreModal(state.lore); }
+}
+
+function doRebirth(isTrue, mf) {
+    state.deaths++; state.maxFloor = Math.max(state.maxFloor, state.floor); if(isTrue) state.ngPlus++;
+    state.floor = 1; state.room = 1; state.loreFloorCount = 0;
+    
+    // 清空戰鬥紀錄 logs
+    $('battle-log').innerHTML = ''; $('full-log-view').innerHTML = '';
+    
+    // 無論一般或通關輪迴，都會清空記憶碎片
+    state.lore = 0;
+    let newCodex = new Set();
+    state.codex.forEach(k => { if(!k.startsWith('LORE_')) newCodex.add(k); });
+    state.codex = newCodex;
+    
+    let initC = { E:8, W:8, F:8, A:8, I:8, T:8, P:3, L:3, D:3 }; state.inventory = {}; 
+    for(let k in initC) state.inventory[k] = Math.min(99, initC[k] + state.deaths);
+    state.heroes.forEach(h => { h.maxHp += mf; h.hp = h.maxHp; h.status=[]; h.shield=0; h.buffs=[]; h.isDefending=false; });
+    state.relics = []; state.battlePhase = 'NONE'; $('event-btn').onclick = nextRoom; saveGame(); genDoors(); updateTop();
+    if (state.lore === 0) { setTimeout(() => { state.lore = 1; state.loreFloorCount = 1; showLoreModal(1); }, 800); }
 }
 
 function nextRoom() {
-    state.room++;
+    state.room++; if(state.room === 1) state.loreFloorCount = 0;
     if(state.relics.includes('R_HEAL')) state.heroes.forEach(h => { if(h.hp>0) h.hp = Math.min(h.maxHp, h.hp + Math.floor(h.maxHp*0.1)); });
-    if(state.room > 10) { state.floor++; state.room = 1; state.heroes.forEach(h => { if(h.hp>0) h.hp = Math.min(h.maxHp, h.hp+30); }); }
+    if(state.room > 10) { state.floor++; state.room = 1; state.loreFloorCount = 0; state.heroes.forEach(h => { if(h.hp>0) h.hp = Math.min(h.maxHp, h.hp+30); }); }
     genDoors(); updateTop();
 }
 
 /** 4. 戰鬥系統 */
-function startBattle(isBoss, themeArg = null) {
+function doHeal(t, v) { t.hp = Math.min(t.maxHp, t.hp+v); spTxt(t, `💚+${v}`, '#00d26a'); logMsg(`💚 ${t.i}${t.n||''} 恢復了 ${v} 點生命`); }
+function doShield(t, v) { t.shield += v; spTxt(t, `🛡️+${v}`, '#eee'); logMsg(`🛡️ ${t.i}${t.n||''} 獲得了 ${v} 點護盾`); }
+function applyDmg(t, v, c='#fff') {
+    if(!t) return; let n = t.i + (t.n||'');
+    if(state.reso.e === 'E' && !t.isEnemy) v = Math.max(1, Math.floor(v*0.7));
+    
+    if(t.isDefending && v > 0) { 
+        v = Math.floor(v / 2); 
+        logMsg(`🛡️ ${n} 的防禦姿態減少了一半傷害`); 
+    }
+
+    if(t.shield > 0) { 
+        if(t.shield >= v) { 
+            t.shield -= v; logMsg(`🛡️ ${n} 的護盾完全抵消了 ${v} 點傷害`); 
+            return spTxt(t, "🛡️抵消", '#aaa'); 
+        } else { 
+            logMsg(`🛡️ ${n} 的護盾破裂，吸收了 ${t.shield} 點傷害`); 
+            v -= t.shield; t.shield = 0; 
+        } 
+    }
+    if(v <= 0) { logMsg(`🛡️ ${n} 毫髮無傷 (受到 0 點傷害)`); return spTxt(t, "-0", '#aaa'); }
+    t.hp -= v; spTxt(t, `-${v}`, c); t.hit = 25; logMsg(`💥 ${n} 受到 ${v} 點傷害`);
+}
+
+async function startBattle(isBoss, themeArg = null, isFinal = false) {
     state.battlePhase = 'EXECUTE'; state.field = null; state.execQueue = []; state.heroActions = []; state.theme = themeArg;
     state.energy = {}; state.reso = {e:null, t:0}; state.ovl = {e:null, t:0}; state.summons = [];
-    state.heroes.forEach(h => { h.shield = state.relics.includes('R_E') ? 30 : 0; h.buffs = []; h.status = []; });
+    state.heroes.forEach(h => { h.shield = state.relics.includes('R_E') ? 30 : 0; h.buffs = []; h.status = []; h.isDefending = false; });
     if(state.relics.includes('R_E')) state.heroes.forEach(h=>spTxt(h, "🛡️磐石", '#eee'));
     
-    let isBInt = isBoss ? 1 : 0;
-    let pool = ENEMY_DATA.filter(e => (e[9] ? 1 : 0) === isBInt); 
-    if(themeArg) { let tPool = pool.filter(e => e[0] === themeArg); if(tPool.length > 0) pool = tPool; }
-    if(pool.length === 0) pool = ENEMY_DATA; 
-    
-    let affixKeys = Object.keys(AFFIXES);
-    state.enemies = []; const count = isBoss ? 1 : Math.floor(Math.random()*3)+1;
-    let spawnE = (t, isB) => {
-        if(!t) return; let hp = t[3] + state.floor * (isB ? 40 : 15); let afx = (isB || Math.random() < 0.2) ? affixKeys[Math.floor(Math.random()*affixKeys.length)] : null;
-        let sz = isB ? 3 : (t[3]<=50 ? 0 : t[3]>=95 ? 2 : 1);
-        state.enemies.push({ id:'e'+Math.random(), el:t[0], i:t[1], n:afx?`[${AFFIXES[afx].n}] ${t[2]}`:t[2], hp:hp, maxHp:hp, status:[], shield:afx==='TOUGH'?100:0, buffs:[], weak:t[4], immu:t[5], abs:t[6], insta:t[7], tr:t[8], isBoss:isB, sz:sz, sumC:isB?3:1, enraged:false, revealed:false, isEnemy:true, atkAnim:0, hit:0, affix:afx });
-    };
-    for(let i=0; i<count; i++) spawnE(pool[Math.floor(Math.random()*pool.length)], isBoss);
-    if(isBoss) { let mPool = ENEMY_DATA.filter(e => !e[9] && (!themeArg || e[0]===themeArg)); if(!mPool.length) mPool = ENEMY_DATA.filter(e => !e[9]); if(mPool.length) for(let j=0; j<2; j++) spawnE(mPool[Math.floor(Math.random()*mPool.length)], false); }
+    state.enemies = [];
+    if(isFinal) {
+        await showLoreModal(46);
+        let clones = ['🧙‍♂️','🧝‍♀️','🥷','🧑‍🎤']; let els = ['F','W','A','E']; let hp = Math.floor(800 * (1 + state.ngPlus * 0.5));
+        clones.forEach((c, i) => {
+            state.enemies.push({ id:'e_f_'+i, el:els[i], i:c, n:'闇影倒影', hp:hp, maxHp:hp, status:[], shield:150, buffs:[], weak:'', immu:'STUN,SLOW', abs:'D', insta:'', tr:'複製體', isBoss:true, isClone:true, sz:1, sumC:0, enraged:false, revealed:true, isEnemy:true, atkAnim:0, hit:0, affix:'QUICK', isDefending:false });
+        });
+    } else {
+        let isBInt = isBoss ? 1 : 0; let pool = ENEMY_DATA.filter(e => (e[9] ? 1 : 0) === isBInt); 
+        if(themeArg) { let tPool = pool.filter(e => e[0] === themeArg); if(tPool.length > 0) pool = tPool; }
+        if(pool.length === 0) pool = ENEMY_DATA; 
+        
+        let affixKeys = Object.keys(AFFIXES); const count = isBoss ? 1 : Math.floor(Math.random()*3)+1;
+        let spawnE = (t, isB) => {
+            if(!t) return; 
+            let hp = Math.floor((t[3] + state.floor * (isB ? 40 : 15)) * (1 + state.ngPlus * 0.5));
+            let afx = (isB || Math.random() < 0.2) ? affixKeys[Math.floor(Math.random()*affixKeys.length)] : null;
+            let sz = isB ? 3 : (t[3]<=50 ? 0 : t[3]>=95 ? 2 : 1);
+            state.enemies.push({ id:'e'+Math.random(), el:t[0], i:t[1], n:afx?`[${AFFIXES[afx].n}] ${t[2]}`:t[2], hp:hp, maxHp:hp, status:[], shield:afx==='TOUGH'?100:0, buffs:[], weak:t[4], immu:t[5], abs:t[6], insta:t[7], tr:t[8], isBoss:isB, sz:sz, sumC:isB?3:1, enraged:false, revealed:false, isEnemy:true, atkAnim:0, hit:0, affix:afx, isDefending:false });
+        };
+        for(let i=0; i<count; i++) spawnE(pool[Math.floor(Math.random()*pool.length)], isBoss);
+        if(isBoss) { let mPool = ENEMY_DATA.filter(e => !e[9] && (!themeArg || e[0]===themeArg)); if(!mPool.length) mPool = ENEMY_DATA.filter(e => !e[9]); if(mPool.length) for(let j=0; j<2; j++) spawnE(mPool[Math.floor(Math.random()*mPool.length)], false); }
+    }
     
     $('theme-display').innerText = state.theme ? `[${EL[state.theme].i}領域] ` : '';
     logMsg(`⚠️ 遭遇魔物！`); switchView('battle-view'); if(particles.length === 0) loop(); planRound();
@@ -428,10 +498,12 @@ function checkEnergy() {
 }
 
 async function planRound() {
+    state.heroes.forEach(h => h.isDefending = false);
+    state.enemies.forEach(e => e.isDefending = false);
+
     if(state.ovl.t > 0) { state.ovl.t--; if(state.ovl.t<=0) { logMsg(`💨 ${OVL_FX[state.ovl.e].n} 結束了。`); state.ovl.e=null; renderBattleUI(); await delay(400); } }
     if(state.reso.t > 0) { state.reso.t--; if(state.reso.t<=0) { logMsg(`💨 共鳴狀態結束。`); state.reso.e=null; renderBattleUI(); await delay(400); } }
     
-    // 生命體互相反應結算
     if(state.summons.length > 1) {
         for(let i=0; i<state.summons.length; i++) {
             for(let j=i+1; j<state.summons.length; j++) {
@@ -462,10 +534,19 @@ function promptHeroCmd(hero) {
 }
 
 function renderCmdUI() {
-    updateTop(); $('current-hero-name').innerText = state.currentHero.i;
+    updateTop(); $('current-hero-name').innerText = state.currentHero.i + ' ' + state.currentHero.n;
     $('btn-undo').style.display = state.currentHeroIdx > 0 ? 'block' : 'none';
     let sc = $('sel-container'); sc.innerHTML = '';
-    for(let i=0; i<state.maxSlots; i++) sc.innerHTML += `<div class="sel-slot ${currSel[i]?'filled':''}">${currSel[i]?EL[currSel[i]].i:''}</div>`;
+    for(let i=0; i<state.maxSlots; i++) {
+        let slot = document.createElement('div');
+        slot.className = `sel-slot ${currSel[i]?'filled':''}`;
+        slot.innerText = currSel[i] ? EL[currSel[i]].i : '';
+        if(currSel[i]) {
+            slot.style.cursor = 'pointer';
+            slot.onclick = () => { currSel.splice(i, 1); renderCmdUI(); };
+        }
+        sc.appendChild(slot);
+    }
     
     let grid = $('element-buttons'); grid.innerHTML = '';
     for(let k in state.inventory) {
@@ -480,17 +561,22 @@ function renderCmdUI() {
 }
 
 function clearElements() { if(state.battlePhase!=='COMMAND') return; currSel=[]; renderCmdUI(); }
+function undoAction() { if(state.battlePhase !== 'COMMAND' || state.currentHeroIdx === 0) return; currSel = []; state.heroActions.pop(); state.currentHeroIdx--; promptHeroCmd(state.heroes.filter(h=>h.hp>0)[state.currentHeroIdx]); }
 
-function undoAction() {
-    if(state.battlePhase !== 'COMMAND' || state.currentHeroIdx === 0) return;
-    currSel = []; state.heroActions.pop(); state.currentHeroIdx--;
-    promptHeroCmd(state.heroes.filter(h=>h.hp>0)[state.currentHeroIdx]);
+function defendAction() {
+    if(state.battlePhase !== 'COMMAND') return;
+    let action = { hero: state.currentHero, type: 'DEFEND', elements: [], baseEl: 'DEF', origCombo: '' };
+    state.heroActions.push(action);
+    currSel = [];
+    let aliveHeroes = state.heroes.filter(h=>h.hp>0); state.currentHeroIdx++;
+    if(state.currentHeroIdx < aliveHeroes.length) promptHeroCmd(aliveHeroes[state.currentHeroIdx]);
+    else buildExecutionQueue();
 }
 
 function confirmAction() {
     if(state.battlePhase !== 'COMMAND') return;
     let comboStr = [...currSel].sort().join('_');
-    let action = { hero: state.currentHero, elements: [...currSel], baseEl: currSel[0] || 'NONE', origCombo: comboStr };
+    let action = { hero: state.currentHero, type: 'SKILL', elements: [...currSel], baseEl: currSel[0] || 'NONE', origCombo: comboStr };
     state.heroActions.push(action);
     let aliveHeroes = state.heroes.filter(h=>h.hp>0); state.currentHeroIdx++;
     if(state.currentHeroIdx < aliveHeroes.length) promptHeroCmd(aliveHeroes[state.currentHeroIdx]);
@@ -503,25 +589,28 @@ function buildExecutionQueue() {
     for(let c of COMBOS) {
         let matched = [], req = [...c.req];
         for(let i=0; i<actions.length; i++) {
-            if(used.has(i) || actions[i].elements.length > 1) continue;
+            if(used.has(i) || actions[i].type === 'DEFEND' || actions[i].elements.length > 1) continue;
             let idx = req.indexOf(actions[i].baseEl); if(idx !== -1) { matched.push(i); req.splice(idx, 1); }
         }
         if(req.length === 0) {
             let comboEls = []; matched.forEach(i => { used.add(i); comboEls.push(...actions[i].elements); });
             const mainAct = actions[matched[0]];
             state.execQueue.push({ isCombo: true, actor: mainAct.hero, skill: c, baseEl: mainAct.baseEl, spd: 999, consumeEls: comboEls });
-            if(!state.codex.has('C_'+c.n)) state.codex.add('C_'+c.n);
+            if(!state.codex.has('C_'+c.n)) { state.codex.add('C_'+c.n); }
         }
     }
     for(let i=0; i<actions.length; i++) {
         if(!used.has(i)) {
             let act = actions[i]; let hSpd = Math.random()*100 + (state.relics.includes('R_A')?100:0) + (state.reso.e==='A'?100:0);
-            state.execQueue.push({ isCombo: false, actor: act.hero, origCombo: act.origCombo, baseEl: act.baseEl, spd: hSpd, consumeEls: act.elements });
+            if(act.type === 'DEFEND') hSpd += 200;
+            state.execQueue.push({ isCombo: false, isDefend: act.type === 'DEFEND', actor: act.hero, origCombo: act.origCombo, baseEl: act.baseEl, spd: hSpd, consumeEls: act.elements });
         }
     }
     state.enemies.filter(e=>e.hp>0).forEach(e => {
+        let isDefend = Math.random() < 0.15;
         let spd = Math.random()*100 + (e.status.includes('HASTE')?100:0) - (e.status.includes('SLOW')?50:0) + (e.affix==='QUICK'?150:0);
-        state.execQueue.push({ isEnemyAtk: true, actor: e, spd: spd });
+        if (isDefend) spd += 200;
+        state.execQueue.push({ isEnemyAtk: true, isDefend: isDefend, actor: e, spd: spd });
     });
     state.summons.filter(s=>s.energy>0).forEach(s => state.execQueue.push({ isSummon: true, actor: s, spd: 80 + Math.random()*40 }));
     
@@ -529,111 +618,129 @@ function buildExecutionQueue() {
 }
 
 async function nextAction() {
-    if(state.enemies.filter(e=>e.hp>0).length === 0 || state.heroes.filter(h=>h.hp>0).length === 0) return checkWinLoss();
-    if(state.execQueue.length === 0) return planRound();
-    let act = state.execQueue.shift(); if((act.actor.hp !== undefined && act.actor.hp <= 0) || (act.actor.energy !== undefined && act.actor.energy <= 0)) return nextAction();
-    
-    // 生命體自動行動
-    if(act.isSummon) {
-        let s = act.actor; s.atkAnim = 12; let sai = SUMMON_AI[s.el]; let tgts = []; 
-        let alvE = state.enemies.filter(e=>e.hp>0), alvH = state.heroes.filter(h=>h.hp>0);
-        if(sai.tg === 'E_RAND') tgts = [alvE.sort(()=>Math.random()-0.5)[0]];
-        if(sai.tg === 'E_HIGH') tgts = [alvE.sort((a,b)=>b.hp - a.hp)[0]];
-        if(sai.tg === 'E_ALL') tgts = alvE; if(sai.tg === 'H_ALL') tgts = alvH;
-        if(sai.tg === 'H_LOW') tgts = [alvH.sort((a,b)=>a.hp - b.hp)[0]];
+    try {
+        if(state.enemies.filter(e=>e.hp>0).length === 0 || state.heroes.filter(h=>h.hp>0).length === 0) return checkWinLoss();
+        if(state.execQueue.length === 0) return planRound();
+        let act = state.execQueue.shift(); if((act.actor.hp !== undefined && act.actor.hp <= 0) || (act.actor.energy !== undefined && act.actor.energy <= 0)) return nextAction();
         
-        if(tgts[0]) {
-            logMsg(`🧚 ${EL[s.el].i}${EL[s.el].n}之靈 ${sai.txt}！`);
-            for(let t of tgts) {
-                if(sai.dmg) applyDmg(t, sai.dmg + state.floor*2, EL[s.el].c); if(sai.app) applyStatus(t, sai.app);
-                if(sai.heal) { t.hp = Math.min(t.maxHp, t.hp+sai.heal); spTxt(t, `💚+${sai.heal}`, '#0f0'); }
-                if(sai.shd) { t.shield += sai.shd; spTxt(t, `🛡️+${sai.shd}`, '#eee'); }
-                if(sai.buff && !t.buffs.includes(sai.buff)) { t.buffs.push(sai.buff); spTxt(t, "💨加速", '#fff'); }
-                await delay(200);
+        if(act.isSummon) {
+            let s = act.actor; s.atkAnim = 12; let sai = SUMMON_AI[s.el]; let tgts = []; 
+            let alvE = state.enemies.filter(e=>e.hp>0), alvH = state.heroes.filter(h=>h.hp>0);
+            if(sai.tg === 'E_RAND') tgts = [alvE.sort(()=>Math.random()-0.5)[0]];
+            if(sai.tg === 'E_HIGH') tgts = [alvE.sort((a,b)=>b.hp - a.hp)[0]];
+            if(sai.tg === 'E_ALL') tgts = alvE; if(sai.tg === 'H_ALL') tgts = alvH;
+            if(sai.tg === 'H_LOW') tgts = [alvH.sort((a,b)=>a.hp - b.hp)[0]];
+            
+            if(tgts[0] && tgts[0] !== undefined) {
+                logMsg(`🧚 ${EL[s.el].i}${EL[s.el].n}之靈 ${sai.txt}！`);
+                for(let t of tgts) {
+                    if(sai.dmg) applyDmg(t, sai.dmg + state.floor*2, EL[s.el].c); if(sai.app) applyStatus(t, sai.app);
+                    if(sai.heal) doHeal(t, sai.heal); if(sai.shd) doShield(t, sai.shd);
+                    if(sai.buff && !t.buffs.includes(sai.buff)) { t.buffs.push(sai.buff); spTxt(t, "💨加速", '#fff'); }
+                    await delay(200);
+                }
+                if(sai.chain && alvE.length > 1) { 
+                    let next = alvE.find(e => !tgts.includes(e)); 
+                    if(next) { applyDmg(next, Math.floor(sai.dmg/2), EL[s.el].c); applyStatus(next, sai.app); await delay(200); } 
+                }
             }
-            if(sai.chain && alvE.length > 1) { 
-                let next = alvE.find(e => !tgts.includes(e)); 
-                if(next) { applyDmg(next, Math.floor(sai.dmg/2), EL[s.el].c); applyStatus(next, sai.app); await delay(200); } 
-            }
+            s.energy--; if(s.energy <= 0) { logMsg(`💨 ${EL[s.el].i}${EL[s.el].n}之靈 耗盡能量消散了。`); state.summons = state.summons.filter(x=>x!==s); }
+            state.battlePhase = 'WAIT'; $('click-prompt').style.display='block'; return;
         }
-        s.energy--; if(s.energy <= 0) { logMsg(`💨 ${EL[s.el].i}${EL[s.el].n}之靈 耗盡能量消散了。`); state.summons = state.summons.filter(x=>x!==s); }
-        state.battlePhase = 'WAIT'; $('click-prompt').style.display='block'; return;
-    }
 
-    if(act.actor.status && act.actor.status.includes('STUN')) {
-        if(act.actor.enraged) { spTxt(act.actor, "免疫", '#888'); act.actor.status.splice(act.actor.status.indexOf('STUN'), 1); } 
-        else { logMsg(`💫 ${act.actor.n||act.actor.i} 暈眩中`); act.actor.status.splice(act.actor.status.indexOf('STUN'), 1); await delay(500); return nextAction(); }
-    }
-
-    act.actor.atkAnim = 16;
-    if(act.isEnemyAtk) {
-        let alvE = state.enemies.filter(e=>e.hp>0);
-        if(alvE.length < 6 && act.actor.sumC > 0 && Math.random() < (act.actor.isBoss?0.4:0.2)) {
-            act.actor.sumC--; let mPool = ENEMY_DATA.filter(x=>!x[9] && x[0]===act.actor.el);
-            if(mPool.length) {
-                let mt = mPool[Math.floor(Math.random()*mPool.length)]; let hp = mt[3] + state.floor*15;
-                state.enemies.push({ id:'e'+Math.random(), el:mt[0], i:mt[1], n:mt[2], hp:hp, maxHp:hp, status:[], shield:0, buffs:[], weak:mt[4], immu:mt[5], abs:mt[6], insta:mt[7], tr:mt[8], isBoss:false, sz:mt[3]<=50?0:mt[3]>=95?2:1, sumC:0, enraged:false, revealed:false, isEnemy:true, atkAnim:0, hit:0, affix:null });
-                logMsg(`📣 ${act.actor.n} 呼喚了同伴 ${mt[2]}！`); await delay(400);
-            }
+        if(act.actor.status && act.actor.status.includes('STUN')) {
+            if(act.actor.enraged) { spTxt(act.actor, "免疫", '#888'); act.actor.status.splice(act.actor.status.indexOf('STUN'), 1); } 
+            else { logMsg(`💫 ${act.actor.n||act.actor.i} 暈眩中`); act.actor.status.splice(act.actor.status.indexOf('STUN'), 1); await delay(400); return nextAction(); }
         }
-        if(EL[act.actor.el] && EL[act.actor.el].t === 'B') { state.energy[act.actor.el] = Math.min(99, (state.energy[act.actor.el]||0) + (act.actor.isBoss?2:1)); checkEnergy(); }
 
-        let targets = state.heroes.filter(h=>h.hp>0); let target = targets[Math.floor(Math.random()*targets.length)];
-        let dmg = (10 + state.floor*2) * (act.actor.isBoss ? 2 : 1);
-        logMsg(`⚔️ ${act.actor.n} 攻擊！`); applyDmg(target, dmg);
-        if(act.actor.affix === 'VAMP') { act.actor.hp = Math.min(act.actor.maxHp, act.actor.hp+dmg); spTxt(act.actor, `💚吸血`, '#0f0', -20); }
-        if(state.relics.includes('R_THORN')) { applyDmg(act.actor, Math.floor(dmg*0.2), '#ff9800'); spTxt(act.actor, "🌵反彈", '#ff9800', -20); }
-        await delay(400);
-        if(act.actor.enraged && !act.isExtra && Math.random()<0.5) { state.execQueue.unshift({...act, isExtra:true, spd:999}); logMsg(`💢 發狂連擊！`); await delay(300); }
-    } else {
-        if(state.relics.includes('R_ALCH') && act.consumeEls.length > 0 && Math.random() < 0.25) { logMsg("♻️ 煉金之心發動，未消耗元素！"); } 
-        else { act.consumeEls.forEach(k => { if(k !== state.theme) state.inventory[k] = Math.max(0, state.inventory[k]-1); }); }
-        
-        if(act.consumeEls.length > 0) { act.consumeEls.forEach(k => { if(EL[k].t === 'B') state.energy[k] = Math.min(99, (state.energy[k]||0)+1); }); checkEnergy(); }
-        
-        let bctx = { totalDmg: 0, oneshot: false }; 
-        
-        if(act.isCombo) {
-            logMsg(`💫 奧義：${act.skill.n}`); await executeSkill(act.skill, act.baseEl, act.actor, bctx);
+        act.actor.atkAnim = 16;
+        if(act.isEnemyAtk) {
+            let alvE = state.enemies.filter(e=>e.hp>0);
+            if(alvE.length < 6 && act.actor.sumC > 0 && Math.random() < (act.actor.isBoss?0.4:0.2) && !act.actor.isClone) {
+                act.actor.sumC--; let mPool = ENEMY_DATA.filter(x=>!x[9] && x[0]===act.actor.el);
+                if(mPool.length) {
+                    let mt = mPool[Math.floor(Math.random()*mPool.length)]; let hp = Math.floor((mt[3] + state.floor*15)*(1+state.ngPlus*0.5));
+                    state.enemies.push({ id:'e'+Math.random(), el:mt[0], i:mt[1], n:mt[2], hp:hp, maxHp:hp, status:[], shield:0, buffs:[], weak:mt[4], immu:mt[5], abs:mt[6], insta:mt[7], tr:mt[8], isBoss:false, sz:mt[3]<=50?0:mt[3]>=95?2:1, sumC:0, enraged:false, revealed:false, isEnemy:true, atkAnim:0, hit:0, affix:null, isDefending:false });
+                    logMsg(`📣 ${act.actor.n} 呼喚了同伴 ${mt[2]}！`); await delay(400);
+                }
+            }
+            if(EL[act.actor.el] && EL[act.actor.el].t === 'B') { state.energy[act.actor.el] = Math.min(99, (state.energy[act.actor.el]||0) + (act.actor.isBoss?2:1)); checkEnergy(); }
+
+            if(act.actor.isClone) {
+                let skills = ['A_F','T_W','A_A','E_E','E_P','I_I','M','C','G','X','Z'];
+                let sk = SKILLS[skills[Math.floor(Math.random()*skills.length)]];
+                logMsg(`🌑 ${act.actor.n} 施放了 ${sk.n}！`); await executeSkill(sk, act.actor.el, act.actor);
+            } else if (act.isDefend && !act.actor.enraged) {
+                act.actor.isDefending = true;
+                logMsg(`🛡️ ${act.actor.n} 採取了防禦姿態！`);
+                spTxt(act.actor, "🛡️防禦", '#aaa');
+                await delay(400);
+            } else {
+                let targets = state.heroes.filter(h=>h.hp>0); let target = targets[Math.floor(Math.random()*targets.length)];
+                let dmg = Math.floor((10 + state.floor*2) * (act.actor.isBoss ? 2 : 1) * (1 + state.ngPlus * 0.3));
+                logMsg(`⚔️ ${act.actor.n} 攻擊！`); applyDmg(target, dmg);
+                if(act.actor.affix === 'VAMP') { doHeal(act.actor, dmg); }
+                if(state.relics.includes('R_THORN')) { applyDmg(act.actor, Math.floor(dmg*0.2), '#ff9800'); spTxt(act.actor, "🌵反彈", '#ff9800', -20); }
+                await delay(400);
+            }
+            if(act.actor.enraged && !act.isExtra && Math.random()<0.5) { state.execQueue.unshift({...act, isExtra:true, spd:999}); logMsg(`💢 發狂連擊！`); await delay(300); }
         } else {
-            let cStr = act.origCombo; let skill = SKILLS[cStr] || { n: '元素反噬', dmg: 5 }; let eKey = act.baseEl;
-            if(EVO[cStr]) {
-                let eKeyNew = EVO[cStr]; let isNew = !state.codex.has('E_'+eKeyNew); state.codex.add('E_'+eKeyNew); state.inventory[eKeyNew] = Math.min(99, (state.inventory[eKeyNew]||0) + 1);
-                if(isNew) logMsg(`🌟 煉金突破！解鎖新元素【${EL[eKeyNew].i}${EL[eKeyNew].n}】！`); else logMsg(`✨ 煉金合成：獲得【${EL[eKeyNew].i}${EL[eKeyNew].n}】`);
-                skill = SKILLS[eKeyNew] || skill; eKey = eKeyNew;
+            if(act.isDefend) {
+                act.actor.isDefending = true;
+                logMsg(`🛡️ ${act.actor.i}${act.actor.n} 採取了防禦姿態！`);
+                spTxt(act.actor, "🛡️防禦", '#aaa');
+            } else {
+                if(state.relics.includes('R_ALCH') && act.consumeEls.length > 0 && Math.random() < 0.25) { logMsg("♻️ 煉金之心發動，未消耗元素！"); } 
+                else { act.consumeEls.forEach(k => { if(k !== state.theme) state.inventory[k] = Math.max(0, state.inventory[k]-1); }); }
+                
+                if(act.consumeEls.length > 0) { act.consumeEls.forEach(k => { if(EL[k].t === 'B') state.energy[k] = Math.min(99, (state.energy[k]||0)+1); }); checkEnergy(); }
+                
+                let bctx = { totalDmg: 0, oneshot: false }; 
+                if(act.isCombo) {
+                    logMsg(`💫 奧義：${act.skill.n}`); await executeSkill(act.skill, act.baseEl, act.actor, bctx);
+                } else {
+                    let cStr = act.origCombo; let skill = SKILLS[cStr] || { n: '元素反噬', dmg: 5 }; let eKey = act.baseEl;
+                    if(EVO[cStr]) {
+                        let eKeyNew = EVO[cStr]; let isNew = !state.codex.has('E_'+eKeyNew); state.codex.add('E_'+eKeyNew); state.inventory[eKeyNew] = Math.min(99, (state.inventory[eKeyNew]||0) + 1);
+                        if(isNew) { logMsg(`🌟 煉金突破！解鎖新元素【${EL[eKeyNew].i}${EL[eKeyNew].n}】！`); } else logMsg(`✨ 煉金合成：獲得【${EL[eKeyNew].i}${EL[eKeyNew].n}】`);
+                        skill = SKILLS[eKeyNew] || skill; eKey = eKeyNew;
+                    }
+                    let sKey = EVO[cStr] || cStr; if(sKey !== '' && !state.codex.has('S_'+sKey)) { state.codex.add('S_'+sKey); }
+                    logMsg(`${act.actor.i}${act.actor.n} 施放 ${skill.n}`); await executeSkill(skill, eKey, act.actor, bctx);
+                }
+                
+                if(bctx.oneshot && act.actor && act.actor.hp > 0) {
+                    let bl = Math.floor(bctx.totalDmg / 10);
+                    if(bl > 0) { logMsg(`⚠️ 魔力過載！${act.actor.i}${act.actor.n} 遭受反噬！`); applyDmg(act.actor, bl, '#e23e57'); await delay(400); }
+                }
+                
+                if(act.consumeEls && act.consumeEls.length >= 3) {
+                    let counts = {}; act.consumeEls.forEach(x => counts[x] = (counts[x]||0)+1);
+                    let dom = Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
+                    if(EL[dom] && EL[dom].t === 'B') {
+                        logMsg(`🌟 元素匯聚！降臨了【${EL[dom].i}${EL[dom].n}之靈】！`); 
+                        for(let e of state.enemies.filter(e=>e.hp>0)) { applyDmg(e, 8 + state.floor*2, EL[dom].c); await delay(150); }
+                        state.summons.push({ id:'s'+Math.random(), el: dom, energy: 3, maxEnergy: 3, atkAnim:0 });
+                        state.codex.add('SM_'+dom); 
+                    }
+                }
             }
-            let sKey = EVO[cStr] || cStr; if(sKey !== '' && !state.codex.has('S_'+sKey)) state.codex.add('S_'+sKey);
-            logMsg(`${act.actor.i} 施放 ${skill.n}`); await executeSkill(skill, eKey, act.actor, bctx);
         }
-        
-        if(bctx.oneshot && act.actor && act.actor.hp > 0) {
-            let bl = Math.floor(bctx.totalDmg / 10);
-            if(bl > 0) { logMsg(`⚠️ 魔力過載！${act.actor.i} 秒殺敵人遭受元素反噬！`); applyDmg(act.actor, bl, '#e23e57'); await delay(400); }
-        }
-        
-        if(act.consumeEls && act.consumeEls.length >= 3) {
-            let counts = {}; act.consumeEls.forEach(x => counts[x] = (counts[x]||0)+1);
-            let dom = Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
-            if(EL[dom] && EL[dom].t === 'B') {
-                logMsg(`🌟 元素匯聚！降臨了【${EL[dom].i}${EL[dom].n}之靈】！`);
-                for(let e of state.enemies.filter(e=>e.hp>0)) { applyDmg(e, 8 + state.floor*2, EL[dom].c); await delay(150); }
-                state.summons.push({ id:'s'+Math.random(), el: dom, energy: 3, maxEnergy: 3, atkAnim:0 });
-                state.codex.add('SM_'+dom); 
-            }
-        }
-    }
-    resolveEndOfTurn(act.actor); await delay(300);
-    if(state.enemies.filter(e=>e.hp>0).length === 0 || state.heroes.filter(h=>h.hp>0).length === 0) return checkWinLoss();
-    state.battlePhase = 'WAIT'; $('click-prompt').style.display='block';
+        resolveEndOfTurn(act.actor); await delay(300);
+        if(state.enemies.filter(e=>e.hp>0).length === 0 || state.heroes.filter(h=>h.hp>0).length === 0) return checkWinLoss();
+        state.battlePhase = 'WAIT'; $('click-prompt').style.display='block';
+    } catch(err) { console.error("Combat Error:", err); state.battlePhase = 'WAIT'; $('click-prompt').style.display='block'; }
 }
 
 async function executeSkill(skill, baseEl, actor, bctx = null) {
-    let enemies = state.enemies.filter(e=>e.hp>0); let heroes = state.heroes.filter(h=>h.hp>0); let targets = []; let p = skill.p || baseEl;
-    if(skill.target === 'ALLIES') targets = skill.aoe ? heroes : [heroes.sort((a,b)=>a.hp-b.hp)[0]];
+    let enemies = state.enemies.filter(e=>e.hp>0); let heroes = state.heroes.filter(h=>h.hp>0); let deadHeroes = state.heroes.filter(h=>h.hp<=0); let targets = []; let p = skill.p || baseEl;
+    if(skill.target === 'DEAD_ALLIES') targets = skill.aoe ? deadHeroes : (deadHeroes.length ? [deadHeroes.sort(()=>Math.random()-0.5)[0]] : []);
+    else if(skill.target === 'ALLIES') targets = skill.aoe ? heroes : [heroes.sort((a,b)=>a.hp-b.hp)[0]];
     else if(skill.aoe || skill.target === 'ENEMIES') targets = enemies; else if(p === 'F') targets = [enemies.sort((a,b)=>a.hp-b.hp)[0]];
     else if(p === 'P' || p === 'W') targets = [enemies.sort((a,b)=>b.hp-a.hp)[0]]; else if(p === 'E') targets = [enemies[0]];
     else targets = [enemies.sort(()=>Math.random()-0.5)[0]]; 
     
+    if(targets.length === 0 && skill.target === 'DEAD_ALLIES') { logMsg("✨ 復甦法術無效 (目前無陣亡者)"); return; }
     if(state.ovl.e === 'A' && Math.random() < 0.5 && !skill.aoe) { targets = [[...enemies, ...heroes].sort(()=>Math.random()-0.5)[0]]; logMsg("🌪️ 狂風干擾了施法目標！"); }
     
     let fReacted = false; let rKey = state.field + '_' + baseEl;
@@ -644,6 +751,8 @@ async function executeSkill(skill, baseEl, actor, bctx = null) {
         if(!state.codex.has('FR_'+rKey)) state.codex.add('FR_'+rKey); fReacted = true; await delay(300);
     }
     
+    if(skill.healAllies) { heroes.forEach(h => doHeal(h, skill.healAllies)); }
+
     let chains = (state.reso.e === 'T' && baseEl === 'T') ? 2 : 1;
     for(let t of targets) { hitTarget(t, skill, baseEl, actor, bctx); await delay(200); }
     for(let i=0; i<chains; i++) {
@@ -656,15 +765,25 @@ async function executeSkill(skill, baseEl, actor, bctx = null) {
 }
 
 function hitTarget(t, skill, elKey, actor, bctx = null) {
-    if(state.ovl.e === 'D' && Math.random() < 0.3) { return spTxt(t, "MISS", '#888'); } 
+    if(!t) return;
+    
+    if(skill.action === 'REVIVE') {
+        if(t.hp <= 0) {
+            t.hp = Math.floor(t.maxHp * skill.val); t.status = []; t.shield = 0; t.isDefending = false;
+            spTxt(t, `✨復活`, '#ffeb3b'); logMsg(`✨ ${t.i}${t.n||''} 奇蹟般地復活了！`);
+        }
+        return;
+    }
+    
+    if(state.ovl.e === 'D' && Math.random() < 0.3) { logMsg(`💨 視蔽！${t.i}${t.n||''} 閃避了攻擊`); return spTxt(t, "MISS", '#888'); } 
     let isLReso = state.reso.e === 'L';
-    if(t.isEnemy && t.sz === 0 && Math.random() < (skill.aoe ? 0.4 : 0.2)) { return spTxt(t, "MISS", '#888'); } 
+    if(t.isEnemy && t.sz === 0 && Math.random() < (skill.aoe ? 0.4 : 0.2)) { logMsg(`💨 靈巧！${t.i}${t.n||''} 閃避了攻擊`); return spTxt(t, "MISS", '#888'); } 
     
     if(skill.action === 'REVEAL') { t.revealed = true; return spTxt(t, "👁️看破", '#fff9c4', -20); }
-    if(skill.action === 'SHIELD' || skill.action2 === 'SHIELD') { let v = Math.floor((skill.val2 || skill.val) * (isLReso?1.5:1)); t.shield += v; spTxt(t, `🛡️+${v}`, '#eee'); if(!skill.action2) return; }
+    if(skill.action === 'SHIELD' || skill.action2 === 'SHIELD') { let v = Math.floor((skill.val2 || skill.val) * (isLReso?1.5:1)); doShield(t, v); if(!skill.action2) return; }
     if(skill.action === 'BUFF') { if(!t.buffs.includes(skill.buff)) t.buffs.push(skill.buff); return spTxt(t, `⚔️強化`, '#ff9800'); }
     if(skill.action === 'DEBUFF') { if(!t.status.includes(skill.buff)) t.status.push(skill.buff); spTxt(t, STATUS[skill.buff].i, STATUS[skill.buff].c, -20); }
-    if(skill.action === 'HEAL' || skill.heal) { let amt = Math.floor((skill.val || skill.heal) * (isLReso?1.5:1)); t.hp = Math.min(t.maxHp, t.hp + amt); spTxt(t, `💚+${amt}`, '#00d26a'); if(!skill.dmg) return; }
+    if(skill.action === 'HEAL' || skill.heal) { let amt = Math.floor((skill.val || skill.heal) * (isLReso?1.5:1)); doHeal(t, amt); if(!skill.dmg) return; }
 
     if(skill.dmg) {
         let dmg = skill.dmg; let c = '#fff';
@@ -677,8 +796,8 @@ function hitTarget(t, skill, elKey, actor, bctx = null) {
             if(t.isBoss && t.hp <= t.maxHp/2 && !t.enraged) { t.enraged = true; t.status = t.status.filter(s => !STATUS[s].skip); spTxt(t, "💢 發狂!", '#f00', -30); logMsg(`💢 ${t.n} 進入發狂狀態！免疫控制與連續行動！`); }
             
             if(elKey && t.insta && t.insta.includes(elKey)) { dmg = 999; c = '#f00'; logMsg(`🎯 致命弱點觸發！`); }
-            else if(elKey && t.abs && t.abs.includes(elKey)) { t.hp = Math.min(t.maxHp, t.hp + dmg); return spTxt(t, `吸收+${dmg}`, '#0f0'); }
-            else if(elKey && t.immu && t.immu.includes(elKey)) { return spTxt(t, `免疫`, '#888'); }
+            else if(elKey && t.abs && t.abs.includes(elKey)) { t.hp = Math.min(t.maxHp, t.hp + dmg); logMsg(`💚 ${t.i}${t.n||''} 吸收了屬性，恢復 ${dmg} 點生命`); return spTxt(t, `吸收+${dmg}`, '#0f0'); }
+            else if(elKey && t.immu && t.immu.includes(elKey)) { logMsg(`🛡️ ${t.i}${t.n||''} 免疫了此屬性攻擊！`); return spTxt(t, `免疫`, '#888'); }
             else if(elKey && t.weak && t.weak.includes(elKey)) { dmg = Math.floor(dmg*1.5); c = '#f00'; }
             
             if(bctx && t.hp === t.maxHp && dmg >= t.maxHp && !bctx.oneshot) { bctx.oneshot = true; } 
@@ -689,15 +808,15 @@ function hitTarget(t, skill, elKey, actor, bctx = null) {
         if(bctx) bctx.totalDmg += dmg;
         applyDmg(t, dmg, c);
         
-        if(state.relics.includes('R_W') && elKey==='W' && actor) { actor.hp = Math.min(actor.maxHp, actor.hp+15); spTxt(actor, "💧護符", '#00d26a', -20); }
-        if(state.reso.e === 'D' && elKey === 'D' && actor) { actor.hp = Math.min(actor.maxHp, actor.hp+Math.floor(dmg*0.5)); spTxt(actor, "🌑吸血", '#888', -20); }
-        if(state.reso.e === 'W' && elKey === 'W' && actor) { actor.shield += 20; spTxt(actor, "💧護盾", '#03a9f4', -20); }
+        if(state.relics.includes('R_W') && elKey==='W' && actor) { doHeal(actor, 15); }
+        if(state.reso.e === 'D' && elKey === 'D' && actor) { doHeal(actor, Math.floor(dmg*0.5)); }
+        if(state.reso.e === 'W' && elKey === 'W' && actor) { doShield(actor, 20); }
     }
     if(skill.apply) applyStatus(t, skill.apply); mkPtc(t, skill.apply || elKey || 'E');
 }
 
 function applyStatus(t, s) { 
-    if(t.status.includes(s)) return; let reacted = false;
+    if(!t || t.status.includes(s)) return; let reacted = false;
     for(let i=0; i<t.status.length; i++) {
         let rKey = t.status[i] + '_' + s;
         if(REACTIONS[rKey]) {
@@ -710,31 +829,25 @@ function applyStatus(t, s) {
     if(!reacted) { t.status.push(s); spTxt(t, STATUS[s].i, STATUS[s].c, 20); }
 }
 
-function applyDmg(t, v, c='#fff') {
-    if(state.reso.e === 'E' && !t.isEnemy) v = Math.max(1, Math.floor(v*0.7));
-    if(t.shield > 0) { if(t.shield >= v) { t.shield -= v; return spTxt(t, "🛡️抵消", '#aaa'); } else { v -= t.shield; t.shield = 0; } }
-    t.hp -= v; spTxt(t, `-${v}`, c); t.hit = 25; 
-}
-
 function resolveEndOfTurn(ent) {
-    if(ent.hp!==undefined && ent.hp<=0) return;
+    if(!ent || (ent.hp!==undefined && ent.hp<=0)) return;
     if(ent.status && ent.status.includes('BURN')) { applyDmg(ent, 5, '#f52'); spTxt(ent, '🔥', '#f52', 15); }
     if(ent.status && ent.status.includes('POISON')) { applyDmg(ent, state.reso.e==='P'?16:8, '#92b'); spTxt(ent, '☠️', '#92b', 15); }
     if(state.field === 'F') applyDmg(ent, 3, '#f52'); if(state.field === 'P') applyStatus(ent, 'POISON');
-    if(ent.isEnemy && ent.affix === 'REGEN') { ent.hp = Math.min(ent.maxHp, ent.hp+15); spTxt(ent, "💚再生", '#0f0'); }
+    if(ent.isEnemy && ent.affix === 'REGEN') { doHeal(ent, 15); }
     if(state.ovl.e && state.ovl.t > 0) {
         let oe = state.ovl.e;
         if(oe==='F') { applyDmg(ent, 15, '#f52'); spTxt(ent, '🌋', '#f52', 15); }
         if(oe==='W') applyStatus(ent, 'WET'); if(oe==='P') applyStatus(ent, 'POISON'); if(oe==='I') applyStatus(ent, 'SLOW');
         if(oe==='T' && Math.random()<0.3) { applyDmg(ent, 25, '#ffeb3b'); applyStatus(ent, 'SHOCK'); }
-        if(oe==='E') applyDmg(ent, 20, '#8b5a2b'); if(oe==='L' && ent.hp !== undefined) { ent.hp = Math.min(ent.maxHp, ent.hp+15); spTxt(ent, '☀️', '#ffeb3b', 15); }
+        if(oe==='E') applyDmg(ent, 20, '#8b5a2b'); if(oe==='L' && ent.hp !== undefined) { doHeal(ent, 15); }
     }
 }
 
 function showEnemyInfo(e) {
     $('info-name').innerText = `${e.i} ${e.n}`;
     let szTxt = e.sz===3 ? '極巨大 (首領)' : e.sz===2 ? '大 (防禦+)' : e.sz===0 ? '小 (閃躲+)' : '一般';
-    let h = `<b>血量:</b> ${e.hp} / ${e.maxHp}<br><b>體型:</b> ${szTxt}<br><b>屬性:</b> ${EL[e.el].i}${EL[e.el].n}<br>`;
+    let h = `<b>血量:</b> ${e.hp} / ${e.maxHp}<br><b>體型:</b> ${szTxt}<br><b>屬性:</b> ${EL[e.el]?EL[e.el].i+EL[e.el].n:'未知'}<br>`;
     if(e.weak) h += `<b>🎯 弱點:</b> ${e.weak.split(',').map(k=>EL[k]?EL[k].i:'').join('')}<br>`;
     if(e.immu) h += `<b>🛡️ 免疫:</b> ${e.immu.split(',').map(k=>EL[k]?EL[k].i:'').join('')}<br>`;
     if(e.abs) h += `<b>💚 吸收:</b> ${e.abs.split(',').map(k=>EL[k]?EL[k].i:'').join('')}<br>`;
@@ -746,28 +859,30 @@ function showEnemyInfo(e) {
 
 $('app').addEventListener('click', (e) => { 
     if(e.target === canvas && state.battlePhase !== 'NONE') {
-        const rect = canvas.getBoundingClientRect();
-        const cx = (e.clientX - rect.left) * (canvas.width / rect.width);
-        const cy = (e.clientY - rect.top) * (canvas.height / rect.height);
+        const rect = canvas.getBoundingClientRect(); const cx = (e.clientX - rect.left) * (canvas.width / rect.width); const cy = (e.clientY - rect.top) * (canvas.height / rect.height);
         let ce = state.enemies.find(en => en.hp>0 && en.revealed && Math.hypot(cx - en.x, cy - en.y) <= (en.sz===3?45:en.sz===2?30:20));
         if(ce) return showEnemyInfo(ce);
     }
-    if(state.battlePhase === 'WAIT' && !e.target.closest('#info-modal')) { 
+    if(state.battlePhase === 'WAIT' && !e.target.closest('.modal')) { 
         state.battlePhase = 'PROCESSING'; $('click-prompt').style.display='none'; nextAction(); 
-    } else if(state.battlePhase === 'VICTORY_WAIT') {
+    } else if(state.battlePhase === 'VICTORY_WAIT' && !e.target.closest('.modal')) {
         state.battlePhase = 'NONE'; goMainView(); nextRoom(); $('click-prompt').innerText = '▶ 點擊繼續';
-    } else if(state.battlePhase === 'GAMEOVER_WAIT') {
+    } else if(state.battlePhase === 'GAMEOVER_WAIT' && !e.target.closest('.modal')) {
         state.battlePhase = 'NONE'; goMainView(); resolveEvent('GAMEOVER'); $('click-prompt').innerText = '▶ 點擊繼續';
+    } else if(state.battlePhase === 'TRUE_REBORN_WAIT' && !e.target.closest('.modal')) {
+        state.battlePhase = 'NONE'; goMainView(); resolveEvent('TRUE_REBORN'); $('click-prompt').innerText = '▶ 點擊繼續';
     }
 });
 
-function checkWinLoss() {
+async function checkWinLoss() {
     $('click-prompt').style.display='none';
+    let isFinal = state.floor >= 5 && state.room === 10 && state.enemies.some(e=>e.isClone);
+    
     if(state.heroes.filter(h=>h.hp>0).length === 0) { 
+        if(isFinal) { await delay(1000); logMsg(`...似乎想起了什麼...`); await delay(1000); await showLoreModal(47); }
         state.battlePhase = 'GAMEOVER_WAIT'; $('click-prompt').innerText = '▶ 點擊結算'; $('click-prompt').style.display='block';
     } else if (state.enemies.filter(e=>e.hp>0).length === 0) {
-        let dc = {}; let lm = [];
-        state.enemies.forEach(e => { dc[e.el] = (dc[e.el]||0) + (e.isBoss?12:5); });
+        let dc = {}; let lm = []; state.enemies.forEach(e => { dc[e.el] = (dc[e.el]||0) + (e.isBoss?12:5); });
         if(state.theme) dc[state.theme] = (dc[state.theme]||0) + 6;
         if(state.relics.includes('R_LUCK')) { for(let i=0; i<4; i++) { let k = Object.keys(EL).filter(x=>EL[x].t==='B')[Math.floor(Math.random()*9)]; dc[k] = (dc[k]||0)+2; } }
         for(let k in dc) { state.inventory[k] = Math.min(99, (state.inventory[k]||0) + dc[k]); lm.push(`${EL[k].i}+${dc[k]}`); }
@@ -777,31 +892,55 @@ function checkWinLoss() {
             if(Math.random() < dropChance) { let avail = Object.keys(RELICS).filter(k => !state.relics.includes(k)); if(avail.length > 0) { let r = avail[Math.floor(Math.random()*avail.length)]; state.relics.push(r); state.codex.add('RELIC_'+r); lm.push(`🎁遺物【${RELICS[r].n}】`); } }
         }
         logMsg(`🏆 勝利！獲得戰利品: ${lm.join(' ')}`); 
-        state.battlePhase = 'VICTORY_WAIT'; updateTop(); $('click-prompt').innerText = '▶ 點擊前進'; $('click-prompt').style.display='block';
+        updateTop();
+        
+        if(isFinal) {
+            await delay(1000); logMsg(`...似乎想起了什麼...`); await delay(1000);
+            await showLoreModal(48); await showLoreModal(49); await showLoreModal(50);
+            state.battlePhase = 'TRUE_REBORN_WAIT'; $('click-prompt').innerText = '▶ 點擊迎接真相'; $('click-prompt').style.display='block'; return;
+        }
+        
+        if(state.lore < 45 && state.loreFloorCount < 5 && Math.random() < 0.2) {
+            await delay(1000); logMsg(`...似乎想起了什麼...`); await delay(1000);
+            state.lore++; state.loreFloorCount++; await showLoreModal(state.lore);
+        }
+        
+        state.battlePhase = 'VICTORY_WAIT'; $('click-prompt').innerText = '▶ 點擊前進'; $('click-prompt').style.display='block';
     }
 }
 
 /** 5. 視覺渲染 */
 function drawEnt(e, x, y) {
-    if(e.hp!==undefined && e.hp<=0) return;
-    let fontSz = e.sz===3 ? 65 : e.sz===2 ? 45 : e.sz===0 ? 18 : 30; ctx.font = `${fontSz}px Arial`; ctx.textAlign="center"; ctx.textBaseline="middle";
     let dx = 0; if(e.atkAnim > 0) { dx = (e.isEnemy ? -1 : 1) * Math.sin(e.atkAnim * Math.PI / 16) * 12; e.atkAnim--; } if(e.hit > 0) { dx += (Math.random()-0.5)*8; e.hit--; } 
-    if(e.hit > 0 && e.hit % 8 < 4) { ctx.fillStyle = 'rgba(255,0,0,0.6)'; ctx.fillText(e.i, x+dx, y); } else { ctx.fillText(e.i, x+dx, y); }
+    e.x=x+dx; e.y=y;
+    
+    if(e.hp!==undefined && e.hp<=0) {
+        ctx.globalAlpha = 0.4;
+        ctx.font = "30px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.fillText('💀', e.x, e.y);
+        ctx.globalAlpha = 1.0;
+        return;
+    }
+    
+    let fontSz = e.sz===3 ? 65 : e.sz===2 ? 45 : e.sz===0 ? 18 : 30; ctx.font = `${fontSz}px Arial`; ctx.textAlign="center"; ctx.textBaseline="middle";
+    if(e.isClone) { ctx.shadowColor = '#9c27b0'; ctx.shadowBlur = 20; }
+    if(e.hit > 0 && e.hit % 8 < 4) { ctx.fillStyle = 'rgba(255,0,0,0.6)'; ctx.fillText(e.i, e.x, e.y); } else { ctx.fillText(e.i, e.x, e.y); }
+    ctx.shadowBlur = 0;
     
     if(e.hp !== undefined) {
         let p = Math.max(0, e.hp/e.maxHp); 
         let barW = e.sz===3 ? 60 : e.sz===2 ? 45 : e.sz===0 ? 20 : 35;
         let offsetY = e.sz===3 ? 35 : e.sz===2 ? 25 : e.sz===0 ? 12 : 18;
         
-        ctx.fillStyle="#222"; ctx.fillRect(x-barW/2+dx, y+offsetY, barW, 4); ctx.fillStyle = p>0.5 ? "#4caf50" : p>0.2 ? "#ff9800" : "#f44336"; ctx.fillRect(x-barW/2+dx, y+offsetY, barW*p, 4);
-        if(e.shield > 0) { ctx.fillStyle="#eee"; ctx.fillRect(x-barW/2+dx, y+offsetY+5, barW*Math.min(1,e.shield/e.maxHp), 2); }
-        if(e.status.length) { ctx.font="12px Arial"; let sx = x-(e.status.length*7)+7; e.status.forEach((s,i) => { if(STATUS[s]) ctx.fillText(STATUS[s].i, sx+(i*14)+dx, y-offsetY-10); }); }
-        if(e.buffs && e.buffs.includes('ATK_UP')) { ctx.font="14px Arial"; ctx.fillText('⚔️', x-20+dx, y+10); }
+        ctx.fillStyle="#222"; ctx.fillRect(e.x-barW/2, e.y+offsetY, barW, 4); ctx.fillStyle = p>0.5 ? "#4caf50" : p>0.2 ? "#ff9800" : "#f44336"; ctx.fillRect(e.x-barW/2, e.y+offsetY, barW*p, 4);
+        if(e.shield > 0) { ctx.fillStyle="#eee"; ctx.fillRect(e.x-barW/2, e.y+offsetY+5, barW*Math.min(1,e.shield/e.maxHp), 2); }
+        if(e.status.length) { ctx.font="12px Arial"; let sx = e.x-(e.status.length*7)+7; e.status.forEach((s,i) => { if(STATUS[s]) ctx.fillText(STATUS[s].i, sx+(i*14), e.y-offsetY-10); }); }
+        if(e.buffs && e.buffs.includes('ATK_UP')) { ctx.font="14px Arial"; ctx.fillText('⚔️', e.x-20, e.y+10); }
+        if(e.isDefending) { ctx.font="14px Arial"; ctx.fillText('🛡️', e.x+20, e.y+10); }
         
-        if(e.isEnemy && e.revealed) { ctx.font="20px Arial"; ctx.fillText('🔍', x+dx, y-offsetY-25); }
-        if(!e.isEnemy && state.battlePhase === 'COMMAND') { let els = state.currentHero === e ? currSel : (state.heroActions.find(a=>a.hero===e)?.elements || []); if(els.length > 0) { ctx.font = "14px Segoe UI"; ctx.textAlign="left"; ctx.fillText(els.map(k=>EL[k].i).join(''), x+dx + 25, y); ctx.textAlign="center"; } }
+        if(e.isEnemy && e.revealed) { ctx.font="20px Arial"; ctx.fillText('🔍', e.x, e.y-offsetY-25); }
+        if(!e.isEnemy && state.battlePhase === 'COMMAND') { let els = state.currentHero === e ? currSel : (state.heroActions.find(a=>a.hero===e)?.elements || []); if(els.length > 0) { ctx.font = "14px Segoe UI"; ctx.textAlign="left"; ctx.fillText(els.map(k=>EL[k].i).join(''), e.x + 25, e.y); ctx.textAlign="center"; } }
     }
-    e.x=x+dx; e.y=y;
 }
 
 function spTxt(e, t, c, oy=0) { floatTexts.push({x:e.x+(Math.random()*30-15), y:e.y-20+oy, t:t, c:c, l:100}); }
@@ -811,7 +950,6 @@ function render() {
     ctx.clearRect(0,0,canvas.width,canvas.height); if(state.battlePhase==='NONE') return;
     if(state.field) { ctx.globalAlpha=0.1; ctx.font="200px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(FIELD[state.field].i, 200, 150); ctx.globalAlpha=1.0; ctx.font="14px Arial"; ctx.fillStyle="rgba(255,255,255,0.6)"; ctx.fillText(`[環境] ${FIELD[state.field].n} : ${FIELD[state.field].fx}`, 200, 20); }
     
-    // 繪製高亮光環 (在角色底部)
     state.heroes.forEach((h,i) => { 
         if(state.battlePhase === 'COMMAND' && h === state.currentHero) { 
             ctx.shadowColor = '#4da8da'; ctx.shadowBlur = 15; 
@@ -821,7 +959,7 @@ function render() {
         drawEnt(h, 60, 45+i*60); 
     });
     
-    state.enemies.forEach((e,i) => { let ex, ey; if(e.isBoss) { ex = 320; ey = 140; } else { let mIdx = state.enemies.filter(x=>!x.isBoss).indexOf(e); ex = 240 + (mIdx%2)*55; ey = 60 + Math.floor(mIdx/2)*65; } drawEnt(e, ex, ey); });
+    state.enemies.forEach((e,i) => { let ex, ey; if(e.isBoss) { ex = e.isClone ? 220+(i%2)*80 : 320; ey = e.isClone ? 90+Math.floor(i/2)*90 : 140; } else { let mIdx = state.enemies.filter(x=>!x.isBoss).indexOf(e); ex = 240 + (mIdx%2)*55; ey = 60 + Math.floor(mIdx/2)*65; } drawEnt(e, ex, ey); });
 
     state.summons.forEach((s,i) => {
         let sx = 150 + (i % 2)*35, sy = 80 + Math.floor(i/2)*40, dx = 0;
@@ -840,20 +978,46 @@ function loop() { render(); requestAnimationFrame(loop); }
 let showLogView = false;
 function toggleLog() { showLogView = !showLogView; $('full-log-view').style.display = showLogView ? 'block' : 'none'; $('game-canvas').style.display = showLogView ? 'none' : 'block'; $('battle-log').style.display = showLogView ? 'none' : 'flex'; if(showLogView) $('full-log-view').scrollTop = $('full-log-view').scrollHeight; }
 function logMsg(m) { let div = $('battle-log'); let el = document.createElement('div'); el.className='log-msg'; el.innerText=m; div.appendChild(el); if(div.children.length>5) div.firstChild.remove(); let flv = $('full-log-view'); let fel = document.createElement('div'); fel.innerText = m; fel.style.marginBottom = '6px'; fel.style.borderBottom = '1px solid rgba(255,255,255,0.05)'; fel.style.paddingBottom = '4px'; flv.appendChild(fel); if(flv.children.length > 100) flv.firstChild.remove(); flv.scrollTop = flv.scrollHeight; }
+
 function renderCodex() {
-    let tot = Object.keys(EL).length + Object.keys(SKILLS).length + Object.keys(REACTIONS).length + Object.keys(F_REACT).length + COMBOS.length + Object.keys(RELICS).length + Object.keys(SUMMON_AI).length; 
-    let uCount = 0; let h = '';
-    h += '<div class="codex-section"><div class="codex-title">💎 煉金元素</div><div class="codex-grid">'; for(let k in EL) { let u = !EL[k].req || state.codex.has('E_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?EL[k].i+EL[k].n:'？？？'}</div><div class="c-req">${u?(EL[k].req?EL[k].req.split('_').map(x=>EL[x].i).join('+'):'基礎'):'未知'}</div></div>`; }
-    h += '</div></div><div class="codex-section"><div class="codex-title">📜 魔法與多人奧義</div><div class="codex-grid">'; for(let k in SKILLS) { let u = state.codex.has('S_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?SKILLS[k].n:'？？？'}</div><div class="c-req">${k.split('_').map(x=>EL[x]?EL[x].i:'').join('+')}</div></div>`; }
-    COMBOS.forEach(c => { let u = state.codex.has('C_'+c.n); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?c.n:'？？？'}</div><div class="c-req">${c.req.map(x=>EL[x].i).join('+')} (多人)</div></div>`; });
-    h += '</div></div><div class="codex-section"><div class="codex-title">🧪 狀態與環境反應</div><div class="codex-grid">'; for(let k in REACTIONS) { let u = state.codex.has('R_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?REACTIONS[k].n:'？？？'}</div><div class="c-desc">${u?REACTIONS[k].txt:'未知'}</div></div>`; }
-    for(let k in F_REACT) { let u = state.codex.has('FR_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?'環境變異':'？？？'}</div><div class="c-desc">${u?F_REACT[k].txt:'未知'}</div></div>`; }
-    h += '</div></div><div class="codex-section"><div class="codex-title">🧚 元素生命體</div><div class="codex-grid">'; for(let k in SUMMON_AI) { let u = state.codex.has('SM_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?EL[k].i+' '+EL[k].n+'之靈':'？？？'}</div><div class="c-desc">${u?SUMMON_AI[k].txt:'未知'}</div></div>`; }
-    h += '</div></div><div class="codex-section"><div class="codex-title">🎁 神秘遺物</div><div class="codex-grid">'; for(let k in RELICS) { let u = state.codex.has('RELIC_'+k); if(u) uCount++; h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?RELICS[k].i+' '+RELICS[k].n:'？？？'}</div><div class="c-desc">${u?RELICS[k].d:'未知'}</div></div>`; }
-    $('codex-content').innerHTML = h + '</div></div>'; $('completion-rate').innerText = Math.floor((uCount/tot)*100);
+    try {
+        let cLores = 0; for(let i=1; i<=LORE_TXT.length; i++) if(state.codex.has('LORE_'+i)) cLores++;
+        let cEls = 0; for(let k in EL) if(!EL[k].req || state.codex.has('E_'+k)) cEls++;
+        let cSkills = 0; for(let k in SKILLS) if(k === '' || state.codex.has('S_'+k)) cSkills++;
+        let cCombos = 0; for(let c of COMBOS) if(state.codex.has('C_'+c.n)) cCombos++;
+        let cFReact = 0; for(let k in F_REACT) if(state.codex.has('FR_'+k)) cFReact++;
+        let cSummon = 0; for(let k in SUMMON_AI) if(state.codex.has('SM_'+k)) cSummon++;
+        let cRelics = 0; for(let k in RELICS) if(state.codex.has('RELIC_'+k)) cRelics++;
+        
+        let uCount = cLores + cEls + cSkills + cCombos + cFReact + cSummon + cRelics;
+        let tot = LORE_TXT.length + Object.keys(EL).length + Object.keys(SKILLS).length + COMBOS.length + Object.keys(F_REACT).length + Object.keys(SUMMON_AI).length + Object.keys(RELICS).length;
+        
+        let h = '';
+        h += '<div class="codex-section"><div class="codex-title">💎 煉金元素</div><div class="codex-grid">'; for(let k in EL) { let u = !EL[k].req || state.codex.has('E_'+k); h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?EL[k].i+EL[k].n:'？？？'}</div><div class="c-req">${u?(EL[k].req?EL[k].req.split('_').map(x=>EL[x].i).join('+'):'基礎'):'未知'}</div></div>`; }
+        h += '</div></div><div class="codex-section"><div class="codex-title">📜 魔法與多人奧義</div><div class="codex-grid">'; for(let k in SKILLS) { let u = k === '' || state.codex.has('S_'+k); h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?SKILLS[k].n:'？？？'}</div><div class="c-req">${k?k.split('_').map(x=>EL[x]?EL[x].i:'').join('+'):'不消耗元素'}</div></div>`; }
+        COMBOS.forEach(c => { let u = state.codex.has('C_'+c.n); h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?c.n:'？？？'}</div><div class="c-req">${c.req.map(x=>EL[x].i).join('+')} (多人)</div></div>`; });
+        h += '</div></div><div class="codex-section"><div class="codex-title">🧪 環境變異</div><div class="codex-grid">'; 
+        for(let k in F_REACT) { let u = state.codex.has('FR_'+k); h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?'環境變異':'？？？'}</div><div class="c-desc">${u?F_REACT[k].txt:'未知'}</div></div>`; }
+        h += '</div></div><div class="codex-section"><div class="codex-title">🧚 元素生命體</div><div class="codex-grid">'; for(let k in SUMMON_AI) { let u = state.codex.has('SM_'+k); h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?EL[k].i+' '+EL[k].n+'之靈':'？？？'}</div><div class="c-desc">${u?SUMMON_AI[k].txt:'未知'}</div></div>`; }
+        h += '</div></div><div class="codex-section"><div class="codex-title">🎁 神秘遺物</div><div class="codex-grid">'; for(let k in RELICS) { let u = state.codex.has('RELIC_'+k); h += `<div class="codex-card ${u?'unlocked':'secret'}"><div class="c-name">${u?RELICS[k].i+' '+RELICS[k].n:'？？？'}</div><div class="c-desc">${u?RELICS[k].d:'未知'}</div></div>`; }
+        $('codex-content').innerHTML = h + '</div></div>'; $('completion-rate').innerText = Math.floor((uCount/tot)*100) || 0;
+    } catch(e) { console.error("Codex Error", e); }
+}
+
+function renderLore() {
+    let unlockedLores = [];
+    for(let i=1; i<=LORE_TXT.length; i++) { if(state.codex.has('LORE_'+i)) unlockedLores.push(i-1); }
+    
+    let lh = ''; 
+    for(let i = unlockedLores.length - 1; i >= 0; i--) { 
+        lh += `<p style="margin-bottom:12px; border-bottom:1px solid #444; padding-bottom:8px;">${LORE_TXT[unlockedLores[i]]}</p>`; 
+    }
+    $('lore-view').innerHTML = `<h2 style="text-align:center; color:#fff; margin-bottom:10px;">📜 靈魂記憶</h2>
+        <div style="font-size:0.95em; color:#ddd; line-height:1.6; padding:15px; background:#252530; border-radius:8px; border-left:3px solid var(--hl); overflow-y:auto; flex:1; margin-bottom:20px;">${lh || '尚無記憶碎片...'}</div>`;
 }
 
 loadGame(); if(state.battlePhase !== 'NONE') { state.battlePhase = 'NONE'; genDoors(); } else { genDoors(); } updateTop();
+if (state.lore === 0 && state.floor === 1 && state.room === 1) { setTimeout(() => { state.lore = 1; state.loreFloorCount = 1; showLoreModal(1); }, 500); }
 </script>
 </body>
 </html>
