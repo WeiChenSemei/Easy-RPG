@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Emoji Infinite Adventure 4.0</title>
+    <title>Emoji Infinite Adventure 5.0 - 萬物共鳴</title>
     <style>
         :root {
             --bg-color: #f5f7f8;
@@ -14,250 +14,71 @@
             --shadow: 0 8px 24px rgba(0,0,0,0.08);
         }
 
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            outline: none;
-        }
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; outline: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #1a1c23; font-family: system-ui, sans-serif; touch-action: none; }
+        #game-canvas { display: block; width: 100%; height: 100%; }
 
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #1a1c23;
-            font-family: system-ui, -apple-system, sans-serif;
-            touch-action: none;
-        }
-
-        #game-canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* 無文字啟動封面 */
         #start-screen {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: linear-gradient(135deg, #cceedc, #ffe5d9);
-            z-index: 999;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #cceedc, #fef08a);
+            z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center;
             transition: opacity 0.6s ease;
         }
-        .title-emoji {
-            font-size: 100px;
-            margin-bottom: 50px;
-            animation: float 4s ease-in-out infinite;
-            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));
-        }
+        .title-emoji { font-size: 100px; margin-bottom: 40px; animation: float 4s ease-in-out infinite; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1)); }
         #btn-start {
-            font-size: 50px;
-            background: #fff;
-            border: none;
-            border-radius: 50%;
-            width: 120px; height: 120px;
-            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            display: flex; justify-content: center; align-items: center;
-            padding-left: 8px;
-            color: #4ade80;
+            font-size: 50px; background: #fff; border: none; border-radius: 50%;
+            width: 120px; height: 120px; box-shadow: 0 15px 30px rgba(0,0,0,0.15); cursor: pointer;
+            transition: all 0.2s; display: flex; justify-content: center; align-items: center; padding-left: 8px; color: #4ade80;
         }
         #btn-start:hover { transform: scale(1.05); box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
         #btn-start:active { transform: scale(0.9); box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
-        @keyframes float { 
-            0%, 100% { transform: translateY(0); } 
-            50% { transform: translateY(-20px); } 
-        }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
 
         #ui-layer {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 16px;
-            opacity: 0;
-            transition: opacity 0.5s ease 0.3s;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+            padding: 16px; opacity: 0; transition: opacity 0.5s ease 0.3s;
         }
 
-        .top-hud {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-            pointer-events: auto;
-        }
-
+        .top-hud { display: flex; justify-content: space-between; width: 100%; pointer-events: auto; }
         .icon-btn {
-            width: 56px; height: 56px;
-            background: var(--panel-bg);
-            border-radius: 50%;
-            display: flex;
-            justify-content: center; align-items: center;
-            font-size: 26px;
-            box-shadow: var(--shadow);
-            cursor: pointer;
-            border: 3px solid #fff;
-            transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            position: relative;
+            width: 56px; height: 56px; background: var(--panel-bg); border-radius: 50%;
+            display: flex; justify-content: center; align-items: center; font-size: 26px;
+            box-shadow: var(--shadow); cursor: pointer; border: 3px solid #fff; transition: transform 0.1s; position: relative;
         }
-        
         .icon-btn:hover { transform: scale(1.05); }
         .icon-btn:active { transform: scale(0.9); }
+        .tool-active::after { content: '📌'; position: absolute; top: -2px; right: -2px; font-size: 14px; }
 
-        .tool-active::after {
-            content: '📌';
-            position: absolute;
-            top: -2px; right: -2px;
-            font-size: 14px;
-        }
+        /* 生命共鳴特效 */
+        #btn-pulse { animation: pulseGlow 3s infinite; }
+        @keyframes pulseGlow { 0% { box-shadow: 0 0 0 0 rgba(167, 243, 208, 0.6); } 70% { box-shadow: 0 0 0 15px rgba(167, 243, 208, 0); } 100% { box-shadow: 0 0 0 0 rgba(167, 243, 208, 0); } }
 
         #status-bubble {
-            height: 56px;
-            padding: 0 16px;
-            background: var(--panel-bg);
-            border: 3px solid #fff;
-            border-radius: 28px;
-            display: flex;
-            justify-content: center; align-items: center;
-            font-size: 24px;
-            gap: 8px;
-            box-shadow: var(--shadow);
+            height: 56px; padding: 0 16px; background: var(--panel-bg); border: 3px solid #fff;
+            border-radius: 28px; display: flex; justify-content: center; align-items: center; font-size: 24px; gap: 8px; box-shadow: var(--shadow);
         }
 
-        /* 虛擬方向鍵優化 */
-        #dpad-container {
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            pointer-events: auto;
-            margin-bottom: 8px;
-            opacity: 0.4;
-            transition: opacity 0.2s ease-out;
-        }
-        
+        #dpad-container { width: 100%; display: flex; justify-content: center; pointer-events: auto; margin-bottom: 8px; opacity: 0.4; transition: opacity 0.2s ease-out; }
         #dpad-container:active, #dpad-container:hover { opacity: 0.85; }
-        
-        .dpad {
-            display: grid;
-            grid-template-columns: repeat(3, 60px);
-            grid-template-rows: repeat(3, 60px);
-            gap: 8px;
-        }
+        .dpad { display: grid; grid-template-columns: repeat(3, 60px); grid-template-rows: repeat(3, 60px); gap: 8px; }
+        .d-btn { background: rgba(255, 255, 255, 0.25); border-radius: 20px; border: 2px solid rgba(255, 255, 255, 0.3); font-size: 24px; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 0 rgba(0,0,0,0.08); transition: all 0.08s; cursor: pointer; backdrop-filter: blur(4px); }
+        .d-btn:active { transform: translateY(4px); box-shadow: 0 0 0 rgba(0,0,0,0); background: rgba(255, 255, 255, 0.6); }
+        #btn-up { grid-column: 2; grid-row: 1; } #btn-left { grid-column: 1; grid-row: 2; } #btn-down { grid-column: 2; grid-row: 3; } #btn-right { grid-column: 3; grid-row: 2; }
 
-        .d-btn {
-            background: rgba(255, 255, 255, 0.25);
-            border-radius: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            font-size: 24px;
-            display: flex;
-            justify-content: center; align-items: center;
-            box-shadow: 0 4px 0 rgba(0,0,0,0.08);
-            transition: all 0.08s;
-            cursor: pointer;
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-        }
-        .d-btn:active {
-            transform: translateY(4px);
-            box-shadow: 0 0 0 rgba(0,0,0,0);
-            background: rgba(255, 255, 255, 0.6);
-        }
-        #btn-up { grid-column: 2; grid-row: 1; }
-        #btn-left { grid-column: 1; grid-row: 2; }
-        #btn-down { grid-column: 2; grid-row: 3; }
-        #btn-right { grid-column: 3; grid-row: 2; }
+        #toast-container { position: absolute; top: 90px; width: 100%; display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 100; }
+        .toast { background: rgba(255, 255, 255, 0.95); color: #111; padding: 10px 22px; border-radius: 30px; margin-bottom: 8px; font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow); animation: popUp 2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; border: 2px solid var(--primary); }
+        @keyframes popUp { 0% { opacity: 0; transform: translateY(15px) scale(0.85); } 15% { opacity: 1; transform: translateY(0) scale(1); } 85% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-15px) scale(0.85); } }
 
-        #toast-container {
-            position: absolute;
-            top: 90px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            pointer-events: none;
-            z-index: 100;
-        }
-        .toast {
-            background: rgba(255, 255, 255, 0.95);
-            color: #111;
-            padding: 10px 22px;
-            border-radius: 30px;
-            margin-bottom: 8px;
-            font-size: 20px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            box-shadow: var(--shadow);
-            animation: popUp 1.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            border: 2px solid var(--primary);
-        }
-
-        @keyframes popUp {
-            0% { opacity: 0; transform: translateY(15px) scale(0.85); }
-            15% { opacity: 1; transform: translateY(0) scale(1); }
-            85% { opacity: 1; transform: translateY(0) scale(1); }
-            100% { opacity: 0; transform: translateY(-15px) scale(0.85); }
-        }
-
-        .modal-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.35);
-            display: none;
-            justify-content: center; align-items: center;
-            pointer-events: auto;
-            z-index: 200;
-            backdrop-filter: blur(6px);
-        }
-        .modal {
-            background: var(--bg-color);
-            width: 90%; max-width: 380px; max-height: 75%;
-            border-radius: var(--border-radius);
-            padding: 24px;
-            display: flex; flex-direction: column;
-            box-shadow: 0 20px 48px rgba(0,0,0,0.25);
-            border: 4px solid #fff;
-            position: relative;
-            animation: modalShow 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        @keyframes modalShow {
-            0% { transform: scale(0.9); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        .close-btn {
-            position: absolute;
-            top: 15px; right: 20px;
-            font-size: 28px;
-            cursor: pointer;
-            color: #aaa;
-        }
-        .close-btn:hover { color: #666; }
+        .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.35); display: none; justify-content: center; align-items: center; pointer-events: auto; z-index: 200; backdrop-filter: blur(6px); }
+        .modal { background: var(--bg-color); width: 90%; max-width: 380px; max-height: 75%; border-radius: var(--border-radius); padding: 24px; display: flex; flex-direction: column; box-shadow: 0 20px 48px rgba(0,0,0,0.25); border: 4px solid #fff; position: relative; animation: modalShow 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes modalShow { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; color: #aaa; }
         .modal-title { text-align: center; font-size: 32px; margin: 0 0 20px 0; }
 
-        .grid-list {
-            display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
-            overflow-y: auto; padding: 4px; max-height: 280px;
-        }
-        .item-slot {
-            background: #fff; border-radius: 18px; aspect-ratio: 1;
-            display: flex; justify-content: center; align-items: center;
-            position: relative; box-shadow: 0 4px 8px rgba(0,0,0,0.03);
-            cursor: pointer; border: 3px solid transparent; transition: all 0.1s;
-        }
-        .item-slot:hover { transform: scale(1.05); }
-        .item-slot:active { transform: scale(0.92); }
+        .grid-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; overflow-y: auto; padding: 4px; max-height: 280px; }
+        .item-slot { background: #fff; border-radius: 18px; aspect-ratio: 1; display: flex; justify-content: center; align-items: center; position: relative; box-shadow: 0 4px 8px rgba(0,0,0,0.03); cursor: pointer; border: 3px solid transparent; transition: all 0.1s; }
+        .item-slot:hover { transform: scale(1.05); } .item-slot:active { transform: scale(0.92); }
         .item-slot.selected { border-color: #8dcfa1; background: var(--primary); }
         .item-slot.focused { border-color: #64748b; transform: scale(1.08); box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 2; }
         .npc-tab.focused { border: 2px solid #64748b; transform: scale(1.05); }
@@ -269,13 +90,9 @@
         .item-emoji { font-size: 32px; }
 
         .share-container { display: flex; flex-direction: column; gap: 16px; }
-        .share-box {
-            width: 100%; height: 100px; background: #fff; border: 2px solid #e2e8f0; border-radius: 16px;
-            padding: 12px; font-size: 11px; word-break: break-all; overflow-y: auto; color: #475569; user-select: text; -webkit-user-select: text;
-        }
+        .share-box { width: 100%; height: 90px; background: #fff; border: 2px solid #e2e8f0; border-radius: 16px; padding: 12px; font-size: 11px; word-break: break-all; overflow-y: auto; color: #475569; user-select: text; }
         .share-btn-row { display: flex; gap: 10px; }
-        .action-btn { flex: 1; background: var(--primary); border: 3px solid #fff; border-radius: 16px; height: 50px; font-size: 20px; cursor: pointer; box-shadow: var(--shadow); display: flex; justify-content: center; align-items: center; transition: transform 0.1s; }
-        .action-btn:hover { filter: brightness(0.95); }
+        .action-btn { flex: 1; background: var(--primary); border: 3px solid #fff; border-radius: 16px; height: 50px; font-size: 20px; cursor: pointer; box-shadow: var(--shadow); display: flex; justify-content: center; align-items: center; }
         .action-btn:active { transform: scale(0.95); }
         .import-area { width: 100%; height: 60px; border-radius: 16px; border: 2px dashed #cbd5e1; padding: 10px; font-size: 14px; resize: none; background: #fff; }
 
@@ -305,96 +122,59 @@
     <div id="ui-layer">
         <div class="top-hud">
             <div class="icon-btn" id="btn-inventory">🎒</div>
-            <div id="status-bubble">
-                <span id="season-icon">🌸</span>
-                <span id="weather-icon">☀️</span>
-            </div>
-            <div class="icon-btn" id="btn-share" style="margin-right: 8px;">🔗</div>
+            <div class="icon-btn" id="btn-pulse" title="生命共鳴 (熱鍵: P)">🌟</div>
+            <div id="status-bubble"><span id="season-icon">🌸</span><span id="weather-icon">☀️</span></div>
+            <div class="icon-btn" id="btn-share">🔗</div>
             <div class="icon-btn" id="btn-pokedex">📖</div>
         </div>
         <div id="toast-container"></div>
         <div id="dpad-container">
             <div class="dpad">
-                <div class="d-btn" id="btn-up">🔼</div>
-                <div class="d-btn" id="btn-left">◀️</div>
-                <div class="d-btn" id="btn-down">🔽</div>
-                <div class="d-btn" id="btn-right">▶️</div>
+                <div class="d-btn" id="btn-up">🔼</div><div class="d-btn" id="btn-left">◀️</div>
+                <div class="d-btn" id="btn-down">🔽</div><div class="d-btn" id="btn-right">▶️</div>
             </div>
         </div>
     </div>
 
-    <div class="modal-overlay" id="modal-inventory" onclick="if(event.target===this) closeAllModals()">
-        <div class="modal"><div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title">🎒</h2><div class="grid-list" id="inventory-list"></div></div>
-    </div>
-    <div class="modal-overlay" id="modal-share" onclick="if(event.target===this) closeAllModals()">
-        <div class="modal">
-            <div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title">🔗</h2>
-            <div class="share-container">
-                <div class="share-box" id="export-code-box"></div>
-                <div class="share-btn-row"><button class="action-btn" id="btn-copy-code">📋</button></div>
-                <hr style="border: 0; border-top: 2px dashed #e2e8f0; margin: 5px 0;">
-                <textarea class="import-area" id="import-code-area" placeholder="📥 🔗..."></textarea>
-                <div class="share-btn-row"><button class="action-btn" id="btn-import-code">✅</button></div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-overlay" id="modal-pokedex" onclick="if(event.target===this) closeAllModals()">
-        <div class="modal">
-            <div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title">📖</h2>
-            <div style="text-align:center; margin-bottom: 8px; font-size:24px; font-weight:bold;" id="pokedex-text">📈 0%</div>
-            <div class="progress-container"><div class="progress-bar" id="pokedex-progress"></div></div>
-            <div class="grid-list" id="pokedex-list"></div>
-        </div>
-    </div>
-    <div class="modal-overlay" id="modal-npc" onclick="if(event.target===this) closeAllModals()">
-        <div class="modal">
-            <div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title" id="npc-name"></h2>
-            <div style="display:flex; justify-content:center; align-items:center; gap:6px; font-size:26px; margin-bottom:15px;" id="npc-affection"></div>
-            <div class="npc-tabs">
-                <div class="npc-tab active" id="tab-gift" onclick="switchNpcTab('gift')">🎁</div>
-                <div class="npc-tab" id="tab-trade" onclick="switchNpcTab('trade')">⚖️</div>
-            </div>
-            <div id="npc-view-gift"><div class="grid-list" id="npc-inventory-list"></div></div>
-            <div id="npc-view-trade" style="display:none;"><div id="trade-list"></div></div>
-        </div>
-    </div>
+    <div class="modal-overlay" id="modal-inventory" onclick="if(event.target===this) closeAllModals()"><div class="modal"><div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title">🎒</h2><div class="grid-list" id="inventory-list"></div></div></div>
+    <div class="modal-overlay" id="modal-share" onclick="if(event.target===this) closeAllModals()"><div class="modal"><div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title">🔗</h2><div class="share-container"><div class="share-box" id="export-code-box"></div><div class="share-btn-row"><button class="action-btn" id="btn-copy-code">📋</button></div><hr style="border: 0; border-top: 2px dashed #e2e8f0; margin: 5px 0;"><textarea class="import-area" id="import-code-area" placeholder="📥 🔗..."></textarea><div class="share-btn-row"><button class="action-btn" id="btn-import-code">✅</button></div></div></div></div>
+    <div class="modal-overlay" id="modal-pokedex" onclick="if(event.target===this) closeAllModals()"><div class="modal"><div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title">📖</h2><div style="text-align:center; margin-bottom: 8px; font-size:20px; font-weight:bold; color: #475569;" id="pokedex-text">生態多樣性: 0%</div><div class="progress-container"><div class="progress-bar" id="pokedex-progress"></div></div><div class="grid-list" id="pokedex-list"></div></div></div>
+    <div class="modal-overlay" id="modal-npc" onclick="if(event.target===this) closeAllModals()"><div class="modal"><div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title" id="npc-name"></h2><div style="display:flex; justify-content:center; align-items:center; gap:6px; font-size:26px; margin-bottom:15px;" id="npc-affection"></div><div class="npc-tabs"><div class="npc-tab active" id="tab-gift" onclick="switchNpcTab('gift')">🎁</div><div class="npc-tab" id="tab-trade" onclick="switchNpcTab('trade')">⚖️</div></div><div id="npc-view-gift"><div class="grid-list" id="npc-inventory-list"></div></div><div id="npc-view-trade" style="display:none;"><div id="trade-list"></div></div></div></div>
 
     <script>
         let isGameStarted = false;
-
         document.getElementById('btn-start').addEventListener('click', () => {
-            const startScreen = document.getElementById('start-screen');
-            startScreen.style.opacity = '0';
+            document.getElementById('start-screen').style.opacity = '0';
             setTimeout(() => {
-                startScreen.style.display = 'none';
+                document.getElementById('start-screen').style.display = 'none';
                 document.getElementById('ui-layer').style.opacity = '1';
                 isGameStarted = true;
                 if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 if (audioCtx.state === 'suspended') audioCtx.resume();
+                showToast("🌍 歡迎來到萬物共鳴的世界", 3000);
             }, 600);
         });
 
-        const TILE_SIZE = 60;
-        let FOG_RADIUS = 4.2;
-
+        const TILE_SIZE = 60; let FOG_RADIUS = 4.2;
         const SEASONS = [{ icon: '🌸' }, { icon: '🌻' }, { icon: '🍁' }, { icon: '❄️' }];
         const WEATHERS = [{ icon: '☀️' }, { icon: '🌧️' }, { icon: '🌫️' }];
 
-        // 移除固定的 b 屬性顏色，改由動態 HSL 引擎生成
+        // 擴充字典，包含所有植物、動物、地形、物品
         const DICT = {
-            'grass': { e: '🟩', r: -1 }, 'water': { e: '🌊', r: -1 }, 'sand': { e: '🟨', r: -1 },
-            '🌲':{r:0}, '🪨':{r:0}, '🌾':{r:0}, '🍄':{r:0},
-            '🌸':{r:0}, '🌷':{r:0}, '🌳':{r:0}, '🌻':{r:0}, '🍁':{r:0}, '🍂':{r:0}, '❄️':{r:0}, '☃️':{r:0},
-            '⛰️':{r:1}, '💎':{r:1}, '🗿':{r:1}, '🏰':{r:1}, '🧊':{r:1},
-            '🌈':{r:2}, '🌋':{r:2}, '🏛️':{r:2}, '👑':{r:2}, '🛸':{r:2},
-            '🧙‍♂️':{r:3}, '🧚‍♀️':{r:3}, '🧝‍♂️':{r:3},
-            '🪄':{r:4}, '✨':{r:4}, '🏹':{r:4}, '📜':{r:1}
+            'grass':{r:-1}, 'water':{r:-1}, 'sand':{r:-1},
+            '🌱':{r:0}, '🌿':{r:0}, '🌾':{r:0}, '🍄':{r:0}, '🪨':{r:0},
+            '🌸':{r:1}, '🌷':{r:1}, '🌻':{r:1}, '🌺':{r:1},
+            '🌲':{r:2}, '🌳':{r:2}, '🍁':{r:2}, '🍂':{r:2}, '☃️':{r:2}, '🌵':{r:2}, '🧊':{r:2},
+            '🐛':{r:3}, '🦋':{r:3}, '🐝':{r:3}, '🦆':{r:3}, '🐸':{r:3}, '🐢':{r:3}, '🦀':{r:3}, '🐇':{r:3}, '🦌':{r:3}, '🦉':{r:3},
+            '⛰️':{r:4}, '💎':{r:4}, '🗿':{r:4}, '🏰':{r:4}, '🌈':{r:4}, '🌋':{r:4}, '🏛️':{r:4}, '👑':{r:4}, '🛸':{r:4}, '🌠':{r:4},
+            '🧙‍♂️':{r:5}, '🧚‍♀️':{r:5}, '🧝‍♂️':{r:5},
+            '🪄':{r:6}, '✨':{r:6}, '🏹':{r:6}, '📜':{r:6}
         };
 
-        const COLLECTIBLES = Object.keys(DICT).filter(k => DICT[k].r >= 0);
+        const COLLECTIBLES = Object.keys(DICT).filter(k => DICT[k].r >= 0).sort((a,b)=>DICT[a].r-DICT[b].r);
         const TRADES = {
             '🧙‍♂️': [{ cost:{'💎':1}, get:{'🪄':1}, req:5 }, { cost:{'🪨':5}, get:{'💎':1}, req:0 }],
-            '🧚‍♀️': [{ cost:{'🍄':3}, get:{'✨':1}, req:8 }, { cost:{'🌾':5}, get:{'🍄':1}, req:0 }],
+            '🧚‍♀️': [{ cost:{'🍄':3}, get:{'✨':1}, req:8 }, { cost:{'🌸':5}, get:{'🍄':1}, req:0 }],
             '🧝‍♂️': [{ cost:{'🌳':1}, get:{'🏹':1}, req:10 }, { cost:{'🌲':5}, get:{'🌳':1}, req:0 }]
         };
 
@@ -406,7 +186,7 @@
                 let osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
                 osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
                 if (slideTo > 0) osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
                 osc.connect(gain); gain.connect(audioCtx.destination);
                 osc.start(); osc.stop(audioCtx.currentTime + duration);
@@ -418,10 +198,11 @@
             discover: () => { playSound(440, 'sine', 0.08); setTimeout(() => playSound(554, 'sine', 0.08), 50); setTimeout(() => playSound(659, 'sine', 0.15), 100); },
             trade: () => { playSound(587, 'sine', 0.08); setTimeout(() => playSound(880, 'sine', 0.18), 60); },
             pet: () => { playSound(600, 'sine', 0.06, 850); }, 
-            invalid: () => playSound(140, 'sawtooth', 0.08)
+            invalid: () => playSound(140, 'sawtooth', 0.08),
+            pulse: () => { playSound(392, 'sine', 0.5, 523); setTimeout(()=>playSound(659, 'sine', 0.8), 200); }
         };
 
-        const SAVE_KEY = 'emoji_sandbox_v4_save';
+        const SAVE_KEY = 'emoji_sandbox_v5_save';
         let state = {
             seed: Math.floor(Math.random() * 999999), px: 0, py: 0,
             inv: {}, mods: {}, unlocked: {}, npcAff: { '🧙‍♂️':0, '🧚‍♀️':0, '🧝‍♂️':0 },
@@ -433,19 +214,14 @@
         let moveTimer = null; let isMoving = false;
         let activeModal = null; let invCursor = 0; let invKeys = [];
         let npcTab = 'gift'; let npcFocus = 'tab'; let npcCursor = 0; let npcGiftKeys = [];
-        let animals = []; let rainDrops = []; let heartParticles = [];
+        let animals = []; let rainDrops = []; let pulseWaves = []; let heartParticles = [];
         let lastInputTime = Date.now(); let skyOffset = 0;
 
-        const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d');
+        const canvas = document.getElementById('game-canvas'); const ctx = canvas.getContext('2d');
         canvas.addEventListener('contextmenu', e => e.preventDefault());
 
         function drawRoundRect(c, x, y, w, h, r) {
-            c.beginPath(); c.moveTo(x + r, y); c.lineTo(x + w - r, y);
-            c.quadraticCurveTo(x + w, y, x + w, y + r); c.lineTo(x + w, y + h - r);
-            c.quadraticCurveTo(x + w, y + h, x + w - r, y + h); c.lineTo(x + r, y + h);
-            c.quadraticCurveTo(x, y + h, x, y + h - r); c.lineTo(x, y + r);
-            c.quadraticCurveTo(x, y, x + r, y); c.closePath();
+            c.beginPath(); c.moveTo(x+r, y); c.lineTo(x+w-r, y); c.quadraticCurveTo(x+w, y, x+w, y+r); c.lineTo(x+w, y+h-r); c.quadraticCurveTo(x+w, y+h, x+w-r, y+h); c.lineTo(x+r, y+h); c.quadraticCurveTo(x, y+h, x, y+h-r); c.lineTo(x, y+r); c.quadraticCurveTo(x, y, x+r, y); c.closePath();
         }
 
         function initGame() {
@@ -457,190 +233,160 @@
         }
 
         function saveGame() { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
-        function loadGame() {
-            const saved = localStorage.getItem(SAVE_KEY);
-            if (saved) { try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {} } 
-            else { state.unlocked['grass'] = true; }
-        }
+        function loadGame() { const saved = localStorage.getItem(SAVE_KEY); if (saved) { try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {} } else { state.unlocked['grass'] = true; } }
         function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
 
         function hash(x, y, s) { let n = Math.sin(x * 12.9898 + y * 78.233 + s) * 43758.5453; return n - Math.floor(n); }
-        function getNoise(x, y) {
-            let v = Math.sin(x*0.08)*Math.cos(y*0.08) + Math.sin(x*0.02+1.5)*Math.sin(y*0.03+0.7)*0.5 + Math.sin(x*0.3)*Math.cos(y*0.3)*0.1;
-            return (v + 1.6) / 3.2;
-        }
-        
-        // 新增：生態氣候噪音 (決定植被與地貌深淺)
-        function getBiomeNoise(x, y) { 
-            return (Math.sin(x*0.012)*Math.cos(y*0.012) + Math.sin(x*0.004+2)*Math.sin(y*0.004+1)*0.8 + 1.8) / 3.6; 
+        function getNoise(x, y) { return (Math.sin(x*0.08)*Math.cos(y*0.08) + Math.sin(x*0.02+1.5)*Math.sin(y*0.03+0.7)*0.5 + Math.sin(x*0.3)*Math.cos(y*0.3)*0.1 + 1.6) / 3.2; }
+        function getBiomeNoise(x, y) { return (Math.sin(x*0.012)*Math.cos(y*0.012) + Math.sin(x*0.004+2)*Math.sin(y*0.004+1)*0.8 + 1.8) / 3.6; }
+
+        function getBaseTerrain(gx, gy) { 
+            let ele = getNoise(gx, gy), bio = getBiomeNoise(gx, gy);
+            let t = 'grass', h, s, l;
+            if (ele < 0.31) { t = 'water'; h = 200+bio*20; s = 65; l = 60+(ele/0.31)*20; } 
+            else if (ele < 0.38) { t = 'sand'; h = 40+bio*10; s = 60; l = 75+bio*10; } 
+            else { t = 'grass'; h = 25+bio*95; s = 25+bio*30; l = 45+bio*25; }
+            return { type: t, color: `hsl(${h},${s}%,${l}%)` };
         }
 
         function getTileData(gx, gy) {
             const key = `${gx},${gy}`;
             let base = getBaseTerrain(gx, gy);
-            let bg = base.type;
-            let color = base.color; // 取得動態 HSL 顏色
-
-            // 1. 如果玩家修改過這個格子，直接回傳修改後的值
-            if (state.mods[key] !== undefined) {
-                let modData = state.mods[key];
-                if (modData === null) return { bg, color, obj: null, scale: 1.0 };
+            let modData = state.mods[key];
+            if (modData !== undefined) {
+                if (modData === null) return { bg: base.type, obj: null, scale: 1.0, color: base.color };
                 if (typeof modData === 'string' && modData.includes('|')) {
                     let parts = modData.split('|');
-                    let age = state.days - parseInt(parts[1]);
-                    return { bg, color, obj: parts[0], scale: Math.min(1.0, 0.4 + age * 0.15) };
+                    return { bg: base.type, obj: getSeasonalVariant(parts[0], state.season), scale: Math.min(1.0, 0.4 + Math.max(0, state.days-parseInt(parts[1])) * 0.15), color: base.color };
                 }
-                return { bg, color, obj: modData, scale: 1.0 }; 
+                return { bg: base.type, obj: getSeasonalVariant(modData, state.season), scale: 1.0, color: base.color }; 
             }
-
-            let obj = null;
-            let scale = 1.0;
             
-            if (bg === 'water' || bg === 'sand') {
-                if (hash(gx, gy, state.seed + 200) < 0.005) obj = '📜';
-            } else if (bg === 'grass') {
+            let obj = null; let scale = 1.0;
+            if (base.type === 'water' || base.type === 'sand') { if (hash(gx, gy, state.seed + 200) < 0.005) obj = '📜'; } 
+            else {
                 let dist = Math.hypot(gx, gy);
-                let h = hash(gx, gy, state.seed);
-                let spawnChance = 0.11 + Math.min(0.11, dist / 600);
-                if (h < spawnChance) {
-                    let r = hash(gx, gy, state.seed + 100);
-                    let dF = Math.min(0.15, dist / 900);
-                    if (r < dF) { obj = ['🌈','🌋','🏛️','👑','🛸'][Math.floor(hash(gx, gy, state.seed + 1) * 5)]; scale = 1.2 + hash(gx,gy,state.seed+400)*0.3; }
-                    else if (r < dF + 0.01) { obj = ['🧙‍♂️','🧚‍♀️','🧝‍♂️'][Math.floor(hash(gx, gy, state.seed + 2) * 3)]; scale = 1.0; }
-                    else if (r < dF + 0.18) { obj = ['⛰️','💎','🗿','🏰','🧊'][Math.floor(hash(gx, gy, state.seed + 3) * 5)]; scale = 0.7 + hash(gx,gy,state.seed+300)*0.6; }
-                    else { obj = getSeasonalVariant(['🌲','🌲','🪨','🌾','🌾','🍄'][Math.floor(hash(gx, gy, state.seed + 4) * 6)], state.season); scale = 0.7 + hash(gx,gy,state.seed+300)*0.6; }
+                if (hash(gx, gy, state.seed) < 0.11 + Math.min(0.11, dist / 600)) {
+                    let r = hash(gx, gy, state.seed + 100), dF = Math.min(0.15, dist / 900);
+                    if (r < dF) { obj = ['🌈','🌋','🏛️','👑','🛸'][Math.floor(hash(gx, gy, state.seed + 1) * 5)]; scale = 1.2 + hash(gx,gy,state.seed+400)*0.3; } 
+                    else if (r < dF + 0.01) { obj = ['🧙‍♂️','🧚‍♀️','🧝‍♂️'][Math.floor(hash(gx, gy, state.seed + 2) * 3)]; scale = 1.0; } 
+                    else if (r < dF + 0.18) { obj = ['⛰️','💎','🗿','🏰','🧊'][Math.floor(hash(gx, gy, state.seed + 3) * 5)]; scale = 0.7 + hash(gx,gy,state.seed+300)*0.6; } 
+                    else { obj = getSeasonalVariant(['🌲','🌲','🪨','🌾','🌾','🍄'][Math.floor(hash(gx, gy, state.seed + 4) * 6)], state.season); scale = 0.7 + hash(gx,gy,state.seed+300)*0.6; } 
                 }
             }
-            return { bg, color, obj, scale };
-        }
-
-        // 優化版：加入誇張一點的 HSL 漸變邏輯，大幅增強立體層次感！
-        function getBaseTerrain(gx, gy) { 
-            let ele = getNoise(gx, gy);
-            let bio = getBiomeNoise(gx, gy);
-            let t = 'grass', h, s, l;
-
-            if (ele < 0.31) { 
-                t = 'water'; 
-                let depth = ele / 0.31; // 0~1 (淺到深)
-                h = 195 + depth * 35; // 195(清澈淺藍) -> 230(深邃海藍)
-                s = 60 + depth * 30;  // 60% -> 90% (深海更飽和)
-                l = 75 - depth * 40;  // 75% -> 35% (深海變暗)
-            } else if (ele < 0.38) { 
-                t = 'sand'; 
-                let dist = (ele - 0.31) / 0.07; // 0(靠水濕潤) -> 1(內陸乾燥)
-                h = 35 + bio * 15;    // 35(偏橘褐) -> 50(金黃)
-                s = 45 + bio * 30;    // 45% -> 75%
-                l = 55 + dist * 25 + bio * 10; // 55%(濕暗) -> 90%(乾亮)
-            } else { 
-                t = 'grass'; 
-                // bio 控制地質: 0.0(火山/岩地) -> 1.0(翠綠草原)
-                h = 15 + bio * 120; // 15(紅褐) -> 135(翠綠)
-                s = 20 + bio * 50;  // 20%(死寂灰) -> 70%(生機盎然)
-                l = 35 + bio * 30;  // 35%(暗沉) -> 65%(明亮)
-                
-                // 加入一點海拔對亮度的微調，讓高山有厚重感
-                let alt = (ele - 0.38) / 0.62;
-                l -= alt * 10; 
-            }
-            return { type: t, color: `hsl(${h},${s}%,${l}%)` };
+            return { bg: base.type, obj, scale, color: base.color };
         }
 
         function getSeasonalVariant(b, s) {
-            if (b === '🌲') return ['🌸','🌳','🍁','❄️'][s];
-            if (b === '🌾') return ['🌷','🌻','🍂','☃️'][s];
+            if (['🌲','🌳','🍁','❄️'].includes(b)) return ['🌸','🌳','🍁','❄️'][s];
+            if (['🌾','🌷','🌻','🍂','☃️'].includes(b)) return ['🌷','🌻','🍂','☃️'][s];
             return b; 
         }
 
-        function initWeatherParticles() {
-            rainDrops = [];
-            for (let i = 0; i < 20; i++) rainDrops.push({ x: Math.random()*window.innerWidth, y: Math.random()*window.innerHeight, speed: 3+Math.random()*4, len: 8+Math.random()*10, angle: 1+Math.random()*0.4 });
-        }
-        function updateAndDrawWeather(ctx) {
-            if (state.weather === 1) {
-                ctx.strokeStyle = state.season === 3 ? 'rgba(255,255,255,0.75)' : 'rgba(174,219,237,0.4)';
-                ctx.lineWidth = state.season === 3 ? 3 : 1.5;
-                rainDrops.forEach(d => {
-                    ctx.beginPath();
-                    if (state.season === 3) {
-                        ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.arc(d.x, d.y, d.len*0.2, 0, Math.PI*2); ctx.fill();
-                        d.y += d.speed * 0.25; d.x += Math.sin(d.y * 0.02) * 0.4;
-                    } else {
-                        ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + d.angle*1.5, d.y + d.len); ctx.stroke();
-                        d.y += d.speed; d.x += d.angle * 0.15;
-                    }
-                    if (d.y > canvas.height) { d.y = -20; d.x = Math.random() * canvas.width; }
-                });
-            }
-        }
-
-        function runEcologicalGrowth() {
-            for (let i = 0; i < 3; i++) {
-                let tx = state.px + Math.floor(Math.random()*9)-4, ty = state.py + Math.floor(Math.random()*9)-4;
-                let tile = getTileData(tx, ty);
-                if (tile.obj && ['🌸','🌷','🌻','🍁','🍂','🌲','🌳','🍄','🌾'].includes(tile.obj)) {
-                    let nOff = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]][Math.floor(Math.random()*8)];
-                    let nx = tx + nOff[0], ny = ty + nOff[1];
-                    let nTile = getTileData(nx, ny);
-                    if (nTile.bg === 'grass' && !nTile.obj && Math.random() < (state.weather===1 ? 0.25 : 0.08)) {
-                        state.mods[`${nx},${ny}`] = tile.obj + '|' + state.days; saveGame();
+        // ================= 生態演化核心 (Eco-Tick) =================
+        function runEcologicalGrowth(forceRadius = null) {
+            let radius = forceRadius || 12;
+            let checks = forceRadius ? 80 : 4; 
+            for (let i = 0; i < checks; i++) {
+                let tx = state.px + Math.floor(Math.random()*(radius*2+1))-radius;
+                let ty = state.py + Math.floor(Math.random()*(radius*2+1))-radius;
+                let key = `${tx},${ty}`, tile = getTileData(tx, ty);
+                let boost = (state.weather === 1 ? 2.5 : 1) * (forceRadius ? 15 : 1);
+                
+                // 生長邏輯只存在於 mod 系統中，確保原生背景不會被過度覆蓋
+                if (tile.bg === 'grass') {
+                    // 若無物件，低機率長出嫩芽
+                    if (!tile.obj && Math.random() < 0.002 * boost) { state.mods[key] = '🌱|'+state.days; saveGame(); discover('🌱'); }
+                    else if (tile.obj) {
+                        // 取得原始物件名稱 (去掉 | 天數)
+                        let rawObj = state.mods[key] ? (state.mods[key].includes('|') ? state.mods[key].split('|')[0] : state.mods[key]) : tile.obj;
+                        let r = Math.random();
+                        
+                        // 演化樹: 🌱 -> 🌿/🌾 -> 樹/花
+                        if (rawObj === '🌱' && r < 0.15 * boost) {
+                            let next = getNoise(tx, ty) < 0.4 ? '🌾' : '🌿';
+                            state.mods[key] = next+'|'+state.days; saveGame();
+                        } else if (rawObj === '🌿' && r < 0.08 * boost) {
+                            let next = r < 0.05*boost ? '🍄' : '🌲';
+                            state.mods[key] = next+'|'+state.days; saveGame();
+                        } else if (['🌲','🌳','🌸','🌷','🌻'].includes(rawObj) && r < 0.08 * boost) {
+                            // 繁衍播種
+                            let d = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]][Math.floor(Math.random()*8)];
+                            let nx = tx+d[0], ny = ty+d[1];
+                            if(getTileData(nx,ny).bg==='grass' && !getTileData(nx,ny).obj) { state.mods[`${nx},${ny}`] = '🌱|'+state.days; saveGame(); }
+                        }
                     }
                 }
             }
         }
 
+        // ================= 環境感知動物 AI =================
         function updateAnimals() {
-            if (animals.length < 2) {
-                let dist = 3 + Math.floor(Math.random()*3), ang = Math.random()*Math.PI*2;
-                let ax = state.px + Math.round(Math.cos(ang)*dist), ay = state.py + Math.round(Math.sin(ang)*dist);
+            if (animals.length < 3 && Math.random() < 0.05) {
+                let ax = state.px + Math.floor(Math.random()*15)-7, ay = state.py + Math.floor(Math.random()*15)-7;
                 let tile = getTileData(ax, ay);
                 if (tile.bg === 'grass' || tile.bg === 'sand') {
-                    animals.push({ gx: ax, gy: ay, vx: ax*TILE_SIZE, vy: ay*TILE_SIZE, tx: ax, ty: ay, 
-                                   emoji: ['🐇','🦋','🦆','🐢'][Math.floor(Math.random()*4)], 
-                                   size: 0.4 + Math.random()*0.3, targetSize: 0.8 + Math.random()*0.4,
-                                   wait: 800+Math.floor(Math.random()*800) }); 
+                    let flora = { flower:0, tree:0, water:0, sand:0 };
+                    for(let dx=-1; dx<=1; dx++) for(let dy=-1; dy<=1; dy++) {
+                        let t = getTileData(ax+dx, ay+dy);
+                        if (t.bg === 'water') flora.water++; if (t.bg === 'sand') flora.sand++;
+                        if (['🌸','🌷','🌻','🌺','🌿'].includes(t.obj)) flora.flower++;
+                        if (['🌲','🌳','🍁','❄️','🌵'].includes(t.obj)) flora.tree++;
+                    }
+                    let spawn = '🐛';
+                    if (flora.water > 2 && flora.flower > 0) spawn = '🐸';
+                    else if (flora.water > 3) spawn = '🦆';
+                    else if (flora.sand > 4 && flora.water > 0) spawn = '🦀';
+                    else if (flora.sand > 5) spawn = '🐢';
+                    else if (flora.flower > 2) spawn = ['🦋','🐝'][Math.floor(Math.random()*2)];
+                    else if (flora.tree > 3) spawn = ['🦌','🦉'][Math.floor(Math.random()*2)];
+                    else if (flora.tree > 0 || flora.flower > 0) spawn = '🐇';
+
+                    animals.push({ gx: ax, gy: ay, vx: ax*TILE_SIZE, vy: ay*TILE_SIZE, tx: ax, ty: ay, emoji: spawn, size: 0.4+Math.random()*0.4, targetSize: 0.8+Math.random()*0.4, wait: 200+Math.floor(Math.random()*400) });
+                    discover(spawn);
                 }
             }
             for (let i = animals.length - 1; i >= 0; i--) {
-                let a = animals[i], tx = a.tx*TILE_SIZE, ty = a.ty*TILE_SIZE, sf = a.emoji==='🐢'?0.015:(a.emoji==='🦋'?0.05:0.03);
-                
+                let a = animals[i], tx = a.tx*TILE_SIZE, ty = a.ty*TILE_SIZE, sf = (a.emoji==='🐢'||a.emoji==='🐛')?0.01:(['🦋','🐝','🦌'].includes(a.emoji)?0.04:0.02);
                 a.size += (a.targetSize - a.size) * 0.001; 
                 a.vx += (tx - a.vx)*sf; a.vy += (ty - a.vy)*sf;
-                if (a.emoji === '🦋') a.vy += Math.sin(Date.now()/200)*0.3;
-                
-                if (Math.hypot(a.vx-tx, a.vy-ty) < 2) {
+                if (['🦋','🐝','🦉'].includes(a.emoji)) a.vy += Math.sin(Date.now()/150)*0.5;
+                if (Math.hypot(a.vx-tx, a.vy-ty) < 3) {
                     a.gx = a.tx; a.gy = a.ty;
                     if (a.wait > 0) a.wait--;
                     else {
-                        let d = [[0,-1],[0,1],[-1,0],[1,0]][Math.floor(Math.random()*4)];
-                        let nx = a.gx+d[0], ny = a.gy+d[1], tile = getTileData(nx, ny);
-                        if (tile.bg && !tile.obj && (a.emoji==='🦆' || tile.bg!=='water')) { a.tx=nx; a.ty=ny; a.wait = 1000+Math.floor(Math.random()*1000); } 
+                        let d = [[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,1]][Math.floor(Math.random()*6)];
+                        let nx = a.gx+d[0], ny = a.gy+d[1], nTile = getTileData(nx, ny);
+                        if (nTile.bg && (!nTile.obj || nTile.obj === '🌱')) { 
+                            if (['🦆','🐸','🦀'].includes(a.emoji) || nTile.bg !== 'water') { a.tx=nx; a.ty=ny; a.wait = 300+Math.floor(Math.random()*600); } 
+                        }
                     }
                 }
-                if (Math.hypot(a.gx-state.px, a.gy-state.py) > 9) animals.splice(i, 1);
+                if (Math.hypot(a.gx-state.px, a.gy-state.py) > 12) animals.splice(i, 1);
             }
         }
+
+        // ================= 生命共鳴與互動 =================
+        function triggerLifePulse() {
+            sfx.pulse(); pulseWaves.push({ radius: 0, alpha: 1.0 });
+            runEcologicalGrowth(12); showToast("🌟 萬物共鳴");
+            // 腳下必定生草
+            if(getTileData(state.px, state.py).bg==='grass' && !getTileData(state.px, state.py).obj) { state.mods[`${state.px},${state.py}`] = '🌱|'+state.days; saveGame(); }
+        }
+        document.getElementById('btn-pulse').addEventListener('click', () => { if(isGameStarted) { lastInputTime=Date.now(); triggerLifePulse(); } });
 
         function movePlayer(dx, dy) { state.px+=dx; state.py+=dy; updateFog(); saveGame(); }
         function updateFog() {
-            FOG_RADIUS = state.weather === 2 ? 2.5 : 4.2;
-            for (let dx=-5; dx<=5; dx++) for (let dy=-5; dy<=5; dy++) if (dx*dx+dy*dy <= FOG_RADIUS*FOG_RADIUS) {
-                let tile = getTileData(state.px+dx, state.py+dy);
-                discover(tile.bg); if (tile.obj) discover(tile.obj);
+            FOG_RADIUS = state.weather === 2 ? 3 : 5.5;
+            for (let dx=-6; dx<=6; dx++) for (let dy=-6; dy<=6; dy++) if (dx*dx+dy*dy <= FOG_RADIUS*FOG_RADIUS) {
+                let tile = getTileData(state.px+dx, state.py+dy); discover(tile.bg); if (tile.obj) discover(tile.obj);
             }
         }
-        function discover(id) {
-            if (!state.unlocked[id] && DICT[id]) {
-                state.unlocked[id] = true; sfx.discover();
-                showToast(`🔍✨ ${id==='water'?'🌊':(id==='grass'?'🟩':(id==='sand'?'🟨':id))}`);
-            }
-        }
+        function discover(id) { if (!state.unlocked[id] && DICT[id]) { state.unlocked[id] = true; sfx.discover(); showToast(`🔍✨ ${id==='water'?'🌊':(id==='grass'?'🟩':(id==='sand'?'🟨':id))}`); } }
 
         canvas.addEventListener('pointerdown', (e) => {
-            if (!isGameStarted) return;
-            lastInputTime = Date.now();
-            if (e.target !== canvas) return;
-            let rect = canvas.getBoundingClientRect();
+            if (!isGameStarted) return; lastInputTime = Date.now();
+            if (e.target !== canvas) return; let rect = canvas.getBoundingClientRect();
             let clickGx = Math.floor((e.clientX - rect.left - canvas.width/2 + camera.x) / TILE_SIZE);
             let clickGy = Math.floor((e.clientY - rect.top - canvas.height/2 + camera.y - skyOffset) / TILE_SIZE);
             processInteract(clickGx, clickGy);
@@ -648,20 +394,18 @@
 
         function processInteract(gx, gy) {
             let animal = animals.find(a => (gx===a.gx && gy===a.gy) || (gx===a.tx && gy===a.ty));
-            if (animal) {
-                sfx.pet(); heartParticles.push({ x: animal.vx+TILE_SIZE/2, y: animal.vy, life: 40 }); showToast("❤️🌻"); return;
-            }
-            if (Math.abs(gx-state.px)<=1 && Math.abs(gy-state.py)<=1) interactTile(gx, gy);
-            else { sfx.invalid(); showToast("❌📏"); }
+            if (animal) { sfx.pet(); heartParticles.push({ x: animal.vx+TILE_SIZE/2, y: animal.vy, life: 40 }); showToast("❤️🌻"); return; }
+            if (Math.abs(gx-state.px)<=1 && Math.abs(gy-state.py)<=1) interactTile(gx, gy); else { sfx.invalid(); showToast("❌📏"); }
         }
 
         function interactTile(gx, gy) {
             const key = `${gx},${gy}`, tile = getTileData(gx, gy);
-            if (tile.obj && DICT[tile.obj]?.r === 3) { openNpcMenu(tile.obj); return; }
+            // 點擊植物/空地產生小型共鳴
+            if (tile.obj === '🌱') { sfx.pop(); state.mods[key] = '🌿|'+state.days; pulseWaves.push({ radius:0, alpha:0.5, x:gx*TILE_SIZE, y:gy*TILE_SIZE, small:true }); saveGame(); return; }
+            if (tile.obj && DICT[tile.obj]?.r === 5) { openNpcMenu(tile.obj); return; } // NPC
             
             if (tile.obj === '📜' && state.mods[key] === undefined) {
-                let icons = ['🌸','🌊','🌙','✨','🌲','💎','🕊️','🍂','🛸','🍄'];
-                let msg = ""; for(let i=0;i<3;i++) msg += icons[Math.floor(Math.random()*icons.length)] + (i<2?'➡️':'');
+                let icons = ['🌸','🌊','🌙','✨','🌲','💎','🕊️','🍂','🛸','🍄']; let msg = ""; for(let i=0;i<3;i++) msg += icons[Math.floor(Math.random()*icons.length)] + (i<2?'➡️':'');
                 addToInventory('📜', 1); state.mods[key] = null; sfx.discover(); showToast(`📜: ${msg}`); saveGame(); return;
             }
 
@@ -677,25 +421,23 @@
             }
         }
 
+        // --- Modals & Inventory ---
         function addToInventory(item, amt) { state.inv[item] = (state.inv[item]||0)+amt; discover(item); }
         function removeFromInventory(item, amt) { if (state.inv[item]>=amt) { state.inv[item]-=amt; if(state.inv[item]===0) delete state.inv[item]; return true; } return false; }
         function setActiveTool(item) { activeTool = item; const btn = document.getElementById('btn-inventory'); btn.innerHTML = item ? item : '🎒'; btn.className = item ? 'icon-btn tool-active' : 'icon-btn'; }
         function showToast(msg) { const el = document.createElement('div'); el.className = 'toast'; el.innerText = msg; document.getElementById('toast-container').appendChild(el); setTimeout(()=>el.remove(), 1800); }
-
         function openModal(id) { document.getElementById(id).style.display = 'flex'; activeModal = id; if (id === 'modal-inventory') { invCursor = 0; renderInvFocus(); } }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; if (activeModal === id) activeModal = null; }
         function closeAllModals() { ['modal-inventory','modal-share','modal-pokedex','modal-npc'].forEach(closeModal); }
 
         document.getElementById('btn-inventory').addEventListener('click', () => {
-            const list = document.getElementById('inventory-list'); list.innerHTML = ''; invKeys = ['hand'];
-            for (let k in state.inv) invKeys.push(k);
+            const list = document.getElementById('inventory-list'); list.innerHTML = ''; invKeys = ['hand']; for (let k in state.inv) invKeys.push(k);
             invKeys.forEach((item, i) => {
                 let el = document.createElement('div'); el.className = `item-slot ${((item==='hand'&&!activeTool) || item===activeTool) ? 'selected' : ''}`;
                 el.innerHTML = item==='hand' ? `<div class="item-emoji">✋</div>` : `<div class="item-emoji">${item}</div><div class="item-count">${state.inv[item]}</div>`;
                 el.onclick = () => { setActiveTool(item==='hand'?null:item); closeAllModals(); }; list.appendChild(el);
             }); openModal('modal-inventory');
         });
-
         function renderInvFocus() { document.querySelectorAll('#inventory-list .item-slot').forEach((el, i) => el.classList.toggle('focused', i === invCursor)); }
 
         document.getElementById('btn-pokedex').addEventListener('click', () => {
@@ -710,20 +452,14 @@
 
         function openNpcMenu(npc) { currentNpc = npc; document.getElementById('npc-name').innerText = npc; npcTab = 'gift'; npcFocus = 'tab'; npcCursor = 0; switchNpcTab('gift'); openModal('modal-npc'); }
         function updateNpcUI() {
-            if(!currentNpc) return; const aff = state.npcAff[currentNpc]||0;
-            document.getElementById('npc-affection').innerHTML = `${'💖'.repeat(Math.min(5, Math.ceil(aff/3)))||'🤍'} <span style="font-size:18px;">(${aff})</span>`;
+            if(!currentNpc) return; const aff = state.npcAff[currentNpc]||0; document.getElementById('npc-affection').innerHTML = `${'💖'.repeat(Math.min(5, Math.ceil(aff/3)))||'🤍'} <span style="font-size:18px;">(${aff})</span>`;
             npcGiftKeys = Object.keys(state.inv); const gL = document.getElementById('npc-inventory-list'); gL.innerHTML = '';
-            npcGiftKeys.forEach((item, i) => { 
-                let el = document.createElement('div'); el.className=`item-slot ${npcFocus==='content' && npcTab==='gift' && npcCursor===i ? 'focused' : ''}`; 
-                el.innerHTML=`<div class="item-emoji">${item}</div><div class="item-count">${state.inv[item]}</div>`; el.onclick=()=>giftItem(item); gL.appendChild(el); 
-            }); if(!npcGiftKeys.length) gL.innerHTML = '<div style="grid-column:1/-1; text-align:center; font-size:40px; padding:20px;">🈳</div>';
+            npcGiftKeys.forEach((item, i) => { let el = document.createElement('div'); el.className=`item-slot ${npcFocus==='content' && npcTab==='gift' && npcCursor===i ? 'focused' : ''}`; el.innerHTML=`<div class="item-emoji">${item}</div><div class="item-count">${state.inv[item]}</div>`; el.onclick=()=>giftItem(item); gL.appendChild(el); }); if(!npcGiftKeys.length) gL.innerHTML = '<div style="grid-column:1/-1; text-align:center; font-size:40px; padding:20px;">🈳</div>';
             const tL = document.getElementById('trade-list'); tL.innerHTML = '';
             (TRADES[currentNpc]||[]).forEach((t, i) => {
                 let cI=Object.keys(t.cost)[0], cA=t.cost[cI], gI=Object.keys(t.get)[0], gA=t.get[gI], hE=(state.inv[cI]||0)>=cA, uL=aff>=t.req;
                 let row = document.createElement('div'); row.className = `trade-row ${npcFocus==='content' && npcTab==='trade' && npcCursor===i ? 'focused' : ''}`;
-                if(!uL) row.innerHTML = `<div style="font-size:24px; color:#94a3b8;">🔒 💖(${t.req})</div>`;
-                else { row.innerHTML = `<div class="trade-formula"><span>${cI}</span><span style="font-size:14px; font-weight:800; color:#64748b;">x${cA}</span><span>➡️</span><span>${gI}</span><span style="font-size:14px; font-weight:800; color:#64748b;">x${gA}</span></div><button class="trade-btn" ${hE?'':'disabled'}>🤝</button>`; if(hE) row.querySelector('button').onclick=()=>executeTrade(i); }
-                tL.appendChild(row);
+                if(!uL) row.innerHTML = `<div style="font-size:24px; color:#94a3b8;">🔒 💖(${t.req})</div>`; else { row.innerHTML = `<div class="trade-formula"><span>${cI}</span><span style="font-size:14px; font-weight:800; color:#64748b;">x${cA}</span><span>➡️</span><span>${gI}</span><span style="font-size:14px; font-weight:800; color:#64748b;">x${gA}</span></div><button class="trade-btn" ${hE?'':'disabled'}>🤝</button>`; if(hE) row.querySelector('button').onclick=()=>executeTrade(i); } tL.appendChild(row);
             });
             document.getElementById('tab-gift').classList.toggle('focused', npcFocus==='tab' && npcTab==='gift'); document.getElementById('tab-trade').classList.toggle('focused', npcFocus==='tab' && npcTab==='trade');
         }
@@ -731,36 +467,19 @@
         function giftItem(item) { if(removeFromInventory(item,1)){ let p = [0,3,10][DICT[item]?.r]||1; state.npcAff[currentNpc] = (state.npcAff[currentNpc]||0)+p; sfx.trade(); showToast(`🎁${item} 💖+${p}`); saveGame(); updateNpcUI(); } }
         function executeTrade(idx) { let t = TRADES[currentNpc][idx], cI=Object.keys(t.cost)[0], gI=Object.keys(t.get)[0]; if(removeFromInventory(cI, t.cost[cI])){ addToInventory(gI, t.get[gI]); sfx.trade(); showToast(`🤝✨ ${gI}`); saveGame(); updateNpcUI(); } }
 
-        document.getElementById('btn-share').addEventListener('click', () => {
-            try { document.getElementById('export-code-box').innerText = btoa(encodeURIComponent(JSON.stringify(state)).replace(/%([0-9A-F]{2})/g, (m, p1)=>String.fromCharCode('0x'+p1))); } 
-            catch(e) { document.getElementById('export-code-box').innerText = "❌"; }
-            document.getElementById('import-code-area').value = ""; openModal('modal-share');
-        });
-        document.getElementById('btn-copy-code').addEventListener('click', () => {
-            const code = document.getElementById('export-code-box').innerText;
-            if(code && code!=="❌"){ let el = document.createElement('textarea'); el.value=code; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); sfx.trade(); showToast("📋✅"); }
-        });
-        document.getElementById('btn-import-code').addEventListener('click', () => {
-            const code = document.getElementById('import-code-area').value.trim(); if(!code) return sfx.invalid();
-            try {
-                let p = JSON.parse(decodeURIComponent(atob(code).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')));
-                if(p && typeof p.seed==='number'){ state=p; saveGame(); pVisual.x=state.px*TILE_SIZE; pVisual.y=state.py*TILE_SIZE; camera.x=pVisual.x; camera.y=pVisual.y; updateFog(); closeAllModals(); sfx.trade(); showToast("💾📥✨"); } 
-                else { sfx.invalid(); showToast("❌💾"); }
-            } catch(e){ sfx.invalid(); showToast("❌💾"); }
-        });
+        document.getElementById('btn-share').addEventListener('click', () => { try { document.getElementById('export-code-box').innerText = btoa(encodeURIComponent(JSON.stringify(state)).replace(/%([0-9A-F]{2})/g, (m, p1)=>String.fromCharCode('0x'+p1))); } catch(e) { document.getElementById('export-code-box').innerText = "❌"; } document.getElementById('import-code-area').value = ""; openModal('modal-share'); });
+        document.getElementById('btn-copy-code').addEventListener('click', () => { const code = document.getElementById('export-code-box').innerText; if(code && code!=="❌"){ let el = document.createElement('textarea'); el.value=code; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); sfx.trade(); showToast("📋✅"); } });
+        document.getElementById('btn-import-code').addEventListener('click', () => { const code = document.getElementById('import-code-area').value.trim(); if(!code) return sfx.invalid(); try { let p = JSON.parse(decodeURIComponent(atob(code).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''))); if(p && typeof p.seed==='number'){ state=p; saveGame(); pVisual.x=state.px*TILE_SIZE; pVisual.y=state.py*TILE_SIZE; camera.x=pVisual.x; camera.y=pVisual.y; updateFog(); closeAllModals(); sfx.trade(); showToast("💾📥✨"); } else { sfx.invalid(); showToast("❌💾"); } } catch(e){ sfx.invalid(); showToast("❌💾"); } });
 
+        // --- 輸入控制 ---
         function setupInput() {
-            const bindBtn = (id, dx, dy) => {
-                const btn = document.getElementById(id), start = (e) => { if (!isGameStarted) return; lastInputTime=Date.now(); e.preventDefault(); if(!moveTimer){ movePlayer(dx,dy); moveTimer=setInterval(()=>movePlayer(dx,dy),160); } };
-                const stop = (e) => { e.preventDefault(); if(moveTimer){ clearInterval(moveTimer); moveTimer=null; } };
-                btn.addEventListener('touchstart', start); btn.addEventListener('touchend', stop); btn.addEventListener('mousedown', start); btn.addEventListener('mouseup', stop); btn.addEventListener('mouseleave', stop);
-            };
+            const bindBtn = (id, dx, dy) => { const btn = document.getElementById(id), start = (e) => { if (!isGameStarted) return; lastInputTime=Date.now(); e.preventDefault(); if(!moveTimer){ movePlayer(dx,dy); moveTimer=setInterval(()=>movePlayer(dx,dy),160); } }; const stop = (e) => { e.preventDefault(); if(moveTimer){ clearInterval(moveTimer); moveTimer=null; } }; btn.addEventListener('touchstart', start); btn.addEventListener('touchend', stop); btn.addEventListener('mousedown', start); btn.addEventListener('mouseup', stop); btn.addEventListener('mouseleave', stop); };
             bindBtn('btn-up', 0, -1); bindBtn('btn-down', 0, 1); bindBtn('btn-left', -1, 0); bindBtn('btn-right', 1, 0);
 
             window.addEventListener('keydown', (e) => {
-                if (!isGameStarted) return;
-                lastInputTime = Date.now();
+                if (!isGameStarted) return; lastInputTime = Date.now();
                 if (e.key === 'Escape') { if (activeModal) closeAllModals(); else document.getElementById('btn-inventory').click(); return; }
+                if (e.key === 'P' || e.key === 'p') { e.preventDefault(); triggerLifePulse(); return; }
 
                 if (activeModal) {
                     if (activeModal === 'modal-inventory') {
@@ -771,30 +490,25 @@
                         if (c >= 0 && c < len) { invCursor = c; renderInvFocus(); }
                     } else if (activeModal === 'modal-npc') {
                         let handled = true;
-                        if (e.key === 'ArrowUp' || e.key === 'w') { if (npcFocus === 'content') { if (npcTab === 'gift') { if (npcCursor >= 4) npcCursor -= 4; else npcFocus = 'tab'; } else { if (npcCursor > 0) npcCursor -= 1; else npcFocus = 'tab'; } } } 
-                        else if (e.key === 'ArrowDown' || e.key === 's') { if (npcFocus === 'tab') { npcFocus = 'content'; npcCursor = 0; } else { if (npcTab === 'gift' && npcCursor + 4 < npcGiftKeys.length) npcCursor += 4; else if (npcTab === 'trade' && npcCursor + 1 < (TRADES[currentNpc]?.length || 0)) npcCursor += 1; } } 
-                        else if (e.key === 'ArrowLeft' || e.key === 'a') { if (npcFocus === 'tab') switchNpcTab('gift'); else if (npcTab === 'gift' && npcCursor > 0) npcCursor -= 1; } 
-                        else if (e.key === 'ArrowRight' || e.key === 'd') { if (npcFocus === 'tab') switchNpcTab('trade'); else if (npcTab === 'gift' && npcCursor + 1 < npcGiftKeys.length) npcCursor += 1; } 
-                        else if (e.key === ' ' || e.key === 'Enter') { if (npcFocus === 'tab') { npcFocus = 'content'; npcCursor = 0; } else if (npcFocus === 'content') { if (npcTab === 'gift' && npcGiftKeys.length > 0) giftItem(npcGiftKeys[npcCursor]); else if (npcTab === 'trade') { let t = TRADES[currentNpc][npcCursor], aff = state.npcAff[currentNpc] || 0, cI = Object.keys(t.cost)[0]; if (aff >= t.req && (state.inv[cI] || 0) >= t.cost[cI]) executeTrade(npcCursor); else sfx.invalid(); } } } else handled = false;
+                        if (e.key === 'ArrowUp' || e.key === 'w') { if (npcFocus === 'content') { if (npcTab === 'gift') { if (npcCursor >= 4) npcCursor -= 4; else npcFocus = 'tab'; } else { if (npcCursor > 0) npcCursor -= 1; else npcFocus = 'tab'; } } } else if (e.key === 'ArrowDown' || e.key === 's') { if (npcFocus === 'tab') { npcFocus = 'content'; npcCursor = 0; } else { if (npcTab === 'gift' && npcCursor + 4 < npcGiftKeys.length) npcCursor += 4; else if (npcTab === 'trade' && npcCursor + 1 < (TRADES[currentNpc]?.length || 0)) npcCursor += 1; } } else if (e.key === 'ArrowLeft' || e.key === 'a') { if (npcFocus === 'tab') switchNpcTab('gift'); else if (npcTab === 'gift' && npcCursor > 0) npcCursor -= 1; } else if (e.key === 'ArrowRight' || e.key === 'd') { if (npcFocus === 'tab') switchNpcTab('trade'); else if (npcTab === 'gift' && npcCursor + 1 < npcGiftKeys.length) npcCursor += 1; } else if (e.key === ' ' || e.key === 'Enter') { if (npcFocus === 'tab') { npcFocus = 'content'; npcCursor = 0; } else if (npcFocus === 'content') { if (npcTab === 'gift' && npcGiftKeys.length > 0) giftItem(npcGiftKeys[npcCursor]); else if (npcTab === 'trade') { let t = TRADES[currentNpc][npcCursor], aff = state.npcAff[currentNpc] || 0, cI = Object.keys(t.cost)[0]; if (aff >= t.req && (state.inv[cI] || 0) >= t.cost[cI]) executeTrade(npcCursor); else sfx.invalid(); } } } else handled = false;
                         if (handled) { e.preventDefault(); updateNpcUI(); }
                     } return;
                 }
 
                 if (e.key === ' ' || e.key === 'Spacebar') {
                     e.preventDefault(); let tX = state.px, tY = state.py;
-                    if (activeTool === null) {
-                        for (let d of [[0,0],[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,-1],[-1,1],[1,1]]) { let tile = getTileData(state.px + d[0], state.py + d[1]); if (tile.obj) { tX = state.px + d[0]; tY = state.py + d[1]; break; } }
-                    } processInteract(tX, tY); return;
+                    if (activeTool === null) { for (let d of [[0,0],[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,-1],[-1,1],[1,1]]) { let tile = getTileData(state.px + d[0], state.py + d[1]); if (tile.obj) { tX = state.px + d[0]; tY = state.py + d[1]; break; } } } processInteract(tX, tY); return;
                 }
 
-                if (isMoving) return;
-                let dx = 0, dy = 0;
+                if (isMoving) return; let dx = 0, dy = 0;
                 if (e.key === 'ArrowUp' || e.key === 'w') dy = -1; if (e.key === 'ArrowDown' || e.key === 's') dy = 1;
                 if (e.key === 'ArrowLeft' || e.key === 'a') dx = -1; if (e.key === 'ArrowRight' || e.key === 'd') dx = 1;
                 if (dx !== 0 || dy !== 0) { movePlayer(dx, dy); isMoving = true; moveTimer = setInterval(() => movePlayer(dx, dy), 160); }
             });
             window.addEventListener('keyup', () => { isMoving = false; if(moveTimer){ clearInterval(moveTimer); moveTimer=null; } });
         }
+
+        function initWeatherParticles() { rainDrops = []; for (let i = 0; i < 20; i++) rainDrops.push({ x: Math.random()*window.innerWidth, y: Math.random()*window.innerHeight, speed: 3+Math.random()*4, len: 8+Math.random()*10, angle: 1+Math.random()*0.4 }); }
 
         let frameCount = 0, lastHour = -1;
         function gameLoop() {
@@ -804,11 +518,9 @@
             skyOffset += ((isIdle && !activeModal ? 150 : 0) - skyOffset) * 0.05;
 
             if (isIdle && !activeModal && frameCount % 90 === 0) {
-                let dx = 0, dy = 0;
-                if (Math.random() < 0.5) dx = Math.random() < 0.5 ? 1 : -1; else dy = Math.random() < 0.5 ? 1 : -1;
-                movePlayer(dx, dy);
+                let dx = 0, dy = 0; if (Math.random() < 0.5) dx = Math.random() < 0.5 ? 1 : -1; else dy = Math.random() < 0.5 ? 1 : -1; movePlayer(dx, dy);
                 let key = `${state.px},${state.py}`; let nTile = getTileData(state.px, state.py);
-                if (nTile.obj && DICT[nTile.obj]?.r <= 1 && state.mods[key] === undefined && nTile.obj !== '📜') {
+                if (nTile.obj && DICT[nTile.obj]?.r <= 2 && state.mods[key] === undefined && nTile.obj !== '📜') {
                     addToInventory(nTile.obj, 1); state.mods[key] = null; sfx.harvest(); showToast(`🤖🎒 ${nTile.obj}`); saveGame();
                 }
             }
@@ -820,18 +532,12 @@
             let cH = Math.floor(state.time / 100);
             if (cH !== lastHour) {
                 lastHour = cH;
-                if (cH === 0) {
-                    state.days = (state.days||0)+1;
-                    if (state.days % 6 === 0) state.season = (state.season+1)%4; 
-                    if (Math.random() < 0.25) state.weather = Math.floor(Math.random()*3);
-                    updateFog(); saveGame();
-                }
+                if (cH === 0) { state.days++; if (state.days % 6 === 0) state.season = (state.season+1)%4; if (Math.random() < 0.25) state.weather = Math.floor(Math.random()*3); updateFog(); saveGame(); }
             }
 
-            if (isGameStarted && frameCount % 300 === 0) runEcologicalGrowth();
+            if (isGameStarted && frameCount % 120 === 0) runEcologicalGrowth(4);
             if (isGameStarted) updateAnimals(); 
-            draw();
-            requestAnimationFrame(gameLoop);
+            draw(); requestAnimationFrame(gameLoop);
         }
 
         function draw() {
@@ -844,22 +550,13 @@
                 let sx = cx+(x*TILE_SIZE-camera.x), sy = cy+(y*TILE_SIZE-camera.y), dTP = Math.hypot(x-state.px, y-state.py);
                 if (dTP <= FOG_RADIUS) {
                     let tile = getTileData(x, y);
+                    ctx.fillStyle = tile.color; ctx.fillRect(sx, sy, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.strokeRect(sx, sy, TILE_SIZE, TILE_SIZE);
                     
-                    // 改用計算出來的 HSL 顏色渲染底色，體驗無縫生態系！
-                    ctx.fillStyle = tile.color; 
-                    ctx.fillRect(sx, sy, TILE_SIZE, TILE_SIZE);
-
-                    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-                    ctx.strokeRect(sx, sy, TILE_SIZE, TILE_SIZE);
-
                     if (tile.obj) { 
-                        ctx.save();
-                        ctx.translate(sx+TILE_SIZE/2, sy+TILE_SIZE/2+2);
-                        ctx.scale(tile.scale, tile.scale);
-                        ctx.fillStyle='#000'; 
-                        ctx.fillText(tile.obj, 0, 0); 
-                        ctx.restore();
-                        if (DICT[tile.obj]?.r===3 && dTP<=2) nOS.push({ npc: tile.obj, sx, sy }); 
+                        ctx.save(); ctx.translate(sx+TILE_SIZE/2, sy+TILE_SIZE/2+2); ctx.scale(tile.scale, tile.scale);
+                        ctx.fillStyle='#000'; ctx.fillText(tile.obj, 0, 0); ctx.restore();
+                        if (DICT[tile.obj]?.r===5 && dTP<=2) nOS.push({ npc: tile.obj, sx, sy }); 
                     }
                     if ((state.time>=1800 || state.time<500) && tile.bg==='grass') { let gS = hash(x,y,77); if(gS<0.05){ ctx.fillStyle = `rgba(180,240,150,${0.15+0.5*Math.sin(Date.now()/500+gS*200)})`; ctx.beginPath(); ctx.arc(sx+TILE_SIZE*gS, sy+TILE_SIZE*(1-gS), 2, 0, Math.PI*2); ctx.fill(); } }
                 } else { ctx.fillStyle = '#141724'; ctx.fillRect(sx, sy, TILE_SIZE+0.5, TILE_SIZE+0.5); }
@@ -868,47 +565,41 @@
             animals.forEach(a => {
                 let asx = cx+(a.vx-camera.x), asy = cy+(a.vy-camera.y);
                 ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.beginPath(); ctx.ellipse(asx+TILE_SIZE/2, asy+TILE_SIZE-6, 12*a.size, 4*a.size, 0, 0, Math.PI*2); ctx.fill();
-                ctx.save();
-                ctx.translate(asx+TILE_SIZE/2, asy+TILE_SIZE/2);
-                ctx.scale(a.size, a.size);
-                ctx.fillStyle = '#000'; ctx.fillText(a.emoji, 0, 0);
-                ctx.restore();
+                ctx.save(); ctx.translate(asx+TILE_SIZE/2, asy+TILE_SIZE/2); ctx.scale(a.size, a.size); ctx.fillStyle = '#000'; ctx.fillText(a.emoji, 0, 0); ctx.restore();
             });
 
             let psx = cx+(pVisual.x-camera.x), psy = cy+(pVisual.y-camera.y);
             ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.beginPath(); ctx.ellipse(psx+TILE_SIZE/2, psy+TILE_SIZE-6, 15, 4, 0, 0, Math.PI*2); ctx.fill();
             ctx.fillStyle = '#000'; ctx.fillText('🧑‍🌾', psx+TILE_SIZE/2, psy+TILE_SIZE/2+Math.sin(Date.now()/350)*1.5-2);
 
+            pulseWaves.forEach((w, i) => {
+                let pwx = w.x !== undefined ? cx+(w.x-camera.x)+TILE_SIZE/2 : psx+TILE_SIZE/2, pwy = w.y !== undefined ? cy+(w.y-camera.y)+TILE_SIZE/2 : psy+TILE_SIZE/2;
+                ctx.beginPath(); ctx.arc(pwx, pwy, w.radius, 0, Math.PI*2); ctx.strokeStyle = `rgba(167, 243, 208, ${w.alpha})`; ctx.lineWidth = w.small ? 3 : 6; ctx.stroke();
+                w.radius += w.small ? 5 : 12; w.alpha -= w.small ? 0.05 : 0.02; if(w.alpha <= 0) pulseWaves.splice(i,1);
+            });
+
             heartParticles.forEach((p, i) => { ctx.font='18px sans-serif'; ctx.fillText('❤️', p.x-camera.x+cx, p.y-camera.y+cy-(40-p.life)*0.8); p.life--; if(p.life<=0) heartParticles.splice(i,1); });
             ctx.font = `${TILE_SIZE*0.65}px sans-serif`;
 
             nOS.forEach(n => {
                 let bx = n.sx+TILE_SIZE/2, by = n.sy-20+Math.sin(Date.now()/250)*1.2, r = TRADES[n.npc][0], gI=Object.keys(r.cost)[0], geI=Object.keys(r.get)[0];
-                ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2.5;
-                drawRoundRect(ctx, bx-44, by-16, 88, 32, 12); ctx.fill(); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(bx-5, by+16); ctx.lineTo(bx, by+21); ctx.lineTo(bx+5, by+16); ctx.fill(); ctx.stroke();
-                ctx.font = '16px sans-serif'; ctx.fillStyle = '#000'; ctx.fillText(`${gI}🔄${geI}`, bx, by+1); ctx.font = `${TILE_SIZE*0.65}px sans-serif`;
+                ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2.5; drawRoundRect(ctx, bx-44, by-16, 88, 32, 12); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(bx-5, by+16); ctx.lineTo(bx, by+21); ctx.lineTo(bx+5, by+16); ctx.fill(); ctx.stroke(); ctx.font = '16px sans-serif'; ctx.fillStyle = '#000'; ctx.fillText(`${gI}🔄${geI}`, bx, by+1); ctx.font = `${TILE_SIZE*0.65}px sans-serif`;
             });
 
             if (skyOffset > 1) {
                 let isNight = (state.time >= 1800 || state.time < 500);
                 let skyColor = isNight ? '15,20,35' : '150,200,235';
-                if (state.time >= 1650 && state.time < 1850) skyColor = '244,117,43';
-                else if (state.time >= 450 && state.time < 650) skyColor = '150,120,220';
-
-                let grad = ctx.createLinearGradient(0, 0, 0, skyOffset * 2.5);
-                grad.addColorStop(0, `rgba(${skyColor}, 1)`); grad.addColorStop(0.5, `rgba(${skyColor}, 0.8)`); grad.addColorStop(1, `rgba(${skyColor}, 0)`);
+                if (state.time >= 1650 && state.time < 1850) skyColor = '244,117,43'; else if (state.time >= 450 && state.time < 650) skyColor = '150,120,220';
+                let grad = ctx.createLinearGradient(0, 0, 0, skyOffset * 2.5); grad.addColorStop(0, `rgba(${skyColor}, 1)`); grad.addColorStop(0.5, `rgba(${skyColor}, 0.8)`); grad.addColorStop(1, `rgba(${skyColor}, 0)`);
                 ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, skyOffset * 3);
-
                 let progress = isNight ? ((state.time < 500 ? state.time+2400 : state.time) - 1800)/1100 : (state.time - 500)/1300;
                 let cX = canvas.width * progress, cY = (skyOffset * 0.8) + Math.sin(progress * Math.PI) * -40;
                 ctx.font = `${40 * (skyOffset/150)}px sans-serif`; ctx.fillText(isNight ? '🌙' : '☀️', cX, cY);
-
                 if (isNight) {
                     for(let i=0; i<15; i++) {
-                        let sX = hash(i, 1, state.seed) * canvas.width, sY = hash(i, 2, state.seed) * skyOffset * 1.5;
                         let twinkle = Math.sin(Date.now()/(200 + i*50) + i);
-                        if (twinkle > 0) { ctx.fillStyle = `rgba(255,255,255,${twinkle * (skyOffset/150)})`; ctx.fillText('✨', sX, sY); }
+                        if (twinkle > 0) { ctx.fillStyle = `rgba(255,255,255,${twinkle * (skyOffset/150)})`; ctx.fillText('✨', hash(i, 1, state.seed) * canvas.width, hash(i, 2, state.seed) * skyOffset * 1.5); }
                     }
                 } ctx.font = `${TILE_SIZE*0.65}px sans-serif`;
             }
@@ -921,7 +612,16 @@
             else if (state.time>=450 && state.time<650) ol = `rgba(150,120,220,${(1-((state.time-450)/200))*0.25})`;
             if (ol) { ctx.fillStyle=ol; ctx.fillRect(0,0,canvas.width,canvas.height); }
 
-            updateAndDrawWeather(ctx);
+            if (state.weather === 1) {
+                ctx.strokeStyle = state.season === 3 ? 'rgba(255,255,255,0.75)' : 'rgba(174,219,237,0.4)'; ctx.lineWidth = state.season === 3 ? 3 : 1.5;
+                rainDrops.forEach(d => {
+                    ctx.beginPath();
+                    if (state.season === 3) { ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.arc(d.x, d.y, d.len*0.2, 0, Math.PI*2); ctx.fill(); d.y += d.speed * 0.25; d.x += Math.sin(d.y * 0.02) * 0.4; } 
+                    else { ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + d.angle*1.5, d.y + d.len); ctx.stroke(); d.y += d.speed; d.x += d.angle * 0.15; }
+                    if (d.y > canvas.height) { d.y = -20; d.x = Math.random() * canvas.width; }
+                });
+            }
+
             document.getElementById('season-icon').innerText = SEASONS[state.season].icon; document.getElementById('weather-icon').innerText = WEATHERS[state.weather].icon;
         }
 
