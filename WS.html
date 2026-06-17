@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>世界種子 World Seed</title>
+    <style>
+        :root {
+            --bg-color: #f5f7f8;
+            --panel-bg: rgba(255, 255, 255, 0.92);
+            --border-radius: 24px;
+            --primary: #a7f3d0;
+            --accent: #fbcfe8;
+            --shadow: 0 8px 24px rgba(0,0,0,0.06);
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; outline: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #12141c; font-family: system-ui, sans-serif; touch-action: none; }
+        #game-canvas { display: block; width: 100%; height: 100%; }
+
+        /* 啟動封面 */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #a7f3d0, #fef08a);
+            z-index: 999; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.8s ease;
+        }
+        .title-emoji { font-size: 110px; margin-bottom: 40px; animation: float 4s ease-in-out infinite; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.15)); }
+        #btn-start {
+            font-size: 40px; background: #fff; border: none; border-radius: 50%;
+            width: 100px; height: 100px; box-shadow: 0 15px 30px rgba(0,0,0,0.1); cursor: pointer;
+            transition: all 0.2s; display: flex; justify-content: center; align-items: center; padding-left: 6px; color: #4ade80;
+        }
+        #btn-start:hover { transform: scale(1.08); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+        #btn-start:active { transform: scale(0.95); box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-25px); } }
+
+        /* UI 佈局 */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+            padding: 20px; opacity: 0; transition: opacity 1s ease 0.3s;
+        }
+        .top-hud { display: flex; justify-content: space-between; width: 100%; pointer-events: auto; }
+        .icon-btn {
+            width: 58px; height: 58px; background: var(--panel-bg); border-radius: 50%;
+            display: flex; justify-content: center; align-items: center; font-size: 26px;
+            box-shadow: var(--shadow); cursor: pointer; border: 3px solid #fff; transition: transform 0.15s;
+        }
+        .icon-btn:active { transform: scale(0.9); }
+        
+        /* 生命共鳴按鈕特效 */
+        #btn-pulse { background: #fff; border-color: #a7f3d0; animation: pulseGlow 3s infinite; }
+        @keyframes pulseGlow { 0% { box-shadow: 0 0 0 0 rgba(167, 243, 208, 0.6); } 70% { box-shadow: 0 0 0 15px rgba(167, 243, 208, 0); } 100% { box-shadow: 0 0 0 0 rgba(167, 243, 208, 0); } }
+
+        #status-bubble {
+            height: 58px; padding: 0 20px; background: var(--panel-bg); border: 3px solid #fff;
+            border-radius: 29px; display: flex; justify-content: center; align-items: center; font-size: 24px; gap: 10px; box-shadow: var(--shadow);
+        }
+
+        /* 隱形十字鍵，保持沉浸感 */
+        #dpad-container { width: 100%; display: flex; justify-content: center; pointer-events: auto; margin-bottom: 15px; opacity: 0.25; transition: opacity 0.3s; }
+        #dpad-container:active, #dpad-container:hover { opacity: 0.8; }
+        .dpad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(3, 64px); gap: 6px; }
+        .d-btn { background: rgba(255,255,255,0.3); border-radius: 22px; border: 2px solid rgba(255,255,255,0.4); font-size: 24px; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); cursor: pointer; }
+        .d-btn:active { background: rgba(255,255,255,0.7); transform: scale(0.95); }
+        #btn-up { grid-column: 2; grid-row: 1; } #btn-left { grid-column: 1; grid-row: 2; } #btn-down { grid-column: 2; grid-row: 3; } #btn-right { grid-column: 3; grid-row: 2; }
+
+        /* Toast 提示 */
+        #toast-container { position: absolute; top: 100px; width: 100%; display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 100; }
+        .toast { background: rgba(255,255,255,0.95); color: #111; padding: 12px 24px; border-radius: 30px; margin-bottom: 8px; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow); animation: popUp 2.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; border: 2px solid #e2e8f0; }
+        @keyframes popUp { 0% { opacity: 0; transform: translateY(15px) scale(0.9); } 15% { opacity: 1; transform: translateY(0) scale(1); } 85% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-15px) scale(0.9); } }
+
+        /* 模態框 (Modal) */
+        .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: none; justify-content: center; align-items: center; pointer-events: auto; z-index: 200; backdrop-filter: blur(8px); }
+        .modal { background: var(--bg-color); width: 85%; max-width: 360px; max-height: 75%; border-radius: var(--border-radius); padding: 24px; display: flex; flex-direction: column; box-shadow: 0 25px 50px rgba(0,0,0,0.3); border: 4px solid #fff; position: relative; animation: modalShow 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes modalShow { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; color: #94a3b8; transition: color 0.2s; }
+        .close-btn:active { color: #475569; }
+        .modal-title { text-align: center; font-size: 28px; margin: 0 0 20px 0; color: #1e293b; }
+
+        .grid-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; overflow-y: auto; padding: 4px; max-height: 300px; }
+        .item-slot { background: #fff; border-radius: 20px; aspect-ratio: 1; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: transform 0.15s; }
+        .item-slot.locked { background: #e2e8f0; border: 2px dashed #cbd5e1; }
+        .item-slot.locked .item-emoji { opacity: 0.2; filter: grayscale(1); }
+        .item-emoji { font-size: 36px; }
+
+        /* 分享面板 */
+        .share-container { display: flex; flex-direction: column; gap: 12px; }
+        .share-box { width: 100%; height: 90px; background: #fff; border: 2px solid #e2e8f0; border-radius: 16px; padding: 12px; font-size: 11px; word-break: break-all; overflow-y: auto; color: #64748b; user-select: text; }
+        .action-btn { flex: 1; background: var(--panel-bg); border: 3px solid #fff; border-radius: 16px; height: 50px; font-size: 20px; cursor: pointer; box-shadow: var(--shadow); display: flex; justify-content: center; align-items: center; }
+        .action-btn:active { transform: scale(0.95); }
+        .import-area { width: 100%; height: 60px; border-radius: 16px; border: 2px dashed #cbd5e1; padding: 10px; font-size: 14px; resize: none; background: #fff; outline: none; }
+        
+        .progress-container { width: 100%; background: #e2e8f0; border-radius: 12px; height: 12px; margin-bottom: 24px; overflow: hidden; border: 2px solid #fff; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, #a7f3d0, #34d399); width: 0%; transition: width 0.8s ease-out; }
+    </style>
+</head>
+<body>
+
+    <!-- 啟動封面 -->
+    <div id="start-screen">
+        <div class="title-emoji">🌱✨</div>
+        <button id="btn-start">▶️</button>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="top-hud">
+            <div class="icon-btn" id="btn-pulse" title="生命共鳴">🌟</div>
+            <div id="status-bubble">
+                <span id="season-icon">🌸</span>
+                <span id="weather-icon">☀️</span>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div class="icon-btn" id="btn-share">🔗</div>
+                <div class="icon-btn" id="btn-pokedex">📖</div>
+            </div>
+        </div>
+        <div id="toast-container"></div>
+        <div id="dpad-container">
+            <div class="dpad">
+                <div class="d-btn" id="btn-up">🔼</div>
+                <div class="d-btn" id="btn-left">◀️</div>
+                <div class="d-btn" id="btn-down">🔽</div>
+                <div class="d-btn" id="btn-right">▶️</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模態框區塊 -->
+    <div class="modal-overlay" id="modal-share" onclick="if(event.target===this) closeAllModals()">
+        <div class="modal">
+            <div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title">世界傳承 🔗</h2>
+            <div class="share-container">
+                <div class="share-box" id="export-code-box"></div>
+                <button class="action-btn" id="btn-copy-code" style="width:100%;">複製生命密碼 📋</button>
+                <hr style="border: 0; border-top: 2px dashed #cbd5e1; margin: 8px 0;">
+                <textarea class="import-area" id="import-code-area" placeholder="貼上他人的生命密碼..."></textarea>
+                <button class="action-btn" id="btn-import-code" style="width:100%;">喚醒世界 ✅</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="modal-pokedex" onclick="if(event.target===this) closeAllModals()">
+        <div class="modal">
+            <div class="close-btn" onclick="closeAllModals()">×</div><h2 class="modal-title">觀察圖鑑 📖</h2>
+            <div style="text-align:center; margin-bottom: 8px; font-size:20px; font-weight:bold; color: #475569;" id="pokedex-text">生態多樣性: 0%</div>
+            <div class="progress-container"><div class="progress-bar" id="pokedex-progress"></div></div>
+            <div class="grid-list" id="pokedex-list"></div>
+        </div>
+    </div>
+
+    <script>
+        let isGameStarted = false;
+
+        document.getElementById('btn-start').addEventListener('click', () => {
+            const startScreen = document.getElementById('start-screen');
+            startScreen.style.opacity = '0';
+            setTimeout(() => {
+                startScreen.style.display = 'none';
+                document.getElementById('ui-layer').style.opacity = '1';
+                isGameStarted = true;
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                showToast("🌱 你是一顆新生的世界種子", 3000);
+            }, 800);
+        });
+
+        const TILE_SIZE = 64;
+        let FOG_RADIUS = 4.5;
+
+        const SEASONS = [{ icon: '🌸' }, { icon: '🌻' }, { icon: '🍁' }, { icon: '❄️' }];
+        const WEATHERS = [{ icon: '☀️' }, { icon: '🌧️' }, { icon: '🌫️' }];
+
+        // 生態圖鑑資料字典 (r=稀有度分級，用於圖鑑排序)
+        const DICT = {
+            'grass': { b: '🟩', r: -1 }, 'water': { b: '🌊', r: -1 }, 'sand': { b: '🟨', r: -1 },
+            // 植物界
+            '🌱':{r:0}, '🌿':{r:0}, '🌾':{r:0}, '🍄':{r:0},
+            '🌸':{r:1}, '🌷':{r:1}, '🌻':{r:1}, '🌺':{r:1}, 
+            '🌲':{r:2}, '🌳':{r:2}, '🍁':{r:2}, '🍂':{r:2}, '🌵':{r:2},
+            // 動物界
+            '🐛':{r:3}, '🦋':{r:3}, '🐝':{r:3}, 
+            '🦆':{r:4}, '🐸':{r:4}, '🐢':{r:4}, '🦀':{r:4},
+            '🐇':{r:5}, '🦌':{r:5}, '🦉':{r:5},
+            // 奇觀
+            '🌈':{r:6}, '🌋':{r:6}, '💎':{r:6}, '🗿':{r:6}, '🌠':{r:6}
+        };
+
+        const COLLECTIBLES = Object.keys(DICT).filter(k => DICT[k].r >= 0).sort((a,b) => DICT[a].r - DICT[b].r);
+
+        // 療癒 Web Audio 引擎
+        let audioCtx = null;
+        function playSound(freq, type, duration, slideTo = 0) {
+            if (!isGameStarted || !audioCtx) return;
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                let osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+                osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                if (slideTo > 0) osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime); // 極輕柔音量
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+        const sfx = {
+            pulse: () => { playSound(392, 'sine', 0.5, 523); setTimeout(()=>playSound(659, 'sine', 0.8), 200); }, // 溫和的 G -> C 和 E 和弦
+            discover: () => { playSound(440, 'sine', 0.1); setTimeout(() => playSound(554, 'sine', 0.1), 100); setTimeout(() => playSound(659, 'sine', 0.3), 200); },
+            pop: () => { playSound(600, 'sine', 0.05, 800); }
+        };
+
+        // 核心存檔資料 (Delta Saving)
+        const SAVE_KEY = 'world_seed_v1_save';
+        let state = {
+            seed: Math.floor(Math.random() * 999999), px: 0, py: 0,
+            mods: {}, // 'x,y': '🌱' 儲存植物生態
+            unlocked: {}, 
+            time: 600, days: 0, season: 0, weather: 0
+        };
+
+        let pVisual = { x: 0, y: 0, bounce: 0 }; let camera = { x: 0, y: 0 };
+        let moveTimer = null; let isMoving = false;
+        let activeModal = null; 
+        let animals = []; let rainDrops = []; let pulseWaves = [];
+        let lastInputTime = Date.now(); let skyOffset = 0;
+
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        function initGame() {
+            loadGame(); resizeCanvas(); window.addEventListener('resize', resizeCanvas);
+            pVisual.x = state.px * TILE_SIZE; pVisual.y = state.py * TILE_SIZE;
+            camera.x = pVisual.x; camera.y = pVisual.y;
+            updateFog(); setupInput(); initWeatherParticles();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function saveGame() { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
+        function loadGame() {
+            const saved = localStorage.getItem(SAVE_KEY);
+            if (saved) { try { state = { ...state, ...JSON.parse(saved) }; } catch(e) {} } 
+        }
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+
+        // 雙重地形噪音 (生成優美的基底環境，但預設無物件)
+        function hash(x, y, s) { let n = Math.sin(x * 12.9898 + y * 78.233 + s) * 43758.5453; return n - Math.floor(n); }
+        function getNoise(x, y) { return (Math.sin(x*0.08)*Math.cos(y*0.08) + Math.sin(x*0.02+1.5)*Math.sin(y*0.03+0.7)*0.5 + Math.sin(x*0.3)*Math.cos(y*0.3)*0.1 + 1.6) / 3.2; }
+        function getBiomeNoise(x, y) { return (Math.sin(x*0.012)*Math.cos(y*0.012) + Math.sin(x*0.004+2)*Math.sin(y*0.004+1)*0.8 + 1.8) / 3.6; }
+
+        function getBaseTerrain(gx, gy) { 
+            let ele = getNoise(gx, gy), bio = getBiomeNoise(gx, gy);
+            let t = 'grass', h, s, l;
+            if (ele < 0.3) { t = 'water'; h = 200+bio*20; s = 65; l = 55+(ele/0.3)*25; } 
+            else if (ele < 0.36) { t = 'sand'; h = 40+bio*10; s = 60; l = 75+bio*10; } 
+            else { t = 'grass'; h = 30+bio*90; s = 30+bio*35; l = 40+bio*30; }
+            return { type: t, color: `hsl(${h},${s}%,${l}%)` };
+        }
+
+        // 取得地圖資料 (物件完全由 state.mods 提供，基底只提供地形和極稀有奇觀)
+        function getTileData(gx, gy) {
+            const key = `${gx},${gy}`;
+            let base = getBaseTerrain(gx, gy);
+            let bg = base.type; let color = base.color;
+            let obj = null; let scale = 1.0;
+
+            if (state.mods[key] !== undefined) {
+                obj = state.mods[key];
+                // 賦予植物微小的基因大小差異
+                if(obj) scale = 0.8 + hash(gx, gy, state.seed+500)*0.4;
+            } else {
+                // 原生地貌只生成極稀有的無機物奇觀
+                let dist = Math.hypot(gx, gy);
+                if (bg === 'grass' && hash(gx, gy, state.seed) < 0.005 + Math.min(0.02, dist/1000)) {
+                    if (hash(gx, gy, state.seed+10) < 0.1) { obj = ['🌈','🌋','💎','🗿'][Math.floor(hash(gx, gy, state.seed+20)*4)]; scale = 1.3; }
+                }
+            }
+            return { bg, obj, scale, color };
+        }
+
+        // ====== 核心生態演化引擎 (Eco-Tick) ======
+        function runEcologicalGrowth(forceRadius = null) {
+            // 如果是自動掛機或自然推演，範圍較小。如果是玩家點擊「共鳴」，範圍擴大且密集。
+            let radius = forceRadius || 12;
+            let checks = forceRadius ? 80 : 4; // 共鳴時爆發生長
+
+            for (let i = 0; i < checks; i++) {
+                let tx = state.px + Math.floor(Math.random()*(radius*2+1))-radius;
+                let ty = state.py + Math.floor(Math.random()*(radius*2+1))-radius;
+                let key = `${tx},${ty}`;
+                let tile = getTileData(tx, ty);
+                
+                let boost = (state.weather === 1 ? 2.5 : 1) * (forceRadius ? 15 : 1); // 下雨或共鳴加速
+
+                if (tile.bg === 'grass') {
+                    if (!tile.obj) {
+                        // 無中生有：草地有機率誕生嫩芽 (非常低，除非共鳴)
+                        if (Math.random() < 0.002 * boost) { state.mods[key] = '🌱'; saveGame(); discover('🌱'); }
+                    } else {
+                        let r = Math.random();
+                        // 嫩芽演化
+                        if (tile.obj === '🌱' && r < 0.15 * boost) {
+                            // 靠水容易長蘆葦，春天容易開花
+                            let next = '🌿';
+                            if (getNoise(tx, ty) < 0.4) next = '🌾'; // 靠近沙灘/水緣
+                            else if (state.season === 0 && r < 0.08*boost) next = '🌷';
+                            else if (r < 0.05*boost) next = '🌸';
+                            state.mods[key] = next; saveGame(); discover(next);
+                        }
+                        // 蕨類演化成樹木或灌木/香菇
+                        else if (tile.obj === '🌿' && r < 0.08 * boost) {
+                            let next = r < 0.02*boost ? '🍄' : (state.season===2 ? '🍁' : '🌲');
+                            state.mods[key] = next; saveGame(); discover(next);
+                        }
+                        // 樹木演化成大樹
+                        else if (['🌲','🍁'].includes(tile.obj) && r < 0.05 * boost) {
+                            state.mods[key] = '🌳'; saveGame(); discover('🌳');
+                        }
+                        // 大樹與花朵繁衍 (向周圍播種)
+                        else if (['🌳', '🌸', '🌷', '🌻'].includes(tile.obj) && r < 0.08 * boost) {
+                            let dirs = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+                            let d = dirs[Math.floor(Math.random()*8)];
+                            let nx = tx+d[0], ny = ty+d[1];
+                            let nTile = getTileData(nx, ny);
+                            if (nTile.bg === 'grass' && !nTile.obj) {
+                                state.mods[`${nx},${ny}`] = '🌱'; saveGame();
+                            }
+                        }
+                        
+                        // 季節演變 (夏天長向日葵，秋天落葉，冬天枯萎)
+                        if (state.season === 1 && tile.obj === '🌸' && r < 0.05*boost) { state.mods[key] = '🌻'; saveGame(); discover('🌻');}
+                        if (state.season === 2 && tile.obj === '🌳' && r < 0.05*boost) { state.mods[key] = '🍂'; saveGame(); discover('🍂');}
+                    }
+                }
+            }
+        }
+
+        // ====== 智慧環境感知動物 AI ======
+        function updateAnimals() {
+            // 動物上限 3 隻，保持寧靜感
+            if (animals.length < 3 && Math.random() < 0.02) {
+                let ax = state.px + Math.floor(Math.random()*15)-7, ay = state.py + Math.floor(Math.random()*15)-7;
+                let tile = getTileData(ax, ay);
+                if (tile.bg === 'grass' || tile.bg === 'sand') {
+                    // 環境感知掃描 (計算周圍 3x3 的生態)
+                    let flora = { flower:0, tree:0, water:0, sand:0 };
+                    for(let dx=-1; dx<=1; dx++) for(let dy=-1; dy<=1; dy++) {
+                        let t = getTileData(ax+dx, ay+dy);
+                        if (t.bg === 'water') flora.water++;
+                        if (t.bg === 'sand') flora.sand++;
+                        if (['🌸','🌷','🌻','🌺'].includes(t.obj)) flora.flower++;
+                        if (['🌲','🌳','🍁'].includes(t.obj)) flora.tree++;
+                    }
+
+                    let spawnEmoji = '🐛'; // 預設小蟲
+                    if (flora.water > 2 && flora.flower > 0) spawnEmoji = '🐸';
+                    else if (flora.water > 3) spawnEmoji = '🦆';
+                    else if (flora.sand > 4 && flora.water > 0) spawnEmoji = '🦀';
+                    else if (flora.sand > 5) spawnEmoji = '🐢';
+                    else if (flora.flower > 2) spawnEmoji = ['🦋','🐝'][Math.floor(Math.random()*2)];
+                    else if (flora.tree > 3) spawnEmoji = ['🦌','🦉'][Math.floor(Math.random()*2)];
+                    else if (flora.tree > 0 || flora.flower > 0) spawnEmoji = '🐇';
+
+                    animals.push({ 
+                        gx: ax, gy: ay, vx: ax*TILE_SIZE, vy: ay*TILE_SIZE, tx: ax, ty: ay, 
+                        emoji: spawnEmoji, size: 0.4 + Math.random()*0.4, wait: 200+Math.floor(Math.random()*400) 
+                    });
+                    discover(spawnEmoji);
+                }
+            }
+
+            for (let i = animals.length - 1; i >= 0; i--) {
+                let a = animals[i], tx = a.tx*TILE_SIZE, ty = a.ty*TILE_SIZE;
+                let sf = (a.emoji==='🐢'||a.emoji==='🐛') ? 0.01 : (a.emoji==='🦋'||a.emoji==='🐝'||a.emoji==='🦌' ? 0.04 : 0.02);
+                
+                a.vx += (tx - a.vx)*sf; a.vy += (ty - a.vy)*sf;
+                if (['🦋','🐝','🦉'].includes(a.emoji)) a.vy += Math.sin(Date.now()/150)*0.5; // 飛行起伏
+                
+                if (Math.hypot(a.vx-tx, a.vy-ty) < 3) {
+                    a.gx = a.tx; a.gy = a.ty;
+                    if (a.wait > 0) a.wait--;
+                    else {
+                        let dirs = [[0,-1],[0,1],[-1,0],[1,0], [-1,-1], [1,1]];
+                        let d = dirs[Math.floor(Math.random()*dirs.length)];
+                        let nx = a.gx+d[0], ny = a.gy+d[1], nTile = getTileData(nx, ny);
+                        if (nTile.bg && (!nTile.obj || nTile.obj === '🌱')) { 
+                            if ((['🦆','🐸','🦀'].includes(a.emoji)) || nTile.bg !== 'water') { 
+                                a.tx=nx; a.ty=ny; a.wait = 300+Math.floor(Math.random()*600); 
+                            } 
+                        }
+                    }
+                }
+                // 走遠釋放記憶體
+                if (Math.hypot(a.gx-state.px, a.gy-state.py) > 12) animals.splice(i, 1);
+            }
+        }
+
+        function triggerLifePulse() {
+            sfx.pulse();
+            pulseWaves.push({ radius: 0, alpha: 1.0 });
+            // 瞬間爆發周圍生態演化
+            runEcologicalGrowth(8);
+            showToast("🌟 萬物共鳴");
+            // 玩家足跡必定長草
+            state.mods[`${state.px},${state.py}`] = '🌱'; saveGame();
+        }
+
+        document.getElementById('btn-pulse').addEventListener('click', () => {
+            if(!isGameStarted) return; lastInputTime = Date.now(); triggerLifePulse();
+        });
+
+        function movePlayer(dx, dy) { 
+            state.px+=dx; state.py+=dy; 
+            pVisual.bounce = 10; // 輕微跳躍感
+            updateFog(); saveGame(); 
+            sfx.pop();
+            // 種子走過的地方極低機率留下嫩芽
+            if(Math.random()<0.05 && getTileData(state.px, state.py).bg==='grass' && !getTileData(state.px, state.py).obj) {
+                state.mods[`${state.px},${state.py}`] = '🌱'; saveGame();
+            }
+        }
+
+        function updateFog() {
+            FOG_RADIUS = state.weather === 2 ? 3 : 5.5;
+            for (let dx=-6; dx<=6; dx++) for (let dy=-6; dy<=6; dy++) if (dx*dx+dy*dy <= FOG_RADIUS*FOG_RADIUS) {
+                let tile = getTileData(state.px+dx, state.py+dy);
+                discover(tile.bg); if (tile.obj) discover(tile.obj);
+            }
+        }
+
+        function discover(id) {
+            if (!state.unlocked[id] && DICT[id]) {
+                state.unlocked[id] = true; sfx.discover();
+                showToast(`✨ 發現 ${id==='water'?'🌊':(id==='grass'?'🟩':(id==='sand'?'🟨':id))}`);
+            }
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (!isGameStarted) return; lastInputTime = Date.now();
+            let rect = canvas.getBoundingClientRect();
+            let clickGx = Math.floor((e.clientX - rect.left - canvas.width/2 + camera.x) / TILE_SIZE);
+            let clickGy = Math.floor((e.clientY - rect.top - canvas.height/2 + camera.y - skyOffset) / TILE_SIZE);
+            
+            // 點擊互動：賦予該方塊一次獨立的小型催化
+            let key = `${clickGx},${clickGy}`;
+            let tile = getTileData(clickGx, clickGy);
+            if(Math.abs(clickGx-state.px)<=2 && Math.abs(clickGy-state.py)<=2) {
+                sfx.pop();
+                // 產生一個小愛心
+                pulseWaves.push({ radius: 0, alpha: 0.5, x: clickGx*TILE_SIZE, y: clickGy*TILE_SIZE, small: true });
+                if(tile.bg === 'grass' && !tile.obj) { state.mods[key] = '🌱'; saveGame(); }
+                else if(tile.obj === '🌱') { state.mods[key] = '🌿'; saveGame(); }
+            }
+        });
+
+        // --- Modals & UI ---
+        function showToast(msg) { const el = document.createElement('div'); el.className = 'toast'; el.innerText = msg; document.getElementById('toast-container').appendChild(el); setTimeout(()=>el.remove(), 2500); }
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; activeModal = id; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; if (activeModal === id) activeModal = null; }
+        function closeAllModals() { ['modal-share','modal-pokedex'].forEach(closeModal); }
+
+        document.getElementById('btn-pokedex').addEventListener('click', () => {
+            const list = document.getElementById('pokedex-list'); list.innerHTML = ''; let uC = 0;
+            COLLECTIBLES.forEach(item => {
+                let u = state.unlocked[item]; if (u) uC++;
+                let el = document.createElement('div'); el.className = `item-slot ${u?'':'locked'}`;
+                el.innerHTML = `<div class="item-emoji">${u?item:'❓'}</div>`; list.appendChild(el);
+            });
+            let p = Math.round((uC/COLLECTIBLES.length)*100); document.getElementById('pokedex-text').innerText = `生態多樣性: ${p}%`; document.getElementById('pokedex-progress').style.width = `${p}%`; openModal('modal-pokedex');
+        });
+
+        document.getElementById('btn-share').addEventListener('click', () => {
+            try { document.getElementById('export-code-box').innerText = btoa(encodeURIComponent(JSON.stringify(state)).replace(/%([0-9A-F]{2})/g, (m, p1)=>String.fromCharCode('0x'+p1))); } 
+            catch(e) { document.getElementById('export-code-box').innerText = "❌"; }
+            document.getElementById('import-code-area').value = ""; openModal('modal-share');
+        });
+        document.getElementById('btn-copy-code').addEventListener('click', () => {
+            const code = document.getElementById('export-code-box').innerText;
+            if(code && code!=="❌"){ let el = document.createElement('textarea'); el.value=code; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); sfx.pop(); showToast("📋 生命密碼已複製"); }
+        });
+        document.getElementById('btn-import-code').addEventListener('click', () => {
+            const code = document.getElementById('import-code-area').value.trim(); if(!code) return;
+            try {
+                let p = JSON.parse(decodeURIComponent(atob(code).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+                if(p && typeof p.seed==='number'){ state=p; saveGame(); pVisual.x=state.px*TILE_SIZE; pVisual.y=state.py*TILE_SIZE; camera.x=pVisual.x; camera.y=pVisual.y; updateFog(); closeAllModals(); sfx.pulse(); showToast("✨ 成功喚醒新世界"); } 
+            } catch(e){ showToast("❌ 密碼無效"); }
+        });
+
+        function setupInput() {
+            const bindBtn = (id, dx, dy) => {
+                const btn = document.getElementById(id), start = (e) => { if (!isGameStarted) return; lastInputTime=Date.now(); e.preventDefault(); if(!moveTimer){ movePlayer(dx,dy); moveTimer=setInterval(()=>movePlayer(dx,dy),200); } };
+                const stop = (e) => { e.preventDefault(); if(moveTimer){ clearInterval(moveTimer); moveTimer=null; } };
+                btn.addEventListener('touchstart', start); btn.addEventListener('touchend', stop); btn.addEventListener('mousedown', start); btn.addEventListener('mouseup', stop); btn.addEventListener('mouseleave', stop);
+            };
+            bindBtn('btn-up', 0, -1); bindBtn('btn-down', 0, 1); bindBtn('btn-left', -1, 0); bindBtn('btn-right', 1, 0);
+
+            window.addEventListener('keydown', (e) => {
+                if (!isGameStarted) return; lastInputTime = Date.now();
+                if (e.key === 'Escape') { closeAllModals(); return; }
+                if (activeModal) return;
+
+                if (e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); triggerLifePulse(); return; }
+
+                if (isMoving) return; let dx = 0, dy = 0;
+                if (e.key === 'ArrowUp' || e.key === 'w') dy = -1; if (e.key === 'ArrowDown' || e.key === 's') dy = 1;
+                if (e.key === 'ArrowLeft' || e.key === 'a') dx = -1; if (e.key === 'ArrowRight' || e.key === 'd') dx = 1;
+                if (dx !== 0 || dy !== 0) { movePlayer(dx, dy); isMoving = true; moveTimer = setInterval(() => movePlayer(dx, dy), 200); }
+            });
+            window.addEventListener('keyup', () => { isMoving = false; if(moveTimer){ clearInterval(moveTimer); moveTimer=null; } });
+        }
+
+        function initWeatherParticles() {
+            rainDrops = [];
+            for (let i = 0; i < 25; i++) rainDrops.push({ x: Math.random()*window.innerWidth, y: Math.random()*window.innerHeight, speed: 4+Math.random()*3, len: 10+Math.random()*15, angle: 0.5+Math.random()*0.5 });
+        }
+
+        let frameCount = 0, lastHour = -1;
+        function gameLoop() {
+            frameCount++;
+            
+            let isIdle = isGameStarted && (Date.now() - lastInputTime) > 6000;
+            skyOffset += ((isIdle && !activeModal ? 120 : 0) - skyOffset) * 0.03;
+
+            // 遊戲時間流逝 (放緩)
+            if (isGameStarted) state.time = (state.time + 0.1) % 2400;
+            let cH = Math.floor(state.time / 100);
+            if (cH !== lastHour) {
+                lastHour = cH;
+                if (cH === 0) {
+                    state.days++;
+                    if (state.days % 8 === 0) state.season = (state.season+1)%4; 
+                    if (Math.random() < 0.3) state.weather = Math.floor(Math.random()*3);
+                    updateFog(); saveGame();
+                }
+            }
+
+            // 生態自然推演
+            if (isGameStarted && frameCount % 60 === 0) runEcologicalGrowth();
+            if (isGameStarted) updateAnimals(); 
+
+            // 視覺平滑
+            if(pVisual.bounce > 0) pVisual.bounce *= 0.8;
+            pVisual.x += (state.px*TILE_SIZE - pVisual.x)*0.15; pVisual.y += (state.py*TILE_SIZE - pVisual.y)*0.15;
+            camera.x += (pVisual.x - camera.x)*0.08; camera.y += (pVisual.y - camera.y)*0.08;
+
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function draw() {
+            ctx.fillStyle = '#12141c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            let cx = canvas.width/2, cy = canvas.height/2 + skyOffset;
+            let sGx = Math.floor((camera.x-cx)/TILE_SIZE)-1, eGx = Math.floor((camera.x+cx)/TILE_SIZE)+1;
+            let sGy = Math.floor((camera.y-cy)/TILE_SIZE)-1, eGy = Math.floor((camera.y+cy)/TILE_SIZE)+1;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+            // 繪製地貌與物件
+            for (let x=sGx; x<=eGx; x++) for (let y=sGy; y<=eGy; y++) {
+                let sx = cx+(x*TILE_SIZE-camera.x), sy = cy+(y*TILE_SIZE-camera.y), dTP = Math.hypot(x-state.px, y-state.py);
+                if (dTP <= FOG_RADIUS) {
+                    let tile = getTileData(x, y);
+                    ctx.fillStyle = tile.color; ctx.fillRect(sx, sy, TILE_SIZE+0.5, TILE_SIZE+0.5); // +0.5 去除接縫細線
+                    ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.strokeRect(sx, sy, TILE_SIZE, TILE_SIZE);
+                    
+                    if (tile.obj) { 
+                        ctx.save(); ctx.translate(sx+TILE_SIZE/2, sy+TILE_SIZE/2 + (tile.obj==='🌱'?10:0));
+                        ctx.scale(tile.scale, tile.scale);
+                        ctx.font = `${TILE_SIZE*0.75}px sans-serif`; ctx.fillStyle='#000'; ctx.fillText(tile.obj, 0, 0); 
+                        ctx.restore();
+                    }
+                    if ((state.time>=1800 || state.time<500) && tile.bg==='grass') { let gS = hash(x,y,77); if(gS<0.08){ ctx.fillStyle = `rgba(167,243,208,${0.2+0.6*Math.sin(Date.now()/600+gS*300)})`; ctx.beginPath(); ctx.arc(sx+TILE_SIZE*gS, sy+TILE_SIZE*(1-gS), 2.5, 0, Math.PI*2); ctx.fill(); } }
+                } else { ctx.fillStyle = '#181b26'; ctx.fillRect(sx, sy, TILE_SIZE+1, TILE_SIZE+1); }
+            }
+
+            // 繪製動物
+            animals.forEach(a => {
+                let asx = cx+(a.vx-camera.x), asy = cy+(a.vy-camera.y);
+                ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.beginPath(); ctx.ellipse(asx+TILE_SIZE/2, asy+TILE_SIZE-4, 14*a.size, 5*a.size, 0, 0, Math.PI*2); ctx.fill();
+                ctx.save(); ctx.translate(asx+TILE_SIZE/2, asy+TILE_SIZE/2); ctx.scale(a.size, a.size);
+                ctx.font = `${TILE_SIZE*0.65}px sans-serif`; ctx.fillStyle = '#000'; ctx.fillText(a.emoji, 0, 0); ctx.restore();
+            });
+
+            // 繪製玩家種子 🌱
+            let psx = cx+(pVisual.x-camera.x), psy = cy+(pVisual.y-camera.y);
+            ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(psx+TILE_SIZE/2, psy+TILE_SIZE-4, 16 - pVisual.bounce, 6, 0, 0, Math.PI*2); ctx.fill();
+            ctx.save(); ctx.translate(psx+TILE_SIZE/2, psy+TILE_SIZE/2 - pVisual.bounce);
+            ctx.font = `${TILE_SIZE*0.75}px sans-serif`; ctx.fillStyle = '#000'; ctx.fillText('🌱', 0, 0); ctx.restore();
+
+            // 共鳴光波特效
+            pulseWaves.forEach((w, i) => {
+                let px = w.x !== undefined ? cx+(w.x-camera.x)+TILE_SIZE/2 : psx+TILE_SIZE/2;
+                let py = w.y !== undefined ? cy+(w.y-camera.y)+TILE_SIZE/2 : psy+TILE_SIZE/2;
+                ctx.beginPath(); ctx.arc(px, py, w.radius, 0, Math.PI*2);
+                ctx.strokeStyle = `rgba(167, 243, 208, ${w.alpha})`; ctx.lineWidth = w.small ? 3 : 6; ctx.stroke();
+                w.radius += w.small ? 5 : 12; w.alpha -= w.small ? 0.05 : 0.02;
+                if(w.alpha <= 0) pulseWaves.splice(i,1);
+            });
+
+            // 閒置仰望星空
+            if (skyOffset > 1) {
+                let isNight = (state.time >= 1800 || state.time < 500);
+                let skyC = isNight ? '20,25,40' : '135,206,235';
+                if (state.time >= 1650 && state.time < 1850) skyC = '250,140,80'; else if (state.time >= 450 && state.time < 650) skyC = '180,160,240';
+                let grad = ctx.createLinearGradient(0, 0, 0, skyOffset * 3);
+                grad.addColorStop(0, `rgba(${skyC}, 1)`); grad.addColorStop(1, `rgba(${skyC}, 0)`);
+                ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, skyOffset * 3);
+
+                let prog = isNight ? ((state.time < 500 ? state.time+2400 : state.time) - 1800)/1100 : (state.time - 500)/1300;
+                ctx.font = `${50 * (skyOffset/120)}px sans-serif`; ctx.fillText(isNight ? '🌙' : '☀️', canvas.width * prog, (skyOffset * 0.7) + Math.sin(prog * Math.PI) * -50);
+
+                if (isNight) {
+                    for(let i=0; i<18; i++) {
+                        let twinkle = Math.sin(Date.now()/(200+i*40) + i);
+                        if (twinkle > 0) { ctx.fillStyle = `rgba(255,255,255,${twinkle * (skyOffset/120)})`; ctx.fillText('✨', hash(i,1,state.seed)*canvas.width, hash(i,2,state.seed)*skyOffset*1.8); }
+                    }
+                }
+            }
+
+            // 天氣與時間濾鏡
+            let ol = null;
+            if (state.weather===2) ol='rgba(230,235,240,0.35)'; else if (state.weather===1) ol='rgba(120,140,160,0.2)';
+            if (state.time>=1650 && state.time<1850) ol = `rgba(250,120,50,${((state.time-1650)/200)*0.25})`;
+            else if (state.time>=1850 && state.time<2050) ol = `rgba(15,20,35,${0.25+((state.time-1850)/200)*0.4})`;
+            else if (state.time>=2050 || state.time<450) ol = 'rgba(12,15,25,0.65)';
+            else if (state.time>=450 && state.time<650) ol = `rgba(160,130,230,${(1-((state.time-450)/200))*0.3})`;
+            if (ol) { ctx.fillStyle=ol; ctx.fillRect(0,0,canvas.width,canvas.height); }
+
+            // 雨雪粒子
+            if (state.weather === 1) {
+                ctx.strokeStyle = state.season === 3 ? 'rgba(255,255,255,0.8)' : 'rgba(180,220,240,0.4)'; ctx.lineWidth = state.season === 3 ? 3 : 2;
+                rainDrops.forEach(d => {
+                    ctx.beginPath();
+                    if (state.season === 3) { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.arc(d.x, d.y, d.len*0.2, 0, Math.PI*2); ctx.fill(); d.y += d.speed*0.3; d.x += Math.sin(d.y*0.02)*0.5; } 
+                    else { ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + d.angle*2, d.y + d.len); ctx.stroke(); d.y += d.speed; d.x += d.angle*0.2; }
+                    if (d.y > canvas.height) { d.y = -20; d.x = Math.random() * canvas.width; }
+                });
+            }
+
+            document.getElementById('season-icon').innerText = SEASONS[state.season].icon; document.getElementById('weather-icon').innerText = WEATHERS[state.weather].icon;
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
