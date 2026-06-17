@@ -7,10 +7,19 @@
     
     <!-- 引入 Tailwind CSS 進行排版 -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 設定 Import Map，讓瀏覽器支援原生的 ES Module 載入 React -->
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime"
+        }
+    }
+    </script>
     
-    <!-- 引入 React 18 與 Babel (用於在瀏覽器直接編譯 JSX) -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- 引入 Babel 用於瀏覽器端編譯 JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
@@ -22,9 +31,10 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
-        // 從全域 React 物件中取出我們需要的 Hooks
-        const { useState, useEffect, useRef, useCallback } = React;
+    <!-- 加上 data-type="module" 解決 import 語法錯誤 -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef, useCallback } from 'react';
+        import { createRoot } from 'react-dom/client';
 
         const MAP_W = 14; const MAP_H = 9;
 
@@ -337,7 +347,7 @@
               else if(it.t === 'c'){ stat = `附加能力: ` + (it.atk ? `攻擊 +${it.atk}` : it.def ? `防禦 +${it.def}` : it.hp ? `最大HP +${it.hp}` : '') + `\n${it.sp==='immune'?'【特殊效果】完全免疫所有異常狀態':it.sp==='burn'?'【特殊效果】攻擊附帶燃燒':''}`; typeName = '飾品'; }
               setInfoModal({ type: 'item', id, isEq, title: `${it.e} ${it.n} ${lvl>0?'+'+lvl:''}`, desc: `【${typeName}】\n\n${stat}\n賣出價值: ${it.sell} 🪙`, status: isEq ? '⚔️ 裝備中' : '🎒 存放於背包' });
             } else if (type === 'skill') {
-              const sk = getSk(id, p); if(!sk) return; setInfoModal({ type: 'skill', id, title: `${sk.e} ${sk.n}`, desc: sk.d, status: sk.t==='p' ? '被動：自動生效' : `主動：消耗 ${sk.mp} 點 MP` });
+              const sk = getSk(id, p); if(!sk) return; setInfoModal({ type: 'skill', id, title: `${sk.e} ${sk.n}`, desc: sk.d, status: sk.t==='p' ? '被動：自動生效' : `主ంటే動：消耗 ${sk.mp} 點 MP` });
             } else if (type === 'job') {
               const j = JOBS[id]; if(!j) return;
               let reqText = Object.keys(j.req).length > 0 ? Object.keys(j.req).map(r => `${JOBS[r]?.n||''} Lv.${j.req[r]}`).join(', ') : '無';
@@ -1094,7 +1104,7 @@
           );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
+        const root = createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
