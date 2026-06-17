@@ -546,7 +546,7 @@
                     let ed = Math.max(1, Math.floor((en.atk||0)*(0.8+Math.random()*0.4)) - getDef(pl));
                     if(defMult < 1) ed = Math.floor(ed * defMult);
                     if(pl.st.freeze) ed = Math.floor(ed*1.5); 
-                    pl.hp -= ed; msg.push(`💥 ${en.n}攻擊，受 ${ed} 傷。`);
+                    pl.hp -= ed; msg.push(`💥 ${en.n}攻擊，你受到 ${ed} 傷害。`);
                     if(pl.st.sleep && ed>0) { pl.st.sleep=0; msg.push('💥 你被打醒了！'); }
                     if(en.sp && Math.random()<0.3) {
                        if(en.sp==='lifesteal') { let ls=Math.floor(ed*0.5); en.hp=Math.min(en.mhp, en.hp+ls); msg.push(`🦇 敵人吸取了 ${ls} 生命！`); }
@@ -1003,11 +1003,11 @@
                          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[2px]">
                            <div 
                               className="flex flex-col items-center cursor-pointer active:scale-95 transition-transform group" 
-                              onClick={() => !auto && doCombat('ATTACK')}
+                              onClick={() => { setAuto(!auto); if(!auto)print('>>> 啟動 BOT <<<');else print('>>> 終止 BOT <<<'); }}
                            >
                               <div className="text-6xl sm:text-7xl drop-shadow-[0_0_20px_rgba(255,0,0,0.8)] animate-bounce group-hover:drop-shadow-[0_0_30px_rgba(255,50,50,1)] transition-all">{enemy.e}</div>
-                              <div className="text-red-400 font-bold text-sm bg-black/60 border border-red-800 px-3 py-1 rounded animate-pulse mt-2 mb-3 flex items-center gap-1 shadow-[0_0_10px_rgba(255,0,0,0.4)]">
-                                 <span>⚔️</span> 點擊攻擊 <span>⚔️</span>
+                              <div className={`font-bold text-sm bg-black/60 border px-3 py-1 rounded animate-pulse mt-2 mb-3 flex items-center gap-1 ${auto ? 'text-yellow-400 border-yellow-600 shadow-[0_0_10px_rgba(250,204,21,0.4)]' : 'text-cyan-400 border-cyan-800 shadow-[0_0_10px_rgba(6,182,212,0.4)]'}`}>
+                                 <span>{auto ? '🛑' : '🔄'}</span> {auto ? '終止自動戰鬥' : '點選自動戰鬥'} <span>{auto ? '🛑' : '🔄'}</span>
                               </div>
                            </div>
                            <div className="bg-gray-900/90 border-2 border-red-800 p-2 sm:p-3 rounded-lg w-4/5 max-w-[280px] shadow-[0_0_15px_rgba(0,0,0,0.8)]">
@@ -1054,8 +1054,8 @@
                              🏃 逃跑
                           </button>
                         </div>
-                        <button onClick={()=>{setAuto(!auto); if(!auto)print('>>> 啟動 BOT <<<');else print('>>> 終止 BOT <<<');}} className={`w-full py-2 border-2 rounded ${auto?'border-yellow-500 text-yellow-500 animate-pulse bg-yellow-900/20':'border-green-800 text-green-500'} text-sm sm:text-base font-bold uppercase shrink-0`}>
-                           {auto?'STOP BOT':'AUTO BOT'}
+                        <button onClick={() => !auto && doCombat('ATTACK')} disabled={auto} className={`w-full py-2 border-2 rounded ${auto ? 'border-gray-700 text-gray-600 bg-gray-900/50' : 'border-red-800 text-red-500 hover:bg-red-900/40 active:bg-red-900/60'} text-sm sm:text-base font-bold uppercase shrink-0 transition-colors`}>
+                           ⚔️ 普通攻擊
                         </button>
                       </div>
                     ) : cMenu === 'ITEM' ? (
