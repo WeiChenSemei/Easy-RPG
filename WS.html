@@ -13,139 +13,246 @@
             background-color: #f0f4f8;
             overflow: hidden;
             font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
-            touch-action: none; /* 防止手機預設滑動行為 */
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
         }
         canvas {
             display: block;
         }
-        #ui {
+        
+        /* 遊戲內 UI */
+        #gameUi {
             position: absolute;
-            top: 10%;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            pointer-events: none;
+            opacity: 0; /* 初始隱藏，進入遊戲後顯示 */
+            transition: opacity 2s;
+            z-index: 10;
+        }
+        #seasonDisplay {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        #hintDisplay {
+            position: absolute;
+            bottom: 30px;
+            width: 100%;
             text-align: center;
             color: #fff;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            pointer-events: none;
-            transition: opacity 2s ease-in-out;
-        }
-        h1 {
-            font-size: 28px;
-            margin: 0 0 10px 0;
-            letter-spacing: 2px;
-        }
-        p {
             font-size: 16px;
-            margin: 0;
-            opacity: 0.9;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            opacity: 0.8;
+            pointer-events: none;
+            transition: opacity 1s;
+        }
+
+        /* 封面 UI */
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 1.5s ease;
+        }
+        #startScreen h1 {
+            font-size: 42px;
+            color: #334155;
+            margin: 0 0 15px 0;
+            letter-spacing: 4px;
+        }
+        #startScreen p {
+            font-size: 18px;
+            color: #475569;
+            margin: 0 0 40px 0;
+            text-align: center;
+            line-height: 1.6;
+        }
+        #startBtn {
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            background-color: #4ade80;
+            border: none;
+            border-radius: 30px;
+            box-shadow: 0 10px 20px rgba(74, 222, 128, 0.4);
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+            font-family: inherit;
+        }
+        #startBtn:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
 <body>
 
-    <div id="ui">
+    <!-- 遊戲封面 -->
+    <div id="startScreen">
         <h1>🌱 世界種子</h1>
-        <p>觸控或拖曳來探索<br>觀察世界的誕生與演化</p>
+        <p>這是一個會欣賞、回應你陪伴的溫柔天地。<br>遠方的時間流逝緩慢，<br>唯有你的駐足，能喚醒生機。</p>
+        <button id="startBtn">喚醒世界</button>
     </div>
+
+    <!-- 遊戲內介面 -->
+    <div id="gameUi">
+        <div id="seasonDisplay">🌸 春季 | ☀️ 晴朗</div>
+    </div>
+    <div id="hintDisplay">觸控或拖曳來探索世界</div>
 
     <canvas id="gameCanvas"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d', { alpha: false });
-        const ui = document.getElementById('ui');
+        const seasonDisplay = document.getElementById('seasonDisplay');
+        const hintDisplay = document.getElementById('hintDisplay');
 
         let W, H;
-        const TS = 60; // Tile Size (格子大小)
-        const GEN_RADIUS = 12; // 視野生成半徑
-        const MAX_ENTITIES = 100; // 最大實體數量限制
+        const TS = 60; // 基礎格子大小
+        const GEN_RADIUS = 12; 
+        const MAX_ENTITIES = 100;
+
+        // --- 狀態控制 ---
+        let isGameStarted = false;
+
+        // --- 時間與氣候系統 ---
+        let worldTime = 0; // 遊戲內時間流逝
+        const SEASON_LENGTH = 1200; // 每個季節的長度(Frame)
+        let season = 0; // 0:春, 1:夏, 2:秋, 3:冬
+        let weather = 0; // 0:晴, 1:雨, 2:雪
+        let weatherParticles = []; // 天氣特效粒子
+
+        const SEASON_NAMES = ["🌸 春季", "🌿 夏季", "🍁 秋季", "❄️ 冬季"];
+        const WEATHER_NAMES = ["☀️ 晴朗", "🌧️ 降雨", "🌨️ 降雪"];
 
         // 地形種類: 0=泥土, 1=草地, 2=水域
-        const TERRAIN_COLORS = ['#d2b48c', '#a9d18e', '#7caee3'];
+        // 四季的色彩配置 (產生漸變與季節感)
+        const PALETTES = [
+            ['#d2b48c', '#a9d18e', '#7caee3'], // 0:春 (生機)
+            ['#c4a072', '#86c45e', '#669ed6'], // 1:夏 (濃綠)
+            ['#ab8e67', '#d6b761', '#6e9bc2'], // 2:秋 (金黃)
+            ['#e3e8ea', '#f4f9fb', '#a1cce3']  // 3:冬 (雪白冰結)
+        ];
         
-        // 遊戲資料
-        const map = new Map(); // key: "x,y", value: { t: terrain, f: feature_emoji, age: number }
-        const entities = []; // 動態小生物
-        const particles = []; // 情感與特效粒子
+        const map = new Map();
+        const entities = []; 
+        const particles = []; 
 
-        // 玩家狀態
-        let pX = 0, pY = 0; // 玩家世界座標
-        let cX = 0, cY = 0; // 攝影機世界座標
+        let pX = 0, pY = 0; 
+        let cX = 0, cY = 0; 
         let targetX = 0, targetY = 0;
         let isMoving = false;
-        let hasMoved = false;
 
-        // 初始化畫布
+        // 初始化
         function resize() {
             W = canvas.width = window.innerWidth;
             H = canvas.height = window.innerHeight;
+            // 重新初始化天氣粒子位置
+            weatherParticles = [];
+            for(let i=0; i<100; i++) {
+                weatherParticles.push({x: Math.random()*W, y: Math.random()*H, s: Math.random()});
+            }
         }
         window.addEventListener('resize', resize);
         resize();
-
-        // 初始生成起始點
         map.set('0,0', { t: 1, f: null, age: 0 });
 
-        // --- 特效系統 ---
-        function spawnParticle(x, y, emoji, lifeStr) {
-            particles.push({
-                x: x, y: y, emoji: emoji,
-                life: lifeStr, maxLife: lifeStr,
-                vy: -0.01 - Math.random() * 0.02
-            });
+        // --- 色彩漸變與視覺輔助 ---
+        // 顏色混和函數，讓季節轉換平滑
+        function lerpColor(a, b, amount) { 
+            let ah = parseInt(a.replace(/#/g, ''), 16), ar = ah >> 16, ag = ah >> 8 & 0xff, ab = ah & 0xff;
+            let bh = parseInt(b.replace(/#/g, ''), 16), br = bh >> 16, bg = bh >> 8 & 0xff, bb = bh & 0xff;
+            let rr = ar + amount * (br - ar), rg = ag + amount * (bg - ag), rb = ab + amount * (bb - ab);
+            return '#' + ((1 << 24) + (rr << 16) + (rg << 8) + rb | 0).toString(16).slice(1);
+        }
+
+        // 根據季節動態回傳該畫出的Emoji (底層資料不變，僅改變外觀)
+        function getSeasonalEmoji(baseEmoji, currentSeason) {
+            if (!baseEmoji) return null;
+            if (currentSeason === 2) { // 秋天
+                const autumnMap = { '🌳': '🍁', '🌿': '🍂', '🌸': '🥀' };
+                return autumnMap[baseEmoji] || baseEmoji;
+            }
+            if (currentSeason === 3) { // 冬天
+                const winterMap = { '🌳': '🪵', '🌿': null, '🌸': null, '🌱': null, '🌾': '⛄', '🪷': null, '🎋': '🪵' };
+                return winterMap[baseEmoji] !== undefined ? winterMap[baseEmoji] : baseEmoji;
+            }
+            return baseEmoji; // 春、夏保持原樣
         }
 
         // --- 輸入控制 ---
         function updateTarget(clientX, clientY) {
-            // 螢幕座標轉世界座標
+            if (!isGameStarted) return;
             targetX = cX + (clientX - W / 2) / TS;
             targetY = cY + (clientY - H / 2) / TS;
             isMoving = true;
-            
-            if (!hasMoved) {
-                hasMoved = true;
-                ui.style.opacity = '0'; // 隱藏提示
-            }
+            hintDisplay.style.opacity = '0';
         }
 
         canvas.addEventListener('pointerdown', e => updateTarget(e.clientX, e.clientY));
         canvas.addEventListener('pointermove', e => {
-            if (e.buttons > 0 || e.touches?.length > 0) {
-                updateTarget(e.clientX, e.clientY);
-            }
+            if (e.buttons > 0 || e.touches?.length > 0) updateTarget(e.clientX, e.clientY);
         });
         canvas.addEventListener('pointerup', () => isMoving = false);
         canvas.addEventListener('pointercancel', () => isMoving = false);
 
-        // --- 世界生成與演化邏輯 ---
+        document.getElementById('startBtn').addEventListener('click', () => {
+            document.getElementById('startScreen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('startScreen').style.display = 'none';
+                document.getElementById('gameUi').style.opacity = '1';
+                isGameStarted = true;
+                generateWorld();
+            }, 1000);
+        });
 
-        // 根據周圍地形決定新地形 (產生區塊感)
-        function getNeighborTerrain(x, y) {
-            const neighbors = [
-                map.get(`${x-1},${y}`), map.get(`${x+1},${y}`),
-                map.get(`${x},${y-1}`), map.get(`${x},${y+1}`)
-            ];
-            const valid = neighbors.filter(n => n !== undefined);
-            if (valid.length > 0 && Math.random() < 0.85) {
-                return valid[Math.floor(Math.random() * valid.length)].t;
-            }
-            return Math.floor(Math.random() * 3); // 隨機地形
+        // --- 核心邏輯 ---
+        function spawnParticle(x, y, emoji, lifeStr) {
+            particles.push({
+                x: x, y: y, emoji: emoji, life: lifeStr, maxLife: lifeStr,
+                vy: -0.01 - Math.random() * 0.02
+            });
         }
 
-        // 探索生成地圖
+        function spawnEntity(x, y, emojis) {
+            if (entities.length >= MAX_ENTITIES) return;
+            let emoji = emojis[Math.floor(Math.random() * emojis.length)];
+            entities.push({
+                x: x, y: y, emoji: emoji,
+                vx: (Math.random() - 0.5) * 0.04,
+                vy: (Math.random() - 0.5) * 0.04,
+                life: 600 + Math.random() * 600
+            });
+        }
+
+        function getNeighborTerrain(x, y) {
+            const neighbors = [map.get(`${x-1},${y}`), map.get(`${x+1},${y}`), map.get(`${x},${y-1}`), map.get(`${x},${y+1}`)];
+            const valid = neighbors.filter(n => n !== undefined);
+            if (valid.length > 0 && Math.random() < 0.85) return valid[Math.floor(Math.random() * valid.length)].t;
+            return Math.floor(Math.random() * 3);
+        }
+
         function generateWorld() {
-            let prx = Math.floor(pX);
-            let pry = Math.floor(pY);
+            let prx = Math.floor(pX), pry = Math.floor(pY);
             for (let dx = -GEN_RADIUS; dx <= GEN_RADIUS; dx++) {
                 for (let dy = -GEN_RADIUS; dy <= GEN_RADIUS; dy++) {
                     if (dx * dx + dy * dy <= GEN_RADIUS * GEN_RADIUS) {
-                        let gx = prx + dx;
-                        let gy = pry + dy;
-                        let key = `${gx},${gy}`;
+                        let gx = prx + dx, gy = pry + dy, key = `${gx},${gy}`;
                         if (!map.has(key)) {
-                            let t = getNeighborTerrain(gx, gy);
-                            let f = null;
-                            // 偶爾生成初始石頭
+                            let t = getNeighborTerrain(gx, gy), f = null;
                             if (t === 0 && Math.random() < 0.05) f = '🪨';
                             map.set(key, { t, f, age: 0 });
                         }
@@ -154,188 +261,186 @@
             }
         }
 
-        // 生成實體(小動物)
-        function spawnEntity(x, y, emojis) {
-            if (entities.length >= MAX_ENTITIES) return;
-            let emoji = emojis[Math.floor(Math.random() * emojis.length)];
-            entities.push({
-                x: x, y: y, emoji: emoji,
-                vx: (Math.random() - 0.5) * 0.04,
-                vy: (Math.random() - 0.5) * 0.04,
-                life: 600 + Math.random() * 600 // 存活時間
-            });
-        }
-
-        // 蔓延地形
         function spreadTerrain(x, y, fromT, toT) {
             const dirs = [[-1,0], [1,0], [0,-1], [0,1]];
             let dir = dirs[Math.floor(Math.random() * 4)];
             let nTile = map.get(`${x + dir[0]},${y + dir[1]}`);
-            if (nTile && nTile.t === fromT && !nTile.f) {
-                nTile.t = toT;
-            }
+            if (nTile && nTile.t === fromT && !nTile.f) nTile.t = toT;
         }
 
-        // 世界自然演化 (定時觸發)
+        // 生態模擬
         function simulateEcosystem() {
-            let prx = Math.floor(pX);
-            let pry = Math.floor(pY);
+            if (!isGameStarted) return;
             
-            // 掃描玩家附近的格子進行演化
+            let prx = Math.floor(pX), pry = Math.floor(pY);
+            
             for (let dx = -GEN_RADIUS; dx <= GEN_RADIUS; dx++) {
                 for (let dy = -GEN_RADIUS; dy <= GEN_RADIUS; dy++) {
-                    let gx = prx + dx;
-                    let gy = pry + dy;
+                    let gx = prx + dx, gy = pry + dy;
                     let tile = map.get(`${gx},${gy}`);
                     
                     if (tile) {
-                        tile.age++; // 土地隨時間變老/成熟
+                        let distToPlayer = Math.sqrt(Math.pow(gx - pX, 2) + Math.pow(gy - pY, 2));
+                        
+                        // 1. 時間的相對論：遠處極慢(0.1)，靠近玩家正常(1.0)
+                        let growthRate = (distToPlayer <= 5) ? 1.0 : 0.05;
+                        
+                        // 氣候對生長的影響
+                        if (season === 0 && weather === 1) growthRate *= 3.0; // 春雨：萬物瘋長
+                        if (season === 3) growthRate = 0; // 冬天：停止生長休眠
 
-                        if (Math.random() < 0.02) { // 2%機率該格發生生態事件
-                            
-                            // 1. 陪伴成長的植物 (依年齡進化)
-                            if (tile.t === 1) { // 草地
-                                if (!tile.f && tile.age > 20 && Math.random() < 0.1) {
-                                    tile.f = '🌿'; // 長出嫩葉
-                                } else if (tile.f === '🌿' && tile.age > 100) {
-                                    tile.f = Math.random() < 0.3 ? '🌳' : '🌸'; // 長成樹或花
-                                } else if (tile.f === '🌳' && tile.age > 500) {
-                                    tile.f = '🌲'; // 隨著世界長大，變成古樹
-                                }
+                        tile.age += growthRate;
+
+                        // 演化事件機率：遠處幾乎不演化
+                        let eventChance = (distToPlayer <= 5) ? 0.02 : 0.001;
+                        if (season === 0 && weather === 1) eventChance *= 2; // 春雨演化加快
+                        if (season === 3) eventChance = 0; // 冬天不演化
+
+                        if (Math.random() < eventChance) { 
+                            if (tile.t === 1) { // 草地植物進化
+                                if (!tile.f && tile.age > 20 && Math.random() < 0.1) tile.f = '🌿';
+                                else if (tile.f === '🌿' && tile.age > 100) tile.f = Math.random() < 0.3 ? '🌳' : '🌸';
+                                else if (tile.f === '🌳' && tile.age > 500) tile.f = '🌲';
                             }
-                            else if (tile.t === 2 && !tile.f && tile.age > 50) { // 水域
+                            else if (tile.t === 2 && !tile.f && tile.age > 50) { // 水域植物
                                 if (Math.random() < 0.1) tile.f = Math.random() < 0.5 ? '🪷' : '🎋';
                             }
                             
-                            // 2. 繁殖與吸引動物
-                        }
+                            // 動物生成 (冬天不生)
+                            if (season !== 3) {
+                                if ((tile.f === '🌳' || tile.f === '🌲') && Math.random() < 0.1) spawnEntity(gx, gy, ['🐇', '🦌', '🐦', '🐿️']);
+                                else if ((tile.f === '🌸') && Math.random() < 0.2) spawnEntity(gx, gy, ['🦋', '🐝']);
+                                else if (tile.t === 2 && Math.random() < 0.05) spawnEntity(gx, gy, ['🐟', '🐸', '🦆']);
+                            }
 
-                        // 3. 地貌蔓延
-                        if (tile.t === 2 && Math.random() < 0.1) spreadTerrain(gx, gy, 0, 2); // 水淹沒泥土
-                        if (tile.t === 1 && Math.random() < 0.1) spreadTerrain(gx, gy, 0, 1); // 草地覆蓋泥土
+                            // 蔓延
+                            if (tile.t === 2 && Math.random() < 0.1) spreadTerrain(gx, gy, 0, 2);
+                            if (tile.t === 1 && Math.random() < 0.1) spreadTerrain(gx, gy, 0, 1);
+                        }
                     }
                 }
             }
 
-            // 更新實體(動物)狀態
+            // 更新動物
             for (let i = entities.length - 1; i >= 0; i--) {
                 let e = entities[i];
-                e.x += e.vx;
-                e.y += e.vy;
-                e.life--;
+                e.x += e.vx; e.y += e.vy; e.life--;
 
-                // 動物對玩家的陪伴與回應
                 let distToPlayer = Math.sqrt(Math.pow(e.x - pX, 2) + Math.pow(e.y - pY, 2));
                 if (distToPlayer < 3) {
-                    // 靠近玩家時，動物會慢下來並冒出愛心或音符
-                    e.vx *= 0.8;
-                    e.vy *= 0.8;
+                    e.vx *= 0.8; e.vy *= 0.8; // 靠近玩家慢下來
                     if (Math.random() < 0.05) spawnParticle(e.x, e.y - 0.5, Math.random() > 0.5 ? '💖' : '🎵', 40);
                 }
 
-                // 隨機改變方向
                 if (Math.random() < 0.05) {
-                    e.vx += (Math.random() - 0.5) * 0.04;
-                    e.vy += (Math.random() - 0.5) * 0.04;
-                    // 限制最大速度
-                    e.vx = Math.max(-0.03, Math.min(0.03, e.vx));
-                    e.vy = Math.max(-0.03, Math.min(0.03, e.vy));
+                    e.vx += (Math.random() - 0.5) * 0.04; e.vy += (Math.random() - 0.5) * 0.04;
+                    e.vx = Math.max(-0.03, Math.min(0.03, e.vx)); e.vy = Math.max(-0.03, Math.min(0.03, e.vy));
                 }
 
-                // 如果壽命耗盡或離玩家太遠則消失(回歸自然)
-                let dist = Math.abs(e.x - pX) + Math.abs(e.y - pY);
-                if (e.life <= 0 || dist > GEN_RADIUS + 5) {
-                    entities.splice(i, 1);
-                }
+                if (e.life <= 0 || (Math.abs(e.x - pX) + Math.abs(e.y - pY)) > GEN_RADIUS + 5) entities.splice(i, 1);
             }
         }
-        setInterval(simulateEcosystem, 500); // 每0.5秒模擬一次生態
+        setInterval(simulateEcosystem, 500);
 
         // --- 主遊戲迴圈 ---
         function loop() {
-            // 玩家移動
-            if (isMoving) {
-                let dx = targetX - pX;
-                let dy = targetY - pY;
-                let dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist > 0.05) {
-                    pX += (dx / dist) * 0.12; // 移動速度
-                    pY += (dy / dist) * 0.12;
+            if (isGameStarted) {
+                // 處理環境時間與氣候
+                worldTime++;
+                season = Math.floor(worldTime / SEASON_LENGTH) % 4;
+                
+                // 每隔一段時間變更天氣
+                if (worldTime % 300 === 0) {
+                    let r = Math.random();
+                    if (season === 0) weather = r < 0.4 ? 1 : 0; // 春: 40%下雨
+                    else if (season === 1) weather = r < 0.2 ? 1 : 0; // 夏: 20%下雨
+                    else if (season === 2) weather = 0; // 秋: 晴朗
+                    else if (season === 3) weather = r < 0.5 ? 2 : 0; // 冬: 50%下雪
+                    
+                    seasonDisplay.innerText = `${SEASON_NAMES[season]} | ${WEATHER_NAMES[weather]}`;
                 }
 
-                // 玩家(種子)走過泥土會長出草
-                let curTileX = Math.floor(pX);
-                let curTileY = Math.floor(pY);
-                let curTile = map.get(`${curTileX},${curTileY}`);
-                if (curTile) {
-                    curTile.age += 5; // 玩家的陪伴會加速土地與植物的成長
-                    if (curTile.t === 0) {
-                        curTile.t = 1; // 轉為草地
-                        if (Math.random() < 0.2 && !curTile.f) curTile.f = '🌱'; // 留下小芽
-                        spawnParticle(pX, pY, '✨', 30); // 世界因你而閃耀
-                    } else if (Math.random() < 0.02) {
-                        spawnParticle(pX, pY, '✨', 20); // 待在草地上也會有微光回應
+                // 玩家移動
+                if (isMoving) {
+                    let dx = targetX - pX, dy = targetY - pY;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0.05) { pX += (dx / dist) * 0.12; pY += (dy / dist) * 0.12; }
+
+                    let curTile = map.get(`${Math.floor(pX)},${Math.floor(pY)}`);
+                    if (curTile) {
+                        curTile.age += 5; // 腳下大地因陪伴加速生長
+                        if (curTile.t === 0 && season !== 3) { // 冬天走過不長草
+                            curTile.t = 1; 
+                            if (Math.random() < 0.2 && !curTile.f) curTile.f = '🌱';
+                            spawnParticle(pX, pY, '✨', 30);
+                        } else if (Math.random() < 0.02) {
+                            spawnParticle(pX, pY, '✨', 20);
+                        }
                     }
+                    generateWorld();
                 }
-                
-                generateWorld();
             }
 
-            // 平滑攝影機跟隨
             cX += (pX - cX) * 0.1;
             cY += (pY - cY) * 0.1;
 
-            // 日夜交替 (溫柔的時間流逝)
-            let timeOfDay = (Date.now() * 0.00005) % (Math.PI * 2); 
-            let nightDarkness = Math.max(0, Math.sin(timeOfDay)) * 0.35; // 夜晚濾鏡透明度
+            // 計算色彩漸變 (換季的最後 10% 時間進行平滑色彩過渡)
+            let seasonProgress = (worldTime % SEASON_LENGTH) / SEASON_LENGTH;
+            let paletteOffset = 0;
+            let currentPalette = PALETTES[season];
+            let nextPalette = PALETTES[(season + 1) % 4];
+            
+            let transitionStart = 0.85; // 季節過度期
+            let blendAmount = 0;
+            if (seasonProgress > transitionStart) {
+                blendAmount = (seasonProgress - transitionStart) / (1 - transitionStart);
+            }
+
+            let colors = [
+                lerpColor(currentPalette[0], nextPalette[0], blendAmount),
+                lerpColor(currentPalette[1], nextPalette[1], blendAmount),
+                lerpColor(currentPalette[2], nextPalette[2], blendAmount)
+            ];
 
             // 繪圖準備
-            ctx.fillStyle = '#f0f4f8';
+            ctx.fillStyle = colors[0]; // 背景預設泥土色
             ctx.fillRect(0, 0, W, H);
             
             ctx.save();
             ctx.translate(W / 2 - cX * TS, H / 2 - cY * TS);
 
-            // 計算可視範圍，只渲染畫面內的區塊以提升效能
-            let minX = Math.floor(cX - W / 2 / TS) - 1;
-            let maxX = Math.ceil(cX + W / 2 / TS) + 1;
-            let minY = Math.floor(cY - H / 2 / TS) - 1;
-            let maxY = Math.ceil(cY + H / 2 / TS) + 1;
+            let minX = Math.floor(cX - W / 2 / TS) - 1, maxX = Math.ceil(cX + W / 2 / TS) + 1;
+            let minY = Math.floor(cY - H / 2 / TS) - 1, maxY = Math.ceil(cY + H / 2 / TS) + 1;
 
             // 繪製地圖
             for (let x = minX; x <= maxX; x++) {
                 for (let y = minY; y <= maxY; y++) {
                     let tile = map.get(`${x},${y}`);
                     if (tile) {
-                        // 畫背景地形 (+1像素避免接縫)
-                        ctx.fillStyle = TERRAIN_COLORS[tile.t];
+                        ctx.fillStyle = colors[tile.t];
                         ctx.fillRect(x * TS - 0.5, y * TS - 0.5, TS + 1, TS + 1);
 
-                        // 畫固定景物
-                        if (tile.f) {
+                        // 繪製景物 (結合季節外觀轉換)
+                        let renderEmoji = getSeasonalEmoji(tile.f, season);
+                        if (renderEmoji) {
                             ctx.font = `${TS * 0.6}px sans-serif`;
-                            ctx.textAlign = 'center';
-                            ctx.textBaseline = 'middle';
-                            ctx.fillText(tile.f, (x + 0.5) * TS, (y + 0.5) * TS);
+                            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                            ctx.fillText(renderEmoji, (x + 0.5) * TS, (y + 0.5) * TS);
                         }
                     }
                 }
             }
 
-            // 繪製動物實體
+            // 繪製動物
             ctx.font = `${TS * 0.45}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
             for (let e of entities) {
-                // 若動物面向左，可以做翻轉，但Emoji簡單畫就好
                 ctx.fillText(e.emoji, e.x * TS, e.y * TS);
             }
 
             // 繪製情感粒子
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
-                p.y += p.vy;
-                p.life--;
+                p.y += p.vy; p.life--;
                 ctx.globalAlpha = p.life / p.maxLife;
                 ctx.font = `${TS * 0.3}px sans-serif`;
                 ctx.fillText(p.emoji, p.x * TS, p.y * TS);
@@ -343,29 +448,50 @@
             }
             ctx.globalAlpha = 1.0;
 
-            // 繪製玩家(發光的種子)
-            let pulse = 1 + Math.sin(Date.now() * 0.005) * 0.1;
-            ctx.font = `${TS * 0.7 * pulse}px sans-serif`;
-            
-            // 增添發光特效
-            ctx.shadowColor = '#fff';
-            ctx.shadowBlur = 15;
-            ctx.fillText('🌱', pX * TS, pY * TS);
-            ctx.shadowBlur = 0; // 恢復
+            // 繪製玩家(種子)
+            if (isGameStarted) {
+                let pulse = 1 + Math.sin(Date.now() * 0.005) * 0.1;
+                ctx.font = `${TS * 0.7 * pulse}px sans-serif`;
+                ctx.shadowColor = '#fff'; ctx.shadowBlur = 15;
+                ctx.fillText('🌱', pX * TS, pY * TS);
+                ctx.shadowBlur = 0;
+            }
 
             ctx.restore();
 
-            // 畫上日夜濾鏡 (世界陪伴你度過時光)
-            if (nightDarkness > 0) {
-                ctx.fillStyle = `rgba(10, 10, 40, ${nightDarkness})`;
-                ctx.fillRect(0, 0, W, H);
+            // 繪製天氣特效 (在相機坐標系外，跟隨螢幕)
+            if (isGameStarted) {
+                if (weather === 1 && season !== 3) { // 雨
+                    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    weatherParticles.forEach(p => {
+                        p.y += 18 * (p.s + 0.5); p.x -= 4 * (p.s + 0.5);
+                        if(p.y > H) { p.y = -20; p.x = Math.random() * W + W * 0.2; }
+                        ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - 4, p.y + 15);
+                    });
+                    ctx.stroke();
+                } else if (weather === 2 || (season === 3 && weather === 1)) { // 雪
+                    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                    weatherParticles.forEach(p => {
+                        p.y += 2 * (p.s + 0.5); p.x += Math.sin(worldTime * 0.02 + p.s * 10) * 1;
+                        if(p.y > H) { p.y = -20; p.x = Math.random() * W; }
+                        ctx.beginPath(); ctx.arc(p.x, p.y, 3 * p.s + 1, 0, Math.PI * 2); ctx.fill();
+                    });
+                }
+
+                // 溫和的日夜交替
+                let timeOfDay = (worldTime * 0.003) % (Math.PI * 2); 
+                let nightDarkness = Math.max(0, Math.sin(timeOfDay)) * 0.3;
+                if (nightDarkness > 0) {
+                    ctx.fillStyle = `rgba(10, 15, 30, ${nightDarkness})`;
+                    ctx.fillRect(0, 0, W, H);
+                }
             }
 
             requestAnimationFrame(loop);
         }
 
-        // 啟動遊戲
-        generateWorld();
         loop();
 
     </script>
