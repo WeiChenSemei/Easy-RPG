@@ -639,14 +639,14 @@
     }
 
     async function sweepDeadChests() {
-    // 找出所有：是寶箱怪 (baseId === 99) + 已經死亡 + 還沒被搜刮過 (!isLooted) 的怪物
-    let deadChests = gameState.enemies.filter(e => e.baseId === 99 && e.isDead && !e.isLooted);
+    // 找出所有：是寶箱怪 (baseId === 99)或是金屬怪 + 已經死亡 + 還沒被搜刮過 (!isLooted) 的怪物
+    let deadChests = gameState.enemies.filter(e => (e.baseId === 99 || e.isMetal) && e.isDead && !e.isLooted);
     for (let chest of deadChests) {
         chest.isLooted = true; // 標記為已搜刮，防止重複開箱
         let alives = gameState.party.filter(h => !h.isDead);
         if (alives.length > 0) {
             let luckyHero = alives[Math.floor(Math.random() * alives.length)]; // 隨機派一位活著的隊友去開
-            logAndMsg(`📦 『${luckyHero.name}』發現寶箱裡面是:`, 'text-yellow-300', 'bg-yellow-800');
+            logAndMsg('📦 『${luckyHero.name}』從【${chest.shortName || chest.name}】身上搜刮到戰利品:', 'text-yellow-300', 'bg-yellow-800');
             await sleep(1000);
             await triggerChestReward(luckyHero);
           }
