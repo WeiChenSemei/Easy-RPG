@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>霓虹收割：覺醒與共鳴 v6.2</title>
+    <title>霓虹收割：覺醒與共鳴 v7.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -15,13 +15,15 @@
         @keyframes typing { from { width: 0 } to { width: 100% } }
         @keyframes glitch-anim { 0% { transform: translate(0) } 20% { transform: translate(-2px, 1px) } 40% { transform: translate(1px, -1px) } 60% { transform: translate(-1px, 2px) } 80% { transform: translate(2px, -1px) } 100% { transform: translate(0) } }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #06b6d4; border-radius: 4px; }
+        .err-glitch { animation: err-anim 0.1s infinite; }
+        @keyframes err-anim { 0% { transform: translate(0) scale(1) } 50% { transform: translate(-3px, 3px) scale(1.02) } 100% { transform: translate(3px, -3px) scale(0.98) } }
     </style>
 </head>
 <body class="w-screen h-screen flex flex-col justify-between select-none bg-gray-950">
 
     <header class="w-full bg-gray-900/90 border-b border-cyan-500/30 p-2 flex justify-between items-center z-10">
         <div class="flex items-center space-x-3">
-            <span class="text-rose-500 font-bold tracking-wider glow" id="brand-logo">NEON_REAPER v6.2</span>
+            <span class="text-rose-500 font-bold tracking-wider glow" id="brand-logo">NEON_REAPER v7.2</span>
             <span id="coin-display" class="text-yellow-400 text-xs font-bold glow"><i class="fas fa-coins"></i> 0</span>
         </div>
         <div class="flex items-center space-x-2">
@@ -42,7 +44,6 @@
     <main class="relative flex-grow w-full flex items-center justify-center overflow-hidden">
         <canvas id="game-canvas" class="absolute top-0 left-0 block z-0"></canvas>
         
-        <!-- 動態文字日誌終端 -->
         <div class="absolute right-4 top-16 w-56 flex flex-col z-10 pointer-events-none">
             <div id="terminal-log" class="flex flex-col space-y-1 mb-2"></div>
             <div class="w-full h-1.5 bg-gray-800 rounded overflow-hidden border border-cyan-900/50">
@@ -56,18 +57,24 @@
             <div id="dream-timer" class="text-white text-xl font-bold mt-1">30.00s</div>
         </div>
 
+        <div id="error-hud" class="absolute top-16 left-1/2 transform -translate-x-1/2 text-center hidden z-10 pointer-events-none">
+            <div class="text-red-500 font-black text-4xl tracking-widest glow err-glitch">ERROR MODE OVERRIDE</div>
+            <div class="text-white text-xs mt-1 bg-red-900/80 px-2 py-1 rounded inline-block">穩定度崩潰 | 存活至重開機以獲得超脫</div>
+            <div id="error-timer" class="text-red-400 text-3xl font-black mt-2 glow">60.00s</div>
+        </div>
+
         <div id="joystick-zone" class="absolute inset-0 z-10 pointer-events-auto">
             <div id="joystick-base" class="absolute w-20 h-20 rounded-full border-2 border-cyan-500/40 bg-cyan-950/30 hidden flex justify-center items-center pointer-events-none transition-opacity duration-150">
                 <div id="joystick-stick" class="w-8 h-8 rounded-full bg-cyan-400/80 shadow-[0_0_10px_#22d3ee] pointer-events-none absolute"></div>
             </div>
         </div>
 
-        <div id="awaken-warn" class="absolute top-10 text-red-500 font-black text-2xl tracking-widest glitch hidden z-10 glow text-center">ERROR_MODE: OVERRIDDEN</div>
+        <div id="awaken-warn" class="absolute top-10 text-red-500 font-black text-2xl tracking-widest glitch hidden z-10 glow text-center">ERROR_MODE: PENDING</div>
         <div id="build-status" class="absolute bottom-4 left-4 right-4 flex space-x-2 z-10 pointer-events-none flex-wrap gap-y-2"></div>
 
         <div id="menu-overlay" class="absolute inset-0 bg-gray-950 z-20 flex flex-col items-center p-6 overflow-y-auto">
             <h1 class="text-4xl font-black text-cyan-400 tracking-widest glow mt-4 mb-2">NEON REAPER</h1>
-            <p id="title-badge" class="text-gray-400 text-xs mb-6">局外成長與載體設定終端</p>
+            <p id="title-badge" class="text-gray-400 text-xs mb-6">v7.2 狂熱復甦</p>
             
             <div class="w-full max-w-3xl grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
@@ -90,22 +97,29 @@
         </div>
 
         <div id="upgrade-overlay" class="absolute inset-0 bg-gray-950/95 z-20 hidden flex-col items-center justify-center p-4">
-            <h2 class="text-2xl font-bold text-cyan-400 mb-1 tracking-widest glow">系統升級已就緒</h2>
+            <h2 id="upgrade-title" class="text-2xl font-bold text-cyan-400 mb-1 tracking-widest glow">系統升級已就緒</h2>
             <div id="upgrade-cards" class="flex flex-col gap-3 w-full max-w-sm mt-4"></div>
         </div>
 
-        <!-- 雙人格解鎖面板 -->
+        <div id="anom-overlay" class="absolute inset-0 bg-red-950/95 z-30 hidden flex-col items-center justify-center p-4">
+            <h2 class="text-3xl font-black text-red-500 mb-1 tracking-widest glow glitch">⚠️ 異常協議檢測 ⚠️</h2>
+            <p class="text-gray-300 text-sm mb-6">檢測到非法代碼介入，請選擇要掛載的高風險協議：</p>
+            <div id="anom-cards" class="flex flex-col gap-3 w-full max-w-sm"></div>
+            <button id="anom-skip" class="mt-6 px-6 py-2 border border-gray-500 text-gray-400 hover:text-white hover:border-white rounded text-sm transition">拒絕協議 (Skip)</button>
+        </div>
+
         <div id="pers2-overlay" class="absolute inset-0 bg-purple-950/95 z-30 hidden flex-col items-center justify-center p-4">
             <h2 class="text-3xl font-black text-purple-400 mb-1 tracking-widest glow glitch">SECTOR 10 REACHED</h2>
             <p class="text-white text-sm mb-6">神經突觸已擴展。請選擇第二人格進行深度共鳴。</p>
             <div id="pers2-cards" class="flex flex-col gap-3 w-full max-w-sm"></div>
         </div>
 
-        <div id="gameover-overlay" class="absolute inset-0 bg-red-950/95 z-20 hidden flex-col items-center justify-center p-6 text-center">
-            <h2 class="text-4xl font-black text-red-500 mb-2 glow">系統崩潰 (CRASH)</h2>
-            <div class="bg-black/50 p-4 rounded mb-4">
-                <p class="text-gray-400 text-sm">存活波次: <span id="final-wave" class="font-bold text-white text-lg">1</span></p>
-                <p class="text-gray-400 text-sm">獲得代幣: <span id="final-coins" class="text-yellow-400 font-bold text-lg">0</span></p>
+        <div id="gameover-overlay" class="absolute inset-0 bg-black/95 z-40 hidden flex-col items-center justify-center p-6 text-center">
+            <h2 id="gameover-title" class="text-5xl font-black text-red-500 mb-2 glow err-glitch">系統崩潰 (CRASH)</h2>
+            <div class="bg-gray-900/80 border border-gray-700 p-4 rounded mb-6 mt-4 min-w-[250px]">
+                <p class="text-gray-400 text-sm mb-1">存活波次: <span id="final-wave" class="font-bold text-white text-xl">1</span></p>
+                <p class="text-gray-400 text-sm mb-1">獲得代幣: <span id="final-coins" class="text-yellow-400 font-bold text-xl">0</span></p>
+                <p id="transcend-bonus" class="text-cyan-400 text-xs hidden mt-2 border-t border-gray-700 pt-2">+500 幣 (超脫獎勵)</p>
             </div>
             <button id="restart-btn" class="px-8 py-3 bg-red-600 font-bold rounded shadow-[0_0_15px_#dc2626] hover:bg-red-500 transition-all hover:scale-105">回主控制台</button>
         </div>
@@ -122,11 +136,11 @@
         function stepBGM() {
             if(!audioCtx || state.pause || !state.r) return;
             if(audioCtx.currentTime >= bgmNextT) {
-                let o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = 'square'; 
-                o.frequency.value = bgmNotes[bgmIdx % bgmNotes.length] * (state.p.awk ? 1.5 : 1);
+                let o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = state.errM>0 ? 'sawtooth' : 'square'; 
+                o.frequency.value = bgmNotes[bgmIdx % bgmNotes.length] * (state.errM>0?2:(state.p.awk?1.5:1));
                 g.gain.setValueAtTime(0.015, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
                 o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + 0.15);
-                bgmIdx++; bgmNextT = audioCtx.currentTime + (state.p.awk ? 0.12 : 0.2);
+                bgmIdx++; bgmNextT = audioCtx.currentTime + (state.errM>0?0.08:(state.p.awk?0.12:0.2));
             }
         }
         function tLog(msg, c='#fff') {
@@ -137,16 +151,9 @@
             setTimeout(() => { if(el.parentElement) el.parentElement.removeChild(el); }, 5000);
         }
 
-        // --- 1. 資料驅動設定與相容性修復 ---
+        // --- 1. 資料驅動設定庫 ---
         let META = { coins: 0, hpLvl: 0, stabLvl: 0, spdLvl: 0, ach: { superC: 0 } };
-        try { 
-            let saved = JSON.parse(localStorage.getItem('nr_meta_v6')); 
-            if(saved) {
-                // 安全融合：保證舊版本快取不會將 ach 屬性覆蓋為 undefined
-                META = Object.assign({}, META, saved);
-                if(!META.ach) META.ach = { superC: 0 };
-            }
-        } catch(e) {}
+        try { let s = JSON.parse(localStorage.getItem('nr_meta_v7')); if(s) { META = Object.assign({}, META, s); if(!META.ach) META.ach={superC:0}; } } catch(e) {}
         
         const META_UPGRADES = {
             hp: { n: '強化裝甲', d: '基礎血量 +20', cost: (l)=>20*(l+1), apply: (p,l)=>{p.mhp+=(l*20); p.hp=p.mhp;} },
@@ -156,15 +163,35 @@
 
         const CLASSES = {
             bal: { id: 'bal', n: '標準核心', c: '#22d3ee', d: '各項數據均衡。', hp: 100, spd: 3.5, stab: 100, w: 'laser' },
-            tnk: { id: 'tnk', n: '重裝堡壘', c: '#f59e0b', d: '受傷時觸發[荊棘防火牆]爆炸。', hp: 180, spd: 2.5, stab: 80, w: 'nova', arm: 0.15 },
-            asn: { id: 'asn', n: '鬼影代碼', c: '#ec4899', d: '25%極限閃避，閃避釋放[脈衝波]。', hp: 60, spd: 4.8, stab: 60, w: 'chakram' }
+            tnk: { id: 'tnk', n: '重裝堡壘', c: '#f59e0b', d: '受傷觸發荊棘，承傷降低。', hp: 180, spd: 2.5, stab: 80, w: 'nova', arm: 0.15 },
+            asn: { id: 'asn', n: '鬼影代碼', c: '#ec4899', d: '25%閃避，閃避釋放脈衝波。', hp: 60, spd: 4.8, stab: 60, w: 'chakram' }
         }; let selClass = 'bal';
 
         const PERSONALITIES = {
             berserk: { id: 'berserk', n: '狂戰人格', c: '#ef4444', d: '暴擊率 +30%（爆擊造成 2.5x 傷害）。' },
             overclock: { id: 'overclock', n: '超頻人格', c: '#a855f7', d: '所有武器發射冷卻縮減 30%。' },
-            chaos: { id: 'chaos', n: '混沌人格', c: '#eab308', d: '開火傷害隨機 0.5x~2.5x，子彈體積不穩定。' }
+            chaos: { id: 'chaos', n: '混沌人格', c: '#eab308', d: '開火傷害隨機 0.5x~2.5x。' }
         }; let selPers = 'berserk';
+
+        const AFFIXES = {
+            qnt: { n:'量子', c:'#a855f7', onHit:(e,s)=>{if(Math.random()<0.15){e.x+=(Math.random()-0.5)*150; e.y+=(Math.random()-0.5)*150; s.effs.push({t:'ring',x:e.x,y:e.y,r:5,max:30,c:'#a855f7',l:1});}} },
+            ref: { n:'反射', c:'#f87171', onHit:(e,s,dmg)=>{ if(Math.random()<0.2){ s.p.hp-=Math.max(1, dmg*0.1); addTxt(s.p.x,s.p.y,'REFLECT','#f87171'); } } },
+            reg: { n:'再生', c:'#10b981', upd:(e,s)=>{if(Math.floor(s.gTime)%60===0 && e.hp<e.mhp){e.hp+=e.mhp*0.01;}} },
+            col: { n:'巨構', c:'#f59e0b', init:(e)=>{e.sz*=2; e.mhp*=3; e.hp=e.mhp; e.spd*=0.5;} },
+            spl: { n:'分裂', c:'#3b82f6', onKill:(e,s)=>{for(let k=0;k<2;k++)s.ens.push({...ENEMY_TYPES.bug, x:e.x+(Math.random()-0.5)*30, y:e.y+(Math.random()-0.5)*30, eff:{}, aff:[]});} }
+        };
+
+        const ANOMALIES = [
+            { id:'glass', n:'玻璃大砲', d:'玩家傷害 x2，首領屬性 x2', apply:(s)=>{s.anMods.dmg*=2; s.anMods.boss*=2;} },
+            { id:'greed', n:'貪婪代碼', d:'金幣獲取 x2，敵人速度 x1.5', apply:(s)=>{s.anMods.coin*=2; s.anMods.eSpd*=1.5;} },
+            { id:'overload', n:'重載核心', d:'升級可挑選能力次數 +1，經驗需求 x1.5', apply:(s)=>{s.anMods.extraPicks+=1; s.anMods.xpReq*=1.5;} },
+            { id:'frenzy', n:'狂熱協定', d:'射速冷卻 -50%，受傷加深 +50%', apply:(s)=>{s.anMods.firerate*=0.5; s.anMods.incDmg*=1.5;} }
+        ];
+
+        const WONDERS = {
+            tree: { n:'資料世界樹', c:'#4ade80', sz:60, upd:(w,s)=>{ s.effs.push({t:'ring',x:w.x,y:w.y,r:w.sz,max:300,c:'#4ade80',l:0.3}); if(Math.floor(s.gTime)%30===0 && Math.hypot(s.p.x-w.x,s.p.y-w.y)<300){s.p.hp=Math.min(s.p.mhp,s.p.hp+1);} } },
+            obelisk: { n:'超頻方尖碑', c:'#f59e0b', sz:40, upd:(w,s)=>{ s.effs.push({t:'ring',x:w.x,y:w.y,r:w.sz,max:250,c:'#f59e0b',l:0.3}); if(Math.hypot(s.p.x-w.x,s.p.y-w.y)<250) s.anMods.wdrCd=0.4; else s.anMods.wdrCd=1; } }
+        };
 
         const MODULES = {
             virus: { id:'virus', n:'病毒', icon:'fa-virus', c:'#a855f7', sc:10, d:'附加中毒(穩定度-10)', onHit:(b,e,s)=>{if(Math.random()<0.5)e.eff.poi={t:4, d:b.dmg*0.4, l:s.gTime};} },
@@ -174,14 +201,14 @@
             emp:   { id:'emp', n:'電磁', icon:'fa-wifi', c:'#4ade80', sc:20, d:'癱瘓敵人使其無法移動(穩定度-20)', onHit:(b,e,s)=>{if(Math.random()<0.3){e.eff.emp={t:2000, l:s.gTime}; s.effs.push({t:'ring',x:e.x,y:e.y,r:20,max:40,c:'#4ade80',l:1});}} },
             pyro:  { id:'pyro', n:'熱能', icon:'fa-fire', c:'#f97316', sc:15, d:'留下燃燒火海(穩定度-15)', onHit:(b,e,s)=>{s.effs.push({t:'fire', x:e.x, y:e.y, r:35, l:1.0, dmg:b.dmg*0.4, c:'#f97316'});} },
             frz:   { id:'frz', n:'冰凍', icon:'fa-snowflake', c:'#38bdf8', sc:10, d:'機率凍結敵人(穩定度-10)', onHit:(b,e,s)=>{if(Math.random()<0.3)e.eff.frz={t:1500, l:s.gTime};} },
-            hole:  { id:'hole', n:'重力', icon:'fa-circle-dot', c:'#6b7280', sc:25, d:'擊殺產生重力吸引源(穩定度-25)', onKill:(b,e,s)=>{s.effs.push({t:'hole', x:e.x, y:e.y, r:80, l:1}); s.ens.forEach(en=>{if(Math.hypot(en.x-e.x,en.y-e.y)<80){en.x+=(e.x-en.x)*0.5; en.y+=(e.y-en.y)*0.5;}});} }
+            hole:  { id:'hole', n:'重力', icon:'fa-circle-dot', c:'#6b7280', sc:25, d:'擊殺產生重力吸引源(穩定度-25)', onKill:(b,e,s)=>{s.effs.push({t:'hole', x:e.x, y:e.y, r:80, l:1}); s.ens.forEach(en=>{if(Math.hypot(en.x-e.x,en.y-e.y)<80){en.x+=(e.x-en.x)*0.5; en.y+=(e.y-en.y)*0.5;}});} },
+            trail: { id:'trail', n:'焦痕', icon:'fa-fire-flame-simple', c:'#f97316', sc:15, d:'子彈留下燃燒軌跡(穩定度-15)', onUpdate:(b,s)=>{ if(Math.random()<0.25){ s.effs.push({t:'fire', x:b.x, y:b.y, r:15, l:0.8, dmg:b.dmg*0.3, c:'#f97316'}); } } }
         };
 
         const SYNERGIES = [
             { id: 'superC', n: '超導', req: ['emp','overc'], c: '#bae6fd', d: '電磁造成真實爆炸傷害', onHit: (b,e,s)=>{if(e.eff.emp){e.hp-=b.dmg*2; s.effs.push({t:'boom',x:e.x,y:e.y,c:'#bae6fd'});}} }
         ];
 
-        // 終極武器共鳴配方
         const FUSIONS = [
             { id:'plasma', n:'⚡星芒電網(融合)', req:['laser','railgun'], c:'#fde047', i:'fa-bolt', w:{id:'plasma', n:'⚡星芒電網', lvl:1, cd:600, dmg:40, rng:600, c:'#fde047', mods:['emp','bounce'], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*15,vy:Math.sin(a)*15,dmg:w.dmg,c:w.c,sz:8,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true}; }} },
             { id:'lotus', n:'🌸死亡蓮華(融合)', req:['nova','chakram'], c:'#f43f5e', i:'fa-fan', w:{id:'lotus', n:'🌸死亡蓮華', lvl:1, cd:1200, dmg:25, rng:400, c:'#f43f5e', mods:[], fire:(p,t,w,s)=>{ for(let i=0;i<4;i++){let a=(i/4)*Math.PI*2; s.buls.push({x:p.x,y:p.y,vx:Math.cos(a)*8,vy:Math.sin(a)*8,dmg:w.dmg,c:w.c,sz:12,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true,isC:true});} return null; }} }
@@ -212,9 +239,9 @@
         // --- 2. 全域狀態管理與重構安全層 ---
         const state = { 
             r: false, pause: false, sc: 0, w: 1, nw: 100, xp: 0, nd: 20, p: {}, keys: {}, joy: {a:0, x:0, y:0, sx:0, sy:0}, 
-            ens: [], buls: [], gems: [], effs: [], txt: [], walls: [], props: [],
-            lSpw: 0, spwI: 1200, gTime: 0, lT: 0, eBuls: [], skX: 0, skY: 0, bRect: {w: 1200, h: 1200},
-            ghost: null, dreamMode: false, dreamTimer: 0, actPers: [], pers2Unlocked: false
+            ens: [], buls: [], gems: [], effs: [], txt: [], walls: [], props: [], wonders: [], anoms: [], anMods: {dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1},
+            lSpw: 0, spwI: 1200, gTime: 0, lT: 0, skX: 0, skY: 0, bRect: {w: 1200, h: 1200},
+            ghost: null, dreamMode: false, dreamTimer: 0, actPers: [], pers2Unlocked: false, errM: 0, errTriggered: false
         };
         const cvs = document.getElementById('game-canvas'), ctx = cvs.getContext('2d');
         function resize() { cvs.width = window.innerWidth; cvs.height = window.innerHeight; if(!state.r && state.p) { state.p.x = cvs.width/2; state.p.y = cvs.height/2; } }
@@ -225,19 +252,18 @@
         function shake(amt) { state.skX = (Math.random()-0.5)*amt; state.skY = (Math.random()-0.5)*amt; }
         function hitWall(x,y,r) { if(state.dreamMode) return false; return state.walls.some(w => x+r > w.x && x-r < w.x+w.w && y+r > w.y && y-r < w.y+w.h); }
 
-        // --- 3. UI 數據與元件安全渲染 ---
-        function saveMeta() { try { localStorage.setItem('nr_meta_v6', JSON.stringify(META)); } catch(e){} updateMenuUI(); }
+        function saveMeta() { try { localStorage.setItem('nr_meta_v7', JSON.stringify(META)); } catch(e){} updateMenuUI(); }
         function updateMenuUI() {
             document.getElementById('coin-display').innerHTML = `<i class="fas fa-coins"></i> ${META.coins}`;
             document.getElementById('meta-coins').innerText = `${META.coins} 幣`;
             
-            // 安全性檢查
             let hasTitle = META.ach && META.ach.superC >= 100;
-            document.getElementById('title-badge').innerHTML = hasTitle ? '<span class="text-yellow-400 font-bold border border-yellow-500 px-2 py-0.5 rounded">👑 稱號：⚡超導大師</span>' : '局外成長與載體設定終端';
+            document.getElementById('title-badge').innerHTML = hasTitle ? '<span class="text-yellow-400 font-bold border border-yellow-500 px-2 py-0.5 rounded">👑 稱號：⚡超導大師 | v7.2</span>' : 'v7.2 狂熱復甦';
 
             const cl = document.getElementById('class-list'); cl.innerHTML = '';
             Object.values(CLASSES).forEach(c => {
-                let div = document.createElement('div'), isSkin = hasTitle && selClass === c.id;
+                let isSkin = hasTitle && selClass === c.id;
+                let div = document.createElement('div');
                 div.className = `p-2.5 rounded border ${selClass===c.id?(isSkin?'border-yellow-400 bg-yellow-900/40':'border-cyan-400 bg-cyan-900/40'):'border-gray-800 bg-gray-900/60'} cursor-pointer hover:border-cyan-500 transition-all text-xs`;
                 div.innerHTML = `<h4 class="font-bold" style="color:${isSkin?'#fde047':c.c}">${c.n}</h4><p class="text-[10px] text-gray-400 mt-1">${c.d}</p>`;
                 div.onclick = () => { selClass = c.id; updateMenuUI(); sfx(400, 'sine', 0.1); }; cl.appendChild(div);
@@ -262,7 +288,7 @@
         } updateMenuUI();
 
         function updateHUD() {
-            if(!state.p || !state.p.hp) return; // 保護：防止在死亡瞬間更新 HUD 報錯
+            if(!state.p || !state.p.hp) return;
             document.getElementById('score-display').innerText = `Score: ${state.sc}`; 
             document.getElementById('wave-display').innerText = `Sector ${state.w}`; 
             document.getElementById('coin-display').innerHTML = `<i class="fas fa-coins"></i> ${META.coins}`;
@@ -279,9 +305,6 @@
                 let mH = (w.mods || []).map(m => MODULES[m] ? `<i class="fas ${MODULES[m].icon}" style="color:${MODULES[m].c}"></i>` : '').join(' ');
                 bUI.innerHTML += `<div class="bg-gray-900/90 border border-gray-800 rounded px-2.5 py-0.5 text-[10px] text-white flex items-center space-x-1.5"><span style="color:${w.c};font-weight:bold">${w.n}</span> ${mH?'<span class="text-gray-500">|</span> '+mH:''}</div>`;
             });
-            if(state.actPers && state.actPers.length > 1) {
-                bUI.innerHTML += `<div class="bg-purple-900/90 border border-purple-500 rounded px-2.5 py-0.5 text-[10px] text-white font-bold glitch"><i class="fas fa-brain"></i> 共鳴開啟</div>`;
-            }
         }
 
         function unlockPers2() {
@@ -292,30 +315,43 @@
                 if(state.actPers.includes(p.id)) return;
                 let d = document.createElement('div'); d.className = `bg-gray-900 border border-purple-500 p-3 rounded-lg cursor-pointer hover:bg-gray-800 flex items-center space-x-3`;
                 d.innerHTML = `<div class="text-2xl w-8 text-center" style="color:${p.c}"><i class="fas fa-microchip"></i></div><div class="text-left flex-grow"><h3 class="font-bold text-white text-sm">${p.n}</h3><p class="text-gray-400 text-[10px] mt-0.5">${p.d}</p></div>`;
-                d.onclick = () => { 
-                    state.actPers.push(p.id); state.pers2Unlocked = true;
-                    tLog(`[雙核心共鳴] ${p.n} 已掛載`, p.c);
-                    document.getElementById('pers2-overlay').classList.add('hidden'); state.pause=false; updateHUD(); 
-                }; cd.appendChild(d);
+                d.onclick = () => { state.actPers.push(p.id); state.pers2Unlocked = true; tLog(`[雙核心共鳴] ${p.n} 掛載`, p.c); document.getElementById('pers2-overlay').classList.add('hidden'); state.pause=false; updateHUD(); }; cd.appendChild(d);
             });
         }
 
-        function getSyn(w) {
-            return SYNERGIES.filter(s => s.req.every(r => (w.mods || []).includes(r)));
+        function triggerAnomaly() {
+            state.pause = true; sfx(900, 'sawtooth', 0.5);
+            document.getElementById('anom-overlay').classList.remove('hidden');
+            const cd = document.getElementById('anom-cards'); cd.innerHTML='';
+            let opts = [...ANOMALIES].sort(()=>0.5-Math.random()).slice(0, 2);
+            opts.forEach(a => {
+                let d = document.createElement('div'); d.className = `bg-black border border-red-500 p-3 rounded-lg cursor-pointer hover:bg-red-900/50 flex items-center space-x-3 transition`;
+                d.innerHTML = `<div class="text-2xl w-8 text-center text-red-500"><i class="fas fa-triangle-exclamation"></i></div><div class="text-left flex-grow"><h3 class="font-bold text-white text-sm">${a.n}</h3><p class="text-red-300 text-[10px] mt-0.5">${a.d}</p></div>`;
+                d.onclick = () => { a.apply(state); state.anoms.push(a.id); tLog(`[異常協議] ${a.n} 已注入`, "#ef4444"); document.getElementById('anom-overlay').classList.add('hidden'); state.pause=false; }; cd.appendChild(d);
+            });
+            document.getElementById('anom-skip').onclick = () => { document.getElementById('anom-overlay').classList.add('hidden'); state.pause=false; };
         }
+
+        function triggerErrorMode() {
+            state.errTriggered = true; state.errM = 60000; state.p.awk = true;
+            document.getElementById('error-hud').classList.remove('hidden'); document.getElementById('awaken-warn').classList.add('hidden');
+            shake(30); sfx(150, 'sawtooth', 2.0); tLog("FATAL ERROR: FIREWALL COLLAPSED", "#ef4444");
+        }
+
+        function getSyn(w) { return SYNERGIES.filter(s => s.req.every(r => (w.mods || []).includes(r))); }
 
         function levelUp() {
             state.pause = true; tLog("SYSTEM_HALT: 升級程序啟動", "#fde047");
+            let picks = 1 + (state.anMods.extraPicks || 0);
+            document.getElementById('upgrade-title').innerText = `系統升級已就緒 (剩餘選取次數: ${picks})`;
+
             const ov = document.getElementById('upgrade-overlay'), cd = document.getElementById('upgrade-cards'); cd.innerHTML=''; sfx(880, 'sine', 0.3);
             const opts = [], unWs = Object.values(WEAPONS).filter(w=>w.lvl>0), lkWs = Object.values(WEAPONS).filter(w=>w.lvl===0), mk = Object.keys(MODULES);
-            
             opts.push({t:'修復穩定度', d:'穩定度+40, HP+30', c:'#34d399', i:'fa-wrench', act:()=>{state.p.stab=Math.min(state.p.mstab, state.p.stab+40); state.p.hp=Math.min(state.p.mhp, state.p.hp+30);}}); 
             
             FUSIONS.forEach(f => {
                 if(f.req.every(r => WEAPONS[r] && WEAPONS[r].lvl > 0 && (WEAPONS[r].mods || []).length >= 1) && !WEAPONS[f.id]) {
-                    opts.push({t:`【共鳴融合】${f.n}`, d:'獻祭前置武器，構造終極武器！', c:f.c, i:f.i, act:()=>{
-                        f.req.forEach(r => { if(WEAPONS[r]) { WEAPONS[r].lvl = 0; WEAPONS[r].mods = []; } }); WEAPONS[f.id] = f.w; tLog(`[共鳴] 終極武裝 ${f.n} 已啟動!`, f.c);
-                    }});
+                    opts.push({t:`【共鳴融合】${f.n}`, d:'獻祭前置武器，構造終極武器！', c:f.c, i:f.i, act:()=>{ f.req.forEach(r => { if(WEAPONS[r]) { WEAPONS[r].lvl = 0; WEAPONS[r].mods = []; } }); WEAPONS[f.id] = f.w; tLog(`[共鳴] 終極武裝 ${f.n} 已啟動!`, f.c); }});
                 }
             });
 
@@ -328,7 +364,8 @@
             unWs.forEach(tw => { mk.forEach(mKey => { if(tw.mods && !tw.mods.includes(mKey)) validCombos.push({tw: tw, m: MODULES[mKey]}); }); });
             validCombos.sort(() => 0.5 - Math.random());
 
-            for(let i=0; i<2; i++) {
+            let maxGen = Math.max(4, 3 + state.anMods.extraPicks); // 保障選項池夠大
+            for(let i=0; i<maxGen; i++) {
                 if(validCombos.length > 0) {
                     let combo = validCombos.pop(), tw = combo.tw, m = combo.m;
                     opts.push({ t:`${m.n} ➜ <span style="color:${tw.c}">${tw.n}</span>`, d:`${m.d}`, c:m.c, i:m.icon, act:()=>{ if(!tw.mods) tw.mods = []; tw.mods.push(m.id); state.p.stab -= m.sc; tLog(`編譯成功: ${m.n} -> ${tw.n}`, m.c); if(m.onEq)m.onEq(tw); } });
@@ -337,14 +374,28 @@
                     opts.push({ t:'過載強化', d:'隨機武器傷害 +15', c:'#f87171', i:'fa-fire-flame-curved', act:()=>{ rw.dmg+=15; tLog(`過載: ${rw.n} 傷害激增`, rw.c); } });
                 }
             }
-            opts.slice(0, 4).forEach(o => {
+            
+            // 多次升級選擇邏輯
+            opts.slice(0, maxGen).forEach(o => {
                 let d = document.createElement('div'); d.className = `bg-gray-900 border border-gray-800 p-2.5 rounded-lg cursor-pointer hover:bg-gray-800 flex items-center space-x-3 transition-all active:scale-95`;
                 d.innerHTML = `<div class="text-xl w-8 text-center" style="color:${o.c}"><i class="fas ${o.i}"></i></div><div class="text-left flex-grow"><h3 class="font-bold text-white text-xs">${o.t}</h3><p class="text-gray-400 text-[9px] mt-0.5">${o.d}</p></div>`;
-                d.onclick = () => { o.act(); ov.classList.add('hidden'); state.pause=false; state.xp=0; state.nd=Math.floor(state.nd*1.4); updateHUD(); }; cd.appendChild(d);
+                d.onclick = () => { 
+                    o.act(); 
+                    picks--;
+                    d.remove(); // 直接移除被選走的卡片
+                    
+                    if (picks > 0) {
+                        document.getElementById('upgrade-title').innerText = `系統升級已就緒 (剩餘選取次數: ${picks})`;
+                        sfx(400, 'sine', 0.1);
+                    } else {
+                        ov.classList.add('hidden'); state.pause=false; state.xp=0; state.nd=Math.floor(state.nd*1.4*state.anMods.xpReq); updateHUD(); 
+                        if(state.p.stab <= 0 && !state.errTriggered) triggerErrorMode();
+                    }
+                }; cd.appendChild(d);
             }); ov.classList.remove('hidden');
         }
 
-        // --- 4. 主循環 (核彈級 Try-Catch 防護，杜絕畫面卡死) ---
+        // --- 4. 主循環 ---
         function loop(ts) {
             requestAnimationFrame(loop);
             const now = ts||performance.now(), dt = now-(state.lT||now); state.lT = now;
@@ -352,39 +403,47 @@
             
             ctx.save(); 
             try {
-                if(state.dreamMode) {
-                    state.dreamTimer -= dt;
-                    document.getElementById('dream-timer').innerText = `${Math.max(0, state.dreamTimer/1000).toFixed(2)}s`;
-                    if(state.dreamTimer <= 0) { state.dreamMode = false; document.getElementById('dream-hud').classList.add('hidden'); gameOver(); return; }
-                    if(Math.random()<0.08) state.effs.push({t:'p', x:state.p.x+(Math.random()-0.5)*window.innerWidth, y:state.p.y+(Math.random()-0.5)*window.innerHeight, vx:0, vy:-2-Math.random()*2, r:2+Math.random()*3, c:'#eab308', a:1, d:0.02});
+                state.gTime += dt; stepBGM();
+                if(state.errM > 0) {
+                    state.errM -= dt; document.getElementById('error-timer').innerText = (state.errM/1000).toFixed(2) + "s";
+                    if(Math.random()<0.2) ctx.translate((Math.random()-0.5)*10, (Math.random()-0.5)*10);
+                    if(state.errM <= 0) { gameOver(true); return; }
                 }
 
-                if(state.w === 10 && !state.pers2Unlocked && !state.dreamMode) { unlockPers2(); return; }
+                if(state.dreamMode) {
+                    state.dreamTimer -= dt; document.getElementById('dream-timer').innerText = `${Math.max(0, state.dreamTimer/1000).toFixed(2)}s`;
+                    if(state.dreamTimer <= 0) { state.dreamMode = false; document.getElementById('dream-hud').classList.add('hidden'); gameOver(false); return; }
+                }
 
-                state.gTime += dt; stepBGM();
+                if(state.w === 10 && !state.pers2Unlocked && !state.dreamMode && state.errM<=0) { unlockPers2(); return; }
+
                 if(state.skX||state.skY) { ctx.translate(state.skX, state.skY); state.skX*=0.8; state.skY*=0.8; if(Math.abs(state.skX)<0.5)state.skX=0; }
-                
-                ctx.fillStyle = state.p.awk ? 'rgba(35,0,0,0.5)' : (state.dreamMode ? 'rgba(30,28,5,0.45)' : 'rgba(3,7,18,0.45)');
+                ctx.fillStyle = state.errM>0 ? 'rgba(50,0,0,0.5)' : (state.p.awk ? 'rgba(35,0,0,0.5)' : (state.dreamMode?'rgba(30,28,5,0.45)':'rgba(3,7,18,0.45)'));
                 ctx.fillRect(0,0,cvs.width,cvs.height);
                 ctx.translate(-(state.p.x - cvs.width/2), -(state.p.y - cvs.height/2));
 
-                ctx.strokeStyle = state.p.awk ? 'rgba(244,63,94,0.25)' : (state.dreamMode ? 'rgba(234,179,8,0.15)' : 'rgba(34,211,238,0.08)'); ctx.beginPath();
+                ctx.strokeStyle = state.errM>0 ? 'rgba(255,0,0,0.4)' : (state.p.awk ? 'rgba(244,63,94,0.25)' : (state.dreamMode?'rgba(234,179,8,0.15)':'rgba(34,211,238,0.08)')); ctx.beginPath();
                 for(let i=0; i<=state.bRect.w; i+=60){ ctx.moveTo(i,0); ctx.lineTo(i,state.bRect.h); }
                 for(let i=0; i<=state.bRect.h; i+=60){ ctx.moveTo(0,i); ctx.lineTo(state.bRect.w,i); } ctx.stroke();
-                ctx.strokeStyle = state.dreamMode ? '#eab308' : '#06b6d4'; ctx.lineWidth=3; ctx.strokeRect(0,0,state.bRect.w, state.bRect.h); ctx.lineWidth=1;
+                ctx.strokeStyle = state.errM>0 ? '#ef4444' : (state.dreamMode?'#eab308':'#06b6d4'); ctx.lineWidth=3; ctx.strokeRect(0,0,state.bRect.w, state.bRect.h); ctx.lineWidth=1;
 
                 ctx.fillStyle = '#1e1b4b'; ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2;
                 for(let i=state.walls.length-1; i>=0; i--) { let w=state.walls[i]; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeRect(w.x, w.y, w.w, w.h); }
                 
                 for(let i=state.props.length-1; i>=0; i--) {
-                    let p = state.props[i];
-                    ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.sz, 0, Math.PI*2); ctx.fill();
+                    let p = state.props[i]; ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(p.x, p.y, p.sz, 0, Math.PI*2); ctx.fill();
                     ctx.fillStyle='#fff'; ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.fillText(p.hp.toFixed(0), p.x, p.y+3);
                 }
 
-                let stabRate = state.p.stab / state.p.mstab; state.p.awk = (state.p.stab <= 20);
-                if(state.p.awk && Math.random()<0.04 && !state.dreamMode) { state.p.hp-=1; addTxt(state.p.x,state.p.y,'-1','#ef4444'); updateHUD(); if(state.p.hp<=0) { checkDreamOrDie(); return; } }
-                
+                for(let i=state.wonders.length-1; i>=0; i--) {
+                    let w = state.wonders[i]; ctx.fillStyle = w.c; ctx.beginPath(); ctx.moveTo(w.x, w.y-w.sz/2); ctx.lineTo(w.x+w.sz/2, w.y+w.sz/2); ctx.lineTo(w.x-w.sz/2, w.y+w.sz/2); ctx.fill();
+                    if(w.upd) w.upd(w, state);
+                }
+
+                let stabRate = state.p.stab / state.p.mstab; state.p.awk = (state.p.stab <= 20) || state.errM>0;
+                if(state.p.awk && Math.random()<0.04 && !state.dreamMode && state.errM<=0) { state.p.hp-=1; addTxt(state.p.x,state.p.y,'-1','#ef4444'); updateHUD(); if(state.p.hp<=0) { checkDreamOrDie(); return; } }
+                if(state.p.stab <= 0 && !state.errTriggered) triggerErrorMode();
+
                 let dx=0, dy=0;
                 if(state.keys['w']||state.keys['arrowup']) dy-=1; if(state.keys['s']||state.keys['arrowdown']) dy+=1;
                 if(state.keys['a']||state.keys['arrowleft']) dx-=1; if(state.keys['d']||state.keys['arrowright']) dx+=1;
@@ -392,22 +451,16 @@
                 let actSpd = state.p.spd * (state.dreamMode ? 2.2 : (state.p.awk ? 1.8 : 1));
                 
                 if(dx||dy) {
-                    let nx = state.p.x + dx*actSpd, ny = state.p.y + dy*actSpd;
-                    let curInWall = hitWall(state.p.x, state.p.y, state.p.sz);
+                    let nx = state.p.x + dx*actSpd, ny = state.p.y + dy*actSpd; let curInWall = hitWall(state.p.x, state.p.y, state.p.sz);
                     if(!hitWall(nx, state.p.y, state.p.sz) || curInWall) state.p.x = nx;
                     if(!hitWall(state.p.x, ny, state.p.sz) || curInWall) state.p.y = ny;
-                    state.p.x = Math.max(state.p.sz, Math.min(state.bRect.w-state.p.sz, state.p.x));
-                    state.p.y = Math.max(state.p.sz, Math.min(state.bRect.h-state.p.sz, state.p.y));
+                    state.p.x = Math.max(state.p.sz, Math.min(state.bRect.w-state.p.sz, state.p.x)); state.p.y = Math.max(state.p.sz, Math.min(state.bRect.h-state.p.sz, state.p.y));
                 }
 
-                // Ghost 視覺優化：更慢、更優雅、無文字
                 if(state.ghost && WEAPONS[state.ghost.wId]) {
-                    let angle = state.gTime * 0.0008; 
-                    let gx = state.p.x + Math.cos(angle)*50, gy = state.p.y + Math.sin(angle)*50;
+                    let angle = state.gTime * 0.0008; let gx = state.p.x + Math.cos(angle)*50, gy = state.p.y + Math.sin(angle)*50;
                     state.ghost.x += (gx - state.ghost.x) * 0.08; state.ghost.y += (gy - state.ghost.y) * 0.08;
-
                     if(Math.random()<0.2) state.effs.push({t:'p', x:state.ghost.x, y:state.ghost.y, vx:0, vy:0, r:2.5, c:WEAPONS[state.ghost.wId].c, a:0.4, d:0.04});
-
                     if(state.ens.length>0 && !state.dreamMode) {
                         let gTarget = state.ens[0], gw = WEAPONS[state.ghost.wId];
                         if(gw && state.gTime - state.ghost.lastShot >= gw.cd * 1.2) {
@@ -418,21 +471,19 @@
                     }
                     ctx.globalAlpha = 0.5; ctx.shadowBlur = 10; ctx.shadowColor = WEAPONS[state.ghost.wId].c; ctx.fillStyle = WEAPONS[state.ghost.wId].c;
                     ctx.beginPath(); ctx.arc(state.ghost.x, state.ghost.y, 7, 0, Math.PI*2); ctx.fill(); 
-                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(state.ghost.x, state.ghost.y, 2.5, 0, Math.PI*2); ctx.fill(); 
-                    ctx.globalAlpha = 1.0;
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(state.ghost.x, state.ghost.y, 2.5, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1.0;
                 }
 
                 if(state.ens.length>0 && !state.dreamMode) {
                     let tg = state.ens.reduce((p,c)=>Math.hypot(c.x-state.p.x,c.y-state.p.y)<Math.hypot(p.x-state.p.x,p.y-state.p.y)?c:p);
-                    if(state.actPers && state.actPers.includes('overclock') && state.actPers.includes('berserk')) { state.p.shotCount = (state.p.shotCount||0); }
-
+                    if(state.actPers.includes('overclock') && state.actPers.includes('berserk')) { state.p.shotCount = (state.p.shotCount||0); }
                     Object.values(WEAPONS).forEach(w => {
-                        let cd = w.cd * (state.actPers && state.actPers.includes('overclock')?0.7:1) * (state.p.awk ? 0.25 : 1); 
+                        let cd = w.cd * (state.actPers.includes('overclock')?0.7:1) * (state.p.awk?0.25:1) * state.anMods.firerate * state.anMods.wdrCd * (state.errM>0?0.1:1); 
                         if(w.lvl>0 && state.gTime-w.lastShot>=cd) {
                             const b = w.fire(state.p, tg, w, state);
                             if(b) {
                                 (w.mods || []).forEach(m => { if(MODULES[m] && MODULES[m].onFire) MODULES[m].onFire(b, state); }); b.syn = getSyn(w);
-                                if(state.actPers && state.actPers.includes('chaos')) { b.dmg *= (0.5 + Math.random()*2.0); b.sz *= (0.7 + Math.random()*1.3); }
+                                if(state.actPers.includes('chaos')) { b.dmg *= (0.5 + Math.random()*2.0); b.sz *= (0.7 + Math.random()*1.3); }
                                 if(state.p.awk) { b.dmg *= 1.5; b.sz *= 1.8; b.c = '#ff0055'; }
                                 state.buls.push(b);
                                 if(state.p.shotCount !== undefined) { state.p.shotCount++; if(state.p.shotCount%5===0) WEAPONS.nova.fire(state.p, tg, WEAPONS.nova, state); }
@@ -445,28 +496,37 @@
                 if(state.dreamMode) {
                     if(Math.random()<0.12) state.gems.push({ x: state.p.x+(Math.random()-0.5)*window.innerWidth, y: state.p.y+(Math.random()-0.5)*window.innerHeight, xp: 5, isGold: true });
                 } else {
-                    if(state.gTime-state.lSpw > state.spwI) {
+                    let actSpwI = state.spwI - (state.errM>0?800:0);
+                    if(state.gTime-state.lSpw > Math.max(150, actSpwI)) {
                         state.lSpw = state.gTime; let t = ENEMY_TYPES.bug;
                         if(state.w>=2 && Math.random()>0.4) t=ENEMY_TYPES.hornet;
                         if(state.w>=3 && Math.random()>0.7) t=ENEMY_TYPES.dasher;
-                        
                         let ex = Math.random()*state.bRect.w, ey = Math.random()>0.5 ? -30 : state.bRect.h+30;
                         if(state.w%2===0 && Math.random()>0.8 && !state.ens.some(e=>e.id==='body')) {
                             tLog("警告: 蠕蟲節點入侵", "#d946ef"); let prev = null;
-                            for(let k=0; k<5; k++) { let bdy = {...ENEMY_TYPES.worm_body, x:ex+(k*15), y:ey+(k*15), follow: prev, hp: 40+(state.w*10), mhp: 40+(state.w*10), eff:{}}; state.ens.push(bdy); prev = bdy; }
+                            for(let k=0; k<5; k++) { let bdy = {...ENEMY_TYPES.worm_body, x:ex+(k*15), y:ey+(k*15), follow: prev, hp: 40+(state.w*10)*state.anMods.boss, mhp: 40+(state.w*10)*state.anMods.boss, eff:{}, aff:[]}; state.ens.push(bdy); prev = bdy; }
                         } else if(state.w%3===0 && Math.random()>0.9 && !state.ens.some(e=>e.isBoss)) { 
-                            let bossType = Math.random()>0.5 ? ENEMY_TYPES.boss1 : ENEMY_TYPES.boss_spider;
-                            tLog(`⚠️ CRITICAL: ${bossType.id} DETECTED`, "#ef4444"); state.ens.push({...bossType, x:ex, y:ey, hp: bossType.hp+(state.w*50), eff:{}}); shake(20); sfx(100, 'sawtooth', 0.8, 0.2); 
-                        } else { state.ens.push({...t, x:ex, y:ey, hp: t.hp+(state.w-1)*10, spd: t.spd*(1+(state.w-1)*0.05), eff: {} }); }
+                            let bossType = Math.random()>0.5 ? ENEMY_TYPES.boss1 : ENEMY_TYPES.boss_spider; tLog(`⚠️ BOSS DETECTED`, "#ef4444"); 
+                            state.ens.push({...bossType, x:ex, y:ey, mhp: (bossType.hp+(state.w*50))*state.anMods.boss, hp: (bossType.hp+(state.w*50))*state.anMods.boss, eff:{}, aff:[]}); shake(20); sfx(100, 'sawtooth', 0.8, 0.2); 
+                        } else { 
+                            let ne = {...t, x:ex, y:ey, mhp: t.hp+(state.w-1)*10, hp: t.hp+(state.w-1)*10, spd: t.spd*(1+(state.w-1)*0.05)*state.anMods.eSpd, eff: {}, aff:[] };
+                            if(state.w >= 2 && Math.random() < 0.15 + state.w*0.01) {
+                                let aKeys = Object.keys(AFFIXES); ne.aff.push(aKeys[Math.floor(Math.random()*aKeys.length)]);
+                                ne.mhp*=2; ne.hp=ne.mhp; ne.sz=t.sz*1.2; ne.sc*=3;
+                                if(AFFIXES[ne.aff[0]].init) AFFIXES[ne.aff[0]].init(ne);
+                            }
+                            state.ens.push(ne);
+                        }
                     }
                 }
 
                 for(let i=state.ens.length-1; i>=0; i--) {
                     let e = state.ens[i], d = Math.hypot(state.p.x-e.x, state.p.y-e.y), eSpd = e.spd * (e.eff.emp ? 0 : (e.eff.frz ? 0.3 : 1)), vx = 0, vy = 0;
-
+                    if(e.aff) e.aff.forEach(a => { if(AFFIXES[a] && AFFIXES[a].upd) AFFIXES[a].upd(e, state); });
+                    
                     if(e.id === 'dasher' && Math.floor(state.gTime)%2000 < 200) eSpd *= 4; 
                     if(e.id === 'spider' && state.gTime - e.lastF > e.cd && !e.eff.frz && !e.eff.emp) {
-                        for(let k=0;k<3;k++) state.ens.push({...ENEMY_TYPES.bug, x:e.x+(Math.random()-0.5)*40, y:e.y+(Math.random()-0.5)*40, eff:{}});
+                        for(let k=0;k<3;k++) state.ens.push({...ENEMY_TYPES.bug, x:e.x+(Math.random()-0.5)*40, y:e.y+(Math.random()-0.5)*40, eff:{}, aff:[]});
                         e.lastF = state.gTime; tLog("BOSS 產卵警報", "#10b981"); sfx(250, 'sawtooth', 0.2);
                     }
 
@@ -486,16 +546,16 @@
                     if(e.eff.frz && state.gTime - e.eff.frz.l > e.eff.frz.t) delete e.eff.frz;
 
                     if(d < state.p.sz+e.sz) {
-                        if(selClass==='asn' && Math.random()<0.25) { tLog("⚡ EVADE_SUCCESS", "#ec4899"); WEAPONS.nova.fire(state.p, state.p, WEAPONS.nova, state); e.x -= (state.p.x-e.x)*0.5; e.y -= (state.p.y-e.y)*0.5; continue; }
+                        if(selClass==='asn' && Math.random()<0.25) { tLog("EVADE", "#ec4899"); WEAPONS.nova.fire(state.p, state.p, WEAPONS.nova, state); e.x -= (state.p.x-e.x)*0.5; e.y -= (state.p.y-e.y)*0.5; continue; }
                         if(selClass==='tnk') { e.hp -= (state.p.mhp*0.1); state.effs.push({t:'boom',x:state.p.x,y:state.p.y,c:'#f59e0b'}); }
-                        
-                        state.p.hp-=Math.max(1, e.dmg*(1-state.p.arm)); addTxt(state.p.x, state.p.y, `-${e.dmg}`, '#ef4444'); explode(e.x, e.y, e.c, 5); shake(5); sfx(150, 'sawtooth', 0.1);
+                        state.p.hp-=Math.max(1, e.dmg*(1-state.p.arm)*state.anMods.incDmg); addTxt(state.p.x, state.p.y, `-${e.dmg}`, '#ef4444'); explode(e.x, e.y, e.c, 5); shake(5); sfx(150, 'sawtooth', 0.1);
                         if(!e.isBoss) state.ens.splice(i,1); else e.hp-=50; updateHUD(); if(state.p.hp<=0) { checkDreamOrDie(); break; } continue;
                     }
-                    ctx.shadowBlur=e.eff.frz?15:5; ctx.shadowColor=e.eff.frz?'#38bdf8':e.c; ctx.fillStyle=e.c; ctx.beginPath();
+                    ctx.shadowBlur=e.eff.frz?15:(e.aff.length?10:5); ctx.shadowColor=e.eff.frz?'#38bdf8':(e.aff.length?AFFIXES[e.aff[0]].c:e.c); ctx.fillStyle=e.c; ctx.beginPath();
                     if(e.sz===10){ctx.moveTo(e.x,e.y-e.sz); ctx.lineTo(e.x-e.sz,e.y+e.sz); ctx.lineTo(e.x+e.sz,e.y+e.sz);}
                     else if(e.sz===12){ctx.moveTo(e.x,e.y-e.sz); ctx.lineTo(e.x+e.sz,e.y); ctx.lineTo(e.x,e.y+e.sz); ctx.lineTo(e.x-e.sz,e.y);}
                     else {ctx.arc(e.x,e.y,e.sz,0,Math.PI*2);} ctx.fill(); ctx.shadowBlur=0;
+                    if(e.aff.length){ ctx.strokeStyle=AFFIXES[e.aff[0]].c; ctx.lineWidth=2; ctx.stroke(); }
                 }
 
                 for(let i=state.buls.length-1; i>=0; i--) {
@@ -507,7 +567,6 @@
 
                     b.x+=b.vx; b.y+=b.vy; b.dist+=Math.hypot(b.vx,b.vy);
                     if(b.dist>=b.rng || b.x<0||b.x>state.bRect.w||b.y<0||b.y>state.bRect.h || (!b.prc && hitWall(b.x,b.y,b.sz))) { state.buls.splice(i,1); continue; }
-                    
                     ctx.fillStyle=b.c; ctx.beginPath(); ctx.arc(b.x,b.y,b.sz,0,Math.PI*2); ctx.fill();
                     
                     let hit=false;
@@ -522,23 +581,28 @@
                     for(let j=state.ens.length-1; j>=0; j--) {
                         let e=state.ens[j];
                         if(Math.hypot(b.x-e.x,b.y-e.y)<b.sz+e.sz) {
-                            let actualDmg = b.dmg * (1 + (1 - stabRate) * 1.5);
-                            let baseCrit = state.actPers && state.actPers.includes('berserk') ? 0.3 : 0;
-                            if(state.actPers && state.actPers.includes('chaos') && state.actPers.includes('berserk')) baseCrit = (Math.sin(state.gTime*0.005)+1)/2; 
+                            let actualDmg = b.dmg * (1 + (1 - stabRate) * 1.5) * state.anMods.dmg;
+                            let baseCrit = state.actPers.includes('berserk') ? 0.3 : 0;
+                            if(state.actPers.includes('chaos') && state.actPers.includes('berserk')) baseCrit = (Math.sin(state.gTime*0.005)+1)/2; 
                             let isCrit = Math.random() < baseCrit;
-                            if(isCrit) { actualDmg *= (state.actPers && state.actPers.includes('chaos') ? 3 : 2.5); state.effs.push({t:'boom', x:e.x, y:e.y, c:'#ef4444'}); sfx(900, 'triangle', 0.1); }
-
+                            if(isCrit) { actualDmg *= (state.actPers.includes('chaos') ? 3 : 2.5); state.effs.push({t:'boom', x:e.x, y:e.y, c:'#ef4444'}); sfx(900, 'triangle', 0.1); }
+                            
                             e.hp-=actualDmg; addTxt(e.x,e.y,Math.ceil(actualDmg)+(isCrit?'☠️':''), b.c); explode(b.x,b.y,e.c,3); sfx(600, 'sine', 0.05);
                             if(b.mods) b.mods.forEach(m => { if(MODULES[m] && MODULES[m].onHit) MODULES[m].onHit(b, e, state); });
                             if(b.syn) b.syn.forEach(sy => { if(sy.onHit) sy.onHit(b, e, state); });
+                            if(e.aff) e.aff.forEach(a => { if(AFFIXES[a] && AFFIXES[a].onHit) AFFIXES[a].onHit(e, state, actualDmg); });
                             
                             if(e.hp<=0) {
                                 state.sc+=e.sc; explode(e.x,e.y,e.c,e.isBoss?30:8); state.gems.push({x:e.x,y:e.y,xp:e.xp}); sfx(150, 'sawtooth', 0.2);
-                                if(e.isBoss) { state.w++; state.bRect.w+=200; state.bRect.h+=200; state.nw=state.sc+500; tLog("🎉 SECTOR CLEARED", '#fde047'); META.coins+=50; state.walls=[]; state.props=[]; genWalls(); }
+                                if(e.isBoss) { 
+                                    state.w++; state.bRect.w+=200; state.bRect.h+=200; state.nw=state.sc+500; META.coins+=50; state.walls=[]; state.props=[]; state.wonders=[]; genWalls(); 
+                                    if(Math.random()<0.5 && state.w%2!==0) triggerAnomaly();
+                                }
                                 state.ens.splice(j,1);
                                 if(b.mods) b.mods.forEach(m => { if(MODULES[m] && MODULES[m].onKill) MODULES[m].onKill(b, e, state); });
                                 if(b.syn) b.syn.forEach(sy => { if(sy.onKill) sy.onKill(b, e, state); if(sy.id==='superC') META.ach.superC++; });
-                                if(state.sc>=state.nw){ state.w++; state.nw=Math.round(state.nw*2); state.spwI=Math.max(400,state.spwI-100); tLog(`進入 Sector ${state.w}`, '#f59e0b'); }
+                                if(e.aff) e.aff.forEach(a => { if(AFFIXES[a] && AFFIXES[a].onKill) AFFIXES[a].onKill(e, state); });
+                                if(state.sc>=state.nw){ state.w++; state.nw=Math.round(state.nw*2); state.spwI=Math.max(400,state.spwI-100); tLog(`進入 Sector ${state.w}`, '#f59e0b'); if(Math.random()<0.4 && state.w%2!==0) triggerAnomaly(); }
                             }
                             if(!b.prc) hit=true; break;
                         }
@@ -549,7 +613,7 @@
                 for(let i=state.gems.length-1; i>=0; i--) {
                     let g=state.gems[i], d=Math.hypot(state.p.x-g.x,state.p.y-g.y);
                     if(d<150){ g.x+=((state.p.x-g.x)/d)*8; g.y+=((state.p.y-g.y)/d)*8; }
-                    if(d<state.p.sz+5){ state.xp+=g.xp; META.coins += (g.isGold ? 5 : 1); state.gems.splice(i,1); updateHUD(); sfx(1200, 'sine', 0.05); if(state.xp>=state.nd && !state.dreamMode) levelUp(); continue; }
+                    if(d<state.p.sz+5){ state.xp+=g.xp; META.coins += (g.isGold ? 5 : 1) * state.anMods.coin; state.gems.splice(i,1); updateHUD(); sfx(1200, 'sine', 0.05); if(state.xp>=state.nd && !state.dreamMode && state.errM<=0) levelUp(); continue; }
                     ctx.fillStyle=g.isGold ? '#eab308' : '#34d399'; ctx.beginPath(); ctx.arc(g.x,g.y,g.isGold?6:4,0,Math.PI*2); ctx.fill();
                 }
 
@@ -563,144 +627,90 @@
                 } ctx.globalAlpha=1;
                 for(let i=state.txt.length-1; i>=0; i--) { let t=state.txt[i]; t.y+=t.vy; t.a-=0.02; if(t.a<=0){state.txt.splice(i,1);continue;} ctx.globalAlpha=t.a; ctx.fillStyle=t.c; ctx.font='bold 12px "Share Tech Mono"'; ctx.textAlign='center'; ctx.fillText(t.t,t.x,t.y); } ctx.globalAlpha=1;
 
-                let isSkin = META.ach && META.ach.superC >= 100 && selClass === 'bal';
-                let clsColor = (CLASSES[selClass] || CLASSES.bal).c;
-                if(state.dreamMode) { ctx.shadowBlur=25; ctx.shadowColor='#eab308'; ctx.fillStyle='#fde047'; }
-                else if(state.p.awk) { ctx.shadowBlur=20; ctx.shadowColor='#ef4444'; ctx.fillStyle='#f87171'; }
-                else { ctx.shadowBlur=15; ctx.shadowColor=isSkin?'#fde047':clsColor; ctx.fillStyle=isSkin?'#fde047':clsColor; }
+                if(state.errM>0) { ctx.shadowBlur=30; ctx.shadowColor='#ef4444'; ctx.fillStyle='#f87171'; }
+                else if(state.dreamMode) { ctx.shadowBlur=25; ctx.shadowColor='#eab308'; ctx.fillStyle='#fde047'; }
+                else { let isSkin = META.ach && META.ach.superC >= 100 && selClass === 'bal'; let clsColor = (CLASSES[selClass] || CLASSES.bal).c; ctx.shadowBlur=15; ctx.shadowColor=isSkin?'#fde047':clsColor; ctx.fillStyle=isSkin?'#fde047':clsColor; }
                 ctx.beginPath(); ctx.arc(state.p.x,state.p.y,state.p.sz,0,Math.PI*2); ctx.fill();
                 ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(state.p.x,state.p.y,state.p.sz*0.4,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
-            } catch(e) {
-                console.error("Game Loop Critical Error:", e);
-                state.pause = true;
-                if (!state.notifiedCrash) {
-                    tLog("CRITICAL_ERROR: 系統檢測到致命異常，已啟動核心防護暫停", "#ef4444");
-                    state.notifiedCrash = true;
-                }
-            } finally {
-                ctx.restore();
-            }
+            } catch(e) { console.error(e); state.pause = true; } finally { ctx.restore(); }
         }
 
-        // --- 5. 初始化與硬體控制 ---
         function genWalls() {
-            let attempts = 0;
             for(let i=0; i<3+state.w; i++) {
                 let wx = Math.random()*(state.bRect.w-100)+50, wy = Math.random()*(state.bRect.h-100)+50, ww = 60+(Math.random()*60), wh = 60+(Math.random()*60);
-                let px = state.bRect.w/2, py = state.bRect.h/2;
-                if(wx+ww > px-100 && wx < px+100 && wy+wh > py-100 && wy < py+100) { 
-                    attempts++; if(attempts < 50) i--; 
-                    continue; 
-                }
-                state.walls.push({ x: wx, y: wy, w: ww, h: wh });
-                attempts = 0;
+                if(Math.hypot(wx-state.bRect.w/2, wy-state.bRect.h/2)<150) continue; state.walls.push({ x: wx, y: wy, w: ww, h: wh });
             }
             for(let i=0; i<2; i++) {
                 let pType = PROP_TYPES[Math.floor(Math.random()*PROP_TYPES.length)];
                 state.props.push({...pType, x: Math.random()*state.bRect.w, y: Math.random()*state.bRect.h});
             }
+            if(state.w % 4 === 0 && Math.random()<0.8) {
+                let wK = Object.keys(WONDERS)[Math.floor(Math.random()*Object.keys(WONDERS).length)];
+                let wd = WONDERS[wK]; state.wonders.push({...wd, x: state.bRect.w/2, y: state.bRect.h/2}); tLog(`戰場奇觀 [${wd.n}] 已生成`, wd.c);
+            }
         }
 
         const jZone = document.getElementById('joystick-zone'), jBase = document.getElementById('joystick-base'), jStick = document.getElementById('joystick-stick');
-        let touchId = null;
+        let touchId = null, mouseMoving = false;
         jZone.addEventListener('touchstart', (e) => { if(!state.r||state.pause)return; const t=e.changedTouches[0]; touchId=t.identifier; state.joy.sx=t.clientX; state.joy.sy=t.clientY; state.joy.a=1; jBase.style.left=`${state.joy.sx-40}px`; jBase.style.top=`${state.joy.sy-40}px`; jBase.style.display='flex'; jBase.style.opacity='1'; jStick.style.left='24px'; jStick.style.top='24px'; }, { passive: true });
         jZone.addEventListener('touchmove', (e) => { if(!state.r||state.pause||touchId===null)return; for(let i=0;i<e.touches.length;i++){ if(e.touches[i].identifier===touchId){ const t=e.touches[i], dx=t.clientX-state.joy.sx, dy=t.clientY-state.joy.sy, dist=Math.hypot(dx,dy), maxD=40, a=Math.atan2(dy,dx), m=Math.min(dist,maxD); state.joy.x=Math.cos(a)*(m/maxD); state.joy.y=Math.sin(a)*(m/maxD); jStick.style.left=`${24+state.joy.x*24}px`; jStick.style.top=`${24+state.joy.y*24}px`; break; } } }, { passive: true });
         const endTouch = () => { if(touchId===null)return; state.joy.a=0; state.joy.x=0; state.joy.y=0; touchId=null; jBase.style.opacity='0'; setTimeout(()=>{if(touchId===null)jBase.style.display='none';},150); };
         jZone.addEventListener('touchend', endTouch, { passive: true }); jZone.addEventListener('touchcancel', endTouch, { passive: true });
-
-        // 為非觸控裝置（如電腦桌面預覽）加入滑鼠控制支援
-        let mouseMoving = false;
-        jZone.addEventListener('mousedown', (e) => {
-            if(!state.r || state.pause) return;
-            mouseMoving = true;
-            state.joy.sx = e.clientX;
-            state.joy.sy = e.clientY;
-            state.joy.a = 1;
-            jBase.style.left = `${state.joy.sx-40}px`;
-            jBase.style.top = `${state.joy.sy-40}px`;
-            jBase.style.display = 'flex';
-            jBase.style.opacity = '1';
-            jStick.style.left = '24px';
-            jStick.style.top = '24px';
-        });
-        window.addEventListener('mousemove', (e) => {
-            if(!state.r || state.pause || !mouseMoving) return;
-            const dx = e.clientX - state.joy.sx, dy = e.clientY - state.joy.sy, dist = Math.hypot(dx,dy), maxD = 40, a = Math.atan2(dy,dx), m = Math.min(dist,maxD);
-            state.joy.x = Math.cos(a)*(m/maxD);
-            state.joy.y = Math.sin(a)*(m/maxD);
-            jStick.style.left = `${24+state.joy.x*24}px`;
-            jStick.style.top = `${24+state.joy.y*24}px`;
-        });
-        window.addEventListener('mouseup', () => {
-            if(!mouseMoving) return;
-            mouseMoving = false;
-            state.joy.a = 0;
-            state.joy.x = 0;
-            state.joy.y = 0;
-            jBase.style.opacity = '0';
-            setTimeout(() => { if(!mouseMoving) jBase.style.display='none'; }, 150);
-        });
-
+        jZone.addEventListener('mousedown', (e) => { if(!state.r || state.pause) return; mouseMoving = true; state.joy.sx=e.clientX; state.joy.sy=e.clientY; state.joy.a=1; jBase.style.left=`${state.joy.sx-40}px`; jBase.style.top=`${state.joy.sy-40}px`; jBase.style.display='flex'; jBase.style.opacity='1'; jStick.style.left='24px'; jStick.style.top='24px'; });
+        window.addEventListener('mousemove', (e) => { if(!state.r || state.pause || !mouseMoving) return; const dx=e.clientX-state.joy.sx, dy=e.clientY-state.joy.sy, dist=Math.hypot(dx,dy), maxD=40, a=Math.atan2(dy,dx), m=Math.min(dist,maxD); state.joy.x=Math.cos(a)*(m/maxD); state.joy.y=Math.sin(a)*(m/maxD); jStick.style.left=`${24+state.joy.x*24}px`; jStick.style.top=`${24+state.joy.y*24}px`; });
+        window.addEventListener('mouseup', () => { if(!mouseMoving) return; mouseMoving=false; state.joy.a=0; state.joy.x=0; state.joy.y=0; jBase.style.opacity='0'; setTimeout(()=>{if(!mouseMoving)jBase.style.display='none';},150); });
         window.addEventListener('keydown', e => state.keys[e.key.toLowerCase()]=true); window.addEventListener('keyup', e => state.keys[e.key.toLowerCase()]=false);
 
         function checkDreamOrDie() {
-            if(!state.dreamMode && Math.random() < 0.40) {
+            if(!state.dreamMode && Math.random() < 0.40 && state.errM<=0) {
                 state.dreamMode = true; state.dreamTimer = 30000; state.p.hp = state.p.mhp; state.p.stab = state.p.mstab; 
-                state.ens.length=0; state.buls.length=0; state.eBuls.length=0; state.walls.length=0; state.effs.length=0; state.props.length=0;
-                state.effs.push({t:'ring', x: state.p.x, y: state.p.y, r: 10, max: 1200, c: '#eab308', l: 1.0});
+                state.ens.length=0; state.buls.length=0; state.walls.length=0; state.effs.length=0; state.wonders.length=0;
                 tLog("CRITICAL_WARN: 夢境重組協議啟動", "#eab308"); document.getElementById('dream-hud').classList.remove('hidden'); sfx(1000, 'sine', 0.5); updateHUD();
-            } else { gameOver(); }
+            } else { gameOver(false); }
         }
 
         function start() {
-            if(!audioCtx) {
-                try {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                } catch(e) {
-                    console.warn("音訊上下文建立失敗 (無聲降級):", e);
-                }
-            }
-            if(audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume().catch(e => console.warn("音訊恢復失敗: ", e));
-            }
-            
+            if(!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+            if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(e=>{});
             let c = CLASSES[selClass] || CLASSES.bal;
-            Object.assign(state, { r:true, pause:false, sc:0, w:1, nw:100, xp:0, nd:20, ens:[], buls:[], eBuls:[], gems:[], effs:[], txt:[], walls:[], props: [], gTime:0, lT:performance.now(), lSpw:0, bRect:{w:1200, h:1200}, dreamMode: false, actPers: [selPers], pers2Unlocked: false });
+            Object.assign(state, { r:true, pause:false, sc:0, w:1, nw:100, xp:0, nd:20, ens:[], buls:[], gems:[], effs:[], txt:[], walls:[], props:[], wonders:[], anoms:[], anMods:{dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1}, gTime:0, lT:performance.now(), lSpw:0, bRect:{w:1200, h:1200}, dreamMode: false, actPers: [selPers], pers2Unlocked: false, errM: 0, errTriggered: false });
             state.p = { x:state.bRect.w/2, y:state.bRect.h/2, sz:12, spd:Number(c.spd)||3.5, hp:Number(c.hp)||100, mhp:Number(c.hp)||100, stab:Number(c.stab)||100, mstab:Number(c.stab)||100, arm:Number(c.arm)||0, awk:false };
-            state.notifiedCrash = false; // 重置崩潰日誌
-            
             try { META_UPGRADES.hp.apply(state.p, META.hpLvl||0); META_UPGRADES.stab.apply(state.p, META.stabLvl||0); META_UPGRADES.spd.apply(state.p, META.spdLvl||0); } catch(e){}
             Object.keys(WEAPONS).forEach(k => { if(WEAPONS[k]) { WEAPONS[k].lvl=(k===c.w)?1:0; WEAPONS[k].mods=[]; WEAPONS[k].lastShot=0; } });
             
-            // 安全載入 Ghost (預防不存在的融合武器或資料結構損壞)
             let targetWeaponId = 'laser', targetMods = [], isNewGhost = false;
             try {
-                let savedGhost = JSON.parse(localStorage.getItem('nr_ghost_v6'));
+                let savedGhost = JSON.parse(localStorage.getItem('nr_ghost_v7'));
                 if (savedGhost && savedGhost.wId) { 
-                    targetWeaponId = savedGhost.wId; 
-                    targetMods = savedGhost.mods || []; 
-                    if (!WEAPONS[targetWeaponId]) {
-                        let f = FUSIONS.find(fu => fu.id === targetWeaponId);
-                        if(f) WEAPONS[targetWeaponId] = f.w; else { targetWeaponId = 'laser'; isNewGhost = true; }
-                    }
+                    targetWeaponId = savedGhost.wId; targetMods = savedGhost.mods || []; 
+                    if (!WEAPONS[targetWeaponId]) { let f = FUSIONS.find(fu => fu.id === targetWeaponId); if(f) WEAPONS[targetWeaponId] = f.w; else { targetWeaponId = 'laser'; isNewGhost = true; } }
                 } else { targetWeaponId = Object.keys(WEAPONS)[Math.floor(Math.random() * Object.keys(WEAPONS).length)]; isNewGhost = true; }
             } catch(e) { targetWeaponId = 'laser'; isNewGhost = true; }
-
-            // 最終防禦：防範任何不存在的武器ID
             if (!WEAPONS[targetWeaponId]) targetWeaponId = 'laser';
-
             state.ghost = { x: state.p.x - 50, y: state.p.y - 50, wId: targetWeaponId, mods: targetMods, lastShot: 0 };
             if(isNewGhost) tLog(`[系統保底] 新手引導殘影加入`, "#818cf8"); else tLog(`喚醒上局傳承殘影...`, "#818cf8");
 
             genWalls(); tLog(`已裝載智慧人格晶片`, PERSONALITIES[selPers].c);
-            document.getElementById('menu-overlay').classList.add('hidden'); document.getElementById('gameover-overlay').classList.add('hidden'); document.getElementById('dream-hud').classList.add('hidden');
+            document.getElementById('menu-overlay').classList.add('hidden'); document.getElementById('gameover-overlay').classList.add('hidden'); document.getElementById('dream-hud').classList.add('hidden'); document.getElementById('error-hud').classList.add('hidden');
             resize(); sfx(440, 'square', 0.3); updateHUD();
         }
 
-        function gameOver() { 
+        function gameOver(win=false) { 
             state.r=false; 
-            try { let activeWeapons = Object.values(WEAPONS).filter(w=>w.lvl>0); if(activeWeapons.length > 0) { let best = activeWeapons[0]; localStorage.setItem('nr_ghost_v6', JSON.stringify({ wId: best.id, mods: best.mods })); } } catch(e){}
-            saveMeta(); sfx(100, 'sawtooth', 1); document.getElementById('final-wave').innerText=state.w; document.getElementById('final-coins').innerText=META.coins; document.getElementById('gameover-overlay').classList.remove('hidden'); 
+            try { let activeWeapons = Object.values(WEAPONS).filter(w=>w.lvl>0); if(activeWeapons.length > 0) { let best = activeWeapons[0]; localStorage.setItem('nr_ghost_v7', JSON.stringify({ wId: best.id, mods: best.mods })); } } catch(e){}
+
+            document.getElementById('final-wave').innerText=state.w; 
+            if(win) { 
+                META.coins += 500; document.getElementById('gameover-title').innerText = "系統超脫 (TRANSCENDENCE)"; 
+                document.getElementById('gameover-title').className = "text-5xl font-black text-cyan-400 mb-2 glow";
+                document.getElementById('transcend-bonus').classList.remove('hidden');
+            } else { 
+                document.getElementById('gameover-title').innerText = "系統崩潰 (CRASH)";
+                document.getElementById('gameover-title').className = "text-5xl font-black text-red-500 mb-2 glow err-glitch";
+                document.getElementById('transcend-bonus').classList.add('hidden');
+            }
+            document.getElementById('final-coins').innerText=META.coins; saveMeta(); sfx(100, 'sawtooth', 1); 
+            document.getElementById('gameover-overlay').classList.remove('hidden'); document.getElementById('error-hud').classList.add('hidden');
         }
 
         document.getElementById('start-btn').onclick = start; 
