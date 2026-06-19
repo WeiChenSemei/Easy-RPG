@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>霓虹收割：覺醒與共鳴 v7.2</title>
+    <title>霓虹收割：覺醒與共鳴 v7.9</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -23,7 +23,7 @@
 
     <header class="w-full bg-gray-900/90 border-b border-cyan-500/30 p-2 flex justify-between items-center z-10">
         <div class="flex items-center space-x-3">
-            <span class="text-rose-500 font-bold tracking-wider glow" id="brand-logo">NEON_REAPER v7.2</span>
+            <span class="text-rose-500 font-bold tracking-wider glow" id="brand-logo">NEON_REAPER v7.9</span>
             <span id="coin-display" class="text-yellow-400 text-xs font-bold glow"><i class="fas fa-coins"></i> 0</span>
         </div>
         <div class="flex items-center space-x-2">
@@ -33,10 +33,16 @@
         </div>
     </header>
 
-    <div class="w-full flex h-1.5 z-10 relative bg-gray-950">
-        <div id="hp-bar" class="h-full bg-rose-500 transition-all" style="width: 50%"></div>
-        <div id="stab-bar" class="h-full bg-cyan-400 transition-all ml-auto" style="width: 50%"></div>
+    <!-- v7.9 雙血條獨立軌道：排除擠壓 Bug -->
+    <div class="w-full flex flex-col z-10 relative bg-gray-950 gap-[1px]">
+        <div class="w-full h-1.5 bg-gray-900 flex justify-start">
+            <div id="hp-bar" class="h-full bg-rose-500 transition-all" style="width: 100%"></div>
+        </div>
+        <div class="w-full h-1.5 bg-gray-900 flex justify-end">
+            <div id="stab-bar" class="h-full bg-cyan-400 transition-all" style="width: 100%"></div>
+        </div>
     </div>
+    
     <div class="w-full bg-gray-950 h-1 relative z-10">
         <div id="xp-bar" class="h-full bg-emerald-400 transition-all" style="width: 0%"></div>
     </div>
@@ -58,10 +64,14 @@
         </div>
 
         <div id="error-hud" class="absolute top-16 left-1/2 transform -translate-x-1/2 text-center hidden z-10 pointer-events-none">
-            <div class="text-red-500 font-black text-4xl tracking-widest glow err-glitch">ERROR MODE OVERRIDE</div>
-            <div class="text-white text-xs mt-1 bg-red-900/80 px-2 py-1 rounded inline-block">穩定度崩潰 | 存活至重開機以獲得超脫</div>
+            <div id="error-title" class="text-red-500 font-black text-4xl tracking-widest glow err-glitch">ERROR MODE OVERRIDE</div>
+            <div id="error-sub" class="text-white text-xs mt-1 bg-red-900/80 px-2 py-1 rounded inline-block">穩定度崩潰 | 存活至重開機以獲得超脫</div>
             <div id="error-timer" class="text-red-400 text-3xl font-black mt-2 glow">60.00s</div>
         </div>
+
+        <button id="overload-btn" class="absolute left-4 top-16 px-4 py-2 bg-yellow-600/90 border-2 border-yellow-400 hover:bg-yellow-500 text-black text-xs font-black rounded shadow-[0_0_10px_#eab308] hidden z-10 animate-pulse transition">
+            ⚡ OVERLOAD SPEEDUP
+        </button>
 
         <div id="joystick-zone" class="absolute inset-0 z-10 pointer-events-auto">
             <div id="joystick-base" class="absolute w-20 h-20 rounded-full border-2 border-cyan-500/40 bg-cyan-950/30 hidden flex justify-center items-center pointer-events-none transition-opacity duration-150">
@@ -69,12 +79,12 @@
             </div>
         </div>
 
-        <div id="awaken-warn" class="absolute top-10 text-red-500 font-black text-2xl tracking-widest glitch hidden z-10 glow text-center">ERROR_MODE: PENDING</div>
+        <div id="awaken-warn" class="absolute top-10 text-purple-400 font-black text-2xl tracking-widest glitch hidden z-10 glow text-center">STABILITY_LOW: OVERLOAD_RISK</div>
         <div id="build-status" class="absolute bottom-4 left-4 right-4 flex space-x-2 z-10 pointer-events-none flex-wrap gap-y-2"></div>
 
         <div id="menu-overlay" class="absolute inset-0 bg-gray-950 z-20 flex flex-col items-center p-6 overflow-y-auto">
             <h1 class="text-4xl font-black text-cyan-400 tracking-widest glow mt-4 mb-2">NEON REAPER</h1>
-            <p id="title-badge" class="text-gray-400 text-xs mb-6">v7.2 狂熱復甦</p>
+            <p id="title-badge" class="text-gray-400 text-xs mb-6">v7.9 終局校準版</p>
             
             <div class="w-full max-w-3xl grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
@@ -108,6 +118,19 @@
             <button id="anom-skip" class="mt-6 px-6 py-2 border border-gray-500 text-gray-400 hover:text-white hover:border-white rounded text-sm transition">拒絕協議 (Skip)</button>
         </div>
 
+        <div id="singularity-overlay" class="absolute inset-0 bg-black/95 z-30 hidden flex-col items-center justify-center p-6 text-center">
+            <h2 class="text-4xl font-black text-cyan-400 tracking-widest glow glitch mb-2">⚡ 檢測到數據奇點 ⚡</h2>
+            <p class="text-gray-300 text-sm mb-6 max-w-md">您已成功抵達 Sector 20。賽博神經元在此坍縮。請決定您載體的終極宿命：</p>
+            <div class="flex flex-col gap-4 w-full max-w-sm">
+                <button id="sing-continue-btn" class="w-full py-4 bg-gray-900 border border-cyan-500 hover:bg-cyan-950/40 text-cyan-400 font-bold rounded transition">
+                    繼續挑戰 (敵人激增 / 詞綴狂暴 / 掉寶翻倍)
+                </button>
+                <button id="sing-reboot-btn" class="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black rounded shadow-[0_0_20px_#dc2626] err-glitch text-lg transition">
+                    進入奇點 (啟動 FINAL ERROR)
+                </button>
+            </div>
+        </div>
+
         <div id="pers2-overlay" class="absolute inset-0 bg-purple-950/95 z-30 hidden flex-col items-center justify-center p-4">
             <h2 class="text-3xl font-black text-purple-400 mb-1 tracking-widest glow glitch">SECTOR 10 REACHED</h2>
             <p class="text-white text-sm mb-6">神經突觸已擴展。請選擇第二人格進行深度共鳴。</p>
@@ -120,8 +143,9 @@
                 <p class="text-gray-400 text-sm mb-1">存活波次: <span id="final-wave" class="font-bold text-white text-xl">1</span></p>
                 <p class="text-gray-400 text-sm mb-1">獲得代幣: <span id="final-coins" class="text-yellow-400 font-bold text-xl">0</span></p>
                 <p id="transcend-bonus" class="text-cyan-400 text-xs hidden mt-2 border-t border-gray-700 pt-2">+500 幣 (超脫獎勵)</p>
+                <p id="final-reboot-bonus" class="text-yellow-400 text-xs hidden mt-1">+1000 幣 (奇點重啟獎勵)</p>
             </div>
-            <button id="restart-btn" class="px-8 py-3 bg-red-600 font-bold rounded shadow-[0_0_15px_#dc2626] hover:bg-red-500 transition-all hover:scale-105">回主控制台</button>
+            <button id="restart-btn" class="px-8 py-3 bg-red-600 font-bold rounded shadow-[0_0_15px_#0891b2] hover:bg-red-500 transition-all hover:scale-105">回主控制台</button>
         </div>
     </main>
 
@@ -136,11 +160,11 @@
         function stepBGM() {
             if(!audioCtx || state.pause || !state.r) return;
             if(audioCtx.currentTime >= bgmNextT) {
-                let o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = state.errM>0 ? 'sawtooth' : 'square'; 
-                o.frequency.value = bgmNotes[bgmIdx % bgmNotes.length] * (state.errM>0?2:(state.p.awk?1.5:1));
+                let o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = (state.errM>0 || state.finalErrActive) ? 'sawtooth' : 'square'; 
+                o.frequency.value = bgmNotes[bgmIdx % bgmNotes.length] * ((state.errM>0 || state.finalErrActive)?2:(state.p.awk?1.5:1));
                 g.gain.setValueAtTime(0.015, audioCtx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
                 o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + 0.15);
-                bgmIdx++; bgmNextT = audioCtx.currentTime + (state.errM>0?0.08:(state.p.awk?0.12:0.2));
+                bgmIdx++; bgmNextT = audioCtx.currentTime + ((state.errM>0 || state.finalErrActive)?0.08:(state.p.awk?0.12:0.2));
             }
         }
         function tLog(msg, c='#fff') {
@@ -175,7 +199,7 @@
 
         const AFFIXES = {
             qnt: { n:'量子', c:'#a855f7', onHit:(e,s)=>{if(Math.random()<0.15){e.x+=(Math.random()-0.5)*150; e.y+=(Math.random()-0.5)*150; s.effs.push({t:'ring',x:e.x,y:e.y,r:5,max:30,c:'#a855f7',l:1});}} },
-            ref: { n:'反射', c:'#f87171', onHit:(e,s,dmg)=>{ if(Math.random()<0.2){ s.p.hp-=Math.max(1, dmg*0.1); addTxt(s.p.x,s.p.y,'REFLECT','#f87171'); } } },
+            ref: { n:'反射', c:'#f87171', onHit:(e,s,dmg)=>{ if(Math.random()<0.1){ let d=Math.min(2, Math.max(1, Math.ceil(dmg*0.01))); s.p.hp-=d; addTxt(s.p.x,s.p.y,'REFLECT','#f87171'); updateHUD(); if(s.p.hp<=0){ if(s.finalErrActive) gameOver(false, false); else checkDreamOrDie(); } } } },
             reg: { n:'再生', c:'#10b981', upd:(e,s)=>{if(Math.floor(s.gTime)%60===0 && e.hp<e.mhp){e.hp+=e.mhp*0.01;}} },
             col: { n:'巨構', c:'#f59e0b', init:(e)=>{e.sz*=2; e.mhp*=3; e.hp=e.mhp; e.spd*=0.5;} },
             spl: { n:'分裂', c:'#3b82f6', onKill:(e,s)=>{for(let k=0;k<2;k++)s.ens.push({...ENEMY_TYPES.bug, x:e.x+(Math.random()-0.5)*30, y:e.y+(Math.random()-0.5)*30, eff:{}, aff:[]});} }
@@ -186,6 +210,11 @@
             { id:'greed', n:'貪婪代碼', d:'金幣獲取 x2，敵人速度 x1.5', apply:(s)=>{s.anMods.coin*=2; s.anMods.eSpd*=1.5;} },
             { id:'overload', n:'重載核心', d:'升級可挑選能力次數 +1，經驗需求 x1.5', apply:(s)=>{s.anMods.extraPicks+=1; s.anMods.xpReq*=1.5;} },
             { id:'frenzy', n:'狂熱協定', d:'射速冷卻 -50%，受傷加深 +50%', apply:(s)=>{s.anMods.firerate*=0.5; s.anMods.incDmg*=1.5;} }
+        ];
+
+        const CORRUPTED_UPGRADES = [
+            { id:'qJmp', t:'☠️ 量子躍遷', d:'傷害+150%，每5~10秒強制隨機瞬移', c:'#a855f7', i:'fa-circle-nodes', act:(s)=>{ s.anMods.dmg*=2.5; s.anMods.teleportOnShoot=true; s.anMods.nextTeleportT=s.gTime+5000+Math.random()*5000; tLog("量子不確定度已編譯", "#a855f7"); } },
+            { id:'aMat', t:'☠️ 反物質屏障', d:'免除所有碰撞傷害，移動速度降低40%', c:'#ef4444', i:'fa-shield-halved', act:(s)=>{ s.p.arm=1.0; s.p.spd*=0.6; tLog("抗重力防護已掛載", "#ef4444"); } }
         ];
 
         const WONDERS = {
@@ -210,16 +239,16 @@
         ];
 
         const FUSIONS = [
-            { id:'plasma', n:'⚡星芒電網(融合)', req:['laser','railgun'], c:'#fde047', i:'fa-bolt', w:{id:'plasma', n:'⚡星芒電網', lvl:1, cd:600, dmg:40, rng:600, c:'#fde047', mods:['emp','bounce'], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*15,vy:Math.sin(a)*15,dmg:w.dmg,c:w.c,sz:8,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true}; }} },
-            { id:'lotus', n:'🌸死亡蓮華(融合)', req:['nova','chakram'], c:'#f43f5e', i:'fa-fan', w:{id:'lotus', n:'🌸死亡蓮華', lvl:1, cd:1200, dmg:25, rng:400, c:'#f43f5e', mods:[], fire:(p,t,w,s)=>{ for(let i=0;i<4;i++){let a=(i/4)*Math.PI*2; s.buls.push({x:p.x,y:p.y,vx:Math.cos(a)*8,vy:Math.sin(a)*8,dmg:w.dmg,c:w.c,sz:12,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true,isC:true});} return null; }} }
+            { id:'plasma', n:'⚡星芒電網(融合)', req:['laser','railgun'], c:'#fde047', i:'fa-bolt', w:{id:'plasma', n:'⚡星芒電網', lvl:1, baseCd:600, cd:600, dmg:40, rng:600, c:'#fde047', mods:['emp','bounce'], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*15,vy:Math.sin(a)*15,dmg:w.dmg,c:w.c,sz:8,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true}; }} },
+            { id:'lotus', n:'🌸死亡蓮華(融合)', req:['nova','chakram'], c:'#f43f5e', i:'fa-fan', w:{id:'lotus', n:'🌸死亡蓮華', lvl:1, baseCd:1200, cd:1200, dmg:25, rng:400, c:'#f43f5e', mods:[], fire:(p,t,w,s)=>{ for(let i=0;i<4;i++){let a=(i/4)*Math.PI*2; s.buls.push({x:p.x,y:p.y,vx:Math.cos(a)*8,vy:Math.sin(a)*8,dmg:w.dmg,c:w.c,sz:12,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true,isC:true});} return null; }} }
         ];
 
         const WEAPONS = {
-            laser: { id:'laser', n:'高頻雷射', lvl:0, cd:400, dmg:10, rng:350, c:'#22d3ee', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*10,vy:Math.sin(a)*10,dmg:w.dmg,c:w.c,sz:4,rng:w.rng,dist:0,mods:w.mods,w:w}; } },
-            nova:  { id:'nova', n:'全方位脈衝', lvl:0, cd:1800, dmg:15, rng:150, c:'#ec4899', mods:[], fire:(p,t,w,s)=>{ s.effs.push({t:'ring',x:p.x,y:p.y,r:10,max:w.rng,c:w.c,l:1}); for(let i=0; i<8; i++){let a=(i/8)*Math.PI*2; s.buls.push({x:p.x,y:p.y,vx:Math.cos(a)*5,vy:Math.sin(a)*5,dmg:w.dmg,c:w.c,sz:5,rng:w.rng,dist:0,mods:w.mods,w:w});} return null;} },
-            chakram:{id:'chakram',n:'切割迴旋刃', lvl:0, cd:900, dmg:18, rng:200, c:'#10b981', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,dmg:w.dmg,c:w.c,sz:8,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true,isC:true}; } },
-            missile:{id:'missile',n:'高爆追蹤彈', lvl:0, cd:1300, dmg:30, rng:450, c:'#f59e0b', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*4,vy:Math.sin(a)*4,dmg:w.dmg,c:w.c,sz:6,rng:w.rng,dist:0,mods:w.mods,w:w,isM:true,tg:t}; } },
-            railgun:{id:'railgun',n:'電磁貫穿砲', lvl:0, cd:1500, dmg:25, rng:500, c:'#a855f7', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*16,vy:Math.sin(a)*16,dmg:w.dmg,c:w.c,sz:3,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true}; } }
+            laser: { id:'laser', n:'高頻雷射', lvl:0, baseCd:400, cd:400, dmg:10, rng:350, c:'#22d3ee', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*10,vy:Math.sin(a)*10,dmg:w.dmg,c:w.c,sz:4,rng:w.rng,dist:0,mods:w.mods,w:w}; } },
+            nova:  { id:'nova', n:'全方位脈衝', lvl:0, baseCd:1800, cd:1800, dmg:15, rng:150, c:'#ec4899', mods:[], fire:(p,t,w,s)=>{ s.effs.push({t:'ring',x:p.x,y:p.y,r:10,max:w.rng,c:w.c,l:1}); for(let i=0; i<8; i++){let a=(i/8)*Math.PI*2; s.buls.push({x:p.x,y:p.y,vx:Math.cos(a)*5,vy:Math.sin(a)*5,dmg:w.dmg,c:w.c,sz:5,rng:w.rng,dist:0,mods:w.mods,w:w});} return null;} },
+            chakram:{id:'chakram',n:'切割迴旋刃', lvl:0, baseCd:900, cd:900, dmg:18, rng:200, c:'#10b981', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,dmg:w.dmg,c:w.c,sz:8,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true,isC:true}; } },
+            missile:{id:'missile',n:'高爆追蹤彈', lvl:0, baseCd:1300, cd:1300, dmg:30, rng:450, c:'#f59e0b', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*4,vy:Math.sin(a)*4,dmg:w.dmg,c:w.c,sz:6,rng:w.rng,dist:0,mods:w.mods,w:w,isM:true,tg:t}; } },
+            railgun:{id:'railgun',n:'電磁貫穿砲', lvl:0, baseCd:1500, cd:1500, dmg:25, rng:500, c:'#a855f7', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*16,vy:Math.sin(a)*16,dmg:w.dmg,c:w.c,sz:3,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true}; } }
         };
 
         const ENEMY_TYPES = {
@@ -239,9 +268,12 @@
         // --- 2. 全域狀態管理與重構安全層 ---
         const state = { 
             r: false, pause: false, sc: 0, w: 1, nw: 100, xp: 0, nd: 20, p: {}, keys: {}, joy: {a:0, x:0, y:0, sx:0, sy:0}, 
-            ens: [], buls: [], gems: [], effs: [], txt: [], walls: [], props: [], wonders: [], anoms: [], anMods: {dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1},
-            lSpw: 0, spwI: 1200, gTime: 0, lT: 0, skX: 0, skY: 0, bRect: {w: 1200, h: 1200},
-            ghost: null, dreamMode: false, dreamTimer: 0, actPers: [], pers2Unlocked: false, errM: 0, errTriggered: false
+            ens: [], buls: [], gems: [], effs: [], txt: [], walls: [], props: [], wonders: [], anoms: [], 
+            anMods: {dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1, teleportOnShoot:false, nextTeleportT:0, takenCp:[]},
+            lSpw: 0, spwI: 1200, gTime: 0, lT: 0, skX: 0, skY: 0, bRect: {w: 1200, h: 1200}, portal: null,
+            ghost: null, dreamMode: false, dreamTimer: 0, actPers: [], pers2Unlocked: false, errM: 0, errTriggered: false,
+            overloadActive: false, noDmgTimer: 0, finalErrActive: false, singTriggered: false, loopMode: false,
+            sectorScore: 0, sectorTarget: 100 // v7.9 新設 Pacing 控制變數
         };
         const cvs = document.getElementById('game-canvas'), ctx = cvs.getContext('2d');
         function resize() { cvs.width = window.innerWidth; cvs.height = window.innerHeight; if(!state.r && state.p) { state.p.x = cvs.width/2; state.p.y = cvs.height/2; } }
@@ -258,14 +290,14 @@
             document.getElementById('meta-coins').innerText = `${META.coins} 幣`;
             
             let hasTitle = META.ach && META.ach.superC >= 100;
-            document.getElementById('title-badge').innerHTML = hasTitle ? '<span class="text-yellow-400 font-bold border border-yellow-500 px-2 py-0.5 rounded">👑 稱號：⚡超導大師 | v7.2</span>' : 'v7.2 狂熱復甦';
+            document.getElementById('title-badge').innerHTML = hasTitle ? '<span class="text-yellow-400 font-bold border border-yellow-500 px-2 py-0.5 rounded">👑 稱號：⚡超導大師 | v7.9</span>' : 'v7.9 終局校準版';
 
             const cl = document.getElementById('class-list'); cl.innerHTML = '';
             Object.values(CLASSES).forEach(c => {
                 let isSkin = hasTitle && selClass === c.id;
                 let div = document.createElement('div');
                 div.className = `p-2.5 rounded border ${selClass===c.id?(isSkin?'border-yellow-400 bg-yellow-900/40':'border-cyan-400 bg-cyan-900/40'):'border-gray-800 bg-gray-900/60'} cursor-pointer hover:border-cyan-500 transition-all text-xs`;
-                div.innerHTML = `<h4 class="font-bold" style="color:${isSkin?'#fde047':c.c}">${c.n}</h4><p class="text-[10px] text-gray-400 mt-1">${c.d}</p>`;
+                div.innerHTML = `<h4 class="font-bold" style="color:${isSkin?'#fde047':c.c}">${c.n}</h4><p class="text-[9px] text-gray-400 mt-1 font-mono tracking-tighter">HP:${c.hp}|STB:${c.stab}|SPD:${c.spd}</p><p class="text-[10px] text-gray-400 mt-1">${c.d}</p>`;
                 div.onclick = () => { selClass = c.id; updateMenuUI(); sfx(400, 'sine', 0.1); }; cl.appendChild(div);
             });
 
@@ -278,10 +310,12 @@
             });
 
             const ml = document.getElementById('meta-list'); ml.innerHTML = '';
-            [['hpLvl','強化裝甲',20,'HP+20'],['stabLvl','穩壓器',30,'STAB+10'],['spdLvl','超導馬達',25,'SPD+5%']].forEach(k => {
+            [['hpLvl','強化裝甲',20,'HP'],['stabLvl','穩壓器',30,'穩定度'],['spdLvl','超導馬達',25,'跑速']].forEach(k => {
                 let clvl = META[k[0]]||0, cst = k[2]*(clvl+1), div = document.createElement('div');
+                let bonus = (k[0]==='hpLvl'?clvl*20 : (k[0]==='stabLvl'?clvl*10 : clvl*5));
+                let unit = k[0]==='spdLvl'?'%':'';
                 div.className = `p-1.5 bg-gray-900/80 border border-gray-800 rounded flex justify-between items-center text-xs`;
-                div.innerHTML = `<div><div class="font-bold text-white">${k[1]} <span class="text-[10px] text-emerald-400">Lv.${clvl}</span></div></div>`;
+                div.innerHTML = `<div><div class="font-bold text-white">${k[1]} <span class="text-[10px] text-emerald-400">Lv.${clvl} (總計:+${bonus}${unit})</span></div></div>`;
                 let btn = document.createElement('button'); btn.className = `px-2 py-0.5 rounded text-[10px] font-bold ${META.coins>=cst?'bg-yellow-600 text-white':'bg-gray-800 text-gray-500'}`; btn.innerText = `${cst} 幣`;
                 btn.onclick = () => { if(META.coins>=cst){ META.coins-=cst; META[k[0]]++; saveMeta(); sfx(600, 'sine', 0.1); } }; div.appendChild(btn); ml.appendChild(div);
             });
@@ -292,13 +326,16 @@
             document.getElementById('score-display').innerText = `Score: ${state.sc}`; 
             document.getElementById('wave-display').innerText = `Sector ${state.w}`; 
             document.getElementById('coin-display').innerHTML = `<i class="fas fa-coins"></i> ${META.coins}`;
-            document.getElementById('hp-bar').style.width = `${Math.max(0, state.p.hp/state.p.mhp*100)}%`; 
-            document.getElementById('xp-bar').style.width = `${Math.min(100, state.xp/state.nd*100)}%`; 
-            document.getElementById('stab-bar').style.width = `${Math.max(0, state.p.stab/state.p.mstab*100)}%`;
-            document.getElementById('intrusion-bar').style.width = `${Math.min(100, (state.sc/(state.nw||1))*100)}%`;
             
-            if(state.p.awk) { document.getElementById('stab-bar').classList.replace('bg-cyan-400','bg-red-500'); document.getElementById('awaken-warn').classList.remove('hidden'); } 
-            else { document.getElementById('stab-bar').classList.replace('bg-red-500','bg-cyan-400'); document.getElementById('awaken-warn').classList.add('hidden'); }
+            document.getElementById('hp-bar').style.width = `${Math.max(0, Math.min(100, (state.p.hp/state.p.mhp)*100))}%`; 
+            document.getElementById('stab-bar').style.width = `${Math.max(0, Math.min(100, (state.p.stab/state.p.mstab)*100))}%`;
+            document.getElementById('xp-bar').style.width = `${Math.min(100, (state.xp/state.nd)*100)}%`; 
+            
+            // v7.9 Pacing 進度條修正：使進度條精確對應當前 Sector 目標，解決時快時慢與溢出
+            document.getElementById('intrusion-bar').style.width = `${Math.min(100, (state.sectorScore/(state.sectorTarget||1))*100)}%`;
+            
+            if(state.p.awk) { document.getElementById('stab-bar').className = 'h-full bg-purple-500 transition-all'; document.getElementById('awaken-warn').classList.remove('hidden'); } 
+            else { document.getElementById('stab-bar').className = 'h-full bg-cyan-400 transition-all'; document.getElementById('awaken-warn').classList.add('hidden'); }
 
             const bUI = document.getElementById('build-status'); bUI.innerHTML = '';
             Object.values(WEAPONS).filter(w=>w.lvl>0).forEach(w => {
@@ -338,6 +375,26 @@
             shake(30); sfx(150, 'sawtooth', 2.0); tLog("FATAL ERROR: FIREWALL COLLAPSED", "#ef4444");
         }
 
+        function triggerSingularity() {
+            state.pause = true; sfx(100, 'sawtooth', 1.0, 0.3);
+            document.getElementById('singularity-overlay').classList.remove('hidden');
+            document.getElementById('sing-continue-btn').onclick = () => {
+                state.loopMode = true; state.anMods.eSpd *= 1.8; state.anMods.boss *= 2.0; state.anMods.coin *= 3.0;
+                document.getElementById('singularity-overlay').classList.add('hidden'); state.pause = false; tLog("警告: 資料維度突破，怪獸屬性飆升！", "#06b6d4");
+            };
+            document.getElementById('sing-reboot-btn').onclick = () => {
+                document.getElementById('singularity-overlay').classList.add('hidden'); state.pause = false; triggerFinalError();
+            };
+        }
+
+        function triggerFinalError() {
+            state.finalErrActive = true; state.errM = 60000; state.p.hp = state.p.mhp; state.p.stab = 0; state.actPers = Object.keys(PERSONALITIES);
+            Object.keys(WEAPONS).forEach(k => { WEAPONS[k].lvl = 1; WEAPONS[k].cd = 50; });
+            FUSIONS.forEach(f => { WEAPONS[f.id] = f.w; WEAPONS[f.id].cd = 100; WEAPONS[f.id].lvl = 1; });
+            document.getElementById('error-title').innerText = "☣️ FINAL ERROR ☣️"; document.getElementById('error-sub').innerText = "算力熔毀 | 全武裝極限解鎖"; document.getElementById('error-hud').classList.remove('hidden');
+            shake(40); tLog("☢️ 終極重啟協定：正在榨乾處理器所有算力", "#ef4444");
+        }
+
         function getSyn(w) { return SYNERGIES.filter(s => s.req.every(r => (w.mods || []).includes(r))); }
 
         function levelUp() {
@@ -346,12 +403,12 @@
             document.getElementById('upgrade-title').innerText = `系統升級已就緒 (剩餘選取次數: ${picks})`;
 
             const ov = document.getElementById('upgrade-overlay'), cd = document.getElementById('upgrade-cards'); cd.innerHTML=''; sfx(880, 'sine', 0.3);
-            const opts = [], unWs = Object.values(WEAPONS).filter(w=>w.lvl>0), lkWs = Object.values(WEAPONS).filter(w=>w.lvl===0), mk = Object.keys(MODULES);
+            const opts = [], unWs = Object.values(WEAPONS).filter(w=>w.lvl>0), lkWs = Object.values(WEAPONS).filter(w=>w.lvl===0 && !FUSIONS.find(f=>f.id===w.id)), mk = Object.keys(MODULES);
             opts.push({t:'修復穩定度', d:'穩定度+40, HP+30', c:'#34d399', i:'fa-wrench', act:()=>{state.p.stab=Math.min(state.p.mstab, state.p.stab+40); state.p.hp=Math.min(state.p.mhp, state.p.hp+30);}}); 
             
             FUSIONS.forEach(f => {
-                if(f.req.every(r => WEAPONS[r] && WEAPONS[r].lvl > 0 && (WEAPONS[r].mods || []).length >= 1) && !WEAPONS[f.id]) {
-                    opts.push({t:`【共鳴融合】${f.n}`, d:'獻祭前置武器，構造終極武器！', c:f.c, i:f.i, act:()=>{ f.req.forEach(r => { if(WEAPONS[r]) { WEAPONS[r].lvl = 0; WEAPONS[r].mods = []; } }); WEAPONS[f.id] = f.w; tLog(`[共鳴] 終極武裝 ${f.n} 已啟動!`, f.c); }});
+                if(f.req.every(r => WEAPONS[r] && WEAPONS[r].lvl > 0 && (WEAPONS[r].mods || []).length >= 1) && (!WEAPONS[f.id] || WEAPONS[f.id].lvl===0)) {
+                    opts.push({t:`【共鳴融合】${f.n}`, d:'獻祭前置武器，構造終極武器！', c:f.c, i:f.i, act:()=>{ f.req.forEach(r => { if(WEAPONS[r]) { WEAPONS[r].lvl = 0; WEAPONS[r].mods = []; } }); WEAPONS[f.id] = f.w; WEAPONS[f.id].lvl = 1; tLog(`[共鳴] 終極武裝 ${f.n} 已啟動!`, f.c); }});
                 }
             });
 
@@ -364,7 +421,13 @@
             unWs.forEach(tw => { mk.forEach(mKey => { if(tw.mods && !tw.mods.includes(mKey)) validCombos.push({tw: tw, m: MODULES[mKey]}); }); });
             validCombos.sort(() => 0.5 - Math.random());
 
-            let maxGen = Math.max(4, 3 + state.anMods.extraPicks); // 保障選項池夠大
+            let avCp = CORRUPTED_UPGRADES.filter(c => !state.anMods.takenCp.includes(c.id));
+            if (state.w >= 10 && Math.random() < 0.35 && avCp.length > 0) {
+                let cp = avCp[Math.floor(Math.random()*avCp.length)];
+                opts.push({ t: cp.t, d: cp.d, c: cp.c, i: cp.i, act: ()=>{ cp.act(state); state.anMods.takenCp.push(cp.id); }, corrupted: true });
+            }
+
+            let maxGen = Math.max(4, 3 + state.anMods.extraPicks);
             for(let i=0; i<maxGen; i++) {
                 if(validCombos.length > 0) {
                     let combo = validCombos.pop(), tw = combo.tw, m = combo.m;
@@ -375,18 +438,13 @@
                 }
             }
             
-            // 多次升級選擇邏輯
             opts.slice(0, maxGen).forEach(o => {
-                let d = document.createElement('div'); d.className = `bg-gray-900 border border-gray-800 p-2.5 rounded-lg cursor-pointer hover:bg-gray-800 flex items-center space-x-3 transition-all active:scale-95`;
+                let d = document.createElement('div'); d.className = `bg-gray-900 border ${o.corrupted?'border-purple-600 shadow-[0_0_8px_#a855f7]':'border-gray-800'} p-2.5 rounded-lg cursor-pointer hover:bg-gray-800 flex items-center space-x-3 transition-all active:scale-95`;
                 d.innerHTML = `<div class="text-xl w-8 text-center" style="color:${o.c}"><i class="fas ${o.i}"></i></div><div class="text-left flex-grow"><h3 class="font-bold text-white text-xs">${o.t}</h3><p class="text-gray-400 text-[9px] mt-0.5">${o.d}</p></div>`;
                 d.onclick = () => { 
-                    o.act(); 
-                    picks--;
-                    d.remove(); // 直接移除被選走的卡片
-                    
+                    o.act(); picks--; d.remove(); 
                     if (picks > 0) {
-                        document.getElementById('upgrade-title').innerText = `系統升級已就緒 (剩餘選取次數: ${picks})`;
-                        sfx(400, 'sine', 0.1);
+                        document.getElementById('upgrade-title').innerText = `系統升級已就緒 (剩餘選取次數: ${picks})`; sfx(400, 'sine', 0.1);
                     } else {
                         ov.classList.add('hidden'); state.pause=false; state.xp=0; state.nd=Math.floor(state.nd*1.4*state.anMods.xpReq); updateHUD(); 
                         if(state.p.stab <= 0 && !state.errTriggered) triggerErrorMode();
@@ -406,26 +464,51 @@
                 state.gTime += dt; stepBGM();
                 if(state.errM > 0) {
                     state.errM -= dt; document.getElementById('error-timer').innerText = (state.errM/1000).toFixed(2) + "s";
-                    if(Math.random()<0.2) ctx.translate((Math.random()-0.5)*10, (Math.random()-0.5)*10);
-                    if(state.errM <= 0) { gameOver(true); return; }
+                    if(Math.random()<0.25) ctx.translate((Math.random()-0.5)*15, (Math.random()-0.5)*15);
+                    if(state.errM <= 0) { 
+                        if (state.finalErrActive) { gameOver(true, true); } else { gameOver(true, false); }
+                        return; 
+                    }
                 }
+
+                if (state.r && !state.pause && state.errM <= 0 && !state.finalErrActive) {
+                    state.noDmgTimer += dt;
+                    if (state.noDmgTimer >= 30000 && state.ens.length > 2 && !state.overloadActive) document.getElementById('overload-btn').classList.remove('hidden');
+                    else document.getElementById('overload-btn').classList.add('hidden');
+                } else document.getElementById('overload-btn').classList.add('hidden');
+
+                // v7.9 穩定度過載扣除修正：精確每秒扣除最大穩定度的 3% (並強制更新 HUD 視覺)
+                if (state.overloadActive && !state.finalErrActive) {
+                    state.p.stab -= (dt / 1000) * (state.p.mstab * 0.03); 
+                    if (state.p.stab < 0) state.p.stab = 0;
+                    updateHUD(); 
+                    if (state.p.stab <= 0 && !state.errTriggered) { triggerErrorMode(); return; }
+                }
+
+                if (state.anMods.teleportOnShoot && state.gTime >= state.anMods.nextTeleportT && !state.dreamMode && state.errM <= 0) {
+                    state.p.x = Math.random() * (state.bRect.w - 100) + 50; state.p.y = Math.random() * (state.bRect.h - 100) + 50;
+                    sfx(1100, 'sine', 0.1); explode(state.p.x, state.p.y, '#a855f7', 15); tLog("☣️ QUANTUM_TELEPORT", "#a855f7");
+                    state.anMods.nextTeleportT = state.gTime + 5000 + Math.random() * 5000;
+                }
+
+                if (state.w === 20 && !state.singTriggered) { state.singTriggered = true; triggerSingularity(); return; }
 
                 if(state.dreamMode) {
                     state.dreamTimer -= dt; document.getElementById('dream-timer').innerText = `${Math.max(0, state.dreamTimer/1000).toFixed(2)}s`;
                     if(state.dreamTimer <= 0) { state.dreamMode = false; document.getElementById('dream-hud').classList.add('hidden'); gameOver(false); return; }
                 }
 
-                if(state.w === 10 && !state.pers2Unlocked && !state.dreamMode && state.errM<=0) { unlockPers2(); return; }
+                if(state.w === 10 && !state.pers2Unlocked && !state.dreamMode && state.errM<=0 && !state.finalErrActive) { unlockPers2(); return; }
 
                 if(state.skX||state.skY) { ctx.translate(state.skX, state.skY); state.skX*=0.8; state.skY*=0.8; if(Math.abs(state.skX)<0.5)state.skX=0; }
-                ctx.fillStyle = state.errM>0 ? 'rgba(50,0,0,0.5)' : (state.p.awk ? 'rgba(35,0,0,0.5)' : (state.dreamMode?'rgba(30,28,5,0.45)':'rgba(3,7,18,0.45)'));
+                ctx.fillStyle = (state.errM>0 || state.finalErrActive) ? 'rgba(50,0,0,0.5)' : (state.p.awk ? 'rgba(35,0,0,0.5)' : (state.dreamMode?'rgba(30,28,5,0.45)':'rgba(3,7,18,0.45)'));
                 ctx.fillRect(0,0,cvs.width,cvs.height);
                 ctx.translate(-(state.p.x - cvs.width/2), -(state.p.y - cvs.height/2));
 
-                ctx.strokeStyle = state.errM>0 ? 'rgba(255,0,0,0.4)' : (state.p.awk ? 'rgba(244,63,94,0.25)' : (state.dreamMode?'rgba(234,179,8,0.15)':'rgba(34,211,238,0.08)')); ctx.beginPath();
+                ctx.strokeStyle = (state.errM>0 || state.finalErrActive) ? 'rgba(255,0,0,0.4)' : (state.p.awk ? 'rgba(244,63,94,0.25)' : (state.dreamMode?'rgba(234,179,8,0.15)':'rgba(34,211,238,0.08)')); ctx.beginPath();
                 for(let i=0; i<=state.bRect.w; i+=60){ ctx.moveTo(i,0); ctx.lineTo(i,state.bRect.h); }
                 for(let i=0; i<=state.bRect.h; i+=60){ ctx.moveTo(0,i); ctx.lineTo(state.bRect.w,i); } ctx.stroke();
-                ctx.strokeStyle = state.errM>0 ? '#ef4444' : (state.dreamMode?'#eab308':'#06b6d4'); ctx.lineWidth=3; ctx.strokeRect(0,0,state.bRect.w, state.bRect.h); ctx.lineWidth=1;
+                ctx.strokeStyle = (state.errM>0 || state.finalErrActive) ? '#ef4444' : (state.dreamMode?'#eab308':'#06b6d4'); ctx.lineWidth=3; ctx.strokeRect(0,0,state.bRect.w, state.bRect.h); ctx.lineWidth=1;
 
                 ctx.fillStyle = '#1e1b4b'; ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2;
                 for(let i=state.walls.length-1; i>=0; i--) { let w=state.walls[i]; ctx.fillRect(w.x, w.y, w.w, w.h); ctx.strokeRect(w.x, w.y, w.w, w.h); }
@@ -440,9 +523,32 @@
                     if(w.upd) w.upd(w, state);
                 }
 
-                let stabRate = state.p.stab / state.p.mstab; state.p.awk = (state.p.stab <= 20) || state.errM>0;
-                if(state.p.awk && Math.random()<0.04 && !state.dreamMode && state.errM<=0) { state.p.hp-=1; addTxt(state.p.x,state.p.y,'-1','#ef4444'); updateHUD(); if(state.p.hp<=0) { checkDreamOrDie(); return; } }
-                if(state.p.stab <= 0 && !state.errTriggered) triggerErrorMode();
+                if(state.portal) {
+                    let pAngle = state.gTime * 0.002; ctx.save(); ctx.translate(state.portal.x, state.portal.y); ctx.rotate(pAngle); ctx.shadowBlur = 20; ctx.shadowColor = '#a855f7';
+                    ctx.fillStyle = '#030712'; ctx.beginPath(); ctx.arc(0, 0, state.portal.r, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#d946ef'; ctx.setLineDash([10, 5]); ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+                    ctx.fillStyle = '#d946ef'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.fillText('TO S.20', state.portal.x, state.portal.y+4);
+
+                    if (Math.hypot(state.p.x - state.portal.x, state.p.y - state.portal.y) < state.p.sz + state.portal.r) {
+                        state.w = 20; state.portal = null; state.overloadActive = false;
+                        state.sectorScore = 0; state.sectorTarget = 100 + state.w * 50;
+                        tLog("⚠️ 空間跳躍：直達 Sector 20 奇點", "#d946ef");
+                        state.walls=[]; state.props=[]; state.wonders=[]; state.ens=[]; state.buls=[]; genWalls();
+                        updateHUD();
+                    }
+                }
+
+                let stabRate = state.p.stab / state.p.mstab; state.p.awk = (state.p.stab <= 20) || state.errM>0 || state.finalErrActive;
+                
+                if (state.p.awk && state.errM <= 0 && !state.finalErrActive && !state.dreamMode) {
+                    state.p.hp -= (dt / 1000); 
+                    if(Math.floor(state.gTime / 1000) > Math.floor((state.gTime - dt) / 1000)) {
+                        addTxt(state.p.x, state.p.y, '-1', '#ef4444'); updateHUD();
+                    }
+                    if(state.p.hp <= 0) { checkDreamOrDie(); return; } 
+                }
+
+                if(state.p.stab <= 0 && !state.errTriggered && !state.finalErrActive) { triggerErrorMode(); return; }
 
                 let dx=0, dy=0;
                 if(state.keys['w']||state.keys['arrowup']) dy-=1; if(state.keys['s']||state.keys['arrowdown']) dy+=1;
@@ -496,8 +602,8 @@
                 if(state.dreamMode) {
                     if(Math.random()<0.12) state.gems.push({ x: state.p.x+(Math.random()-0.5)*window.innerWidth, y: state.p.y+(Math.random()-0.5)*window.innerHeight, xp: 5, isGold: true });
                 } else {
-                    let actSpwI = state.spwI - (state.errM>0?800:0);
-                    if(state.gTime-state.lSpw > Math.max(150, actSpwI)) {
+                    let actSpwI = state.spwI - (state.errM>0?800:0) - (state.overloadActive?300:0);
+                    if(state.gTime-state.lSpw > Math.max(100, actSpwI)) {
                         state.lSpw = state.gTime; let t = ENEMY_TYPES.bug;
                         if(state.w>=2 && Math.random()>0.4) t=ENEMY_TYPES.hornet;
                         if(state.w>=3 && Math.random()>0.7) t=ENEMY_TYPES.dasher;
@@ -510,7 +616,8 @@
                             state.ens.push({...bossType, x:ex, y:ey, mhp: (bossType.hp+(state.w*50))*state.anMods.boss, hp: (bossType.hp+(state.w*50))*state.anMods.boss, eff:{}, aff:[]}); shake(20); sfx(100, 'sawtooth', 0.8, 0.2); 
                         } else { 
                             let ne = {...t, x:ex, y:ey, mhp: t.hp+(state.w-1)*10, hp: t.hp+(state.w-1)*10, spd: t.spd*(1+(state.w-1)*0.05)*state.anMods.eSpd, eff: {}, aff:[] };
-                            if(state.w >= 2 && Math.random() < 0.15 + state.w*0.01) {
+                            let affixChance = (state.loopMode ? 0.6 : 0.15) + state.w*0.01;
+                            if(state.w >= 2 && Math.random() < affixChance) {
                                 let aKeys = Object.keys(AFFIXES); ne.aff.push(aKeys[Math.floor(Math.random()*aKeys.length)]);
                                 ne.mhp*=2; ne.hp=ne.mhp; ne.sz=t.sz*1.2; ne.sc*=3;
                                 if(AFFIXES[ne.aff[0]].init) AFFIXES[ne.aff[0]].init(ne);
@@ -546,10 +653,23 @@
                     if(e.eff.frz && state.gTime - e.eff.frz.l > e.eff.frz.t) delete e.eff.frz;
 
                     if(d < state.p.sz+e.sz) {
+                        state.noDmgTimer = 0; 
                         if(selClass==='asn' && Math.random()<0.25) { tLog("EVADE", "#ec4899"); WEAPONS.nova.fire(state.p, state.p, WEAPONS.nova, state); e.x -= (state.p.x-e.x)*0.5; e.y -= (state.p.y-e.y)*0.5; continue; }
                         if(selClass==='tnk') { e.hp -= (state.p.mhp*0.1); state.effs.push({t:'boom',x:state.p.x,y:state.p.y,c:'#f59e0b'}); }
-                        state.p.hp-=Math.max(1, e.dmg*(1-state.p.arm)*state.anMods.incDmg); addTxt(state.p.x, state.p.y, `-${e.dmg}`, '#ef4444'); explode(e.x, e.y, e.c, 5); shake(5); sfx(150, 'sawtooth', 0.1);
-                        if(!e.isBoss) state.ens.splice(i,1); else e.hp-=50; updateHUD(); if(state.p.hp<=0) { checkDreamOrDie(); break; } continue;
+                        
+                        let rawDmg = e.dmg * (1-state.p.arm) * state.anMods.incDmg;
+                        let actDmg = Math.max(1, Math.ceil(rawDmg)); 
+                        state.p.hp -= actDmg; 
+                        
+                        addTxt(state.p.x, state.p.y, `-${actDmg}`, '#ef4444'); explode(e.x, e.y, e.c, 5); shake(5); sfx(150, 'sawtooth', 0.1);
+                        if(!e.isBoss) state.ens.splice(i,1); else e.hp-=50; updateHUD(); 
+                        
+                        if(state.p.hp<=0) { 
+                            if(state.finalErrActive) gameOver(false, false); 
+                            else checkDreamOrDie(); 
+                            return; 
+                        } 
+                        continue;
                     }
                     ctx.shadowBlur=e.eff.frz?15:(e.aff.length?10:5); ctx.shadowColor=e.eff.frz?'#38bdf8':(e.aff.length?AFFIXES[e.aff[0]].c:e.c); ctx.fillStyle=e.c; ctx.beginPath();
                     if(e.sz===10){ctx.moveTo(e.x,e.y-e.sz); ctx.lineTo(e.x-e.sz,e.y+e.sz); ctx.lineTo(e.x+e.sz,e.y+e.sz);}
@@ -591,18 +711,39 @@
                             if(b.mods) b.mods.forEach(m => { if(MODULES[m] && MODULES[m].onHit) MODULES[m].onHit(b, e, state); });
                             if(b.syn) b.syn.forEach(sy => { if(sy.onHit) sy.onHit(b, e, state); });
                             if(e.aff) e.aff.forEach(a => { if(AFFIXES[a] && AFFIXES[a].onHit) AFFIXES[a].onHit(e, state, actualDmg); });
+                            if(state.dreamMode || !state.r) return; 
                             
                             if(e.hp<=0) {
-                                state.sc+=e.sc; explode(e.x,e.y,e.c,e.isBoss?30:8); state.gems.push({x:e.x,y:e.y,xp:e.xp}); sfx(150, 'sawtooth', 0.2);
+                                state.sc += e.sc;
+                                state.sectorScore += e.sc; // v7.9 Pacing 進度值累加
+                                explode(e.x,e.y,e.c,e.isBoss?30:8); state.gems.push({x:e.x,y:e.y,xp:e.xp}); sfx(150, 'sawtooth', 0.2);
+                                
                                 if(e.isBoss) { 
-                                    state.w++; state.bRect.w+=200; state.bRect.h+=200; state.nw=state.sc+500; META.coins+=50; state.walls=[]; state.props=[]; state.wonders=[]; genWalls(); 
+                                    // v7.9 Boss 擊殺判定：擊殺時立即升級並將累積進度重設，切入下一波次
+                                    state.w++; 
+                                    state.sectorScore = 0;
+                                    state.sectorTarget = 100 + state.w * 50;
+                                    state.bRect.w+=200; state.bRect.h+=200; 
+                                    tLog("🎉 SECTOR CLEARED", '#fde047'); META.coins+=50; 
+                                    state.walls=[]; state.props=[]; state.wonders=[]; genWalls(); 
                                     if(Math.random()<0.5 && state.w%2!==0) triggerAnomaly();
                                 }
+                                
                                 state.ens.splice(j,1);
                                 if(b.mods) b.mods.forEach(m => { if(MODULES[m] && MODULES[m].onKill) MODULES[m].onKill(b, e, state); });
                                 if(b.syn) b.syn.forEach(sy => { if(sy.onKill) sy.onKill(b, e, state); if(sy.id==='superC') META.ach.superC++; });
                                 if(e.aff) e.aff.forEach(a => { if(AFFIXES[a] && AFFIXES[a].onKill) AFFIXES[a].onKill(e, state); });
-                                if(state.sc>=state.nw){ state.w++; state.nw=Math.round(state.nw*2); state.spwI=Math.max(400,state.spwI-100); tLog(`進入 Sector ${state.w}`, '#f59e0b'); if(Math.random()<0.4 && state.w%2!==0) triggerAnomaly(); }
+                                
+                                // v7.9 進度判定重構：當積分達標，重置進度並提升 Sector 難度
+                                if(state.sectorScore >= state.sectorTarget) { 
+                                    state.w++; 
+                                    state.sectorScore = 0;
+                                    state.sectorTarget = 100 + state.w * 50;
+                                    state.spwI = Math.max(400, state.spwI - 100); 
+                                    tLog(`進入 Sector ${state.w}`, '#f59e0b'); 
+                                    if(Math.random()<0.4 && state.w%2!==0) triggerAnomaly(); 
+                                }
+                                updateHUD();
                             }
                             if(!b.prc) hit=true; break;
                         }
@@ -613,7 +754,7 @@
                 for(let i=state.gems.length-1; i>=0; i--) {
                     let g=state.gems[i], d=Math.hypot(state.p.x-g.x,state.p.y-g.y);
                     if(d<150){ g.x+=((state.p.x-g.x)/d)*8; g.y+=((state.p.y-g.y)/d)*8; }
-                    if(d<state.p.sz+5){ state.xp+=g.xp; META.coins += (g.isGold ? 5 : 1) * state.anMods.coin; state.gems.splice(i,1); updateHUD(); sfx(1200, 'sine', 0.05); if(state.xp>=state.nd && !state.dreamMode && state.errM<=0) levelUp(); continue; }
+                    if(d<state.p.sz+5){ state.xp+=g.xp; META.coins += (g.isGold ? 5 : 1) * state.anMods.coin * (state.overloadActive?3:1); state.gems.splice(i,1); updateHUD(); sfx(1200, 'sine', 0.05); if(state.xp>=state.nd && !state.dreamMode && state.errM<=0) levelUp(); continue; }
                     ctx.fillStyle=g.isGold ? '#eab308' : '#34d399'; ctx.beginPath(); ctx.arc(g.x,g.y,g.isGold?6:4,0,Math.PI*2); ctx.fill();
                 }
 
@@ -621,13 +762,13 @@
                     let f=state.effs[i];
                     if(f.t==='p'){ f.x+=f.vx; f.y+=f.vy; f.a-=f.d; if(f.a<=0) {state.effs.splice(i,1);continue;} ctx.globalAlpha=f.a; ctx.fillStyle=f.c; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill(); }
                     else if(f.t==='ring'){ f.r+=(f.max-f.r)*0.1; f.l-=0.05; if(f.l<=0){state.effs.splice(i,1);continue;} ctx.globalAlpha=f.l; ctx.strokeStyle=f.c; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.stroke(); }
-                    else if(f.t==='fire'){ f.l-=0.015; if(f.l<=0){state.effs.splice(i,1);continue;} ctx.globalAlpha=f.l; ctx.fillStyle=f.c; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill(); if(Math.floor(state.gTime)%15===0) state.ens.forEach(e=>{if(Math.hypot(f.x-e.x,f.y-e.y)<f.r+e.sz){e.hp-=f.dmg; addTxt(e.x,e.y,Math.ceil(f.dmg),'#f97316');}}); }
+                    else if(f.t==='fire'){ f.l-=0.015; if(f.l<=0){state.effs.splice(i,1);continue;} ctx.globalAlpha=f.l; ctx.fillStyle=f.c; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill(); if(Math.floor(state.gTime)%15===0) state.ens.forEach(e=>{if(Math.hypot(f.x-e.x,f.y-e.y)<f.r+e.sz){e.hp-=f.dmg; addTxt(e.x,e.y,Math.ceil(f.dmg),'#f97316'); updateHUD();}}); }
                     else if(f.t==='hole'){ f.l-=0.01; if(f.l<=0){state.effs.splice(i,1);continue;} ctx.globalAlpha=f.l; ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#6b7280'; ctx.lineWidth=3; ctx.stroke(); }
                     else if(f.t==='boom'){ f.l=f.l||1; f.l-=0.05; if(f.l<=0){state.effs.splice(i,1);continue;} ctx.globalAlpha=f.l; ctx.fillStyle=f.c; ctx.beginPath(); ctx.arc(f.x,f.y,40*(1-f.l),0,Math.PI*2); ctx.fill(); }
                 } ctx.globalAlpha=1;
                 for(let i=state.txt.length-1; i>=0; i--) { let t=state.txt[i]; t.y+=t.vy; t.a-=0.02; if(t.a<=0){state.txt.splice(i,1);continue;} ctx.globalAlpha=t.a; ctx.fillStyle=t.c; ctx.font='bold 12px "Share Tech Mono"'; ctx.textAlign='center'; ctx.fillText(t.t,t.x,t.y); } ctx.globalAlpha=1;
 
-                if(state.errM>0) { ctx.shadowBlur=30; ctx.shadowColor='#ef4444'; ctx.fillStyle='#f87171'; }
+                if(state.finalErrActive || state.errM>0) { ctx.shadowBlur=30; ctx.shadowColor='#ef4444'; ctx.fillStyle='#f87171'; }
                 else if(state.dreamMode) { ctx.shadowBlur=25; ctx.shadowColor='#eab308'; ctx.fillStyle='#fde047'; }
                 else { let isSkin = META.ach && META.ach.superC >= 100 && selClass === 'bal'; let clsColor = (CLASSES[selClass] || CLASSES.bal).c; ctx.shadowBlur=15; ctx.shadowColor=isSkin?'#fde047':clsColor; ctx.fillStyle=isSkin?'#fde047':clsColor; }
                 ctx.beginPath(); ctx.arc(state.p.x,state.p.y,state.p.sz,0,Math.PI*2); ctx.fill();
@@ -648,7 +789,21 @@
                 let wK = Object.keys(WONDERS)[Math.floor(Math.random()*Object.keys(WONDERS).length)];
                 let wd = WONDERS[wK]; state.wonders.push({...wd, x: state.bRect.w/2, y: state.bRect.h/2}); tLog(`戰場奇觀 [${wd.n}] 已生成`, wd.c);
             }
+            if(state.w >= 15 && state.w < 20 && !state.portal) {
+                let corners = [ {x:120, y:120}, {x:state.bRect.w-120, y:120}, {x:120, y:state.bRect.h-120}, {x:state.bRect.w-120, y:state.bRect.h-120} ];
+                state.portal = corners[Math.floor(Math.random()*corners.length)];
+                state.portal.r = 30; tLog("⚠️ 空間擾動：發現奇點傳送門", "#a855f7");
+            }
         }
+
+        // v7.9 過載加速事件綁定
+        document.getElementById('overload-btn').onclick = () => {
+            if (state.errM > 0 || state.finalErrActive) return;
+            state.overloadActive = true; state.noDmgTimer = 0; state.spwI = 200;
+            tLog("☢️ OVERLOAD ACTIVE: 穩定度狂降 | 刷新 +300%", "#eab308"); sfx(800, 'sawtooth', 0.5, 0.2);
+            document.getElementById('overload-btn').classList.add('hidden');
+            setTimeout(() => { state.overloadActive = false; state.spwI = 1200; tLog("超載冷卻，重設頻率", "#22d3ee"); }, 8000);
+        };
 
         const jZone = document.getElementById('joystick-zone'), jBase = document.getElementById('joystick-base'), jStick = document.getElementById('joystick-stick');
         let touchId = null, mouseMoving = false;
@@ -662,28 +817,38 @@
         window.addEventListener('keydown', e => state.keys[e.key.toLowerCase()]=true); window.addEventListener('keyup', e => state.keys[e.key.toLowerCase()]=false);
 
         function checkDreamOrDie() {
-            if(!state.dreamMode && Math.random() < 0.40 && state.errM<=0) {
+            if(!state.dreamMode && Math.random() < 0.40 && state.errM<=0 && !state.finalErrActive) {
                 state.dreamMode = true; state.dreamTimer = 30000; state.p.hp = state.p.mhp; state.p.stab = state.p.mstab; 
                 state.ens.length=0; state.buls.length=0; state.walls.length=0; state.effs.length=0; state.wonders.length=0;
                 tLog("CRITICAL_WARN: 夢境重組協議啟動", "#eab308"); document.getElementById('dream-hud').classList.remove('hidden'); sfx(1000, 'sine', 0.5); updateHUD();
-            } else { gameOver(false); }
+            } else { gameOver(false, false); }
         }
 
         function start() {
             if(!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
             if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(e=>{});
             let c = CLASSES[selClass] || CLASSES.bal;
-            Object.assign(state, { r:true, pause:false, sc:0, w:1, nw:100, xp:0, nd:20, ens:[], buls:[], gems:[], effs:[], txt:[], walls:[], props:[], wonders:[], anoms:[], anMods:{dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1}, gTime:0, lT:performance.now(), lSpw:0, bRect:{w:1200, h:1200}, dreamMode: false, actPers: [selPers], pers2Unlocked: false, errM: 0, errTriggered: false });
+            
+            // v7.9 初始化 Pacing 與狀態
+            Object.assign(state, { r:true, pause:false, sc:0, w:1, nw:100, xp:0, nd:20, ens:[], buls:[], gems:[], effs:[], txt:[], walls:[], props:[], wonders:[], anoms:[], anMods:{dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1, teleportOnShoot:false, nextTeleportT:0, takenCp:[]}, gTime:0, lT:performance.now(), lSpw:0, bRect:{w:1200, h:1200}, portal: null, dreamMode: false, actPers: [selPers], pers2Unlocked: false, errM: 0, errTriggered: false, overloadActive: false, noDmgTimer: 0, finalErrActive: false, singTriggered: false, loopMode: false, sectorScore:0, sectorTarget:100 });
             state.p = { x:state.bRect.w/2, y:state.bRect.h/2, sz:12, spd:Number(c.spd)||3.5, hp:Number(c.hp)||100, mhp:Number(c.hp)||100, stab:Number(c.stab)||100, mstab:Number(c.stab)||100, arm:Number(c.arm)||0, awk:false };
             try { META_UPGRADES.hp.apply(state.p, META.hpLvl||0); META_UPGRADES.stab.apply(state.p, META.stabLvl||0); META_UPGRADES.spd.apply(state.p, META.spdLvl||0); } catch(e){}
-            Object.keys(WEAPONS).forEach(k => { if(WEAPONS[k]) { WEAPONS[k].lvl=(k===c.w)?1:0; WEAPONS[k].mods=[]; WEAPONS[k].lastShot=0; } });
+            
+            Object.keys(WEAPONS).forEach(k => { 
+                if(WEAPONS[k]) { 
+                    WEAPONS[k].lvl = (k===c.w) ? 1 : 0; 
+                    WEAPONS[k].mods = []; 
+                    WEAPONS[k].lastShot = 0; 
+                    if(WEAPONS[k].baseCd) WEAPONS[k].cd = WEAPONS[k].baseCd;
+                } 
+            });
             
             let targetWeaponId = 'laser', targetMods = [], isNewGhost = false;
             try {
                 let savedGhost = JSON.parse(localStorage.getItem('nr_ghost_v7'));
                 if (savedGhost && savedGhost.wId) { 
                     targetWeaponId = savedGhost.wId; targetMods = savedGhost.mods || []; 
-                    if (!WEAPONS[targetWeaponId]) { let f = FUSIONS.find(fu => fu.id === targetWeaponId); if(f) WEAPONS[targetWeaponId] = f.w; else { targetWeaponId = 'laser'; isNewGhost = true; } }
+                    if (!WEAPONS[targetWeaponId]) { let f = FUSIONS.find(fu => fu.id === targetWeaponId); if(f) { WEAPONS[targetWeaponId] = f.w; WEAPONS[targetWeaponId].cd = WEAPONS[targetWeaponId].baseCd; } else { targetWeaponId = 'laser'; isNewGhost = true; } }
                 } else { targetWeaponId = Object.keys(WEAPONS)[Math.floor(Math.random() * Object.keys(WEAPONS).length)]; isNewGhost = true; }
             } catch(e) { targetWeaponId = 'laser'; isNewGhost = true; }
             if (!WEAPONS[targetWeaponId]) targetWeaponId = 'laser';
@@ -691,26 +856,37 @@
             if(isNewGhost) tLog(`[系統保底] 新手引導殘影加入`, "#818cf8"); else tLog(`喚醒上局傳承殘影...`, "#818cf8");
 
             genWalls(); tLog(`已裝載智慧人格晶片`, PERSONALITIES[selPers].c);
-            document.getElementById('menu-overlay').classList.add('hidden'); document.getElementById('gameover-overlay').classList.add('hidden'); document.getElementById('dream-hud').classList.add('hidden'); document.getElementById('error-hud').classList.add('hidden');
+            document.getElementById('menu-overlay').classList.add('hidden'); document.getElementById('gameover-overlay').classList.add('hidden'); document.getElementById('dream-hud').classList.add('hidden'); document.getElementById('error-hud').classList.add('hidden'); document.getElementById('singularity-overlay').classList.add('hidden'); document.getElementById('overload-btn').classList.add('hidden');
             resize(); sfx(440, 'square', 0.3); updateHUD();
         }
 
-        function gameOver(win=false) { 
+        function gameOver(win=false, finalReboot=false) { 
             state.r=false; 
             try { let activeWeapons = Object.values(WEAPONS).filter(w=>w.lvl>0); if(activeWeapons.length > 0) { let best = activeWeapons[0]; localStorage.setItem('nr_ghost_v7', JSON.stringify({ wId: best.id, mods: best.mods })); } } catch(e){}
 
             document.getElementById('final-wave').innerText=state.w; 
             if(win) { 
-                META.coins += 500; document.getElementById('gameover-title').innerText = "系統超脫 (TRANSCENDENCE)"; 
-                document.getElementById('gameover-title').className = "text-5xl font-black text-cyan-400 mb-2 glow";
-                document.getElementById('transcend-bonus').classList.remove('hidden');
+                if (finalReboot) {
+                    META.coins += 1000;
+                    document.getElementById('gameover-title').innerText = "SYSTEM REBOOT COMPLETE"; 
+                    document.getElementById('gameover-title').className = "text-4xl font-black text-yellow-400 mb-2 glow animate-pulse";
+                    document.getElementById('final-reboot-bonus').classList.remove('hidden');
+                    document.getElementById('transcend-bonus').classList.add('hidden');
+                } else {
+                    META.coins += 500; 
+                    document.getElementById('gameover-title').innerText = "系統超脫 (TRANSCENDENCE)"; 
+                    document.getElementById('gameover-title').className = "text-5xl font-black text-cyan-400 mb-2 glow";
+                    document.getElementById('transcend-bonus').classList.remove('hidden');
+                    document.getElementById('final-reboot-bonus').classList.add('hidden');
+                }
             } else { 
                 document.getElementById('gameover-title').innerText = "系統崩潰 (CRASH)";
                 document.getElementById('gameover-title').className = "text-5xl font-black text-red-500 mb-2 glow err-glitch";
                 document.getElementById('transcend-bonus').classList.add('hidden');
+                document.getElementById('final-reboot-bonus').classList.add('hidden');
             }
             document.getElementById('final-coins').innerText=META.coins; saveMeta(); sfx(100, 'sawtooth', 1); 
-            document.getElementById('gameover-overlay').classList.remove('hidden'); document.getElementById('error-hud').classList.add('hidden');
+            document.getElementById('gameover-overlay').classList.remove('hidden'); document.getElementById('error-hud').classList.add('hidden'); document.getElementById('overload-btn').classList.add('hidden');
         }
 
         document.getElementById('start-btn').onclick = start; 
