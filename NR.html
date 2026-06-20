@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>霓虹收割：覺醒與共鳴 v8.3.3</title>
+    <title>霓虹收割：覺醒與共鳴 v8.4.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -23,7 +23,7 @@
 
     <header class="w-full bg-gray-900/90 border-b border-cyan-500/30 p-2 flex justify-between items-center z-10">
         <div class="flex items-center space-x-3">
-            <span class="text-rose-500 font-bold tracking-wider glow" id="brand-logo">NEON_REAPER v8.3.3</span>
+            <span class="text-rose-500 font-bold tracking-wider glow" id="brand-logo">NEON_REAPER v8.4.3</span>
             <span id="coin-display" class="text-yellow-400 text-xs font-bold glow"><i class="fas fa-coins"></i> 0</span>
         </div>
         <div class="flex items-center space-x-2">
@@ -57,7 +57,15 @@
             <div class="text-[9px] text-cyan-500 mt-0.5 text-right font-bold tracking-widest">SYSTEM INTRUSION</div>
         </div>
 
-        <div id="overload-hud" class="absolute top-20 left-4 text-yellow-400 font-black text-lg tracking-widest glow animate-pulse hidden z-10 pointer-events-none">⚡ OVERLOAD ACTIVE ⚡</div>
+        <!-- 預設隱藏，確保主控制台乾淨 -->
+        <div id="combo-hud" class="absolute top-16 left-4 flex-col items-start z-10 pointer-events-none hidden">
+            <div id="combo-text" class="text-cyan-400 font-bold text-xl tracking-widest glow transition-all">COMBO: 0</div>
+            <div id="overload-status" class="text-yellow-400 text-[10px] hidden mt-1 bg-gray-900/90 p-1.5 border border-yellow-500 rounded shadow-[0_0_10px_#eab308] flex-col gap-0.5">
+                <div class="font-black animate-pulse tracking-wider">⚡ OVERLOAD</div>
+                <div>護盾: <span id="overload-hits" class="font-bold text-white text-xs">10</span></div>
+                <div>擊殺: <span id="overload-kills" class="text-white text-xs">0</span>/500</div>
+            </div>
+        </div>
 
         <div id="dream-hud" class="absolute top-10 left-1/2 transform -translate-x-1/2 text-center hidden z-10">
             <div class="text-yellow-400 font-black text-3xl tracking-widest glow glitch">DREAM BUFFER ACTIVE</div>
@@ -70,10 +78,6 @@
             <div id="error-timer" class="text-red-400 text-3xl font-black mt-2 glow">60.00s</div>
         </div>
 
-        <button id="overload-btn" class="absolute left-4 top-16 px-4 py-2 bg-yellow-600/90 border-2 border-yellow-400 hover:bg-yellow-500 text-black text-xs font-black rounded shadow-[0_0_10px_#eab308] hidden z-10 animate-pulse transition">
-            ⚡ 啟動 OVERLOAD
-        </button>
-
         <div id="joystick-zone" class="absolute inset-0 z-10 pointer-events-auto">
             <div id="joystick-base" class="absolute w-20 h-20 rounded-full border-2 border-cyan-500/40 bg-cyan-950/30 hidden flex justify-center items-center pointer-events-none transition-opacity duration-150">
                 <div id="joystick-stick" class="w-8 h-8 rounded-full bg-cyan-400/80 shadow-[0_0_10px_#22d3ee] pointer-events-none absolute"></div>
@@ -85,7 +89,7 @@
 
         <div id="menu-overlay" class="absolute inset-0 bg-gray-950 z-20 flex flex-col items-center p-6 overflow-y-auto">
             <h1 class="text-4xl font-black text-cyan-400 tracking-widest glow mt-4 mb-2">NEON REAPER</h1>
-            <p id="title-badge" class="text-gray-400 text-xs mb-6">v8.3.3 超載精準控制版</p>
+            <p id="title-badge" class="text-gray-400 text-xs mb-6">v8.4.3 UI生命週期優化版</p>
             
             <div class="w-full max-w-3xl grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
@@ -156,6 +160,7 @@
     </main>
 
     <script>
+        // --- 0. BGM & SFX ---
         let audioCtx, bgmNextT=0, bgmIdx=0;
         const bgmNotes = [220, 261.63, 329.63, 261.63, 392, 329.63, 440, 392];
         function sfx(f, t='square', d=0.1, v=0.05) {
@@ -180,6 +185,7 @@
             setTimeout(() => { if(el.parentElement) el.parentElement.removeChild(el); }, 5000);
         }
 
+        // --- 1. 資料庫 ---
         let META = { coins: 0, hpLvl: 0, stabLvl: 0, spdLvl: 0, ach: { superC: 0 } };
         try { let s = JSON.parse(localStorage.getItem('nr_meta_v7')); if(s) { META = Object.assign({}, META, s); if(!META.ach) META.ach={superC:0}; } } catch(e) {}
         
@@ -201,14 +207,15 @@
             chaos: { id: 'chaos', n: '混沌人格', c: '#eab308', d: '開火傷害隨機 0.5x~2.5x。' }
         }; let selPers = 'berserk';
 
+        // --- 2. 全域狀態與 LOD ---
         const state = { 
             r: false, pause: false, sc: 0, w: 1, nw: 100, xp: 0, nd: 20, p: {}, keys: {}, joy: {a:0, x:0, y:0, sx:0, sy:0}, 
             ens: [], buls: [], gems: [], effs: [], txt: [], walls: [], props: [], wonders: [], anoms: [], 
             anMods: {dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1, teleportOnShoot:false, nextTeleportT:0, takenCp:[]},
             lSpw: 0, spwI: 1200, gTime: 0, lT: 0, skX: 0, skY: 0, bRect: {w: 1200, h: 1200}, portal: null,
             ghost: null, dreamMode: false, dreamTimer: 0, actPers: [], pers2Unlocked: false, errM: 0, errTriggered: false,
-            overloadActive: false, overloadCd: false, noDmgTimer: 0, finalErrActive: false, singTriggered: false, loopMode: false,
-            sectorScore: 0, sectorTarget: 100, totalOverloadTime: 0
+            combo: 0, overloadActive: false, overloadKills: 0, overloadHits: 0,
+            finalErrActive: false, singTriggered: false, loopMode: false, sectorScore: 0, sectorTarget: 100
         };
         const isLaggy = () => (state.buls.length + state.effs.length > 150);
 
@@ -220,6 +227,24 @@
         function explode(x,y,c,n) { n = isLaggy() ? Math.ceil(n/3) : n; for(let i=0;i<n;i++) state.effs.push({t:'p', x,y, vx:(Math.random()-0.5)*8, vy:(Math.random()-0.5)*8, r:Math.random()*3+1, c, a:1, d:0.04}); }
         function shake(amt) { state.skX = (Math.random()-0.5)*amt; state.skY = (Math.random()-0.5)*amt; }
         function hitWall(x,y,r) { if(state.dreamMode) return false; return state.walls.some(w => x+r > w.x && x-r < w.x+w.w && y+r > w.y && y-r < w.y+w.h); }
+
+        function updateComboHUD() {
+            const ct = document.getElementById('combo-text');
+            const os = document.getElementById('overload-status');
+            ct.innerText = `COMBO: ${state.combo}`;
+            
+            if (state.overloadActive) {
+                ct.className = "text-yellow-400 font-black text-2xl tracking-widest glow glitch transition-all";
+                os.classList.remove('hidden');
+                os.classList.add('flex');
+                document.getElementById('overload-hits').innerText = (10 - state.overloadHits);
+                document.getElementById('overload-kills').innerText = state.overloadKills;
+            } else {
+                ct.className = "text-cyan-400 font-bold text-xl tracking-widest glow transition-all";
+                os.classList.add('hidden');
+                os.classList.remove('flex');
+            }
+        }
 
         const AFFIXES = {
             qnt: { n:'量子', c:'#a855f7', onHit:(e,s)=>{if(Math.random()<0.15){e.x+=(Math.random()-0.5)*150; e.y+=(Math.random()-0.5)*150; s.effs.push({t:'ring',x:e.x,y:e.y,r:5,max:30,c:'#a855f7',l:1});}} },
@@ -264,7 +289,17 @@
 
         const FUSIONS = [
             { id:'plasma', n:'⚡星芒電網(融合)', req:['laser','railgun'], c:'#fde047', i:'fa-bolt', w:{id:'plasma', n:'⚡星芒電網', lvl:1, baseCd:600, cd:600, dmg:40, rng:600, c:'#fde047', mods:['emp','bounce'], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*15,vy:Math.sin(a)*15,dmg:w.dmg,c:w.c,sz:8,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true}; }} },
-            { id:'lotus', n:'🌸死亡蓮華(融合)', req:['nova','chakram'], c:'#f43f5e', i:'fa-fan', w:{id:'lotus', n:'🌸死亡蓮華', lvl:1, baseCd:1200, cd:1200, dmg:25, rng:400, c:'#f43f5e', mods:[], fire:(p,t,w,s)=>{ let lag = isLaggy(); let cnt = lag ? 2 : 4; let actDmg = lag ? w.dmg*2 : w.dmg; let res = []; for(let i=0;i<cnt;i++){let a=(i/cnt)*Math.PI*2; res.push({x:p.x,y:p.y,vx:Math.cos(a)*8,vy:Math.sin(a)*8,dmg:actDmg,c:w.c,sz:12,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true,isC:true});} return res; }} }
+            { id:'lotus', n:'🌸死亡蓮華(融合)', req:['nova','chakram'], c:'#f43f5e', i:'fa-fan', w:{id:'lotus', n:'🌸死亡蓮華', lvl:1, baseCd:1200, cd:1200, dmg:25, rng:400, c:'#f43f5e', mods:[], fire:(p,t,w,s)=>{ let lag = isLaggy(); let cnt = lag ? 2 : 4; let actDmg = lag ? w.dmg*2 : w.dmg; let res = []; for(let i=0;i<cnt;i++){let a=(i/cnt)*Math.PI*2; res.push({x:p.x,y:p.y,vx:Math.cos(a)*8,vy:Math.sin(a)*8,dmg:actDmg,c:w.c,sz:12,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true,isC:true});} return res; }} },
+            { id:'orbit', n:'✨天基打擊(融合)', req:['missile','laser'], c:'#cbd5e1', i:'fa-satellite-dish', w:{id:'orbit', n:'✨天基打擊', lvl:1, baseCd:1500, cd:1500, dmg:80, rng:0, c:'#cbd5e1', mods:[], fire:(p,t,w,s)=>{
+                let res = [];
+                for(let i=0; i<3; i++) {
+                    if(s.ens.length === 0) break;
+                    let target = s.ens[Math.floor(Math.random()*s.ens.length)];
+                    res.push({x:target.x, y:target.y, vx:0, vy:0, dmg:w.dmg, c:w.c, sz:35, rng:9999, dist:0, mods:w.mods, w:w, prc:true, isOrb:true, born: s.gTime});
+                    s.effs.push({t:'ring', x:target.x, y:target.y, r:10, max:40, c:w.c, l:1}); 
+                }
+                return res;
+            }}}
         ];
 
         const WEAPONS = {
@@ -272,16 +307,23 @@
             nova:  { id:'nova', n:'全方位脈衝', lvl:0, baseCd:1800, cd:1800, dmg:15, rng:150, c:'#ec4899', mods:[], fire:(p,t,w,s)=>{ let lag = isLaggy(); let cnt = lag ? 4 : 8; let actDmg = lag ? w.dmg*2 : w.dmg; s.effs.push({t:'ring',x:p.x,y:p.y,r:10,max:w.rng,c:w.c,l:1}); let res = []; for(let i=0; i<cnt; i++){let a=(i/cnt)*Math.PI*2; res.push({x:p.x,y:p.y,vx:Math.cos(a)*5,vy:Math.sin(a)*5,dmg:actDmg,c:w.c,sz:5,rng:w.rng,dist:0,mods:w.mods,w:w});} return res;} },
             chakram:{id:'chakram',n:'切割迴旋刃', lvl:0, baseCd:900, cd:900, dmg:18, rng:200, c:'#10b981', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,dmg:w.dmg,c:w.c,sz:8,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true,isC:true}; } },
             missile:{id:'missile',n:'高爆追蹤彈', lvl:0, baseCd:1300, cd:1300, dmg:30, rng:450, c:'#f59e0b', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*4,vy:Math.sin(a)*4,dmg:w.dmg,c:w.c,sz:6,rng:w.rng,dist:0,mods:w.mods,w:w,isM:true,tg:t}; } },
-            railgun:{id:'railgun',n:'電磁貫穿砲', lvl:0, baseCd:1500, cd:1500, dmg:25, rng:500, c:'#a855f7', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*16,vy:Math.sin(a)*16,dmg:w.dmg,c:w.c,sz:3,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true}; } }
+            railgun:{id:'railgun',n:'電磁貫穿砲', lvl:0, baseCd:1500, cd:1500, dmg:25, rng:500, c:'#a855f7', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*16,vy:Math.sin(a)*16,dmg:w.dmg,c:w.c,sz:3,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true}; } },
+            wave:  { id:'wave', n:'震盪聲波', lvl:0, baseCd:800, cd:800, dmg:20, rng:300, c:'#60a5fa', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*6,vy:Math.sin(a)*6,dmg:w.dmg,c:w.c,sz:10,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true,isW:true}; } }
         };
 
         const ENEMY_TYPES = {
             bug: { id:'bug', hp: 15, spd: 1.5, dmg: 5, sc: 10, c: '#f43f5e', sz: 10, xp: 5 },
-            hornet:{id:'hornet',hp: 25, spd: 2.5, dmg: 10, sc: 15, c: '#eab308', sz: 8, xp: 8 },
+            hornet:{id:'hornet',hp: 25, spd: 3.2, dmg: 10, sc: 15, c: '#eab308', sz: 8, xp: 8 },
             dasher:{id:'dasher',hp: 20, spd: 1.0, dmg: 15, sc: 18, c: '#06b6d4', sz: 9, xp: 8 },
             worm_body:{id:'body',hp:40, spd: 1.2, dmg: 15, sc: 20, c: '#d946ef', sz: 12, xp: 10 },
+            phantom: { id:'phantom', hp: 12, spd: 2.2, dmg: 8, sc: 12, c: '#a78bfa', sz: 10, xp: 6, isP: true },
+            tank: { id:'tank', hp: 80, spd: 0.6, dmg: 15, sc: 25, c: '#78716c', sz: 16, xp: 12, isT: true },
+            charger: { id:'charger', hp: 20, spd: 1.0, dmg: 12, sc: 15, c: '#f97316', sz: 10, xp: 8, isCh: true, chT: 0 },
+            
             boss_spider: { id:'spider', hp: 400, spd: 0.6, dmg: 25, sc: 250, c: '#10b981', sz: 35, xp: 150, isBoss: true, cd: 3000, lastF: 0 },
-            boss1: { id:'boss1', hp: 300, spd: 0.8, dmg: 20, sc: 200, c: '#ef4444', sz: 30, xp: 100, isBoss: true, cd: 2000, lastF: 0 }
+            boss1: { id:'boss1', hp: 300, spd: 0.8, dmg: 20, sc: 200, c: '#ef4444', sz: 30, xp: 100, isBoss: true, cd: 2000, lastF: 0 },
+            boss_serpent: { id:'boss_serpent', hp: 600, spd: 1.2, dmg: 20, sc: 300, c: '#14b8a6', sz: 25, xp: 200, isBoss: true, cd: 0, lastF: 0 },
+            boss_core: { id:'boss_core', hp: 800, spd: 0, dmg: 10, sc: 400, c: '#ef4444', sz: 40, xp: 250, isBoss: true, cd: 2000, lastF: 0 }
         };
 
         const PROP_TYPES = [
@@ -306,7 +348,7 @@
             document.getElementById('meta-coins').innerText = `${META.coins} 幣`;
             
             let hasTitle = META.ach && META.ach.superC >= 100;
-            document.getElementById('title-badge').innerHTML = hasTitle ? '<span class="text-yellow-400 font-bold border border-yellow-500 px-2 py-0.5 rounded">👑 稱號：⚡超導大師 | v8.3.3</span>' : 'v8.3.3 超載精準控制版';
+            document.getElementById('title-badge').innerHTML = hasTitle ? '<span class="text-yellow-400 font-bold border border-yellow-500 px-2 py-0.5 rounded">👑 稱號：⚡超導大師 | v8.4.3</span>' : 'v8.4.3 UI生命週期優化版';
 
             const cl = document.getElementById('class-list'); cl.innerHTML = '';
             Object.values(CLASSES).forEach(c => {
@@ -496,22 +538,7 @@
                     }
                 }
 
-                // V8.3.3 修正：無傷30秒、血量過半，且未處於超載或冷卻中，才會開放按鈕
-                if (state.r && !state.pause && state.errM <= 0 && !state.finalErrActive) {
-                    state.noDmgTimer += dt;
-                    if (state.noDmgTimer >= 30000 && state.p.hp >= state.p.mhp * 0.5 && state.ens.length > 2 && !state.overloadActive && !state.overloadCd) {
-                        document.getElementById('overload-btn').classList.remove('hidden');
-                    } else {
-                        document.getElementById('overload-btn').classList.add('hidden');
-                    }
-                } else {
-                    document.getElementById('overload-btn').classList.add('hidden');
-                }
-
-                // V8.3.3 修正：獨立管理 Overload 狀態，確保不受執行序干擾
                 if (state.overloadActive && !state.finalErrActive) {
-                    document.getElementById('overload-hud').classList.remove('hidden');
-                    
                     state.p.stab -= dt * (2.0 / 1000); 
                     if (state.p.stab < 0) state.p.stab = 0;
                     updateHUD(); 
@@ -519,27 +546,6 @@
                     if (state.p.stab <= 0 && !state.errTriggered) { 
                         triggerErrorMode(); 
                         return; 
-                    }
-                } else {
-                    document.getElementById('overload-hud').classList.add('hidden');
-                }
-
-                // V8.3.3 蟲洞優化：改為 3 分鐘 (180,000 ms)，確保機制能在被強制 Error 前有機會出現
-                if (state.overloadActive && !state.finalErrActive && !state.dreamMode) {
-                    let prevTime = state.totalOverloadTime;
-                    state.totalOverloadTime += dt;
-                    
-                    if (Math.floor(state.totalOverloadTime / 5000) > Math.floor(prevTime / 5000)) {
-                        let pct = Math.min(100, Math.floor((state.totalOverloadTime / 180000) * 100));
-                        tLog(`奇點維度同步中... ${pct}%`, '#d946ef');
-                    }
-
-                    if (state.totalOverloadTime >= 180000 && !state.portal) {
-                        let corners = [ {x:120, y:120}, {x:state.bRect.w-120, y:120}, {x:120, y:state.bRect.h-120}, {x:state.bRect.w-120, y:state.bRect.h-120} ];
-                        state.portal = corners[Math.floor(Math.random()*corners.length)];
-                        state.portal.r = 30;
-                        tLog("⚠️ 奇點通道已坍縮！終極奇點傳送門在角落開啟！", "#d946ef");
-                        sfx(1200, 'sawtooth', 0.8, 0.2);
                     }
                 }
 
@@ -587,8 +593,7 @@
 
                     if (Math.hypot(state.p.x - state.portal.x, state.p.y - state.portal.y) < state.p.sz + state.portal.r) {
                         state.w += 5; state.portal = null; state.overloadActive = false;
-                        document.getElementById('overload-hud').classList.add('hidden');
-                        state.totalOverloadTime = 0; 
+                        state.combo = 0; state.overloadKills = 0; state.overloadHits = 0; updateComboHUD();
                         state.sectorScore = 0;
                         state.sectorTarget = 100 + state.w * 50;
                         state.nd = Math.floor((20 + state.w * 5) * state.anMods.xpReq); 
@@ -690,14 +695,22 @@
                     if(Math.random()<0.12) state.gems.push({ x: state.p.x+(Math.random()-0.5)*window.innerWidth, y: state.p.y+(Math.random()-0.5)*window.innerHeight, xp: 5, isGold: true });
                 } else {
                     let actSpwI = state.spwI;
-                    if (state.overloadActive) actSpwI = 150; // 超載強制最高刷新率
-                    else if (state.errM > 0 || state.finalErrActive) actSpwI = 200; // Error模式
+                    if (state.overloadActive) actSpwI = 150; 
+                    else if (state.errM > 0 || state.finalErrActive) actSpwI = 200;
 
                     if(state.gTime-state.lSpw > Math.max(100, actSpwI)) {
-                        state.lSpw = state.gTime; let t = ENEMY_TYPES.bug;
-                        if(state.w>=2 && Math.random()>0.4) t=ENEMY_TYPES.hornet;
-                        if(state.w>=3 && Math.random()>0.7) t=ENEMY_TYPES.dasher;
+                        state.lSpw = state.gTime; 
+                        let t = ENEMY_TYPES.bug;
+                        let r = Math.random();
+                        
+                        if(state.w>=2 && r>0.4) t=ENEMY_TYPES.hornet;
+                        if(state.w>=3 && r>0.6) t=ENEMY_TYPES.dasher;
+                        if(state.w>=4 && r>0.8) t=ENEMY_TYPES.phantom;
+                        if(state.w>=5 && r>0.9) t=ENEMY_TYPES.tank;
+                        if(state.w>=6 && r>0.95) t=ENEMY_TYPES.charger;
+                        
                         let ex = Math.random()*state.bRect.w, ey = Math.random()>0.5 ? -30 : state.bRect.h+30;
+                        
                         if(state.w%2===0 && Math.random()>0.8 && !state.ens.some(e=>e.id==='body')) {
                             tLog("警告: 蠕蟲節點入侵", "#d946ef"); let prev = null;
                             for(let k=0; k<5; k++) { 
@@ -706,9 +719,22 @@
                                 state.ens.push(bdy); prev = bdy; 
                             }
                         } else if(state.w%3===0 && Math.random()>0.9 && !state.ens.some(e=>e.isBoss)) { 
-                            let bossType = Math.random()>0.5 ? ENEMY_TYPES.boss1 : ENEMY_TYPES.boss_spider; tLog(`⚠️ BOSS DETECTED`, "#ef4444"); 
+                            let bossList = [ENEMY_TYPES.boss1, ENEMY_TYPES.boss_spider, ENEMY_TYPES.boss_serpent, ENEMY_TYPES.boss_core];
+                            let bossType = bossList[Math.floor(Math.random()*bossList.length)];
+                            tLog(`⚠️ BOSS DETECTED`, "#ef4444"); 
                             let mHp = Math.ceil((bossType.hp + state.w * 50) * Math.pow(1.05, state.w - 1) * state.anMods.boss);
-                            state.ens.push({...bossType, x:ex, y:ey, mhp: mHp, hp: mHp, eff:{}, aff:[]}); shake(20); sfx(100, 'sawtooth', 0.8, 0.2); 
+                            let newBoss = {...bossType, x:ex, y:ey, mhp: mHp, hp: mHp, eff:{}, aff:[]};
+                            state.ens.push(newBoss);
+                            shake(20); sfx(100, 'sawtooth', 0.8, 0.2); 
+                            
+                            if (bossType.id === 'boss_serpent') {
+                                let prev = newBoss;
+                                for(let k=0; k<8; k++) {
+                                    let bHp = Math.ceil(200 * Math.pow(1.05, state.w - 1));
+                                    let bdy = {...ENEMY_TYPES.worm_body, x:ex+(k*15), y:ey+(k*15), follow: prev, hp: bHp, mhp: bHp, eff:{}, aff:[]};
+                                    state.ens.push(bdy); prev = bdy;
+                                }
+                            }
                         } else { 
                             let scaleHp = Math.ceil((t.hp + (state.w - 1) * 10) * Math.pow(1.05, state.w - 1));
                             let ne = {...t, x:ex, y:ey, mhp: scaleHp, hp: scaleHp, spd: t.spd*(1+(state.w-1)*0.05)*state.anMods.eSpd, eff: {}, aff:[] };
@@ -732,6 +758,19 @@
                         for(let k=0;k<3;k++) state.ens.push({...ENEMY_TYPES.bug, x:e.x+(Math.random()-0.5)*40, y:e.y+(Math.random()-0.5)*40, eff:{}, aff:[]});
                         e.lastF = state.gTime; tLog("BOSS 產卵警報", "#10b981"); sfx(250, 'sawtooth', 0.2);
                     }
+                    if(e.isP) { e.alpha = Math.sin(state.gTime * 0.005 + e.x) * 0.4 + 0.6; }
+                    if(e.isCh) {
+                        e.chT = (e.chT || 0) + dt;
+                        if(e.chT > 3000) { eSpd *= 8; if(e.chT > 3500) e.chT = 0; }
+                    }
+                    if(e.id === 'boss_core') {
+                        if (state.gTime - e.lastF > e.cd && !e.eff.frz && !e.eff.emp) {
+                            for(let k=0;k<3;k++) state.ens.push({...ENEMY_TYPES.phantom, x:e.x+(Math.random()-0.5)*50, y:e.y+(Math.random()-0.5)*50, eff:{}, aff:[]});
+                            state.effs.push({t:'fire', x:e.x, y:e.y, r:200, l:0.5, dmg: 5, c:'#ef4444'});
+                            e.lastF = state.gTime; sfx(200, 'square', 0.3);
+                        }
+                        if (d > 50 && d < 600) { state.p.x += (e.x-state.p.x)/d * 1.5; state.p.y += (e.y-state.p.y)/d * 1.5; }
+                    }
 
                     if(e.follow && state.ens.includes(e.follow)) {
                         let fd = Math.hypot(e.follow.x-e.x, e.follow.y-e.y);
@@ -749,8 +788,6 @@
                     if(e.eff.frz && state.gTime - e.eff.frz.l > e.eff.frz.t) delete e.eff.frz;
 
                     if(d < state.p.sz+e.sz) {
-                        state.noDmgTimer = 0; // 只要受傷就會重新計算 30 秒無傷時間
-
                         if(selClass==='asn' && Math.random()<0.25) { tLog("EVADE", "#ec4899"); WEAPONS.nova.fire(state.p, state.p, WEAPONS.nova, state); e.x -= (state.p.x-e.x)*0.5; e.y -= (state.p.x-e.x)*0.5; continue; }
                         if(selClass==='tnk') { e.hp -= (state.p.mhp*0.1); state.effs.push({t:'boom',x:state.p.x,y:state.p.y,c:'#f59e0b'}); }
                         
@@ -759,18 +796,22 @@
                         state.p.hp -= actDmg; 
                         
                         explode(e.x, e.y, e.c, 5); shake(5); sfx(150, 'sawtooth', 0.1);
-                        if(!e.isBoss) state.ens.splice(i,1); else e.hp-=50; updateHUD(); 
                         
-                        // V8.3.3 修正：被擊中後立即精準確認是否需要切斷超載
-                        if (state.overloadActive && state.p.hp < state.p.mhp * 0.5) {
-                            state.overloadActive = false;
-                            state.overloadCd = true;
-                            document.getElementById('overload-hud').classList.add('hidden');
-                            tLog("⚠️ 裝甲低於 50%：強制安全切斷超載 (冷卻 8 秒)", "#ef4444");
-                            sfx(200, 'square', 0.5);
-                            setTimeout(() => { state.overloadCd = false; tLog("超載系統重新充能完畢", "#22d3ee"); }, 8000);
+                        if (state.overloadActive) {
+                            state.overloadHits++;
+                            if (state.overloadHits >= 10) {
+                                state.overloadActive = false;
+                                state.combo = 0;
+                                state.overloadKills = 0;
+                                state.overloadHits = 0;
+                                tLog("⚠️ 護盾耗盡：強制中斷連殺超載！", "#ef4444");
+                                sfx(200, 'square', 0.8);
+                            }
+                            updateComboHUD();
                         }
 
+                        if(!e.isBoss) state.ens.splice(i,1); else e.hp-=50; updateHUD(); 
+                        
                         if(state.p.hp<=0) { 
                             if(state.finalErrActive) gameOver(false, false); 
                             else checkDreamOrDie(); 
@@ -778,22 +819,32 @@
                         } 
                         continue;
                     }
+                    if(e.isP) ctx.globalAlpha = e.alpha || 1;
                     ctx.shadowBlur=e.eff.frz?15:(e.aff.length?10:5); ctx.shadowColor=e.eff.frz?'#38bdf8':(e.aff.length?AFFIXES[e.aff[0]].c:e.c); ctx.fillStyle=e.c; ctx.beginPath();
                     if(e.sz===10){ctx.moveTo(e.x,e.y-e.sz); ctx.lineTo(e.x-e.sz,e.y+e.sz); ctx.lineTo(e.x+e.sz,e.y+e.sz);}
                     else if(e.sz===12){ctx.moveTo(e.x,e.y-e.sz); ctx.lineTo(e.x+e.sz,e.y); ctx.lineTo(e.x,e.y+e.sz); ctx.lineTo(e.x-e.sz,e.y);}
                     else {ctx.arc(e.x,e.y,e.sz,0,Math.PI*2);} ctx.fill(); ctx.shadowBlur=0;
                     if(e.aff.length){ ctx.strokeStyle=AFFIXES[e.aff[0]].c; ctx.lineWidth=2; ctx.stroke(); }
+                    ctx.globalAlpha = 1;
                 }
 
                 for(let i=state.buls.length-1; i>=0; i--) {
                     let b = state.buls[i];
                     if(b.isM && b.tg && state.ens.includes(b.tg)) { let ta=Math.atan2(b.tg.y-b.y,b.tg.x-b.x), sp=Math.hypot(b.vx,b.vy)||4; b.vx=Math.cos(ta)*sp; b.vy=Math.sin(ta)*sp; }
                     else if(b.isC && !b.ret) { b.vx*=0.95; b.vy*=0.95; if(Math.hypot(b.vx,b.vy)<0.5) b.ret=true; }
+                    else if(b.isW) { 
+                        if(b.sz < 80) b.sz += 0.6; 
+                        b.vx *= 0.95; b.vy *= 0.95; 
+                        b.dist += 6; 
+                    }
+                    else if(b.isOrb) { if(state.gTime - b.born > 500) b.dist = b.rng + 1; }
+
                     if(b.mods) b.mods.forEach(m => { if(MODULES[m] && MODULES[m].onUpdate) MODULES[m].onUpdate(b, state); });
                     if(b.syn) b.syn.forEach(sy => { if(sy.onUpdate) sy.onUpdate(b, state); });
 
                     b.x+=b.vx; b.y+=b.vy; b.dist+=Math.hypot(b.vx,b.vy);
                     if(b.dist>=b.rng || b.x<0||b.x>state.bRect.w||b.y<0||b.y>state.bRect.h || (!b.prc && hitWall(b.x,b.y,b.sz))) { state.buls.splice(i,1); continue; }
+                    
                     ctx.fillStyle=b.c; ctx.beginPath(); ctx.arc(b.x,b.y,b.sz,0,Math.PI*2); ctx.fill();
                     
                     let hit=false;
@@ -814,7 +865,13 @@
                             let isCrit = Math.random() < baseCrit;
                             if(isCrit) { actualDmg *= (state.actPers.includes('chaos') ? 3 : 2.5); state.effs.push({t:'boom', x:e.x, y:e.y, c:'#ef4444'}); sfx(900, 'triangle', 0.1); }
                             
-                            e.hp-=actualDmg; explode(b.x,b.y,e.c,3); sfx(600, 'sine', 0.05);
+                            e.hp-=actualDmg; 
+                            
+                            if(!b.isW && !b.isOrb || Math.random() < 0.2) {
+                                explode(b.x,b.y,e.c,3); 
+                            }
+                            sfx(600, 'sine', 0.05);
+
                             if(b.mods) b.mods.forEach(m => { if(MODULES[m] && MODULES[m].onHit) MODULES[m].onHit(b, e, state); });
                             if(b.syn) b.syn.forEach(sy => { if(sy.onHit) sy.onHit(b, e, state); });
                             if(e.aff) e.aff.forEach(a => { if(AFFIXES[a] && AFFIXES[a].onHit) AFFIXES[a].onHit(e, state, actualDmg); });
@@ -825,6 +882,25 @@
                                 state.sectorScore += e.sc; 
                                 explode(e.x,e.y,e.c,e.isBoss?30:8); state.gems.push({x:e.x,y:e.y,xp:e.xp}); sfx(150, 'sawtooth', 0.2);
                                 
+                                state.combo++;
+                                if(state.overloadActive) {
+                                    state.overloadKills++;
+                                    if(state.overloadKills >= 500 && !state.portal) {
+                                        let corners = [ {x:120, y:120}, {x:state.bRect.w-120, y:120}, {x:120, y:state.bRect.h-120}, {x:state.bRect.w-120, y:state.bRect.h-120} ];
+                                        state.portal = corners[Math.floor(Math.random()*corners.length)];
+                                        state.portal.r = 30;
+                                        tLog("⚠️ 奇點通道已坍縮！終極奇點傳送門在角落開啟！", "#d946ef");
+                                        sfx(1200, 'sawtooth', 0.8, 0.2);
+                                    }
+                                } else if (state.combo >= 30) {
+                                    state.overloadActive = true;
+                                    state.overloadKills = 0;
+                                    state.overloadHits = 0;
+                                    tLog("☢️ 連殺超載開啟：穩定度狂降 | 刷新極大化", "#eab308");
+                                    sfx(800, 'sawtooth', 0.5, 0.2);
+                                }
+                                updateComboHUD();
+
                                 if(e.isBoss) { 
                                     state.w++; 
                                     state.sectorScore = 0;
@@ -837,6 +913,10 @@
                                 }
                                 
                                 state.ens.splice(j,1);
+                                if(e.isT && !isLaggy()) {
+                                    for(let k=0;k<3;k++) state.ens.push({...ENEMY_TYPES.bug, x:e.x+(Math.random()-0.5)*30, y:e.y+(Math.random()-0.5)*30, eff:{}, aff:[]});
+                                }
+
                                 if(b.mods) b.mods.forEach(m => { if(MODULES[m] && MODULES[m].onKill) MODULES[m].onKill(b, e, state); });
                                 if(b.syn) b.syn.forEach(sy => { if(sy.onKill) sy.onKill(b, e, state); if(sy.id==='superC') META.ach.superC++; });
                                 if(e.aff) e.aff.forEach(a => { if(AFFIXES[a] && AFFIXES[a].onKill) AFFIXES[a].onKill(e, state); });
@@ -898,12 +978,6 @@
             }
         }
 
-        document.getElementById('overload-btn').onclick = () => {
-            state.overloadActive = true; 
-            tLog("☢️ OVERLOAD ACTIVE: 穩定度狂降 | 刷新極大化", "#eab308"); sfx(800, 'sawtooth', 0.5, 0.2);
-            document.getElementById('overload-btn').classList.add('hidden');
-        };
-
         const jZone = document.getElementById('joystick-zone'), jBase = document.getElementById('joystick-base'), jStick = document.getElementById('joystick-stick');
         let touchId = null, mouseMoving = false;
         jZone.addEventListener('touchstart', (e) => { if(!state.r||state.pause)return; const t=e.changedTouches[0]; touchId=t.identifier; state.joy.sx=t.clientX; state.joy.sy=t.clientY; state.joy.a=1; jBase.style.left=`${state.joy.sx-40}px`; jBase.style.top=`${state.joy.sy-40}px`; jBase.style.display='flex'; jBase.style.opacity='1'; jStick.style.left='24px'; jStick.style.top='24px'; }, { passive: true });
@@ -927,7 +1001,12 @@
             if(!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
             if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(e=>{});
             let c = CLASSES[selClass] || CLASSES.bal;
-            Object.assign(state, { r:true, pause:false, sc:0, w:1, nw:100, xp:0, nd:20, ens:[], buls:[], gems:[], effs:[], txt:[], walls:[], props:[], wonders:[], anoms:[], anMods:{dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1, teleportOnShoot:false, nextTeleportT:0, takenCp:[]}, gTime:0, lT:performance.now(), lSpw:0, bRect:{w:1200, h:1200}, portal: null, dreamMode: false, actPers: [selPers], pers2Unlocked: false, errM: 0, errTriggered: false, overloadActive: false, overloadCd: false, noDmgTimer: 0, finalErrActive: false, singTriggered: false, loopMode: false, sectorScore:0, sectorTarget:100, totalOverloadTime: 0 });
+            Object.assign(state, { 
+                r:true, pause:false, sc:0, w:1, nw:100, xp:0, nd:20, ens:[], buls:[], gems:[], effs:[], txt:[], walls:[], props:[], wonders:[], anoms:[], 
+                anMods:{dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1, teleportOnShoot:false, nextTeleportT:0, takenCp:[]}, 
+                gTime:0, lT:performance.now(), lSpw:0, bRect:{w:1200, h:1200}, portal: null, dreamMode: false, actPers: [selPers], pers2Unlocked: false, errM: 0, 
+                errTriggered: false, overloadActive: false, combo: 0, overloadKills: 0, overloadHits: 0, finalErrActive: false, singTriggered: false, loopMode: false, sectorScore:0, sectorTarget:100
+            });
             state.p = { x:state.bRect.w/2, y:state.bRect.h/2, sz:12, spd:Number(c.spd)||3.5, hp:Number(c.hp)||100, mhp:Number(c.hp)||100, stab:Number(c.stab)||100, mstab:Number(c.stab)||100, arm:Number(c.arm)||0, awk:false };
             try { META_UPGRADES.hp.apply(state.p, META.hpLvl||0); META_UPGRADES.stab.apply(state.p, META.stabLvl||0); META_UPGRADES.spd.apply(state.p, META.spdLvl||0); } catch(e){}
             
@@ -953,7 +1032,18 @@
             if(isNewGhost) tLog(`[系統保底] 新手引導殘影加入`, "#818cf8"); else tLog(`喚醒上局傳承殘影...`, "#818cf8");
 
             genWalls(); tLog(`已裝載智慧人格晶片`, PERSONALITIES[selPers].c);
-            document.getElementById('menu-overlay').classList.add('hidden'); document.getElementById('gameover-overlay').classList.add('hidden'); document.getElementById('dream-hud').classList.add('hidden'); document.getElementById('error-hud').classList.add('hidden'); document.getElementById('singularity-overlay').classList.add('hidden'); document.getElementById('overload-btn').classList.add('hidden'); document.getElementById('overload-hud').classList.add('hidden');
+            
+            // UI 隱藏與清理
+            document.getElementById('menu-overlay').classList.add('hidden'); 
+            document.getElementById('gameover-overlay').classList.add('hidden'); 
+            document.getElementById('dream-hud').classList.add('hidden'); 
+            document.getElementById('error-hud').classList.add('hidden'); 
+            document.getElementById('singularity-overlay').classList.add('hidden'); 
+            
+            // V8.4.3: 將 COMBO HUD 淡入顯示，並確保乾淨狀態
+            document.getElementById('combo-hud').classList.remove('hidden');
+            updateComboHUD();
+
             resize(); sfx(440, 'square', 0.3); updateHUD();
         }
 
@@ -983,7 +1073,12 @@
                 document.getElementById('final-reboot-bonus').classList.add('hidden');
             }
             document.getElementById('final-coins').innerText=META.coins; saveMeta(); sfx(100, 'sawtooth', 1); 
-            document.getElementById('gameover-overlay').classList.remove('hidden'); document.getElementById('error-hud').classList.add('hidden'); document.getElementById('overload-btn').classList.add('hidden'); document.getElementById('overload-hud').classList.add('hidden');
+            
+            // V8.4.3: 結算時即刻隱藏 COMBO 與 OVERLOAD 的 UI，防止殘留
+            document.getElementById('combo-hud').classList.add('hidden');
+            
+            document.getElementById('gameover-overlay').classList.remove('hidden'); 
+            document.getElementById('error-hud').classList.add('hidden'); 
         }
 
         document.getElementById('start-btn').onclick = start; 
