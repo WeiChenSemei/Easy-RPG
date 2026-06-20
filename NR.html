@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>霓虹收割：覺醒與共鳴 v8.3.2</title>
+    <title>霓虹收割：覺醒與共鳴 v8.3.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -23,7 +23,7 @@
 
     <header class="w-full bg-gray-900/90 border-b border-cyan-500/30 p-2 flex justify-between items-center z-10">
         <div class="flex items-center space-x-3">
-            <span class="text-rose-500 font-bold tracking-wider glow" id="brand-logo">NEON_REAPER v8.3.2</span>
+            <span class="text-rose-500 font-bold tracking-wider glow" id="brand-logo">NEON_REAPER v8.3.3</span>
             <span id="coin-display" class="text-yellow-400 text-xs font-bold glow"><i class="fas fa-coins"></i> 0</span>
         </div>
         <div class="flex items-center space-x-2">
@@ -57,8 +57,7 @@
             <div class="text-[9px] text-cyan-500 mt-0.5 text-right font-bold tracking-widest">SYSTEM INTRUSION</div>
         </div>
 
-        <!-- 專屬常駐超載 UI 提示 -->
-        <div id="overload-hud" class="absolute top-20 left-4 text-yellow-400 font-black text-lg tracking-widest glow animate-pulse hidden z-10">⚡ OVERLOAD ACTIVE ⚡</div>
+        <div id="overload-hud" class="absolute top-20 left-4 text-yellow-400 font-black text-lg tracking-widest glow animate-pulse hidden z-10 pointer-events-none">⚡ OVERLOAD ACTIVE ⚡</div>
 
         <div id="dream-hud" class="absolute top-10 left-1/2 transform -translate-x-1/2 text-center hidden z-10">
             <div class="text-yellow-400 font-black text-3xl tracking-widest glow glitch">DREAM BUFFER ACTIVE</div>
@@ -86,7 +85,7 @@
 
         <div id="menu-overlay" class="absolute inset-0 bg-gray-950 z-20 flex flex-col items-center p-6 overflow-y-auto">
             <h1 class="text-4xl font-black text-cyan-400 tracking-widest glow mt-4 mb-2">NEON REAPER</h1>
-            <p id="title-badge" class="text-gray-400 text-xs mb-6">v8.3.2 穩定超載版</p>
+            <p id="title-badge" class="text-gray-400 text-xs mb-6">v8.3.3 超載精準控制版</p>
             
             <div class="w-full max-w-3xl grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
@@ -157,7 +156,6 @@
     </main>
 
     <script>
-        // --- 0. BGM & SFX ---
         let audioCtx, bgmNextT=0, bgmIdx=0;
         const bgmNotes = [220, 261.63, 329.63, 261.63, 392, 329.63, 440, 392];
         function sfx(f, t='square', d=0.1, v=0.05) {
@@ -182,7 +180,6 @@
             setTimeout(() => { if(el.parentElement) el.parentElement.removeChild(el); }, 5000);
         }
 
-        // --- 1. 資料驅動設定庫 ---
         let META = { coins: 0, hpLvl: 0, stabLvl: 0, spdLvl: 0, ach: { superC: 0 } };
         try { let s = JSON.parse(localStorage.getItem('nr_meta_v7')); if(s) { META = Object.assign({}, META, s); if(!META.ach) META.ach={superC:0}; } } catch(e) {}
         
@@ -204,7 +201,6 @@
             chaos: { id: 'chaos', n: '混沌人格', c: '#eab308', d: '開火傷害隨機 0.5x~2.5x。' }
         }; let selPers = 'berserk';
 
-        // --- 2. 全域狀態與動態負載平衡 (LOD) ---
         const state = { 
             r: false, pause: false, sc: 0, w: 1, nw: 100, xp: 0, nd: 20, p: {}, keys: {}, joy: {a:0, x:0, y:0, sx:0, sy:0}, 
             ens: [], buls: [], gems: [], effs: [], txt: [], walls: [], props: [], wonders: [], anoms: [], 
@@ -310,7 +306,7 @@
             document.getElementById('meta-coins').innerText = `${META.coins} 幣`;
             
             let hasTitle = META.ach && META.ach.superC >= 100;
-            document.getElementById('title-badge').innerHTML = hasTitle ? '<span class="text-yellow-400 font-bold border border-yellow-500 px-2 py-0.5 rounded">👑 稱號：⚡超導大師 | v8.3.2</span>' : 'v8.3.2 穩定超載版';
+            document.getElementById('title-badge').innerHTML = hasTitle ? '<span class="text-yellow-400 font-bold border border-yellow-500 px-2 py-0.5 rounded">👑 稱號：⚡超導大師 | v8.3.3</span>' : 'v8.3.3 超載精準控制版';
 
             const cl = document.getElementById('class-list'); cl.innerHTML = '';
             Object.values(CLASSES).forEach(c => {
@@ -500,10 +496,10 @@
                     }
                 }
 
-                // --- 1. OVERLOAD 啟動判定 (無傷 30 秒，且不能在冷卻中) ---
+                // V8.3.3 修正：無傷30秒、血量過半，且未處於超載或冷卻中，才會開放按鈕
                 if (state.r && !state.pause && state.errM <= 0 && !state.finalErrActive) {
                     state.noDmgTimer += dt;
-                    if (state.noDmgTimer >= 30000 && state.ens.length > 2 && !state.overloadActive && !state.overloadCd) {
+                    if (state.noDmgTimer >= 30000 && state.p.hp >= state.p.mhp * 0.5 && state.ens.length > 2 && !state.overloadActive && !state.overloadCd) {
                         document.getElementById('overload-btn').classList.remove('hidden');
                     } else {
                         document.getElementById('overload-btn').classList.add('hidden');
@@ -512,24 +508,15 @@
                     document.getElementById('overload-btn').classList.add('hidden');
                 }
 
-                // --- 2. OVERLOAD 維持與中斷判定 (僅血量低於 50% 才會中斷) ---
+                // V8.3.3 修正：獨立管理 Overload 狀態，確保不受執行序干擾
                 if (state.overloadActive && !state.finalErrActive) {
-                    document.getElementById('overload-hud').classList.remove('hidden'); // 確保玩家知道狀態正在運作
+                    document.getElementById('overload-hud').classList.remove('hidden');
+                    
                     state.p.stab -= dt * (2.0 / 1000); 
                     if (state.p.stab < 0) state.p.stab = 0;
                     updateHUD(); 
 
-                    // 中斷條件：血量保護機制觸發
-                    if (state.p.hp <= state.p.mhp * 0.5) {
-                        state.overloadActive = false; 
-                        state.overloadCd = true; // 進入 8 秒鎖定冷卻
-                        state.noDmgTimer = 0; // 重置無傷計時
-                        document.getElementById('overload-hud').classList.add('hidden');
-                        
-                        tLog("⚠️ 血量低於 50%，安全機制強制中斷超載 (系統冷卻 8 秒)", "#ef4444"); 
-                        sfx(200, 'square', 0.5);
-                        setTimeout(() => { state.overloadCd = false; tLog("超載系統冷卻完畢", "#22d3ee"); }, 8000);
-                    } else if (state.p.stab <= 0 && !state.errTriggered) { 
+                    if (state.p.stab <= 0 && !state.errTriggered) { 
                         triggerErrorMode(); 
                         return; 
                     }
@@ -537,16 +524,17 @@
                     document.getElementById('overload-hud').classList.add('hidden');
                 }
 
+                // V8.3.3 蟲洞優化：改為 3 分鐘 (180,000 ms)，確保機制能在被強制 Error 前有機會出現
                 if (state.overloadActive && !state.finalErrActive && !state.dreamMode) {
                     let prevTime = state.totalOverloadTime;
                     state.totalOverloadTime += dt;
                     
                     if (Math.floor(state.totalOverloadTime / 5000) > Math.floor(prevTime / 5000)) {
-                        let pct = Math.min(100, Math.floor((state.totalOverloadTime / 300000) * 100));
+                        let pct = Math.min(100, Math.floor((state.totalOverloadTime / 180000) * 100));
                         tLog(`奇點維度同步中... ${pct}%`, '#d946ef');
                     }
 
-                    if (state.totalOverloadTime >= 300000 && !state.portal) {
+                    if (state.totalOverloadTime >= 180000 && !state.portal) {
                         let corners = [ {x:120, y:120}, {x:state.bRect.w-120, y:120}, {x:120, y:state.bRect.h-120}, {x:state.bRect.w-120, y:state.bRect.h-120} ];
                         state.portal = corners[Math.floor(Math.random()*corners.length)];
                         state.portal.r = 30;
@@ -701,11 +689,10 @@
                 if(state.dreamMode) {
                     if(Math.random()<0.12) state.gems.push({ x: state.p.x+(Math.random()-0.5)*window.innerWidth, y: state.p.y+(Math.random()-0.5)*window.innerHeight, xp: 5, isGold: true });
                 } else {
-                    // --- 3. 獨立出怪頻率管理，防止過關升級覆蓋 Overload 高速出怪 ---
-                    let actSpwI = state.spwI; 
-                    if (state.overloadActive) actSpwI = 150; // 超載絕對覆蓋：鎖死最高出怪頻率
-                    else if (state.errM > 0 || state.finalErrActive) actSpwI = 200; // Error Mode 頻率
-                    
+                    let actSpwI = state.spwI;
+                    if (state.overloadActive) actSpwI = 150; // 超載強制最高刷新率
+                    else if (state.errM > 0 || state.finalErrActive) actSpwI = 200; // Error模式
+
                     if(state.gTime-state.lSpw > Math.max(100, actSpwI)) {
                         state.lSpw = state.gTime; let t = ENEMY_TYPES.bug;
                         if(state.w>=2 && Math.random()>0.4) t=ENEMY_TYPES.hornet;
@@ -774,6 +761,16 @@
                         explode(e.x, e.y, e.c, 5); shake(5); sfx(150, 'sawtooth', 0.1);
                         if(!e.isBoss) state.ens.splice(i,1); else e.hp-=50; updateHUD(); 
                         
+                        // V8.3.3 修正：被擊中後立即精準確認是否需要切斷超載
+                        if (state.overloadActive && state.p.hp < state.p.mhp * 0.5) {
+                            state.overloadActive = false;
+                            state.overloadCd = true;
+                            document.getElementById('overload-hud').classList.add('hidden');
+                            tLog("⚠️ 裝甲低於 50%：強制安全切斷超載 (冷卻 8 秒)", "#ef4444");
+                            sfx(200, 'square', 0.5);
+                            setTimeout(() => { state.overloadCd = false; tLog("超載系統重新充能完畢", "#22d3ee"); }, 8000);
+                        }
+
                         if(state.p.hp<=0) { 
                             if(state.finalErrActive) gameOver(false, false); 
                             else checkDreamOrDie(); 
@@ -849,7 +846,6 @@
                                     state.sectorScore = 0;
                                     state.sectorTarget = 100 + state.w * 50;
                                     state.nd = Math.floor((20 + state.w * 5) * state.anMods.xpReq);
-                                    // 確保只有底層出怪基準會變慢，不會蓋掉 Overload 的神速
                                     state.spwI = Math.max(400, state.spwI - 100); 
                                     tLog(`進入 Sector ${state.w}`, '#f59e0b'); 
                                     if(state.w % 10 === 0) triggerAnomaly(); 
@@ -903,7 +899,6 @@
         }
 
         document.getElementById('overload-btn').onclick = () => {
-            if (state.errM > 0 || state.finalErrActive || state.p.hp <= state.p.mhp * 0.5) return;
             state.overloadActive = true; 
             tLog("☢️ OVERLOAD ACTIVE: 穩定度狂降 | 刷新極大化", "#eab308"); sfx(800, 'sawtooth', 0.5, 0.2);
             document.getElementById('overload-btn').classList.add('hidden');
