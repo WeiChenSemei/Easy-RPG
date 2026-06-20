@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>霓虹收割：覺醒與共鳴 v8.2</title>
+    <title>霓虹收割：覺醒與共鳴 v8.3.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -23,7 +23,7 @@
 
     <header class="w-full bg-gray-900/90 border-b border-cyan-500/30 p-2 flex justify-between items-center z-10">
         <div class="flex items-center space-x-3">
-            <span class="text-rose-500 font-bold tracking-wider glow" id="brand-logo">NEON_REAPER v8.2</span>
+            <span class="text-rose-500 font-bold tracking-wider glow" id="brand-logo">NEON_REAPER v8.3.2</span>
             <span id="coin-display" class="text-yellow-400 text-xs font-bold glow"><i class="fas fa-coins"></i> 0</span>
         </div>
         <div class="flex items-center space-x-2">
@@ -33,7 +33,6 @@
         </div>
     </header>
 
-    <!-- 雙軌獨立血條 -->
     <div class="w-full flex flex-col z-10 relative bg-gray-950 gap-[1px]">
         <div class="w-full h-1.5 bg-gray-900 flex justify-start">
             <div id="hp-bar" class="h-full bg-rose-500 transition-all" style="width: 100%"></div>
@@ -58,6 +57,9 @@
             <div class="text-[9px] text-cyan-500 mt-0.5 text-right font-bold tracking-widest">SYSTEM INTRUSION</div>
         </div>
 
+        <!-- 專屬常駐超載 UI 提示 -->
+        <div id="overload-hud" class="absolute top-20 left-4 text-yellow-400 font-black text-lg tracking-widest glow animate-pulse hidden z-10">⚡ OVERLOAD ACTIVE ⚡</div>
+
         <div id="dream-hud" class="absolute top-10 left-1/2 transform -translate-x-1/2 text-center hidden z-10">
             <div class="text-yellow-400 font-black text-3xl tracking-widest glow glitch">DREAM BUFFER ACTIVE</div>
             <div id="dream-timer" class="text-white text-xl font-bold mt-1">30.00s</div>
@@ -70,7 +72,7 @@
         </div>
 
         <button id="overload-btn" class="absolute left-4 top-16 px-4 py-2 bg-yellow-600/90 border-2 border-yellow-400 hover:bg-yellow-500 text-black text-xs font-black rounded shadow-[0_0_10px_#eab308] hidden z-10 animate-pulse transition">
-            ⚡ OVERLOAD SPEEDUP
+            ⚡ 啟動 OVERLOAD
         </button>
 
         <div id="joystick-zone" class="absolute inset-0 z-10 pointer-events-auto">
@@ -84,7 +86,7 @@
 
         <div id="menu-overlay" class="absolute inset-0 bg-gray-950 z-20 flex flex-col items-center p-6 overflow-y-auto">
             <h1 class="text-4xl font-black text-cyan-400 tracking-widest glow mt-4 mb-2">NEON REAPER</h1>
-            <p id="title-badge" class="text-gray-400 text-xs mb-6">v8.2 異常頻率優化</p>
+            <p id="title-badge" class="text-gray-400 text-xs mb-6">v8.3.2 穩定超載版</p>
             
             <div class="w-full max-w-3xl grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
@@ -202,12 +204,33 @@
             chaos: { id: 'chaos', n: '混沌人格', c: '#eab308', d: '開火傷害隨機 0.5x~2.5x。' }
         }; let selPers = 'berserk';
 
+        // --- 2. 全域狀態與動態負載平衡 (LOD) ---
+        const state = { 
+            r: false, pause: false, sc: 0, w: 1, nw: 100, xp: 0, nd: 20, p: {}, keys: {}, joy: {a:0, x:0, y:0, sx:0, sy:0}, 
+            ens: [], buls: [], gems: [], effs: [], txt: [], walls: [], props: [], wonders: [], anoms: [], 
+            anMods: {dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1, teleportOnShoot:false, nextTeleportT:0, takenCp:[]},
+            lSpw: 0, spwI: 1200, gTime: 0, lT: 0, skX: 0, skY: 0, bRect: {w: 1200, h: 1200}, portal: null,
+            ghost: null, dreamMode: false, dreamTimer: 0, actPers: [], pers2Unlocked: false, errM: 0, errTriggered: false,
+            overloadActive: false, overloadCd: false, noDmgTimer: 0, finalErrActive: false, singTriggered: false, loopMode: false,
+            sectorScore: 0, sectorTarget: 100, totalOverloadTime: 0
+        };
+        const isLaggy = () => (state.buls.length + state.effs.length > 150);
+
+        const cvs = document.getElementById('game-canvas'), ctx = cvs.getContext('2d');
+        function resize() { cvs.width = window.innerWidth; cvs.height = window.innerHeight; if(!state.r && state.p) { state.p.x = cvs.width/2; state.p.y = cvs.height/2; } }
+        window.addEventListener('resize', resize); resize();
+
+        function addTxt(x,y,t,c='#fff') { state.txt.push({x, y:y-10, t, c, a:1, vy:-1}); }
+        function explode(x,y,c,n) { n = isLaggy() ? Math.ceil(n/3) : n; for(let i=0;i<n;i++) state.effs.push({t:'p', x,y, vx:(Math.random()-0.5)*8, vy:(Math.random()-0.5)*8, r:Math.random()*3+1, c, a:1, d:0.04}); }
+        function shake(amt) { state.skX = (Math.random()-0.5)*amt; state.skY = (Math.random()-0.5)*amt; }
+        function hitWall(x,y,r) { if(state.dreamMode) return false; return state.walls.some(w => x+r > w.x && x-r < w.x+w.w && y+r > w.y && y-r < w.y+w.h); }
+
         const AFFIXES = {
             qnt: { n:'量子', c:'#a855f7', onHit:(e,s)=>{if(Math.random()<0.15){e.x+=(Math.random()-0.5)*150; e.y+=(Math.random()-0.5)*150; s.effs.push({t:'ring',x:e.x,y:e.y,r:5,max:30,c:'#a855f7',l:1});}} },
             ref: { n:'反射', c:'#f87171', onHit:(e,s,dmg)=>{ if(Math.random()<0.1){ let d=Math.min(2, Math.max(1, Math.ceil(dmg*0.01))); s.p.hp-=d; updateHUD(); if(s.p.hp<=0){ if(s.finalErrActive) gameOver(false, false); else checkDreamOrDie(); } } } },
             reg: { n:'再生', c:'#10b981', upd:(e,s)=>{if(Math.floor(s.gTime)%60===0 && e.hp<e.mhp){e.hp+=e.mhp*0.01;}} },
             col: { n:'巨構', c:'#f59e0b', init:(e)=>{e.sz*=2; e.mhp*=3; e.hp=e.mhp; e.spd*=0.5;} },
-            spl: { n:'分裂', c:'#3b82f6', onKill:(e,s)=>{for(let k=0;k<2;k++)s.ens.push({...ENEMY_TYPES.bug, x:e.x+(Math.random()-0.5)*30, y:e.y+(Math.random()-0.5)*30, eff:{}, aff:[]});} }
+            spl: { n:'分裂', c:'#3b82f6', onKill:(e,s)=>{if(isLaggy()) return; for(let k=0;k<2;k++)s.ens.push({...ENEMY_TYPES.bug, x:e.x+(Math.random()-0.5)*30, y:e.y+(Math.random()-0.5)*30, eff:{}, aff:[]});} }
         };
 
         const ANOMALIES = [
@@ -223,20 +246,20 @@
         ];
 
         const WONDERS = {
-            tree: { n:'資料世界樹', c:'#4ade80', sz:60, upd:(w,s)=>{ s.effs.push({t:'ring',x:w.x,y:w.y,r:w.sz,max:300,c:'#4ade80',l:0.3}); if(Math.floor(s.gTime)%30===0 && Math.hypot(s.p.x-w.x,s.p.y-w.y)<300){s.p.hp=Math.min(s.p.mhp,s.p.hp+1);} } },
-            obelisk: { n:'超頻方尖碑', c:'#f59e0b', sz:40, upd:(w,s)=>{ s.effs.push({t:'ring',x:w.x,y:w.y,r:w.sz,max:250,c:'#f59e0b',l:0.3}); if(Math.hypot(s.p.x-w.x,s.p.y-w.y)<250) s.anMods.wdrCd=0.4; else s.anMods.wdrCd=1; } }
+            tree: { n:'資料世界樹', c:'#4ade80', sz:60, upd:(w,s)=>{ if(Math.floor(s.gTime)%3===0) s.effs.push({t:'ring',x:w.x,y:w.y,r:w.sz,max:300,c:'#4ade80',l:0.3}); if(Math.floor(s.gTime)%30===0 && Math.hypot(s.p.x-w.x,s.p.y-w.y)<300){s.p.hp=Math.min(s.p.mhp,s.p.hp+1);} } },
+            obelisk: { n:'超頻方尖碑', c:'#f59e0b', sz:40, upd:(w,s)=>{ if(Math.floor(s.gTime)%3===0) s.effs.push({t:'ring',x:w.x,y:w.y,r:w.sz,max:250,c:'#f59e0b',l:0.3}); if(Math.hypot(s.p.x-w.x,s.p.y-w.y)<250) s.anMods.wdrCd=0.4; else s.anMods.wdrCd=1; } }
         };
 
         const MODULES = {
             virus: { id:'virus', n:'病毒', icon:'fa-virus', c:'#a855f7', sc:10, d:'附加中毒(穩定度-10)', onHit:(b,e,s)=>{if(Math.random()<0.5)e.eff.poi={t:4, d:b.dmg*0.4, l:s.gTime};} },
             overc: { id:'overc', n:'超頻', icon:'fa-bolt-lightning', c:'#f59e0b', sc:15, d:'射速彈速上升(穩定度-15)', onEq:w=>{w.cd*=0.7;}, onFire:b=>{b.vx*=1.5; b.vy*=1.5;} },
-            dupe:  { id:'dupe', n:'複製', icon:'fa-clone', c:'#3b82f6', sc:20, d:'分裂額外子彈(穩定度-20)', onFire:(b,s)=>{if(!b.dp){let a=Math.atan2(b.vy,b.vx), sp=Math.hypot(b.vx,b.vy)||5; [-0.2,0.2].forEach(o=>{s.buls.push({...b, vx:Math.cos(a+o)*sp,vy:Math.sin(a+o)*sp,dp:1});});}} },
-            bounce:{ id:'bounce', n:'連鎖', icon:'fa-arrow-turn-up', c:'#818cf8', sc:15, d:'彈射至下個目標(穩定度-15)', onHit:(b,e,s)=>{ b.bnc=(b.bnc===undefined)?2:b.bnc-1; if(b.bnc>0){ let t=s.ens.find(en=>en!==e&&Math.hypot(en.x-b.x,en.y-b.y)<200); if(t){let a=Math.atan2(t.y-b.y,t.x-b.x),sp=Math.hypot(b.vx,b.vy); b.vx=Math.cos(a)*sp; b.vy=Math.sin(a)*sp; b.prc=true;} else b.prc=false; } else b.prc=false; }},
+            dupe:  { id:'dupe', n:'複製', icon:'fa-clone', c:'#3b82f6', sc:20, d:'分裂額外子彈(穩定度-20)', onFire:(b,s)=>{if(!b.dp){ if(isLaggy()){ b.dmg*=1.5; b.sz*=1.2; b.dp=1; return; } let a=Math.atan2(b.vy,b.vx), sp=Math.hypot(b.vx,b.vy)||5; [-0.2,0.2].forEach(o=>{s.buls.push({...b, vx:Math.cos(a+o)*sp,vy:Math.sin(a+o)*sp,dp:1});});}} },
+            bounce:{ id:'bounce', n:'連鎖', icon:'fa-arrow-turn-up', c:'#818cf8', sc:15, d:'彈射至下個目標(穩定度-15)', onHit:(b,e,s)=>{ b.bnc=(b.bnc===undefined)?(isLaggy()?1:2):b.bnc-1; if(b.bnc>0){ let t=s.ens.find(en=>en!==e&&Math.hypot(en.x-b.x,en.y-b.y)<200); if(t){let a=Math.atan2(t.y-b.y,t.x-b.x),sp=Math.hypot(b.vx,b.vy); b.vx=Math.cos(a)*sp; b.vy=Math.sin(a)*sp; b.prc=true;} else b.prc=false; } else b.prc=false; }},
             emp:   { id:'emp', n:'電磁', icon:'fa-wifi', c:'#4ade80', sc:20, d:'癱瘓敵人使其無法移動(穩定度-20)', onHit:(b,e,s)=>{if(Math.random()<0.3){e.eff.emp={t:2000, l:s.gTime}; s.effs.push({t:'ring',x:e.x,y:e.y,r:20,max:40,c:'#4ade80',l:1});}} },
             pyro:  { id:'pyro', n:'熱能', icon:'fa-fire', c:'#f97316', sc:15, d:'留下燃燒火海(穩定度-15)', onHit:(b,e,s)=>{s.effs.push({t:'fire', x:e.x, y:e.y, r:35, l:1.0, dmg:b.dmg*0.4, c:'#f97316'});} },
             frz:   { id:'frz', n:'冰凍', icon:'fa-snowflake', c:'#38bdf8', sc:10, d:'機率凍結敵人(穩定度-10)', onHit:(b,e,s)=>{if(Math.random()<0.3)e.eff.frz={t:1500, l:s.gTime};} },
             hole:  { id:'hole', n:'重力', icon:'fa-circle-dot', c:'#6b7280', sc:25, d:'擊殺產生重力吸引源(穩定度-25)', onKill:(b,e,s)=>{s.effs.push({t:'hole', x:e.x, y:e.y, r:80, l:1}); s.ens.forEach(en=>{if(Math.hypot(en.x-e.x,en.y-e.y)<80){en.x+=(e.x-en.x)*0.5; en.y+=(e.y-en.y)*0.5;}});} },
-            trail: { id:'trail', n:'焦痕', icon:'fa-fire-flame-simple', c:'#f97316', sc:15, d:'子彈留下燃燒軌跡(穩定度-15)', onUpdate:(b,s)=>{ if(Math.random()<0.25){ s.effs.push({t:'fire', x:b.x, y:b.y, r:15, l:0.8, dmg:b.dmg*0.3, c:'#f97316'}); } } }
+            trail: { id:'trail', n:'焦痕', icon:'fa-fire-flame-simple', c:'#f97316', sc:15, d:'子彈留下燃燒軌跡(穩定度-15)', onUpdate:(b,s)=>{ if(!isLaggy() && Math.random()<0.25){ s.effs.push({t:'fire', x:b.x, y:b.y, r:15, l:0.8, dmg:b.dmg*0.3, c:'#f97316'}); } } }
         };
 
         const SYNERGIES = [
@@ -245,12 +268,12 @@
 
         const FUSIONS = [
             { id:'plasma', n:'⚡星芒電網(融合)', req:['laser','railgun'], c:'#fde047', i:'fa-bolt', w:{id:'plasma', n:'⚡星芒電網', lvl:1, baseCd:600, cd:600, dmg:40, rng:600, c:'#fde047', mods:['emp','bounce'], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*15,vy:Math.sin(a)*15,dmg:w.dmg,c:w.c,sz:8,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true}; }} },
-            { id:'lotus', n:'🌸死亡蓮華(融合)', req:['nova','chakram'], c:'#f43f5e', i:'fa-fan', w:{id:'lotus', n:'🌸死亡蓮華', lvl:1, baseCd:1200, cd:1200, dmg:25, rng:400, c:'#f43f5e', mods:[], fire:(p,t,w,s)=>{ let res = []; for(let i=0;i<4;i++){let a=(i/4)*Math.PI*2; res.push({x:p.x,y:p.y,vx:Math.cos(a)*8,vy:Math.sin(a)*8,dmg:w.dmg,c:w.c,sz:12,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true,isC:true});} return res; }} }
+            { id:'lotus', n:'🌸死亡蓮華(融合)', req:['nova','chakram'], c:'#f43f5e', i:'fa-fan', w:{id:'lotus', n:'🌸死亡蓮華', lvl:1, baseCd:1200, cd:1200, dmg:25, rng:400, c:'#f43f5e', mods:[], fire:(p,t,w,s)=>{ let lag = isLaggy(); let cnt = lag ? 2 : 4; let actDmg = lag ? w.dmg*2 : w.dmg; let res = []; for(let i=0;i<cnt;i++){let a=(i/cnt)*Math.PI*2; res.push({x:p.x,y:p.y,vx:Math.cos(a)*8,vy:Math.sin(a)*8,dmg:actDmg,c:w.c,sz:12,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true,isC:true});} return res; }} }
         ];
 
         const WEAPONS = {
             laser: { id:'laser', n:'高頻雷射', lvl:0, baseCd:400, cd:400, dmg:10, rng:350, c:'#22d3ee', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*10,vy:Math.sin(a)*10,dmg:w.dmg,c:w.c,sz:4,rng:w.rng,dist:0,mods:w.mods,w:w}; } },
-            nova:  { id:'nova', n:'全方位脈衝', lvl:0, baseCd:1800, cd:1800, dmg:15, rng:150, c:'#ec4899', mods:[], fire:(p,t,w,s)=>{ s.effs.push({t:'ring',x:p.x,y:p.y,r:10,max:w.rng,c:w.c,l:1}); let res = []; for(let i=0; i<8; i++){let a=(i/8)*Math.PI*2; res.push({x:p.x,y:p.y,vx:Math.cos(a)*5,vy:Math.sin(a)*5,dmg:w.dmg,c:w.c,sz:5,rng:w.rng,dist:0,mods:w.mods,w:w});} return res;} },
+            nova:  { id:'nova', n:'全方位脈衝', lvl:0, baseCd:1800, cd:1800, dmg:15, rng:150, c:'#ec4899', mods:[], fire:(p,t,w,s)=>{ let lag = isLaggy(); let cnt = lag ? 4 : 8; let actDmg = lag ? w.dmg*2 : w.dmg; s.effs.push({t:'ring',x:p.x,y:p.y,r:10,max:w.rng,c:w.c,l:1}); let res = []; for(let i=0; i<cnt; i++){let a=(i/cnt)*Math.PI*2; res.push({x:p.x,y:p.y,vx:Math.cos(a)*5,vy:Math.sin(a)*5,dmg:actDmg,c:w.c,sz:5,rng:w.rng,dist:0,mods:w.mods,w:w});} return res;} },
             chakram:{id:'chakram',n:'切割迴旋刃', lvl:0, baseCd:900, cd:900, dmg:18, rng:200, c:'#10b981', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*7,vy:Math.sin(a)*7,dmg:w.dmg,c:w.c,sz:8,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true,isC:true}; } },
             missile:{id:'missile',n:'高爆追蹤彈', lvl:0, baseCd:1300, cd:1300, dmg:30, rng:450, c:'#f59e0b', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*4,vy:Math.sin(a)*4,dmg:w.dmg,c:w.c,sz:6,rng:w.rng,dist:0,mods:w.mods,w:w,isM:true,tg:t}; } },
             railgun:{id:'railgun',n:'電磁貫穿砲', lvl:0, baseCd:1500, cd:1500, dmg:25, rng:500, c:'#a855f7', mods:[], fire:(p,t,w,s)=>{ let a=Math.atan2(t.y-p.y,t.x-p.x); return {x:p.x,y:p.y,vx:Math.cos(a)*16,vy:Math.sin(a)*16,dmg:w.dmg,c:w.c,sz:3,rng:w.rng,dist:0,mods:w.mods,w:w,prc:true}; } }
@@ -258,7 +281,7 @@
 
         const ENEMY_TYPES = {
             bug: { id:'bug', hp: 15, spd: 1.5, dmg: 5, sc: 10, c: '#f43f5e', sz: 10, xp: 5 },
-            hornet:{id:'hornet',hp: 25, spd: 3.2, dmg: 10, sc: 15, c: '#eab308', sz: 8, xp: 8 },
+            hornet:{id:'hornet',hp: 25, spd: 2.5, dmg: 10, sc: 15, c: '#eab308', sz: 8, xp: 8 },
             dasher:{id:'dasher',hp: 20, spd: 1.0, dmg: 15, sc: 18, c: '#06b6d4', sz: 9, xp: 8 },
             worm_body:{id:'body',hp:40, spd: 1.2, dmg: 15, sc: 20, c: '#d946ef', sz: 12, xp: 10 },
             boss_spider: { id:'spider', hp: 400, spd: 0.6, dmg: 25, sc: 250, c: '#10b981', sz: 35, xp: 150, isBoss: true, cd: 3000, lastF: 0 },
@@ -270,45 +293,15 @@
             { id:'void', n:'坍縮核', c:'#a855f7', hp:40, sz:18, d:(p,s)=>{ s.effs.push({t:'hole', x:p.x, y:p.y, r:180, l:1.0}); s.ens.forEach(e=>{if(Math.hypot(e.x-p.x, e.y-p.y)<180) {e.x+=(p.x-e.x)*0.8; e.y+=(p.y-e.y)*0.8; e.hp-=50;}}); } }
         ];
 
-        // --- 2. 全域狀態管理與重構安全層 ---
-        const state = { 
-            r: false, pause: false, sc: 0, w: 1, nw: 100, xp: 0, nd: 20, p: {}, keys: {}, joy: {a:0, x:0, y:0, sx:0, sy:0}, 
-            ens: [], buls: [], gems: [], effs: [], txt: [], walls: [], props: [], wonders: [], anoms: [], 
-            anMods: {dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1, teleportOnShoot:false, nextTeleportT:0, takenCp:[]},
-            lSpw: 0, spwI: 1200, gTime: 0, lT: 0, skX: 0, skY: 0, bRect: {w: 1200, h: 1200}, portal: null,
-            ghost: null, dreamMode: false, dreamTimer: 0, actPers: [], pers2Unlocked: false, errM: 0, errTriggered: false,
-            overloadActive: false, noDmgTimer: 0, finalErrActive: false, singTriggered: false, loopMode: false,
-            sectorScore: 0, sectorTarget: 100, totalOverloadTime: 0
-        };
-        const cvs = document.getElementById('game-canvas'), ctx = cvs.getContext('2d');
-        function resize() { cvs.width = window.innerWidth; cvs.height = window.innerHeight; if(!state.r && state.p) { state.p.x = cvs.width/2; state.p.y = cvs.height/2; } }
-        window.addEventListener('resize', resize); resize();
-
-        function addTxt(x,y,t,c='#fff') { state.txt.push({x, y:y-10, t, c, a:1, vy:-1}); }
-        function explode(x,y,c,n) { for(let i=0;i<n;i++) state.effs.push({t:'p', x,y, vx:(Math.random()-0.5)*8, vy:(Math.random()-0.5)*8, r:Math.random()*3+1, c, a:1, d:0.04}); }
-        function shake(amt) { state.skX = (Math.random()-0.5)*amt; state.skY = (Math.random()-0.5)*amt; }
-        function hitWall(x,y,r) { if(state.dreamMode) return false; return state.walls.some(w => x+r > w.x && x-r < w.x+w.w && y+r > w.y && y-r < w.y+w.h); }
-
         function getUpgradeCost(key, lvl) {
             let base = key === 'hpLvl' ? 20 : (key === 'stabLvl' ? 30 : 25);
-            let sum = 0;
-            for (let i = 0; i < lvl; i++) {
-                sum += base * (i + 1);
-            }
-            return sum;
+            let sum = 0; for (let i = 0; i < lvl; i++) { sum += base * (i + 1); } return sum;
         }
 
         function resetMetaUpgrades() {
-            let refund = getUpgradeCost('hpLvl', META.hpLvl || 0) +
-                         getUpgradeCost('stabLvl', META.stabLvl || 0) +
-                         getUpgradeCost('spdLvl', META.spdLvl || 0);
-            META.coins += refund;
-            META.hpLvl = 0;
-            META.stabLvl = 0;
-            META.spdLvl = 0;
-            saveMeta();
-            sfx(300, 'triangle', 0.2);
-            tLog(`已重置所有升級項目，歸還 ${refund} 幣`, '#eab308');
+            let refund = getUpgradeCost('hpLvl', META.hpLvl || 0) + getUpgradeCost('stabLvl', META.stabLvl || 0) + getUpgradeCost('spdLvl', META.spdLvl || 0);
+            META.coins += refund; META.hpLvl = 0; META.stabLvl = 0; META.spdLvl = 0;
+            saveMeta(); sfx(300, 'triangle', 0.2); tLog(`已重置所有升級項目，歸還 ${refund} 幣`, '#eab308');
         }
 
         function saveMeta() { try { localStorage.setItem('nr_meta_v7', JSON.stringify(META)); } catch(e){} updateMenuUI(); }
@@ -317,7 +310,7 @@
             document.getElementById('meta-coins').innerText = `${META.coins} 幣`;
             
             let hasTitle = META.ach && META.ach.superC >= 100;
-            document.getElementById('title-badge').innerHTML = hasTitle ? '<span class="text-yellow-400 font-bold border border-yellow-500 px-2 py-0.5 rounded">👑 稱號：⚡超導大師 | v8.2</span>' : 'v8.2 異常頻率優化';
+            document.getElementById('title-badge').innerHTML = hasTitle ? '<span class="text-yellow-400 font-bold border border-yellow-500 px-2 py-0.5 rounded">👑 稱號：⚡超導大師 | v8.3.2</span>' : 'v8.3.2 穩定超載版';
 
             const cl = document.getElementById('class-list'); cl.innerHTML = '';
             Object.values(CLASSES).forEach(c => {
@@ -339,8 +332,7 @@
             const ml = document.getElementById('meta-list'); ml.innerHTML = '';
             [['hpLvl','強化裝甲',20,'HP'],['stabLvl','穩壓器',30,'穩定度'],['spdLvl','超導馬達',25,'跑速']].forEach(k => {
                 let clvl = META[k[0]]||0, cst = k[2]*(clvl+1), div = document.createElement('div');
-                let bonus = (k[0]==='hpLvl'?clvl*10 : (k[0]==='stabLvl'?clvl*5 : clvl*1));
-                let unit = k[0]==='spdLvl'?'%':'';
+                let bonus = (k[0]==='hpLvl'?clvl*10 : (k[0]==='stabLvl'?clvl*5 : clvl*1)); let unit = k[0]==='spdLvl'?'%':'';
                 div.className = `p-1.5 bg-gray-900/80 border border-gray-800 rounded flex justify-between items-center text-xs`;
                 div.innerHTML = `<div><div class="font-bold text-white">${k[1]} <span class="text-[10px] text-emerald-400">Lv.${clvl} (總計:+${bonus}${unit})</span></div></div>`;
                 let btn = document.createElement('button'); btn.className = `px-2 py-0.5 rounded text-[10px] font-bold ${META.coins>=cst?'bg-yellow-600 text-white':'bg-gray-800 text-gray-500'}`; btn.innerText = `${cst} 幣`;
@@ -348,9 +340,7 @@
             });
 
             const rstBtn = document.getElementById('reset-meta-btn');
-            if (rstBtn) {
-                rstBtn.onclick = () => { resetMetaUpgrades(); };
-            }
+            if (rstBtn) rstBtn.onclick = () => resetMetaUpgrades();
         } updateMenuUI();
 
         function updateHUD() {
@@ -424,10 +414,8 @@
             state.finalErrActive = true; state.errM = 60000; state.p.hp = state.p.mhp; state.p.stab = 0; state.actPers = Object.keys(PERSONALITIES);
             Object.keys(WEAPONS).forEach(k => { WEAPONS[k].lvl = 1; WEAPONS[k].cd = 50; });
             FUSIONS.forEach(f => { 
-                // BUGFIX: 正確分配屬性並實例化 lastShot
                 WEAPONS[f.id] = Object.assign({}, f.w, { mods: [...f.w.mods], lastShot: state.gTime }); 
-                WEAPONS[f.id].cd = 100; 
-                WEAPONS[f.id].lvl = 1; 
+                WEAPONS[f.id].cd = 100; WEAPONS[f.id].lvl = 1; 
             });
             document.getElementById('error-title').innerText = "☣️ FINAL ERROR ☣️"; document.getElementById('error-sub').innerText = "算力熔毀 | 全武裝極限解鎖"; document.getElementById('error-hud').classList.remove('hidden');
             shake(40); tLog("☢️ 終極重啟協定：正在榨乾處理器所有算力", "#ef4444");
@@ -448,9 +436,7 @@
                 if(f.req.every(r => WEAPONS[r] && WEAPONS[r].lvl > 0 && (WEAPONS[r].mods || []).length >= 1) && (!WEAPONS[f.id] || WEAPONS[f.id].lvl===0)) {
                     opts.push({t:`【共鳴融合】${f.n}`, d:'獻祭前置武器，構造終極武器！', c:f.c, i:f.i, act:()=>{ 
                         f.req.forEach(r => { if(WEAPONS[r]) { WEAPONS[r].lvl = 0; WEAPONS[r].mods = []; } }); 
-                        // BUGFIX: 正確分配屬性並實例化 lastShot 防止射擊失敗，不再直接參考 FUSIONS 模板避免殘留
-                        WEAPONS[f.id] = Object.assign({}, f.w, { mods: [...f.w.mods], lastShot: state.gTime }); 
-                        WEAPONS[f.id].lvl = 1; 
+                        WEAPONS[f.id] = Object.assign({}, f.w, { mods: [...f.w.mods], lastShot: state.gTime }); WEAPONS[f.id].lvl = 1; 
                         tLog(`[共鳴] 終極武裝 ${f.n} 已啟動!`, f.c); 
                     }});
                 }
@@ -497,7 +483,6 @@
             }); ov.classList.remove('hidden');
         }
 
-        // --- 4. 主循環 ---
         function loop(ts) {
             requestAnimationFrame(loop);
             const now = ts||performance.now(), dt = now-(state.lT||now); state.lT = now;
@@ -515,31 +500,52 @@
                     }
                 }
 
+                // --- 1. OVERLOAD 啟動判定 (無傷 30 秒，且不能在冷卻中) ---
                 if (state.r && !state.pause && state.errM <= 0 && !state.finalErrActive) {
                     state.noDmgTimer += dt;
-                    if (state.noDmgTimer >= 30000 && state.ens.length > 2 && !state.overloadActive) document.getElementById('overload-btn').classList.remove('hidden');
-                    else document.getElementById('overload-btn').classList.add('hidden');
-                } else document.getElementById('overload-btn').classList.add('hidden');
-
-                if (state.overloadActive && !state.finalErrActive) {
-                    state.p.stab -= dt * (2.0 / 1000); // 穩定度每秒扣除固定 2 點 (v8.0)
-                    if (state.p.stab < 0) state.p.stab = 0;
-                    updateHUD(); 
-                    if (state.p.stab <= 0 && !state.errTriggered) { triggerErrorMode(); return; }
+                    if (state.noDmgTimer >= 30000 && state.ens.length > 2 && !state.overloadActive && !state.overloadCd) {
+                        document.getElementById('overload-btn').classList.remove('hidden');
+                    } else {
+                        document.getElementById('overload-btn').classList.add('hidden');
+                    }
+                } else {
+                    document.getElementById('overload-btn').classList.add('hidden');
                 }
 
-                // v8.1 統計 Overload 維持時間，做為召喚「終極奇點傳送門」之依據 (不限 Sector 累積)
+                // --- 2. OVERLOAD 維持與中斷判定 (僅血量低於 50% 才會中斷) ---
+                if (state.overloadActive && !state.finalErrActive) {
+                    document.getElementById('overload-hud').classList.remove('hidden'); // 確保玩家知道狀態正在運作
+                    state.p.stab -= dt * (2.0 / 1000); 
+                    if (state.p.stab < 0) state.p.stab = 0;
+                    updateHUD(); 
+
+                    // 中斷條件：血量保護機制觸發
+                    if (state.p.hp <= state.p.mhp * 0.5) {
+                        state.overloadActive = false; 
+                        state.overloadCd = true; // 進入 8 秒鎖定冷卻
+                        state.noDmgTimer = 0; // 重置無傷計時
+                        document.getElementById('overload-hud').classList.add('hidden');
+                        
+                        tLog("⚠️ 血量低於 50%，安全機制強制中斷超載 (系統冷卻 8 秒)", "#ef4444"); 
+                        sfx(200, 'square', 0.5);
+                        setTimeout(() => { state.overloadCd = false; tLog("超載系統冷卻完畢", "#22d3ee"); }, 8000);
+                    } else if (state.p.stab <= 0 && !state.errTriggered) { 
+                        triggerErrorMode(); 
+                        return; 
+                    }
+                } else {
+                    document.getElementById('overload-hud').classList.add('hidden');
+                }
+
                 if (state.overloadActive && !state.finalErrActive && !state.dreamMode) {
                     let prevTime = state.totalOverloadTime;
                     state.totalOverloadTime += dt;
                     
-                    // 每隔 5 秒向日誌匯報同步進度
                     if (Math.floor(state.totalOverloadTime / 5000) > Math.floor(prevTime / 5000)) {
                         let pct = Math.min(100, Math.floor((state.totalOverloadTime / 300000) * 100));
                         tLog(`奇點維度同步中... ${pct}%`, '#d946ef');
                     }
 
-                    // 累積滿 5 分鐘 (300,000 毫秒) 且傳送門未生成時，於地圖角落開啟奇點通道
                     if (state.totalOverloadTime >= 300000 && !state.portal) {
                         let corners = [ {x:120, y:120}, {x:state.bRect.w-120, y:120}, {x:120, y:state.bRect.h-120}, {x:state.bRect.w-120, y:state.bRect.h-120} ];
                         state.portal = corners[Math.floor(Math.random()*corners.length)];
@@ -585,7 +591,6 @@
                     if(w.upd) w.upd(w, state);
                 }
 
-                // v8.1 奇點傳送門渲染與躍遷事件
                 if(state.portal) {
                     let pAngle = state.gTime * 0.002; ctx.save(); ctx.translate(state.portal.x, state.portal.y); ctx.rotate(pAngle); ctx.shadowBlur = 20; ctx.shadowColor = '#a855f7';
                     ctx.fillStyle = '#030712'; ctx.beginPath(); ctx.arc(0, 0, state.portal.r, 0, Math.PI*2); ctx.fill();
@@ -594,6 +599,7 @@
 
                     if (Math.hypot(state.p.x - state.portal.x, state.p.y - state.portal.y) < state.p.sz + state.portal.r) {
                         state.w += 5; state.portal = null; state.overloadActive = false;
+                        document.getElementById('overload-hud').classList.add('hidden');
                         state.totalOverloadTime = 0; 
                         state.sectorScore = 0;
                         state.sectorTarget = 100 + state.w * 50;
@@ -634,13 +640,12 @@
                 if(state.ghost && WEAPONS[state.ghost.wId]) {
                     let angle = state.gTime * 0.0008; let gx = state.p.x + Math.cos(angle)*50, gy = state.p.y + Math.sin(angle)*50;
                     state.ghost.x += (gx - state.ghost.x) * 0.08; state.ghost.y += (gy - state.ghost.y) * 0.08;
-                    if(Math.random()<0.2) state.effs.push({t:'p', x:state.ghost.x, y:state.ghost.y, vx:0, vy:0, r:2.5, c:WEAPONS[state.ghost.wId].c, a:0.4, d:0.04});
+                    if(!isLaggy() && Math.random()<0.2) state.effs.push({t:'p', x:state.ghost.x, y:state.ghost.y, vx:0, vy:0, r:2.5, c:WEAPONS[state.ghost.wId].c, a:0.4, d:0.04});
                     if(state.ens.length>0 && !state.dreamMode) {
                         let gTarget = state.ens[0], gw = WEAPONS[state.ghost.wId];
                         if(gw && state.gTime - state.ghost.lastShot >= gw.cd * 1.2) {
                             const firedGhost = gw.fire(state.ghost, gTarget, gw, state);
                             if(firedGhost) { 
-                                // 重構：統一支援單顆或多顆回傳，確保 Hooks 和屬性能夠吃到
                                 let gBuls = Array.isArray(firedGhost) ? firedGhost : [firedGhost];
                                 gBuls.forEach(gb => {
                                     gb.c = gw.c; gb.dmg *= 0.6; gb.mods = state.ghost.mods || []; 
@@ -664,7 +669,6 @@
                         if(w.lvl>0 && state.gTime-w.lastShot>=cd) {
                             const fired = w.fire(state.p, tg, w, state);
                             if(fired) {
-                                // 重構：統一支援單顆或多顆子彈回傳，統一處理 Hooks
                                 let buls = Array.isArray(fired) ? fired : [fired];
                                 buls.forEach(b => {
                                     (w.mods || []).forEach(m => { if(MODULES[m] && MODULES[m].onFire) MODULES[m].onFire(b, state); }); b.syn = getSyn(w);
@@ -697,7 +701,11 @@
                 if(state.dreamMode) {
                     if(Math.random()<0.12) state.gems.push({ x: state.p.x+(Math.random()-0.5)*window.innerWidth, y: state.p.y+(Math.random()-0.5)*window.innerHeight, xp: 5, isGold: true });
                 } else {
-                    let actSpwI = state.spwI - (state.errM>0?800:0) - (state.overloadActive?300:0);
+                    // --- 3. 獨立出怪頻率管理，防止過關升級覆蓋 Overload 高速出怪 ---
+                    let actSpwI = state.spwI; 
+                    if (state.overloadActive) actSpwI = 150; // 超載絕對覆蓋：鎖死最高出怪頻率
+                    else if (state.errM > 0 || state.finalErrActive) actSpwI = 200; // Error Mode 頻率
+                    
                     if(state.gTime-state.lSpw > Math.max(100, actSpwI)) {
                         state.lSpw = state.gTime; let t = ENEMY_TYPES.bug;
                         if(state.w>=2 && Math.random()>0.4) t=ENEMY_TYPES.hornet;
@@ -706,18 +714,15 @@
                         if(state.w%2===0 && Math.random()>0.8 && !state.ens.some(e=>e.id==='body')) {
                             tLog("警告: 蠕蟲節點入侵", "#d946ef"); let prev = null;
                             for(let k=0; k<5; k++) { 
-                                // v8.2 怪物血量改為以 Sector 為基底 +5% 乘數成長 (平衡過硬問題)
                                 let mHp = Math.ceil((40 + state.w * 10) * Math.pow(1.05, state.w - 1) * state.anMods.boss);
                                 let bdy = {...ENEMY_TYPES.worm_body, x:ex+(k*15), y:ey+(k*15), follow: prev, hp: mHp, mhp: mHp, eff:{}, aff:[]}; 
                                 state.ens.push(bdy); prev = bdy; 
                             }
                         } else if(state.w%3===0 && Math.random()>0.9 && !state.ens.some(e=>e.isBoss)) { 
                             let bossType = Math.random()>0.5 ? ENEMY_TYPES.boss1 : ENEMY_TYPES.boss_spider; tLog(`⚠️ BOSS DETECTED`, "#ef4444"); 
-                            // v8.2 怪物血量改為以 Sector 為基底 +5% 乘數成長
                             let mHp = Math.ceil((bossType.hp + state.w * 50) * Math.pow(1.05, state.w - 1) * state.anMods.boss);
                             state.ens.push({...bossType, x:ex, y:ey, mhp: mHp, hp: mHp, eff:{}, aff:[]}); shake(20); sfx(100, 'sawtooth', 0.8, 0.2); 
                         } else { 
-                            // v8.2 怪物血量改為以 Sector 為基底 +5% 乘數成長
                             let scaleHp = Math.ceil((t.hp + (state.w - 1) * 10) * Math.pow(1.05, state.w - 1));
                             let ne = {...t, x:ex, y:ey, mhp: scaleHp, hp: scaleHp, spd: t.spd*(1+(state.w-1)*0.05)*state.anMods.eSpd, eff: {}, aff:[] };
                             let affixChance = (state.loopMode ? 0.6 : 0.15) + state.w*0.01;
@@ -757,7 +762,8 @@
                     if(e.eff.frz && state.gTime - e.eff.frz.l > e.eff.frz.t) delete e.eff.frz;
 
                     if(d < state.p.sz+e.sz) {
-                        state.noDmgTimer = 0; 
+                        state.noDmgTimer = 0; // 只要受傷就會重新計算 30 秒無傷時間
+
                         if(selClass==='asn' && Math.random()<0.25) { tLog("EVADE", "#ec4899"); WEAPONS.nova.fire(state.p, state.p, WEAPONS.nova, state); e.x -= (state.p.x-e.x)*0.5; e.y -= (state.p.x-e.x)*0.5; continue; }
                         if(selClass==='tnk') { e.hp -= (state.p.mhp*0.1); state.effs.push({t:'boom',x:state.p.x,y:state.p.y,c:'#f59e0b'}); }
                         
@@ -830,8 +836,6 @@
                                     state.bRect.w+=200; state.bRect.h+=200; 
                                     tLog("🎉 SECTOR CLEARED", '#fde047'); META.coins+=50; 
                                     state.walls=[]; state.props=[]; state.wonders=[]; genWalls(); 
-                                    
-                                    // v8.2 異常協議改為每 10 Sector 進入時精確觸發一次
                                     if(state.w % 10 === 0) triggerAnomaly();
                                 }
                                 
@@ -845,10 +849,9 @@
                                     state.sectorScore = 0;
                                     state.sectorTarget = 100 + state.w * 50;
                                     state.nd = Math.floor((20 + state.w * 5) * state.anMods.xpReq);
+                                    // 確保只有底層出怪基準會變慢，不會蓋掉 Overload 的神速
                                     state.spwI = Math.max(400, state.spwI - 100); 
                                     tLog(`進入 Sector ${state.w}`, '#f59e0b'); 
-                                    
-                                    // v8.2 異常協議改為每 10 Sector 進入時精確觸發一次
                                     if(state.w % 10 === 0) triggerAnomaly(); 
                                 }
                                 updateHUD();
@@ -900,11 +903,10 @@
         }
 
         document.getElementById('overload-btn').onclick = () => {
-            if (state.errM > 0 || state.finalErrActive) return;
-            state.overloadActive = true; state.noDmgTimer = 0; state.spwI = 200;
-            tLog("☢️ OVERLOAD ACTIVE: 穩定度狂降 | 刷新 +300%", "#eab308"); sfx(800, 'sawtooth', 0.5, 0.2);
+            if (state.errM > 0 || state.finalErrActive || state.p.hp <= state.p.mhp * 0.5) return;
+            state.overloadActive = true; 
+            tLog("☢️ OVERLOAD ACTIVE: 穩定度狂降 | 刷新極大化", "#eab308"); sfx(800, 'sawtooth', 0.5, 0.2);
             document.getElementById('overload-btn').classList.add('hidden');
-            setTimeout(() => { state.overloadActive = false; state.spwI = 1200; tLog("超載冷卻，重設頻率", "#22d3ee"); }, 8000);
         };
 
         const jZone = document.getElementById('joystick-zone'), jBase = document.getElementById('joystick-base'), jStick = document.getElementById('joystick-stick');
@@ -930,24 +932,14 @@
             if(!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
             if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(e=>{});
             let c = CLASSES[selClass] || CLASSES.bal;
-            Object.assign(state, { r:true, pause:false, sc:0, w:1, nw:100, xp:0, nd:20, ens:[], buls:[], gems:[], effs:[], txt:[], walls:[], props:[], wonders:[], anoms:[], anMods:{dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1, teleportOnShoot:false, nextTeleportT:0, takenCp:[]}, gTime:0, lT:performance.now(), lSpw:0, bRect:{w:1200, h:1200}, portal: null, dreamMode: false, actPers: [selPers], pers2Unlocked: false, errM: 0, errTriggered: false, overloadActive: false, noDmgTimer: 0, finalErrActive: false, singTriggered: false, loopMode: false, sectorScore:0, sectorTarget:100, totalOverloadTime: 0 });
+            Object.assign(state, { r:true, pause:false, sc:0, w:1, nw:100, xp:0, nd:20, ens:[], buls:[], gems:[], effs:[], txt:[], walls:[], props:[], wonders:[], anoms:[], anMods:{dmg:1, boss:1, coin:1, eSpd:1, extraPicks:0, xpReq:1, firerate:1, incDmg:1, wdrCd:1, teleportOnShoot:false, nextTeleportT:0, takenCp:[]}, gTime:0, lT:performance.now(), lSpw:0, bRect:{w:1200, h:1200}, portal: null, dreamMode: false, actPers: [selPers], pers2Unlocked: false, errM: 0, errTriggered: false, overloadActive: false, overloadCd: false, noDmgTimer: 0, finalErrActive: false, singTriggered: false, loopMode: false, sectorScore:0, sectorTarget:100, totalOverloadTime: 0 });
             state.p = { x:state.bRect.w/2, y:state.bRect.h/2, sz:12, spd:Number(c.spd)||3.5, hp:Number(c.hp)||100, mhp:Number(c.hp)||100, stab:Number(c.stab)||100, mstab:Number(c.stab)||100, arm:Number(c.arm)||0, awk:false };
             try { META_UPGRADES.hp.apply(state.p, META.hpLvl||0); META_UPGRADES.stab.apply(state.p, META.stabLvl||0); META_UPGRADES.spd.apply(state.p, META.spdLvl||0); } catch(e){}
             
-            // BUGFIX: 在重新開始前強制移除上一局殘留的融合武器屬性
-            FUSIONS.forEach(f => {
-                if (WEAPONS[f.id]) {
-                    delete WEAPONS[f.id];
-                }
-            });
+            FUSIONS.forEach(f => { if (WEAPONS[f.id]) delete WEAPONS[f.id]; });
 
             Object.keys(WEAPONS).forEach(k => { 
-                if(WEAPONS[k]) { 
-                    WEAPONS[k].lvl = (k===c.w) ? 1 : 0; 
-                    WEAPONS[k].mods = []; 
-                    WEAPONS[k].lastShot = 0; 
-                    if(WEAPONS[k].baseCd) WEAPONS[k].cd = WEAPONS[k].baseCd;
-                } 
+                if(WEAPONS[k]) { WEAPONS[k].lvl = (k===c.w) ? 1 : 0; WEAPONS[k].mods = []; WEAPONS[k].lastShot = 0; if(WEAPONS[k].baseCd) WEAPONS[k].cd = WEAPONS[k].baseCd; } 
             });
             
             let targetWeaponId = 'laser', targetMods = [], isNewGhost = false;
@@ -957,10 +949,7 @@
                     targetWeaponId = savedGhost.wId; targetMods = savedGhost.mods || []; 
                     if (!WEAPONS[targetWeaponId]) { 
                         let f = FUSIONS.find(fu => fu.id === targetWeaponId); 
-                        if(f) { 
-                            WEAPONS[targetWeaponId] = Object.assign({}, f.w, { mods: [...f.w.mods], lastShot: 0 }); 
-                            WEAPONS[targetWeaponId].cd = WEAPONS[targetWeaponId].baseCd; 
-                        } else { targetWeaponId = 'laser'; isNewGhost = true; } 
+                        if(f) { WEAPONS[targetWeaponId] = Object.assign({}, f.w, { mods: [...f.w.mods], lastShot: 0 }); WEAPONS[targetWeaponId].cd = WEAPONS[targetWeaponId].baseCd; } else { targetWeaponId = 'laser'; isNewGhost = true; } 
                     }
                 } else { targetWeaponId = Object.keys(WEAPONS)[Math.floor(Math.random() * Object.keys(WEAPONS).length)]; isNewGhost = true; }
             } catch(e) { targetWeaponId = 'laser'; isNewGhost = true; }
@@ -969,7 +958,7 @@
             if(isNewGhost) tLog(`[系統保底] 新手引導殘影加入`, "#818cf8"); else tLog(`喚醒上局傳承殘影...`, "#818cf8");
 
             genWalls(); tLog(`已裝載智慧人格晶片`, PERSONALITIES[selPers].c);
-            document.getElementById('menu-overlay').classList.add('hidden'); document.getElementById('gameover-overlay').classList.add('hidden'); document.getElementById('dream-hud').classList.add('hidden'); document.getElementById('error-hud').classList.add('hidden'); document.getElementById('singularity-overlay').classList.add('hidden'); document.getElementById('overload-btn').classList.add('hidden');
+            document.getElementById('menu-overlay').classList.add('hidden'); document.getElementById('gameover-overlay').classList.add('hidden'); document.getElementById('dream-hud').classList.add('hidden'); document.getElementById('error-hud').classList.add('hidden'); document.getElementById('singularity-overlay').classList.add('hidden'); document.getElementById('overload-btn').classList.add('hidden'); document.getElementById('overload-hud').classList.add('hidden');
             resize(); sfx(440, 'square', 0.3); updateHUD();
         }
 
@@ -999,7 +988,7 @@
                 document.getElementById('final-reboot-bonus').classList.add('hidden');
             }
             document.getElementById('final-coins').innerText=META.coins; saveMeta(); sfx(100, 'sawtooth', 1); 
-            document.getElementById('gameover-overlay').classList.remove('hidden'); document.getElementById('error-hud').classList.add('hidden'); document.getElementById('overload-btn').classList.add('hidden');
+            document.getElementById('gameover-overlay').classList.remove('hidden'); document.getElementById('error-hud').classList.add('hidden'); document.getElementById('overload-btn').classList.add('hidden'); document.getElementById('overload-hud').classList.add('hidden');
         }
 
         document.getElementById('start-btn').onclick = start; 
