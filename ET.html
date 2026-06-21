@@ -284,7 +284,7 @@ function closeLore(e) {
 }
 
 const $ = id => document.getElementById(id); const canvas = $('game-canvas'); const ctx = canvas.getContext('2d');
-let particles = [], floatTexts = [];
+let particles = [], floatTexts = [], isAnimating = false;
 
 /** 3. 介面與探索 */
 function goMainView() { switchView(state.battlePhase === 'NONE' ? 'explore-view' : 'battle-view'); }
@@ -449,6 +449,11 @@ async function startBattle(isBoss, themeArg = null, isFinal = false) {
     state.enemies = [];
     if(isFinal) {
         await showLoreModal(46);
+        for(let k in state.inventory) {
+            state.inventory[k] = Math.floor((state.inventory[k] || 0) / 2);
+        }
+        logMsg(`⚠️ 暗影們拿回了你身上一半的元素力量！`);
+        updateTop();
         let clones = ['🧙‍♂️','🧝‍♀️','🥷','🧑‍🎤']; let els = ['F','W','A','E']; let hp = Math.floor(800 * (1 + state.ngPlus * 0.5));
         clones.forEach((c, i) => {
             state.enemies.push({ id:'e_f_'+i, el:els[i], i:c, n:'闇影倒影', hp:hp, maxHp:hp, status:[], shield:150, buffs:[], weak:'', immu:'STUN,SLOW', abs:'D', insta:'', tr:'複製體', isBoss:true, isClone:true, sz:1, sumC:0, enraged:false, revealed:true, isEnemy:true, atkAnim:0, hit:0, affix:'QUICK', isDefending:false });
@@ -471,7 +476,7 @@ async function startBattle(isBoss, themeArg = null, isFinal = false) {
     }
     
     $('theme-display').innerText = state.theme ? `[${EL[state.theme].i}領域] ` : '';
-    logMsg(`⚠️ 遭遇魔物！`); switchView('battle-view'); if(particles.length === 0) loop(); planRound();
+    logMsg(`⚠️ 遭遇魔物！`); switchView('battle-view'); if (!isAnimating) { isAnimating = true; loop();} planRound();
 }
 
 function renderBattleUI() {
@@ -972,7 +977,10 @@ function render() {
     for(let i=particles.length-1; i>=0; i--) { let p=particles[i]; ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,2.5,0,Math.PI*2); ctx.fill(); p.x+=p.vx; p.y+=p.vy; p.l--; if(p.l<=0) particles.splice(i,1); }
     for(let i=floatTexts.length-1; i>=0; i--) { let t=floatTexts[i]; ctx.globalAlpha = Math.min(1, t.l/20); ctx.fillStyle=t.c; ctx.font="bold 16px Arial"; ctx.strokeStyle="#000"; ctx.lineWidth=3; ctx.strokeText(t.t,t.x,t.y); ctx.fillText(t.t,t.x,t.y); ctx.globalAlpha = 1.0; t.y-=0.2; t.l--; if(t.l<=0) floatTexts.splice(i,1); }
 }
-function loop() { render(); requestAnimationFrame(loop); }
+function loop() { 
+    if (state.battlePhase === 'NONE') { isAnimating = false; return; } 
+    render(); requestAnimationFrame(loop); 
+    }
 
 /** 6. 圖鑑與日誌 */
 let showLogView = false;
