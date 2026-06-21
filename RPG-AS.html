@@ -820,6 +820,8 @@
       const updateSyncLog = () => { let fullMsg = `${baseMsg}${hitDetails}`; let matchFX = FX_MAP.find(x => hitDetails.includes(x.k)); updateAnimationMsg(fullMsg, matchFX ? matchFX.bg : 'bg-white'); actionLogObj.msg = `[${logTime}] ${fullMsg}`; if (gameState.activeTab === 'log') renderHistoryLogs(); };
       updateSyncLog();
 
+      if (act.isConsumable) { let flash = document.createElement('div'); flash.className = 'fixed inset-0 bg-white z-[100] transition-opacity duration-300'; document.body.appendChild(flash);setTimeout(() => flash.style.opacity = '0', 50); setTimeout(() => flash.remove(), 350); await sleep(300); }
+
       let pwr = act.power; 
       if (act.effect === 'blood_strike') { let cost = Math.floor(hero.getMaxHp()*0.2); if(hero.equips.accessory?.id === 'ac_02') cost = Math.floor(cost * 0.5); if(hero.equips.accessory?.id !== 'ac_10') { hero.hp = Math.max(0, hero.hp - cost); createFloatNum(`-${cost}`, 'text-red-500', true, heroIdx); } } // 血魔法扣血
       if (hero.combatState.charging && (act.type === 'attack' || act.type === 'special'))
@@ -992,7 +994,7 @@
 
     async function eSPA(e, eIdx, skId) { 
       let sk = E_SKILLS[skId];
-      if (e.status.bleed > 0) { let bd = Math.floor(e.maxHp * 0.1);e.hp = Math.max(0, e.hp - bd); createFloatNum(`-${bd}`, 'text-red-500', false, eIdx); logAndMsg(`🩸 【${e.shortName}】流血失血！`, 'text-red-400'); if (e.hp <= 0) { e.isDead = true; return; await sleep(1000); }}
+      if (e.status.bleed > 0) { let bd = Math.floor(e.maxHp * 0.1);e.hp = Math.max(0, e.hp - bd); createFloatNum(`-${bd}`, 'text-red-500', false, eIdx); logAndMsg(`🩸 【${e.shortName}】流血失血！`, 'text-red-400'); renderBattleScreen(); await sleep(800); if (e.hp <= 0) { e.isDead = true; return; await sleep(1000); }}
       let eMap = {
           'enrage': async () => { e.s = e.s.filter(x => x !== 'enrage'); e.status.berserk = 999; logAndMsg(`😡 【${e.shortName}】露出滿嘴獠牙，進入狂暴狀態！`, 'text-red-500 font-bold', 'bg-red-900'); renderBattleScreen(); await sleep(800); return true; },
           'flee': async () => { e.isDead = true; e.hp = 0; createFloatNum('FLEE', 'text-gray-400', false, eIdx); logAndMsg(`💨 【${e.shortName}】逃離了戰場！`, 'text-gray-400'); renderBattleScreen(); await sleep(1000); return true; },
