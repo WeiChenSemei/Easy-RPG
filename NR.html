@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>霓虹收割：覺醒與共鳴 v8.4.5</title>
+    <title>霓虹收割：覺醒與共鳴 v8.4.7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -23,7 +23,7 @@
 
     <header class="w-full bg-gray-900/90 border-b border-cyan-500/30 p-2 flex justify-between items-center z-10">
         <div class="flex items-center space-x-3">
-            <span class="text-rose-500 font-bold tracking-wider glow" id="brand-logo">NEON_REAPER v8.4.5</span>
+            <span class="text-rose-500 font-bold tracking-wider glow" id="brand-logo">NEON_REAPER v8.4.7</span>
             <span id="coin-display" class="text-yellow-400 text-xs font-bold glow"><i class="fas fa-coins"></i> 0</span>
         </div>
         <div class="flex items-center space-x-2">
@@ -88,7 +88,7 @@
 
         <div id="menu-overlay" class="absolute inset-0 bg-gray-950 z-20 flex flex-col items-center p-6 overflow-y-auto">
             <h1 class="text-4xl font-black text-cyan-400 tracking-widest glow mt-4 mb-2">NEON REAPER</h1>
-            <p id="title-badge" class="text-gray-400 text-xs mb-6">v8.4.5 UI微調版</p>
+            <p id="title-badge" class="text-gray-400 text-xs mb-6">v8.4.7 極致效能優化版</p>
             
             <div class="w-full max-w-3xl grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl">
@@ -184,7 +184,6 @@
             setTimeout(() => { if(el.parentElement) el.parentElement.removeChild(el); }, 5000);
         }
 
-        // --- 1. 資料庫 ---
         let META = { coins: 0, hpLvl: 0, stabLvl: 0, spdLvl: 0, ach: { superC: 0 } };
         try { let s = JSON.parse(localStorage.getItem('nr_meta_v7')); if(s) { META = Object.assign({}, META, s); if(!META.ach) META.ach={superC:0}; } } catch(e) {}
         
@@ -216,7 +215,8 @@
             combo: 0, overloadActive: false, overloadKills: 0, overloadHits: 0,
             finalErrActive: false, singTriggered: false, loopMode: false, sectorScore: 0, sectorTarget: 100
         };
-        const isLaggy = () => (state.buls.length + state.effs.length > 150);
+        // V8.4.7: 把敵人數量也算入 LOD 卡頓偵測中
+        const isLaggy = () => (state.buls.length + state.effs.length + state.ens.length > 150);
 
         const cvs = document.getElementById('game-canvas'), ctx = cvs.getContext('2d');
         function resize() { cvs.width = window.innerWidth; cvs.height = window.innerHeight; if(!state.r && state.p) { state.p.x = cvs.width/2; state.p.y = cvs.height/2; } }
@@ -347,7 +347,7 @@
             document.getElementById('meta-coins').innerText = `${META.coins} 幣`;
             
             let hasTitle = META.ach && META.ach.superC >= 100;
-            document.getElementById('title-badge').innerHTML = hasTitle ? '<span class="text-yellow-400 font-bold border border-yellow-500 px-2 py-0.5 rounded">👑 稱號：⚡超導大師 | v8.4.5</span>' : 'v8.4.5 UI微調版';
+            document.getElementById('title-badge').innerHTML = hasTitle ? '<span class="text-yellow-400 font-bold border border-yellow-500 px-2 py-0.5 rounded">👑 稱號：⚡超導大師 | v8.4.7</span>' : 'v8.4.7 極致效能優化版';
 
             const cl = document.getElementById('class-list'); cl.innerHTML = '';
             Object.values(CLASSES).forEach(c => {
@@ -459,7 +459,7 @@
                 WEAPONS[f.id].cd = 250; WEAPONS[f.id].dmg *= 5; WEAPONS[f.id].lvl = 1; 
             });
 
-            document.getElementById('error-title').innerText = "Ω-ASCENSION"; 
+            document.getElementById('error-title').innerText = "🌌 Ω-ASCENSION 🌌"; 
             document.getElementById('error-sub').innerText = "維度碎裂 | 全神經元火力解放"; 
             document.getElementById('error-hud').classList.remove('hidden');
             shake(40); tLog("🌌 Ω-協定：正在抽乾矩陣算力進行維度打擊", "#f0abfc");
@@ -534,10 +534,26 @@
             
             ctx.save(); 
             try {
+                let lag = isLaggy(); // 判斷是否需要啟用效能保護
+                
                 state.gTime += dt; stepBGM();
+                
+                // V8.4.7 極限壓迫機制的保留與優化 (移除粒子爆炸，保留血量扣減)
                 if(state.errM > 0) {
                     state.errM -= dt; document.getElementById('error-timer').innerText = (state.errM/1000).toFixed(2) + "s";
-                    if(Math.random()<0.25) ctx.translate((Math.random()-0.5)*15, (Math.random()-0.5)*15);
+                    if(Math.random()<0.25 && !lag) ctx.translate((Math.random()-0.5)*15, (Math.random()-0.5)*15);
+                    
+                    state.p.hp -= (dt / 1000) * 2.0; 
+                    if(Math.floor(state.gTime / 500) > Math.floor((state.gTime - dt) / 500)) { updateHUD(); }
+                    // 移除此處的粒子爆炸以拯救 CPU
+                    // if(Math.floor(state.gTime / 1000) > Math.floor((state.gTime - dt) / 1000)) { explode(state.p.x, state.p.y, '#ef4444', 3); }
+                    
+                    if(state.p.hp <= 0) { 
+                        if(state.finalErrActive) gameOver(false, false); 
+                        else checkDreamOrDie(); 
+                        return; 
+                    }
+
                     if(state.errM <= 0) { 
                         if (state.finalErrActive) { gameOver(true, true); } else { gameOver(true, false); }
                         return; 
@@ -568,7 +584,7 @@
 
                 if(state.w === 10 && !state.pers2Unlocked && !state.dreamMode && state.errM<=0 && !state.finalErrActive) { unlockPers2(); return; }
 
-                if(state.skX||state.skY) { ctx.translate(state.skX, state.skY); state.skX*=0.8; state.skY*=0.8; if(Math.abs(state.skX)<0.5)state.skX=0; }
+                if(!lag && (state.skX||state.skY)) { ctx.translate(state.skX, state.skY); state.skX*=0.8; state.skY*=0.8; if(Math.abs(state.skX)<0.5)state.skX=0; }
                 ctx.fillStyle = (state.errM>0 || state.finalErrActive) ? 'rgba(50,0,0,0.5)' : (state.p.awk ? 'rgba(35,0,0,0.5)' : (state.dreamMode?'rgba(30,28,5,0.45)':'rgba(3,7,18,0.45)'));
                 ctx.fillRect(0,0,cvs.width,cvs.height);
                 ctx.translate(-(state.p.x - cvs.width/2), -(state.p.y - cvs.height/2));
@@ -592,7 +608,8 @@
                 }
 
                 if(state.portal) {
-                    let pAngle = state.gTime * 0.002; ctx.save(); ctx.translate(state.portal.x, state.portal.y); ctx.rotate(pAngle); ctx.shadowBlur = 20; ctx.shadowColor = '#a855f7';
+                    let pAngle = state.gTime * 0.002; ctx.save(); ctx.translate(state.portal.x, state.portal.y); ctx.rotate(pAngle); 
+                    if(!lag) { ctx.shadowBlur = 20; ctx.shadowColor = '#a855f7'; }
                     ctx.fillStyle = '#030712'; ctx.beginPath(); ctx.arc(0, 0, state.portal.r, 0, Math.PI*2); ctx.fill();
                     ctx.strokeStyle = '#d946ef'; ctx.setLineDash([10, 5]); ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
                     ctx.fillStyle = '#d946ef'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.fillText(`TO S.${state.w+5}`, state.portal.x, state.portal.y+4);
@@ -639,7 +656,7 @@
                 if(state.ghost && WEAPONS[state.ghost.wId]) {
                     let angle = state.gTime * 0.0008; let gx = state.p.x + Math.cos(angle)*50, gy = state.p.y + Math.sin(angle)*50;
                     state.ghost.x += (gx - state.ghost.x) * 0.08; state.ghost.y += (gy - state.ghost.y) * 0.08;
-                    if(!isLaggy() && Math.random()<0.2) state.effs.push({t:'p', x:state.ghost.x, y:state.ghost.y, vx:0, vy:0, r:2.5, c:WEAPONS[state.ghost.wId].c, a:0.4, d:0.04});
+                    if(!lag && Math.random()<0.2) state.effs.push({t:'p', x:state.ghost.x, y:state.ghost.y, vx:0, vy:0, r:2.5, c:WEAPONS[state.ghost.wId].c, a:0.4, d:0.04});
                     if(state.ens.length>0 && !state.dreamMode) {
                         let gTarget = state.ens[0], gw = WEAPONS[state.ghost.wId];
                         if(gw && state.gTime - state.ghost.lastShot >= gw.cd * 1.2) {
@@ -655,9 +672,12 @@
                             state.ghost.lastShot = state.gTime;
                         }
                     }
-                    ctx.globalAlpha = 0.5; ctx.shadowBlur = 10; ctx.shadowColor = WEAPONS[state.ghost.wId].c; ctx.fillStyle = WEAPONS[state.ghost.wId].c;
+                    ctx.globalAlpha = 0.5; 
+                    if (!lag) { ctx.shadowBlur = 10; ctx.shadowColor = WEAPONS[state.ghost.wId].c; } else { ctx.shadowBlur = 0; }
+                    ctx.fillStyle = WEAPONS[state.ghost.wId].c;
                     ctx.beginPath(); ctx.arc(state.ghost.x, state.ghost.y, 7, 0, Math.PI*2); ctx.fill(); 
-                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(state.ghost.x, state.ghost.y, 2.5, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1.0;
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(state.ghost.x, state.ghost.y, 2.5, 0, Math.PI*2); ctx.fill(); 
+                    ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
                 }
 
                 if(state.ens.length>0 && !state.dreamMode) {
@@ -704,7 +724,8 @@
                     if (state.overloadActive) actSpwI = 150; 
                     else if (state.errM > 0 || state.finalErrActive) actSpwI = 200;
 
-                    if(state.gTime-state.lSpw > Math.max(100, actSpwI)) {
+                    // V8.4.7 效能防護：畫面最高存在數量鎖定 250 隻，防止死循環疊加導致記憶體溢出
+                    if(state.gTime-state.lSpw > Math.max(100, actSpwI) && state.ens.length < 250) {
                         state.lSpw = state.gTime; 
                         let t = ENEMY_TYPES.bug;
                         let r = Math.random();
@@ -731,7 +752,7 @@
                             let mHp = Math.ceil((bossType.hp + state.w * 50) * Math.pow(1.05, state.w - 1) * state.anMods.boss);
                             let newBoss = {...bossType, x:ex, y:ey, mhp: mHp, hp: mHp, eff:{}, aff:[]};
                             state.ens.push(newBoss);
-                            shake(20); sfx(100, 'sawtooth', 0.8, 0.2); 
+                            if(!lag) shake(20); sfx(100, 'sawtooth', 0.8, 0.2); 
                             
                             if (bossType.id === 'boss_serpent') {
                                 let prev = newBoss;
@@ -801,7 +822,7 @@
                         let actDmg = Math.max(1, Math.ceil(rawDmg)); 
                         state.p.hp -= actDmg; 
                         
-                        explode(e.x, e.y, e.c, 5); shake(5); sfx(150, 'sawtooth', 0.1);
+                        explode(e.x, e.y, e.c, 5); if(!lag) shake(5); sfx(150, 'sawtooth', 0.1);
                         
                         if (state.overloadActive) {
                             state.overloadHits++;
@@ -826,7 +847,10 @@
                         continue;
                     }
                     if(e.isP) ctx.globalAlpha = e.alpha || 1;
-                    ctx.shadowBlur=e.eff.frz?15:(e.aff.length?10:5); ctx.shadowColor=e.eff.frz?'#38bdf8':(e.aff.length?AFFIXES[e.aff[0]].c:e.c); ctx.fillStyle=e.c; ctx.beginPath();
+                    
+                    // V8.4.7 效能防護：關閉敵人的發光運算
+                    if(!lag) { ctx.shadowBlur=e.eff.frz?15:(e.aff.length?10:5); ctx.shadowColor=e.eff.frz?'#38bdf8':(e.aff.length?AFFIXES[e.aff[0]].c:e.c); } else { ctx.shadowBlur = 0; }
+                    ctx.fillStyle=e.c; ctx.beginPath();
                     if(e.sz===10){ctx.moveTo(e.x,e.y-e.sz); ctx.lineTo(e.x-e.sz,e.y+e.sz); ctx.lineTo(e.x+e.sz,e.y+e.sz);}
                     else if(e.sz===12){ctx.moveTo(e.x,e.y-e.sz); ctx.lineTo(e.x+e.sz,e.y); ctx.lineTo(e.x,e.y+e.sz); ctx.lineTo(e.x-e.sz,e.y);}
                     else {ctx.arc(e.x,e.y,e.sz,0,Math.PI*2);} ctx.fill(); ctx.shadowBlur=0;
@@ -961,9 +985,10 @@
                 } ctx.globalAlpha=1;
                 for(let i=state.txt.length-1; i>=0; i--) { let t=state.txt[i]; t.y+=t.vy; t.a-=0.02; if(t.a<=0){state.txt.splice(i,1);continue;} ctx.globalAlpha=t.a; ctx.fillStyle=t.c; ctx.font='bold 12px "Share Tech Mono"'; ctx.textAlign='center'; ctx.fillText(t.t,t.x,t.y); } ctx.globalAlpha=1;
 
-                if(state.finalErrActive || state.errM>0) { ctx.shadowBlur=30; ctx.shadowColor='#ef4444'; ctx.fillStyle='#f87171'; }
-                else if(state.dreamMode) { ctx.shadowBlur=25; ctx.shadowColor='#eab308'; ctx.fillStyle='#fde047'; }
-                else { let isSkin = META.ach && META.ach.superC >= 100 && selClass === 'bal'; let clsColor = (CLASSES[selClass] || CLASSES.bal).c; ctx.shadowBlur=15; ctx.shadowColor=isSkin?'#fde047':clsColor; ctx.fillStyle=isSkin?'#fde047':clsColor; }
+                // V8.4.7 效能防護：關閉全畫面紅光疊加，改用背景底色
+                if(state.finalErrActive || state.errM>0) { if(!lag){ctx.shadowBlur=30; ctx.shadowColor='#ef4444';} ctx.fillStyle='#f87171'; }
+                else if(state.dreamMode) { if(!lag){ctx.shadowBlur=25; ctx.shadowColor='#eab308';} ctx.fillStyle='#fde047'; }
+                else { let isSkin = META.ach && META.ach.superC >= 100 && selClass === 'bal'; let clsColor = (CLASSES[selClass] || CLASSES.bal).c; if(!lag){ctx.shadowBlur=15; ctx.shadowColor=isSkin?'#fde047':clsColor;} ctx.fillStyle=isSkin?'#fde047':clsColor; }
                 ctx.beginPath(); ctx.arc(state.p.x,state.p.y,state.p.sz,0,Math.PI*2); ctx.fill();
                 ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(state.p.x,state.p.y,state.p.sz*0.4,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
             } catch(e) { console.error(e); state.pause = true; } finally { ctx.restore(); }
