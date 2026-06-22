@@ -213,7 +213,7 @@
             imbalance: 0, epoch: { count: 1, type: 'genesis', name: '創世初紀', desc: '萬物平靜，無特殊規則。' },
             resources: {}, extractors: {}, 
             unlockedElems: ['E'], blueprints: [], towers: [], 
-            enemies: [], projectiles: [], particles: [], relics: [],
+            enemies: [], projectiles: [], particles: [], relics: [], ripples: [],
             activeWill: null, activeEvent: null,
             lastTick: 0, tab: 'extract', selectedSlotIndex: -1,
             isGameOver: false, isPaused: false
@@ -260,7 +260,7 @@
         try {
             let parsed = decodeSave(code);
             if(!parsed || !parsed.floor) throw new Error('Invalid');
-            state = parsed; state.enemies = []; state.projectiles = []; state.particles = []; state.isPaused = true;
+            state = parsed; state.enemies = []; state.projectiles = []; state.particles = []; state.ripples = []; state.isPaused = true;
             state.reviveCount = state.reviveCount || 0; // 舊檔防呆
             resize(); switchTab('extract'); updateHUD(); alert('讀取成功！世界已載入並自動暫停。');
         } catch(e) { alert('繼承碼無效或損毀！'); }
@@ -382,8 +382,7 @@
         let hp = (20 + state.wave * 15) * hpMulti, eType = state.unlockedElems[Math.floor(Math.random() * state.unlockedElems.length)];
         let x = Math.random() < 0.5 ? Math.random() * cw : (Math.random() > 0.5 ? 0 : cw), y = x === 0 || x === cw ? Math.random() * (ch/2) : 0; 
         
-        // 隨機大小
-        let size = Math.random() * 0.6 + 0.7; // 0.7 ~ 1.3 倍
+        let size = Math.random() * 0.6 + 0.7; // 0.7 ~ 1.3 隨機大小
         state.enemies.push({ x: x, y: y, hp: hp, maxHp: hp, elem: eType, speed: spd, poisoned: 0, frozen: 0, sizeScale: size });
         
         state.spawnCount++;
@@ -422,6 +421,21 @@
 
         const basePos = { x: cw/2, y: ch-30 };
 
+        // 元素震波機制 (穩定度越低，機率越高)
+        if (state.stability < 100) {
+            let swChance = ((100 - state.stability) / 100) * 0.1 * (dt / 1000);
+            if (Math.random() < swChance) {
+                state.ripples.push({ r: 10, life: 1.0 });
+                let swDmg = state.floor * 25;
+                state.enemies.forEach(e => e.hp -= swDmg);
+                createFloatingText(basePos.x, basePos.y - 60, "🌊 元素震波", "#66fcf1");
+            }
+        }
+        for(let i = state.ripples.length - 1; i >= 0; i--) { 
+            let rp = state.ripples[i]; rp.r += dt * 0.5; rp.life -= dt * 0.001; 
+            if(rp.life <= 0) state.ripples.splice(i, 1); 
+        }
+
         if (state.activeWill) {
             if (['F', 'L', 'D'].includes(state.activeWill)) state.enemies.forEach(e => e.hp -= 3 * (dt/1000));
             else if (['W', 'S', 'E'].includes(state.activeWill)) state.hp = Math.min(state.maxHp, state.hp + 5 * (dt/1000));
@@ -447,7 +461,13 @@
                 }
                 continue;
             } else { e.x += (dx/dist) * e.speed * spdMult * (dt/(1000/60)); e.y += (dy/dist) * e.speed * spdMult * (dt/(1000/60)); }
-            if(e.hp <= 0) { createParticles(e.x, e.y, ELEMS[e.elem].color); state.enemies.splice(i, 1); }
+            
+            // 敵人死亡掉落元素
+            if(e.hp <= 0) { 
+                let drop = Math.max(1, Math.floor(e.maxHp / 20)); state.resources[e.elem] += drop;
+                createFloatingText(e.x, e.y, `+${drop} ${ELEMS[e.elem].icon}`, ELEMS[e.elem].color);
+                createParticles(e.x, e.y, ELEMS[e.elem].color); state.enemies.splice(i, 1); 
+            }
         }
 
         state.towers.forEach(t => {
@@ -504,7 +524,13 @@
         ctx.clearRect(0, 0, cw, ch);
         const towerW = 50, basePos = { x: cw/2, y: ch-20 };
         
-        let visualFloor = Math.min(state.floor, 18);
+        // 震波繪製
+        state.ripples.forEach(rp => {
+            ctx.beginPath(); ctx.arc(basePos.x, basePos.y, rp.r, 0, Math.PI*2);
+            ctx.strokeStyle = `rgba(102, 252, 241, ${rp.life * 0.5})`; ctx.lineWidth = 15 * rp.life; ctx.stroke();
+        });
+
+        let visualFloor = Math.min(state.floor, 10);
         ctx.fillStyle = '#111'; ctx.fillRect(basePos.x - towerW/2, basePos.y - visualFloor * 20, towerW, visualFloor * 20);
         for(let i=0; i<visualFloor; i++) {
             let eKey = state.unlockedElems[i % 9]; 
@@ -620,7 +646,7 @@
                 let slot = towerSlots[state.selectedSlotIndex];
                 if(slot.tower) {
                     let tData = TOWER_DICT[slot.tower.type], upCost = {}; for(let k in tData.cost) upCost[k] = tData.cost[k] * Math.pow(2, slot.tower.level || 1);
-                    html += `<div style="text-align:center; margin-bottom:15px;"><h3>${ELEMS[tData.elem[0]].icon} ${tData.name} Lv.${slot.tower.level||1}</h3><p style="font-size:0.8rem; color:#aaa;">基礎傷害: ${Math.floor(tData.dmg)} | 射程: ${tData.range}</p></div><div class="list-item"><span class="item-title">升級塔 (傷害+50%)</span><button class="btn-action cost-btn" data-cost='${JSON.stringify(upCost)}' onclick="upgradeTower()">${getCostText(upCost)}</button></div><button class="btn-action" style="width:100%; background:#e74c3c; margin-top:10px; padding: 12px; color:#fff;" onclick="sellTower()">拆除回收 (更換新塔)</button>`;
+                    html += `<div style="text-align:center; margin-bottom:15px;"><h3>${ELEMS[tData.elem[0]].icon} ${tData.name} Lv.${slot.tower.level||1}</h3><p style="font-size:0.8rem; color:#aaa;">基礎傷害: ${Math.floor(tData.dmg)} | 射程: ${tData.range}</p></div><div class="list-item"><span class="item-title">升級塔 (傷害+50%)</span><button class="btn-action cost-btn" data-cost='${JSON.stringify(upCost)}' onclick="upgradeTower()">${getCostText(upCost)}</button></div><button class="btn-action" style="width:100%; background:#e74c3c; margin-top:10px; padding: 12px; color:#fff;" onclick="sellTower()">拆除回收 (返還全額元素)</button>`;
                 } else html += `<div style="text-align:center; color:#aaa; margin-top:20px;">此槽位為空，請點擊畫面槽位打開建造選單。</div>`;
             }
         } else if (state.tab === 'file') {
@@ -658,7 +684,8 @@
     };
     window.sellTower = function() {
         let idx = state.selectedSlotIndex, slot = towerSlots[idx], tData = TOWER_DICT[slot.tower.type];
-        for(let k in tData.cost) state.resources[k] += tData.cost[k] * 0.5;
+        let multiplier = Math.pow(2, slot.tower.level || 1) - 1;
+        for(let k in tData.cost) state.resources[k] += tData.cost[k] * multiplier;
         state.towers = state.towers.filter(t => t !== slot.tower); slot.tower = null; openBuildModal(idx);
     };
 
