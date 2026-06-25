@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>闇之紀元：影 - 傳說手札</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #020202;
+            font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif, "MingLiU", "DFKai-SB";
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        ::-webkit-scrollbar { display: none; }
+        
+        @keyframes alert-pulse {
+            0% { box-shadow: inset 0 0 30px rgba(185, 28, 28, 0.3); border-color: #b91c1c; }
+            50% { box-shadow: inset 0 0 10px rgba(185, 28, 28, 0.05); border-color: #450a0a; }
+            100% { box-shadow: inset 0 0 30px rgba(185, 28, 28, 0.3); border-color: #b91c1c; }
+        }
+        .network-alert { animation: alert-pulse 1.5s infinite; }
+
+        .candle-text { animation: flicker 4s infinite; }
+        @keyframes flicker {
+            0%, 100% { opacity: 1; text-shadow: 0 0 4px rgba(255,0,0,0.4); }
+            50% { opacity: 0.75; text-shadow: 0 0 2px rgba(255,0,0,0.2); }
+            70% { opacity: 0.9; text-shadow: 0 0 5px rgba(255,0,0,0.5); }
+        }
+
+        /* 字體縮放控制 */
+        html.font-size-0 { font-size: 14px; }
+        html.font-size-1 { font-size: 16px; }
+        html.font-size-2 { font-size: 18px; }
+        html.font-size-0 .text-\\[10px\\] { font-size: 9px; }
+        html.font-size-2 .text-\\[10px\\] { font-size: 12px; }
+        html.font-size-0 .text-\\[9px\\] { font-size: 8px; }
+        html.font-size-2 .text-\\[9px\\] { font-size: 11px; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-between min-h-screen text-gray-200 p-2 overflow-hidden relative">
+
+    <!-- 頂部資訊列 -->
+    <header class="w-full max-w-md flex justify-between items-center py-2 px-3 bg-[#0a0a0a] border border-red-900/30 rounded-lg relative">
+        <div>
+            <h1 class="text-base font-bold text-red-700 tracking-widest">闇之紀元：影</h1>
+            <p id="tower-status" class="text-[10px] text-zinc-500 candle-text">感知殺氣中...</p>
+        </div>
+        <div class="text-right flex flex-col items-end gap-1">
+            <div class="flex items-center gap-1.5">
+                <button id="btn-font" class="text-[10px] text-zinc-400 border border-zinc-700 px-1.5 py-0.5 rounded hover:bg-zinc-800 transition">Aa</button>
+                <button id="btn-journal" class="text-[10px] text-zinc-400 border border-zinc-700 px-1.5 py-0.5 rounded hover:bg-zinc-800 transition">🥷手札</button>
+                <button id="btn-relics" class="text-[10px] text-zinc-400 border border-zinc-700 px-1.5 py-0.5 rounded hover:bg-zinc-800 transition">📜異聞</button>
+                <span id="level-display" class="text-xs font-bold bg-[#111] text-red-500 px-2 py-0.5 rounded border border-red-900/50">黑城: 1</span>
+            </div>
+            <span id="rhythm-phase" class="text-[9px] text-zinc-500 font-bold tracking-wider">潛入期</span>
+        </div>
+    </header>
+
+    <!-- 故事碎片 & 戰報日誌 -->
+    <div id="story-box" class="w-full max-w-md bg-[#0a0a0a] border-l-2 border-red-800 p-3 my-1 rounded text-xs text-zinc-400 leading-relaxed min-h-[76px] flex flex-col justify-end space-y-1">
+        <!-- 動態文字 -->
+    </div>
+
+    <!-- 遊戲主畫面 Canvas -->
+    <div id="canvas-container" class="relative w-full max-w-md aspect-square flex justify-center items-center bg-[#050505] border border-zinc-900 rounded-lg overflow-hidden shadow-2xl transition-all duration-500">
+        <canvas id="gameCanvas" class="w-full h-full block cursor-pointer"></canvas>
+
+        <!-- 浮層選單 -->
+        <div id="overlay" class="absolute inset-0 bg-black/95 flex flex-col justify-center items-center p-6 text-center z-20 hidden">
+            <h2 id="overlay-title" class="text-xl font-bold text-red-700 mb-4 tracking-widest"></h2>
+            <p id="overlay-desc" class="text-xs text-zinc-400 mb-8 max-w-xs leading-loose"></p>
+            
+            <div id="overlay-actions" class="flex flex-col gap-3 w-full max-w-[200px]">
+                <button id="btn-primary" class="bg-red-900 hover:bg-red-800 active:bg-red-950 text-white font-bold py-2.5 px-4 rounded border border-red-700 transition tracking-widest text-xs"></button>
+                <button id="btn-secondary" class="bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-950 text-zinc-300 font-bold py-2.5 px-4 rounded border border-zinc-800 transition tracking-widest text-xs hidden"></button>
+                <button id="btn-restart" class="bg-[#050505] hover:bg-zinc-900 text-zinc-600 py-1.5 px-4 rounded border border-zinc-900 transition tracking-widest text-[10px] hidden">散盡修為，重返城門</button>
+            </div>
+        </div>
+
+        <!-- 異聞錄 (遺物圖鑑) 彈窗 -->
+        <div id="relics-modal" class="absolute inset-0 bg-black/95 flex flex-col p-4 z-30 hidden overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-zinc-800 pb-2 mb-3">
+                <h3 class="text-red-700 font-bold tracking-widest">古代異聞錄</h3>
+                <button id="btn-close-relics" class="text-zinc-400 text-lg px-2">×</button>
+            </div>
+            <p class="text-[10px] text-zinc-500 mb-4">你在深淵中尋獲的碎片，揭示著不屬於這時代的秘密。</p>
+            <div id="relics-list" class="flex flex-col gap-3 text-xs"></div>
+        </div>
+
+        <!-- 忍者手札 (進度統計) 彈窗 -->
+        <div id="journal-modal" class="absolute inset-0 bg-black/95 flex flex-col p-4 z-30 hidden overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-zinc-800 pb-2 mb-3">
+                <h3 class="text-red-700 font-bold tracking-widest">忍者手札</h3>
+                <button id="btn-close-journal" class="text-zinc-400 text-lg px-2">×</button>
+            </div>
+            <div class="flex flex-col gap-4 text-xs text-zinc-300 mt-2">
+                <div class="flex justify-between border-b border-zinc-900 pb-1">
+                    <span class="text-zinc-500">當前抵達樓層</span><span id="j-current" class="font-bold text-red-500">1</span>
+                </div>
+                <div class="flex justify-between border-b border-zinc-900 pb-1">
+                    <span class="text-zinc-500">歷史最深探索</span><span id="j-deepest" class="font-bold">1 (黑城)</span>
+                </div>
+                <div class="flex justify-between border-b border-zinc-900 pb-1">
+                    <span class="text-zinc-500">異聞遺物收集</span><span id="j-relics" class="font-bold">0 / 8</span>
+                </div>
+                <div class="flex justify-between border-b border-zinc-900 pb-1">
+                    <span class="text-zinc-500">聽聞傳說數量</span><span id="j-rumors" class="font-bold">0</span>
+                </div>
+                <div class="flex justify-between border-b border-zinc-900 pb-1">
+                    <span class="text-zinc-500">總計潛行時間</span><span id="j-time" class="font-bold">0分 0秒</span>
+                </div>
+            </div>
+            <p class="text-[10px] text-zinc-600 mt-6 italic text-center">「每一秒的黑暗，都在你的靈魂刻下印記。」</p>
+        </div>
+    </div>
+
+    <!-- 下方控制台 -->
+    <div class="w-full max-w-md bg-[#0a0a0a] border border-zinc-900 rounded-lg p-2.5 flex flex-col gap-2">
+        <div class="flex justify-between items-center text-[10px] text-zinc-400 px-1 border-b border-zinc-900 pb-1.5">
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-zinc-600 transition-colors" id="status-dot"></span>
+                <span id="status-text" class="font-medium">無聲無息</span>
+            </div>
+            <div class="flex gap-3 text-zinc-500">
+                <span id="cooldown-roll">瞬身: 就緒</span>
+                <span id="cooldown-decoy">苦無: 就緒</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-2 mt-1">
+            <button id="btn-hide" class="flex flex-col items-center justify-center py-2 bg-[#111] hover:bg-zinc-800 rounded border border-zinc-800 transition">
+                <span class="text-base text-zinc-300">🌫️</span><span class="text-[10px] mt-1 text-zinc-400">遁影</span>
+            </button>
+            <button id="btn-roll" class="flex flex-col items-center justify-center py-2 bg-[#111] hover:bg-zinc-800 rounded border border-zinc-800 transition">
+                <span class="text-base text-zinc-300">🍃</span><span class="text-[10px] mt-1 text-zinc-400">瞬身</span>
+            </button>
+            <button id="btn-decoy" class="flex flex-col items-center justify-center py-2 bg-[#111] hover:bg-zinc-800 rounded border border-zinc-800 transition">
+                <span class="text-base text-zinc-300">🗡️</span><span class="text-[10px] mt-1 text-zinc-400">擲苦無</span>
+            </button>
+            <button id="btn-wait" class="flex flex-col items-center justify-center py-2 bg-[#111] hover:bg-zinc-800 rounded border border-zinc-800 transition">
+                <span class="text-base text-zinc-300">🧘</span><span class="text-[10px] mt-1 text-zinc-400">屏息</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 底部導覽 -->
+    <footer class="w-full max-w-md text-center text-[10px] text-zinc-600 py-1 leading-normal">
+        💡 遊戲進度會自動寫入手札。點擊 Aa 可切換字體大小。
+    </footer>
+
+    <!-- 遊戲邏輯 JS -->
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const CANVAS_SIZE = 500;
+        canvas.width = CANVAS_SIZE;
+        canvas.height = CANVAS_SIZE;
+
+        const GRID_COUNT = 11;
+        const TILE_SIZE = CANVAS_SIZE / GRID_COUNT;
+        const ENDING_LEVEL = 20;
+
+        const STATE_START = 'START', STATE_PLAYING = 'PLAYING', STATE_GAMEOVER = 'GAMEOVER', STATE_WIN = 'WIN', STATE_ENDING = 'ENDING';
+        const AI_PATROL = 'PATROL', AI_SUSPICIOUS = 'SUSPECT', AI_CHASE = 'CHASE';
+
+        const DIR_UP = { x: 0, y: -1, symbol: '▲' }, DIR_DOWN = { x: 0, y: 1, symbol: '▼' };
+        const DIR_LEFT = { x: -1, y: 0, symbol: '◀' }, DIR_RIGHT = { x: 1, y: 0, symbol: '▶' };
+        const DIR_UP_LEFT = { x: -1, y: -1, symbol: '↖' }, DIR_UP_RIGHT = { x: 1, y: -1, symbol: '↗' };
+        const DIR_DOWN_LEFT = { x: -1, y: 1, symbol: '↙' }, DIR_DOWN_RIGHT = { x: 1, y: 1, symbol: '↘' };
+        const DIRECTIONS = [DIR_UP, DIR_DOWN, DIR_LEFT, DIR_RIGHT, DIR_UP_LEFT, DIR_UP_RIGHT, DIR_DOWN_LEFT, DIR_DOWN_RIGHT];
+
+        // --- 文本與傳聞 ---
+        const chapterCompletedMsgs = [
+            "「黑城已存在數百年。無人知曉城主的真面目。」",
+            "「歷代潛入的刺客無一生還。城主彷彿能看透人心。」",
+            "「影發現，有些牆壁的材質，比王國的歷史還要古老。」",
+            "「這不是一座普通的城堡... 有什麼東西在深處注視著一切。」"
+        ];
+        
+        const abyssRumors = [
+            "「深處似乎存在另一位城主。」",
+            "「某些牆壁比歷史還古老，刻著無人能懂的符號。」",
+            "「黑塔仍在沉睡，這一切只是它的夢境。」",
+            "「往下，只有無盡的黑暗與虛無。」",
+            "「這裡的空間正在扭曲，連時間也失去了意義。」",
+            "「你聽到自己的呼吸聲，還是它的？」",
+            "「影子正在逐漸吞噬你的實體。」",
+            "「有人曾來到這裡，但他沒有選擇繼續。」"
+        ];
+
+        // --- 異聞錄 (遺物系統) ---
+        const RELICS_DB = [
+            { id: 1, name: "破碎的般若面具", desc: "血跡早已乾涸，面具的材質似乎不屬於人類所造。" },
+            { id: 2, name: "青銅陣盤", desc: "刻著不屬於這個時代的星象與幾何紋路。" },
+            { id: 3, name: "黑色石晶", desc: "握在手中，能聽到微弱而規律的脈搏聲。" },
+            { id: 4, name: "殘缺的卷軸", desc: "「...他們在地下挖得太深了...這座塔根本不是建築...」" },
+            { id: 5, name: "無名刺客的徽章", desc: "滿是刮痕。這徽章與你身上的那一枚，一模一樣。" },
+            { id: 6, name: "乾枯的根鬚", desc: "像某種活物，放置在手心時仍在微微抽搐。" },
+            { id: 7, name: "蒼白的眼球", desc: "觸感冰冷如玉，它似乎還在凝視著你。" },
+            { id: 8, name: "幾何形鐵塊", desc: "擁有完美的切割面，絕對不似古人手工所能及。" }
+        ];
+
+        // --- 全局狀態與存檔變數 ---
+        let gameState = STATE_START;
+        let currentLevel = 1;
+        let mapGrid = []; 
+        let exitPos = { x: 10, y: 10 };
+        
+        // 存檔支援的元數據
+        let deepestLevel = 1;
+        let totalTime = 0; // 秒
+        let fontSizeLevel = 1; // 0:A-, 1:A, 2:A+
+        let unlockedRelics = new Set();
+        let unlockedRumors = new Set();
+        const SAVE_KEY = 'dark_epoch_shadow_save';
+
+        let currentIntervention = "NONE"; 
+        let levelInChapter = 1; 
+        let currentPhase = "OBSERVATION"; 
+
+        let isGlobalAlert = false;
+        let alertTurnsLeft = 0;
+
+        let player = { x: 0, y: 0, dir: DIR_RIGHT, isVanished: false, vanishTurns: 0, rollCooldown: 0, decoyCooldown: 0, isRollingMode: false };
+        let enemies = [], fakes = [], decoys = [], sounds = []; 
+        let feedMessages = [];
+        let levelBackup = null;
+
+        let playerPathHistory = [], globallyTrackedPaths = [], mimics = []; 
+        let lastMovesVector = [], predictedPos = null, predictedFailedWave = null, towerEyes = [], fakeHabitsMap = {}; 
+
+        let endingTimer = 0, endingPhase = 0;
+
+        // --- 存檔與讀檔系統 ---
+        function saveGame() {
+            try {
+                const data = {
+                    currentLevel,
+                    deepestLevel: Math.max(currentLevel, deepestLevel),
+                    totalTime,
+                    fontSizeLevel,
+                    unlockedRelics: Array.from(unlockedRelics),
+                    unlockedRumors: Array.from(unlockedRumors)
+                };
+                localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+            } catch (e) { console.warn("Save failed", e); }
+        }
+
+        function loadGame() {
+            try {
+                const data = JSON.parse(localStorage.getItem(SAVE_KEY));
+                if (data) {
+                    currentLevel = data.currentLevel || 1;
+                    deepestLevel = data.deepestLevel || 1;
+                    totalTime = data.totalTime || 0;
+                    fontSizeLevel = data.fontSizeLevel !== undefined ? data.fontSizeLevel : 1;
+                    unlockedRelics = new Set(data.unlockedRelics || []);
+                    unlockedRumors = new Set(data.unlockedRumors || []);
+                    applyFontSize();
+                    return true;
+                }
+            } catch (e) { console.warn("Load failed", e); }
+            return false;
+        }
+
+        function clearRunData() {
+            // 重置當前層數，但保留手札(最深層數、遺物、傳聞、時間)
+            currentLevel = 1;
+            globallyTrackedPaths = [];
+            fakeHabitsMap = {};
+            saveGame();
+        }
+
+        // 計時器
+        setInterval(() => {
+            if (gameState === STATE_PLAYING) {
+                totalTime++;
+                if (totalTime % 10 === 0) saveGame(); // 每10秒自動存檔
+            }
+        }, 1000);
+
+        function formatTime(sec) {
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = sec % 60;
+            return h > 0 ? `${h}小時 ${m}分 ${s}秒` : `${m}分 ${s}秒`;
+        }
+
+        // --- 字體切換系統 ---
+        function applyFontSize() {
+            document.documentElement.className = `font-size-${fontSizeLevel}`;
+            let labels = ["Aa(小)", "Aa", "Aa(大)"];
+            document.getElementById('btn-font').innerText = labels[fontSizeLevel];
+        }
+        document.getElementById('btn-font').addEventListener('click', () => {
+            fontSizeLevel = (fontSizeLevel + 1) % 3;
+            applyFontSize();
+            saveGame();
+        });
+
+        // --- 區域風格 ---
+        function getRegion(level) {
+            if (level <= 20) return { name: "黑城", enemy: "武士", bg: '#050505', wall: '#1c1c1c', grass: '#0f291e', shadow: '#0a0a0a', enemyColor: '#b91c1c', eyeColor: 'rgba(109, 40, 217, 0.05)' };
+            if (level <= 40) return { name: "地下神殿", enemy: "祭司守衛", bg: '#021114', wall: '#0f292e', grass: '#08333e', shadow: '#010a0c', enemyColor: '#0ea5e9', eyeColor: 'rgba(14, 165, 233, 0.05)' };
+            if (level <= 60) return { name: "遺忘王墓", enemy: "墓葬俑", bg: '#171308', wall: '#2e2615', grass: '#2e3012', shadow: '#0a0803', enemyColor: '#d97706', eyeColor: 'rgba(217, 119, 6, 0.05)' };
+            if (level <= 80) return { name: "塔之根部", enemy: "根鬚眷屬", bg: '#140a1f', wall: '#2b163d', grass: '#1a1d30', shadow: '#0b0512', enemyColor: '#9333ea', eyeColor: 'rgba(147, 51, 234, 0.05)' };
+            return { name: "無名深淵", enemy: "虛無迴響", bg: '#000000', wall: '#111111', grass: '#080808', shadow: '#000000', enemyColor: '#e5e5e5', eyeColor: 'rgba(255, 255, 255, 0.05)' };
+        }
+
+        function generateGuaranteedPath(startX, startY, endX, endY, forceFirstDir) {
+            let path = [], cx = startX, cy = startY;
+            path.push({ x: cx, y: cy });
+            if (forceFirstDir) {
+                if (forceFirstDir === 'R' && cx < endX) cx++;
+                else if (forceFirstDir === 'D' && cy < endY) cy++;
+                else if (forceFirstDir === 'L' && cx > endX) cx--;
+                else if (forceFirstDir === 'U' && cy > endY) cy--;
+                path.push({ x: cx, y: cy });
+            }
+            while (cx !== endX || cy !== endY) {
+                let options = [];
+                let dx = Math.sign(endX - cx), dy = Math.sign(endY - cy);
+                if (dx !== 0) options.push({ x: cx + dx, y: cy });
+                if (dy !== 0) options.push({ x: cx, y: cy + dy });
+                if (dx !== 0 && dy !== 0) options.push({ x: cx + dx, y: cy + dy });
+                let choice = options[Math.floor(Math.random() * options.length)];
+                cx = choice.x; cy = choice.y;
+                path.push({ x: cx, y: cy });
+            }
+            return path;
+        }
+
+        function generateLevel(level, useBackup = false) {
+            feedMessages = [];
+            isGlobalAlert = false;
+            alertTurnsLeft = 0;
+            player = { x: 0, y: 0, dir: DIR_RIGHT, isVanished: false, vanishTurns: 0, rollCooldown: 0, decoyCooldown: 0, isRollingMode: false };
+            playerPathHistory = [{x: 0, y: 0}]; 
+            lastMovesVector = []; predictedPos = null; predictedFailedWave = null;
+
+            if (level > deepestLevel) deepestLevel = level;
+            saveGame();
+
+            let region = getRegion(level);
+            updateContainerStyle();
+
+            levelInChapter = ((level - 1) % 5) + 1;
+            if (level === ENDING_LEVEL) currentPhase = "HUNT"; 
+            else if (levelInChapter === 5) currentPhase = "REST";
+            else if (levelInChapter <= 2) currentPhase = "OBSERVATION";
+            else if (levelInChapter <= 4) currentPhase = "PRESSURE";
+            else currentPhase = "HUNT";
+
+            let phaseName = currentPhase === "REST" ? "古廟 (喘息)" : (currentPhase === "OBSERVATION" ? "潛入期" : (currentPhase === "PRESSURE" ? "驚蟄期" : "追獵期"));
+            document.getElementById('rhythm-phase').innerText = phaseName;
+
+            if (useBackup && levelBackup) {
+                mapGrid = JSON.parse(JSON.stringify(levelBackup.mapGrid));
+                enemies = JSON.parse(JSON.stringify(levelBackup.enemies));
+                fakes = JSON.parse(JSON.stringify(levelBackup.fakes));
+                mimics = JSON.parse(JSON.stringify(levelBackup.mimics));
+                towerEyes = JSON.parse(JSON.stringify(levelBackup.towerEyes));
+                currentIntervention = levelBackup.intervention;
+                exitPos = levelBackup.exitPos;
+                addFeed("🔄 散盡修為，重新推演...");
+            } else {
+                if (currentPhase === "REST") {
+                    mapGrid = Array.from({length: GRID_COUNT}, () => Array(GRID_COUNT).fill(0));
+                    exitPos = { x: 5, y: 5 }; 
+                    mapGrid[3][3] = 1; mapGrid[3][7] = 1; mapGrid[7][3] = 1; mapGrid[7][7] = 1;
+                    enemies = []; fakes = []; mimics = []; towerEyes = [];
+                    currentIntervention = "NONE";
+                    document.getElementById('tower-status').innerText = "【古廟遺蹟】";
+                    
+                    if (level <= 20) {
+                        let restFragment = chapterCompletedMsgs[Math.min(Math.floor((level-1)/5), chapterCompletedMsgs.length-1)];
+                        addFeed(restFragment);
+                        unlockedRumors.add(restFragment);
+                    } else {
+                        addFeed("「殘垣斷壁中，似乎訴說著不屬於這世間的故事。」");
+                    }
+                    addFeed("⛩️ 一座無人的遺蹟。這裡沒有威脅，稍作歇息吧。");
+                } else {
+                    let enemyCount = 3;
+                    if (currentPhase === "PRESSURE") enemyCount = Math.min(5 + Math.floor(level / 2.5), 9);
+                    else if (currentPhase === "HUNT") enemyCount = Math.min(8 + Math.floor(level / 2), 12); 
+
+                    let wallProbability = Math.min(0.14 + (level * 0.01), 0.3);
+
+                    const possibleExits = [{x:10,y:10}, {x:10,y:0}, {x:0,y:10}];
+                    exitPos = possibleExits[Math.floor(Math.random() * possibleExits.length)];
+
+                    let protectedCells = new Set();
+                    let path1 = generateGuaranteedPath(0, 0, exitPos.x, exitPos.y, exitPos.x > 0 ? 'R' : 'D');
+                    let path2 = generateGuaranteedPath(0, 0, exitPos.x, exitPos.y, exitPos.y > 0 ? 'D' : 'R');
+                    path1.forEach(p => protectedCells.add(`${p.x},${p.y}`));
+                    path2.forEach(p => protectedCells.add(`${p.x},${p.y}`));
+
+                    const INTERVENTIONS = ["DECEPTION", "FAKES", "CHAOS_PATH", "SILENT_ZONE"];
+                    currentIntervention = currentPhase !== "OBSERVATION" ? INTERVENTIONS[Math.floor(Math.random() * INTERVENTIONS.length)] : "NONE";
+                    
+                    let interventionMsg = "常規巡視";
+                    if (currentIntervention === "DECEPTION") interventionMsg = "迷魂妖術";
+                    if (currentIntervention === "FAKES") interventionMsg = "紙人替身";
+                    if (currentIntervention === "CHAOS_PATH") interventionMsg = "狂亂咒印";
+                    if (currentIntervention === "SILENT_ZONE") interventionMsg = "封印瘴氣";
+
+                    document.getElementById('tower-status').innerText = `【${interventionMsg}】`;
+                    addFeed(`⚠️ 空間發生變異：${interventionMsg}`);
+
+                    mapGrid = Array.from({length: GRID_COUNT}, () => Array(GRID_COUNT).fill(0));
+                    for (let x = 0; x < GRID_COUNT; x++) {
+                        for (let y = 0; y < GRID_COUNT; y++) {
+                            if ((x < 2 && y < 2) || (Math.abs(x-exitPos.x)<2 && Math.abs(y-exitPos.y)<2)) continue;
+                            let r = Math.random();
+                            let isProtected = protectedCells.has(`${x},${y}`);
+
+                            if (r < wallProbability && !isProtected) mapGrid[x][y] = 1; 
+                            else if (r < wallProbability + 0.12) mapGrid[x][y] = 2; 
+                            else if (r < wallProbability + 0.24) mapGrid[x][y] = 3; 
+                            else if (currentIntervention === "SILENT_ZONE" && r > 0.95 && !isProtected) mapGrid[x][y] = 5; 
+                        }
+                    }
+
+                    towerEyes = [];
+                    if (currentPhase !== "OBSERVATION" && Math.random() < 0.7) {
+                        let ex, ey;
+                        do {
+                            ex = Math.floor(Math.random() * (GRID_COUNT - 4)) + 2;
+                            ey = Math.floor(Math.random() * (GRID_COUNT - 4)) + 2;
+                        } while (mapGrid[ex][ey] === 1 || (ex === exitPos.x && ey === exitPos.y));
+                        towerEyes.push({x: ex, y: ey});
+                        addFeed("👁️ 警告：地圖出現了「妖瞳陣眼」，周圍極易暴露殺機！");
+                    }
+
+                    enemies = [];
+                    for (let i = 0; i < enemyCount; i++) {
+                        let ex, ey;
+                        do {
+                            ex = Math.floor(Math.random() * (GRID_COUNT - 3)) + 2;
+                            ey = Math.floor(Math.random() * (GRID_COUNT - 3)) + 2;
+                        } while (mapGrid[ex][ey] === 1 || (ex === exitPos.x && ey === exitPos.y));
+
+                        let visionOffset = 0;
+                        if (currentIntervention === "DECEPTION" && Math.random() < 0.4) visionOffset = Math.random() < 0.5 ? Math.PI/2 : -Math.PI/2;
+
+                        enemies.push({ id: i, x: ex, y: ey, dir: DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)], visualOffset: visionOffset, state: AI_PATROL, targetPos: null, alertTurns: 0 });
+                    }
+
+                    if (Math.random() < 0.3) {
+                        let hotCells = Object.keys(fakeHabitsMap);
+                        if (hotCells.length > 0) {
+                            hotCells.sort((a,b) => fakeHabitsMap[b] - fakeHabitsMap[a]);
+                            let hottest = hotCells[0].split(',').map(Number);
+                            let hx = hottest[0], hy = hottest[1];
+                            if (Math.abs(hx) > 2 || Math.abs(hy) > 2) {
+                                enemies.push({ id: enemies.length, x: hx, y: hy, dir: DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)], state: AI_SUSPICIOUS, targetPos: { x: hx, y: hy }, alertTurns: 2 });
+                                addFeed(`⚔️ ${region.enemy}預判了你常走的路，提前埋伏！`);
+                            }
+                        }
+                    }
+
+                    fakes = [];
+                    if (currentIntervention === "FAKES") {
+                        let fCount = Math.floor(Math.random() * 2) + 1;
+                        for (let i = 0; i < fCount; i++) {
+                            let fx = Math.floor(Math.random() * GRID_COUNT), fy = Math.floor(Math.random() * GRID_COUNT);
+                            if (mapGrid[fx][fy] !== 1 && !(fx===0 && fy===0)) fakes.push({ x: fx, y: fy, dir: DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)] });
+                        }
+                    }
+
+                    mimics = [];
+                    if (globallyTrackedPaths.length >= 3) {
+                        let sortedHotspots = [...globallyTrackedPaths].sort((a,b) => b.count - a.count).slice(0, 5).map(p => ({x: p.x, y: p.y}));
+                        if (sortedHotspots.length >= 2) {
+                            mimics.push({ x: sortedHotspots[0].x, y: sortedHotspots[0].y, dir: DIR_DOWN, pathIndex: 0, patrolPath: sortedHotspots, dirStep: 1, campTurn: 0, actionTimer: 0 });
+                            addFeed("👻 陰風陣陣。一個怨靈殘影正重複著你的步伐。");
+                        }
+                    }
+
+                    levelBackup = {
+                        mapGrid: JSON.parse(JSON.stringify(mapGrid)), enemies: JSON.parse(JSON.stringify(enemies)),
+                        fakes: JSON.parse(JSON.stringify(fakes)), mimics: JSON.parse(JSON.stringify(mimics)),
+                        towerEyes: JSON.parse(JSON.stringify(towerEyes)), intervention: currentIntervention, exitPos: exitPos
+                    };
+                }
+            }
+            decoys = []; sounds = [];
+            updateUI(); draw();
+        }
+
+        function addFeed(msg) {
+            feedMessages.push(msg);
+            if (feedMessages.length > 3) feedMessages.shift();
+            document.getElementById('story-box').innerHTML = feedMessages.map(m => `<div class="border-b border-zinc-900/50 py-0.5">${m}</div>`).join('');
+        }
+
+        function emitSound(x, y, radius) {
+            if (radius <= 0) return;
+            sounds.push({ x, y, radius, maxRadius: radius, age: 0 });
+            enemies.forEach(e => {
+                let dist = Math.abs(e.x - x) + Math.abs(e.y - y);
+                if (dist <= radius && e.state !== AI_CHASE) {
+                    let errX = Math.floor(Math.random() * 3) - 1, errY = Math.floor(Math.random() * 3) - 1;
+                    e.state = AI_SUSPICIOUS;
+                    e.targetPos = { x: clamp(x + errX, 0, GRID_COUNT - 1), y: clamp(y + errY, 0, GRID_COUNT - 1) };
+                    e.alertTurns = currentPhase === "OBSERVATION" ? 2 : 4;
+                }
+            });
+        }
+
+        function calculateNextStepPrediction(newDx, newDy) {
+            lastMovesVector.push({ x: newDx, y: newDy });
+            if (lastMovesVector.length > 3) lastMovesVector.shift();
+
+            let requiresConsecutive = 3; 
+            let nearEye = towerEyes.some(eye => Math.abs(player.x - eye.x) + Math.abs(player.y - eye.y) <= 3);
+            if (nearEye) requiresConsecutive = 2; 
+
+            if (lastMovesVector.length >= requiresConsecutive) {
+                let allSame = true;
+                let first = lastMovesVector[lastMovesVector.length - 1];
+                for (let i = lastMovesVector.length - requiresConsecutive; i < lastMovesVector.length; i++) {
+                    if (lastMovesVector[i].x !== first.x || lastMovesVector[i].y !== first.y) { allSame = false; break; }
+                }
+                if (allSame) {
+                    let step = player.isRollingMode ? 2 : 1;
+                    let px = player.x + first.x * step, py = player.y + first.y * step;
+                    if (px >= 0 && px < GRID_COUNT && py >= 0 && py < GRID_COUNT && mapGrid[px][py] !== 1) {
+                        predictedPos = { x: px, y: py };
+                        addFeed("👁️ 殺意預判鎖定了你的前方！");
+                        enemies.forEach(e => {
+                            if (Math.abs(e.x - px) + Math.abs(e.y - py) <= 4 && e.state !== AI_CHASE) {
+                                e.state = AI_SUSPICIOUS; e.targetPos = { x: px, y: py }; e.alertTurns = 3;
+                            }
+                        });
+                    }
+                }
+            }
+        }
+
+        function tryDropRelic() {
+            if (Math.random() < 0.08) {
+                let uncollected = RELICS_DB.filter(r => !unlockedRelics.has(r.id));
+                if (uncollected.length > 0) {
+                    let relic = uncollected[Math.floor(Math.random() * uncollected.length)];
+                    unlockedRelics.add(relic.id);
+                    saveGame();
+                    addFeed(`✨ 拾獲古老異聞：【${relic.name}】。已記錄於手札。`);
+                }
+            }
+        }
+
+        // ------------------ 彈窗 UI 控制 ------------------
+        document.getElementById('btn-relics').addEventListener('click', () => {
+            let container = document.getElementById('relics-list');
+            container.innerHTML = "";
+            if (unlockedRelics.size === 0) {
+                container.innerHTML = "<p class='text-zinc-600 italic'>深淵中的秘密仍未顯現...</p>";
+            } else {
+                RELICS_DB.forEach(r => {
+                    if (unlockedRelics.has(r.id)) {
+                        container.innerHTML += `
+                            <div class="bg-zinc-900 border border-zinc-800 p-2 rounded">
+                                <span class="text-red-400 font-bold">【${r.name}】</span><br/>
+                                <span class="text-zinc-400 mt-1 block italic">${r.desc}</span>
+                            </div>`;
+                    }
+                });
+            }
+            document.getElementById('relics-modal').classList.remove('hidden');
+        });
+        document.getElementById('btn-close-relics').addEventListener('click', () => document.getElementById('relics-modal').classList.add('hidden'));
+
+        document.getElementById('btn-journal').addEventListener('click', () => {
+            document.getElementById('j-current').innerText = currentLevel;
+            document.getElementById('j-deepest').innerText = `${deepestLevel} (${getRegion(deepestLevel).name})`;
+            document.getElementById('j-relics').innerText = `${unlockedRelics.size} / ${RELICS_DB.length}`;
+            document.getElementById('j-rumors').innerText = `${unlockedRumors.size}`;
+            document.getElementById('j-time').innerText = formatTime(totalTime);
+            document.getElementById('journal-modal').classList.remove('hidden');
+        });
+        document.getElementById('btn-close-journal').addEventListener('click', () => document.getElementById('journal-modal').classList.add('hidden'));
+
+        // ------------------ 玩家與AI互動 ------------------
+        function tryMoveTo(tx, ty) {
+            if (gameState !== STATE_PLAYING) return;
+            let dx = tx - player.x, dy = ty - player.y, step = player.isRollingMode ? 2 : 1;
+            let matchedDir = DIRECTIONS.find(d => d.x === Math.sign(dx) && d.y === Math.sign(dy));
+            if (matchedDir) player.dir = matchedDir;
+
+            if (predictedPos) {
+                if (tx === predictedPos.x && ty === predictedPos.y) {
+                    addFeed("💥 預言成真！你踏入了殺陣！"); isGlobalAlert = true; alertTurnsLeft = 3; updateContainerStyle();
+                } else {
+                    addFeed("🌀 奇門遁甲！你欺騙了預言，釋放出惑敵幻音！");
+                    predictedFailedWave = { x: predictedPos.x, y: predictedPos.y, radius: 0 };
+                    emitSound(predictedPos.x, predictedPos.y, 3);
+                }
+                predictedPos = null;
+            }
+
+            calculateNextStepPrediction(Math.sign(dx), Math.sign(dy));
+
+            if (player.isRollingMode) {
+                let midX = player.x + Math.sign(dx), midY = player.y + Math.sign(dy);
+                if (isBlocked(midX, midY) || isBlocked(tx, ty)) {
+                    addFeed("❌ 牆壁阻擋，瞬身失敗。"); player.isRollingMode = false; updateUI(); draw(); return;
+                }
+                player.x = tx; player.y = ty; player.rollCooldown = 5; player.isRollingMode = false;
+                addFeed("🍃 瞬身！疾風產生了聲響。"); emitSound(tx, ty, 3);
+                playerPathHistory.push({x: tx, y: ty}); endPlayerTurn(); return;
+            }
+            if (isBlocked(tx, ty)) return;
+
+            let fakeIdx = fakes.findIndex(f => f.x === tx && f.y === ty);
+            if (fakeIdx !== -1) {
+                fakes.splice(fakeIdx, 1); addFeed("💥 斬中紙人替身！法術破裂驚動了周遭！");
+                player.x = tx; player.y = ty; emitSound(tx, ty, 4); playerPathHistory.push({x: tx, y: ty}); draw(); endPlayerTurn(); return;
+            }
+
+            let mimicIdx = mimics.findIndex(m => m.x === tx && m.y === ty);
+            if (mimicIdx !== -1) {
+                mimics.splice(mimicIdx, 1); addFeed("👻 💥 怨靈哀嚎！你的氣息暴露了！");
+                emitSound(tx, ty, 4); isGlobalAlert = true; alertTurnsLeft = 3; updateContainerStyle();
+            }
+
+            let enemyIndex = enemies.findIndex(e => e.x === tx && e.y === ty);
+            if (enemyIndex !== -1) {
+                let enemy = enemies[enemyIndex];
+                if (isFacingEachOther(player, enemy) || enemy.state === AI_CHASE) {
+                    addFeed("💥 正面交鋒！刀刃已貫穿你！"); triggerGameOver(); return;
+                } else {
+                    addFeed(`⚔️ 暗殺。咽喉割斷。`); enemies.splice(enemyIndex, 1); player.x = tx;
+                    emitSound(tx, ty, 2); playerPathHistory.push({x: tx, y: ty}); tryDropRelic(); draw(); checkVictory();
+                    if (gameState === STATE_PLAYING) endPlayerTurn();
+                    return;
+                }
+            }
+
+            player.x = tx; player.y = ty; playerPathHistory.push({x: tx, y: ty}); emitSound(tx, ty, 1);
+            if (mapGrid[tx][ty] === 2 && !isGlobalAlert) addFeed("🟢 遁入高草叢。");
+            if (player.x === exitPos.x && player.y === exitPos.y) { triggerWin(); return; }
+            endPlayerTurn();
+        }
+
+        function endPlayerTurn() {
+            if (player.vanishTurns > 0) {
+                player.vanishTurns--;
+                if (player.vanishTurns === 0) { player.isVanished = false; addFeed("👁️ 遁影消散。"); }
+            }
+            if (player.rollCooldown > 0) player.rollCooldown--;
+            if (player.decoyCooldown > 0) player.decoyCooldown--;
+
+            decoys = decoys.filter(d => {
+                emitSound(d.x, d.y, 4); d.turns--;
+                if (d.turns <= 0) { addFeed("🗡️ 苦無落地，聲響停止。"); return false; }
+                return true;
+            });
+            sounds = sounds.filter(s => { s.age++; return s.age <= 2; });
+            if (predictedFailedWave) {
+                predictedFailedWave.radius += 1.5;
+                if (predictedFailedWave.radius > 3) predictedFailedWave = null;
+            }
+            processEnemiesTurn(); processMimicsTurn(); updateUI(); draw();
+        }
+
+        function processEnemiesTurn() {
+            let playerSpottedThisTurn = false, levelVisionBonus = Math.floor(currentLevel / 4);
+            enemies.forEach(enemy => {
+                let baseVision = mapGrid[player.x][player.y] === 3 ? 2 : (4 + levelVisionBonus); 
+                let visionFuzz = Math.floor(Math.random() * 3) - 1; 
+                let currentVision = Math.max(1, baseVision + visionFuzz);
+                let canSee = false;
+                if (!player.isVanished) {
+                    let inBush = mapGrid[player.x][player.y] === 2;
+                    let distToP = Math.abs(player.x - enemy.x) + Math.abs(player.y - enemy.y);
+                    if (!(inBush && distToP > 1)) canSee = checkVisionRay(enemy, player, currentVision);
+                }
+                if (canSee) { playerSpottedThisTurn = true; enemy.state = AI_CHASE; }
+            });
+
+            if (playerSpottedThisTurn) {
+                if (!isGlobalAlert) addFeed("烽火狼煙：深處的目光已鎖定你！");
+                isGlobalAlert = true; alertTurnsLeft = 3; updateContainerStyle();
+                enemies.forEach(enemy => {
+                    let errX = Math.floor(Math.random() * 3) - 1, errY = Math.floor(Math.random() * 3) - 1;
+                    enemy.targetPos = { x: clamp(player.x+errX,0,GRID_COUNT-1), y: clamp(player.y+errY,0,GRID_COUNT-1) };
+                });
+            } else if (isGlobalAlert) {
+                alertTurnsLeft--;
+                if (alertTurnsLeft <= 0) {
+                    isGlobalAlert = false; addFeed("💨 躲入暗處，烽火漸息。"); updateContainerStyle();
+                    enemies.forEach(e => { if (e.state === AI_CHASE) { e.state = AI_SUSPICIOUS; e.alertTurns = 2; } });
+                }
+            }
+
+            enemies.forEach(enemy => {
+                if (enemy.state === AI_CHASE || enemy.state === AI_SUSPICIOUS) {
+                    if (enemy.targetPos) {
+                        moveEnemyTowards(enemy, enemy.targetPos);
+                        if (enemy.x === enemy.targetPos.x && enemy.y === enemy.targetPos.y) {
+                            enemy.dir = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
+                            enemy.alertTurns--;
+                            if (enemy.alertTurns <= 0) { enemy.state = AI_PATROL; enemy.targetPos = null; }
+                        }
+                    }
+                } else {
+                    let chaosChance = currentIntervention === "CHAOS_PATH" ? 0.65 : 0.25;
+                    if (Math.random() < chaosChance) enemy.dir = DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
+                    else {
+                        let nx = enemy.x + enemy.dir.x, ny = enemy.y + enemy.dir.y;
+                        if (!isBlocked(nx, ny) && !(nx === exitPos.x && ny === exitPos.y)) { enemy.x = nx; enemy.y = ny; } 
+                        else enemy.dir = { x: -enemy.dir.x, y: -enemy.dir.y };
+                    }
+                }
+                if (enemy.x === player.x && enemy.y === player.y && !player.isVanished) triggerGameOver();
+            });
+        }
+
+        function processMimicsTurn() {
+            mimics.forEach(mimic => {
+                if (mimic.patrolPath.length < 2) return;
+                if (mimic.campTurn > 0) { mimic.campTurn--; return; }
+
+                mimic.pathIndex += mimic.dirStep;
+                if (mimic.pathIndex >= mimic.patrolPath.length || mimic.pathIndex < 0) {
+                    mimic.dirStep *= -1; mimic.pathIndex += mimic.dirStep * 2;
+                    mimic.pathIndex = clamp(mimic.pathIndex, 0, mimic.patrolPath.length - 1);
+                    if (Math.random() < 0.6) mimic.campTurn = 1;
+                }
+
+                let target = mimic.patrolPath[mimic.pathIndex];
+                if (target) {
+                    let dx = Math.sign(target.x - mimic.x), dy = Math.sign(target.y - mimic.y);
+                    mimic.x = target.x; mimic.y = target.y;
+                    let matchedDir = DIRECTIONS.find(d => d.x === dx && d.y === dy);
+                    if (matchedDir) mimic.dir = matchedDir;
+                }
+
+                mimic.actionTimer++;
+                if (mimic.actionTimer % 8 === 0 && Math.random() < 0.3) {
+                    sounds.push({ x: mimic.x, y: mimic.y, radius: 2, maxRadius: 2, age: 0 });
+                    addFeed("👻 怨靈發出了詭異的聲響...");
+                }
+
+                if (Math.abs(player.x - mimic.x) + Math.abs(player.y - mimic.y) <= 1 && !player.isVanished) {
+                    addFeed("👻 🚨 怨靈纏身！你暴露了！");
+                    emitSound(mimic.x, mimic.y, 3); isGlobalAlert = true; alertTurnsLeft = 3; updateContainerStyle();
+                }
+            });
+        }
+
+        function checkVisionRay(enemy, target, maxDist) {
+            if (mapGrid[player.x][player.y] === 5 || mapGrid[enemy.x][enemy.y] === 5) return false;   
+            let dx = enemy.dir.x, dy = enemy.dir.y;
+            for (let d = 1; d <= maxDist; d++) {
+                let cx = enemy.x + dx * d, cy = enemy.y + dy * d;
+                if (isBlocked(cx, cy) || mapGrid[cx][cy] === 5) break; 
+                if (cx === target.x && cy === target.y) return true;
+                if (d >= 2) {
+                    if (cx+dy === target.x && cy-dx === target.y && !isBlocked(cx+dy, cy-dx) && mapGrid[cx+dy][cy-dx] !== 5) return true;
+                    if (cx-dy === target.x && cy+dx === target.y && !isBlocked(cx-dy, cy+dx) && mapGrid[cx-dy][cy+dx] !== 5) return true;
+                }
+            }
+            return false;
+        }
+
+        function moveEnemyTowards(enemy, target) {
+            let dx = target.x - enemy.x, dy = target.y - enemy.y, nx = enemy.x, ny = enemy.y;
+            let moveX = dx !== 0 ? Math.sign(dx) : 0, moveY = dy !== 0 ? Math.sign(dy) : 0;
+            if (moveX !== 0 && !isBlocked(enemy.x + moveX, enemy.y)) { nx = enemy.x + moveX; enemy.dir = moveX > 0 ? DIR_RIGHT : DIR_LEFT; } 
+            else if (moveY !== 0 && !isBlocked(enemy.x, enemy.y + moveY)) { ny = enemy.y + moveY; enemy.dir = moveY > 0 ? DIR_DOWN : DIR_UP; }
+            enemy.x = nx; enemy.y = ny;
+        }
+
+        function isBlocked(x, y) { return x < 0 || x >= GRID_COUNT || y < 0 || y >= GRID_COUNT || mapGrid[x][y] === 1; }
+        function isFacingEachOther(p, e) { return e.dir.x === Math.sign(p.x - e.x) && e.dir.y === Math.sign(p.y - e.y); }
+        function clamp(v, min, max) { return Math.max(min, Math.min(v, max)); }
+
+        // --- 玩家技能 ---
+        function triggerHide() {
+            if (gameState !== STATE_PLAYING || player.isVanished) return;
+            if (mapGrid[player.x][player.y] !== 3) { addFeed("❌ 只有陰影處(🏁)能遁影。"); return; }
+            player.isVanished = true; player.vanishTurns = 2; emitSound(player.x, player.y, 1); addFeed("🌫️ 氣息隱匿於黑暗中。"); endPlayerTurn();
+        }
+        function triggerRollMode() {
+            if (gameState !== STATE_PLAYING) return;
+            if (player.rollCooldown > 0) { addFeed("❌ 瞬身未就緒。"); return; }
+            player.isRollingMode = !player.isRollingMode; addFeed(player.isRollingMode ? "🍃 點擊周圍2格瞬身（將驚動周圍）。" : "取消瞬身。"); updateUI(); draw();
+        }
+        function triggerDecoy() {
+            if (gameState !== STATE_PLAYING || player.decoyCooldown > 0) return;
+            let tx = player.x + player.dir.x * 2, ty = player.y + player.dir.y * 2;
+            if (isBlocked(tx, ty)) { tx = player.x; ty = player.y; }
+            decoys.push({ x: tx, y: ty, turns: 3 }); player.decoyCooldown = 6; addFeed(`🗡️ 擲出苦無。`); 
+            fakeHabitsMap[`${tx},${ty}`] = (fakeHabitsMap[`${tx},${ty}`] || 0) + 1; endPlayerTurn();
+        }
+
+        // --- Canvas 繪製 ---
+        function draw() {
+            let region = getRegion(currentLevel);
+            ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+            if (gameState === STATE_ENDING) { drawEndingSequence(); return; }
+
+            ctx.fillStyle = region.bg; ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            for (let x = 0; x < GRID_COUNT; x++) {
+                for (let y = 0; y < GRID_COUNT; y++) {
+                    let rx = x * TILE_SIZE, ry = y * TILE_SIZE, type = mapGrid[x][y];
+                    ctx.strokeStyle = '#111'; ctx.strokeRect(rx, ry, TILE_SIZE, TILE_SIZE);
+                    if (type === 1) { ctx.fillStyle = region.wall; ctx.fillRect(rx+1, ry+1, TILE_SIZE-2, TILE_SIZE-2); } 
+                    else if (type === 2) { ctx.fillStyle = region.grass; ctx.fillRect(rx+1, ry+1, TILE_SIZE-2, TILE_SIZE-2); ctx.fillStyle = '#047857'; ctx.font = `${TILE_SIZE*0.4}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🌿', rx+TILE_SIZE/2, ry+TILE_SIZE/2); }
+                    else if (type === 3) { ctx.fillStyle = region.shadow; ctx.fillRect(rx, ry, TILE_SIZE, TILE_SIZE); ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx+TILE_SIZE, ry+TILE_SIZE); ctx.stroke(); } 
+                    else if (type === 5) { ctx.fillStyle = '#000'; ctx.fillRect(rx+1, ry+1, TILE_SIZE-2, TILE_SIZE-2); ctx.strokeStyle = 'rgba(76, 29, 149, 0.3)'; ctx.lineWidth = 2; ctx.strokeRect(rx+2, ry+2, TILE_SIZE-4, TILE_SIZE-4); }
+                }
+            }
+
+            towerEyes.forEach(eye => {
+                let ex = eye.x * TILE_SIZE, ey = eye.y * TILE_SIZE;
+                ctx.save(); ctx.fillStyle = region.eyeColor; ctx.beginPath(); ctx.arc(ex+TILE_SIZE/2, ey+TILE_SIZE/2, TILE_SIZE * 3, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = 'rgba(109, 40, 217, 0.3)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]); 
+                ctx.font = `${TILE_SIZE * 0.65}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('👁️', ex+TILE_SIZE/2, ey+TILE_SIZE/2); ctx.restore();
+            });
+
+            if (Math.abs(player.x - exitPos.x) + Math.abs(player.y - exitPos.y) <= 3 || currentPhase === "REST") {
+                let rx = exitPos.x * TILE_SIZE, ry = exitPos.y * TILE_SIZE;
+                ctx.fillStyle = '#1e1b4b'; ctx.fillRect(rx+2, ry+2, TILE_SIZE-4, TILE_SIZE-4);
+                ctx.font = `${TILE_SIZE*0.5}px serif`; ctx.fillText('🚪', rx+TILE_SIZE/2, ry+TILE_SIZE/2);
+            }
+
+            sounds.forEach(s => {
+                let cx = s.x * TILE_SIZE + TILE_SIZE/2, cy = s.y * TILE_SIZE + TILE_SIZE/2, prog = s.age / 2;
+                ctx.beginPath(); ctx.arc(cx, cy, (s.maxRadius * TILE_SIZE) * (0.3 + 0.7 * prog), 0, Math.PI * 2); ctx.strokeStyle = `rgba(200, 200, 200, ${0.4 * (1 - prog)})`; ctx.lineWidth = 1.5; ctx.stroke();
+            });
+
+            if (predictedFailedWave) {
+                let cx = predictedFailedWave.x * TILE_SIZE + TILE_SIZE/2, cy = predictedFailedWave.y * TILE_SIZE + TILE_SIZE/2;
+                ctx.beginPath(); ctx.arc(cx, cy, predictedFailedWave.radius * TILE_SIZE, 0, Math.PI * 2); ctx.strokeStyle = `rgba(13, 148, 136, ${0.6 * (1 - predictedFailedWave.radius/3)})`; ctx.lineWidth = 3; ctx.stroke();
+            }
+
+            if (predictedPos) {
+                let rx = predictedPos.x * TILE_SIZE, ry = predictedPos.y * TILE_SIZE;
+                ctx.save(); ctx.strokeStyle = '#991b1b'; ctx.lineWidth = 2; ctx.strokeRect(rx + 4, ry + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+                ctx.beginPath(); ctx.arc(rx+TILE_SIZE/2, ry+TILE_SIZE/2, TILE_SIZE*0.4, 0, Math.PI*2); ctx.stroke(); ctx.font = 'bold 11px serif'; ctx.fillStyle = '#991b1b'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚔️', rx+TILE_SIZE/2, ry+TILE_SIZE/2); ctx.restore();
+            }
+
+            decoys.forEach(d => { ctx.font = `${TILE_SIZE*0.4}px serif`; ctx.fillText('🗡️', d.x*TILE_SIZE+TILE_SIZE/2, d.y*TILE_SIZE+TILE_SIZE/2); });
+
+            mimics.forEach(m => {
+                let mx = m.x * TILE_SIZE, my = m.y * TILE_SIZE; ctx.save(); ctx.translate(mx + TILE_SIZE/2, my + TILE_SIZE/2);
+                let angle = 0; if (m.dir === DIR_RIGHT) angle = 0; else if (m.dir === DIR_DOWN) angle = Math.PI / 2; else if (m.dir === DIR_LEFT) angle = Math.PI; else if (m.dir === DIR_UP) angle = -Math.PI / 2;
+                ctx.rotate(angle); ctx.fillStyle = m.campTurn > 0 ? 'rgba(88, 28, 135, 0.5)' : 'rgba(82, 82, 91, 0.45)'; 
+                ctx.beginPath(); ctx.arc(0, 0, TILE_SIZE * 0.28, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; ctx.lineWidth = 1.5; ctx.strokeRect(-TILE_SIZE*0.15, -TILE_SIZE*0.15, TILE_SIZE*0.3, TILE_SIZE*0.3); ctx.restore();
+                ctx.font = '8px serif'; ctx.fillStyle = '#71717a'; ctx.textAlign = 'center'; ctx.fillText('怨靈', mx + TILE_SIZE/2, my + 4);
+            });
+
+            fakes.forEach(f => {
+                let fx = f.x * TILE_SIZE, fy = f.y * TILE_SIZE;
+                if (Math.random() > 0.3) {
+                    ctx.save(); ctx.translate(fx + TILE_SIZE/2, fy + TILE_SIZE/2);
+                    let angle = f.dir===DIR_RIGHT?0 : f.dir===DIR_DOWN?Math.PI/2 : f.dir===DIR_LEFT?Math.PI : -Math.PI/2; ctx.rotate(angle);
+                    ctx.fillStyle = 'rgba(185, 28, 28, 0.3)'; ctx.beginPath(); ctx.moveTo(TILE_SIZE*0.3, 0); ctx.lineTo(-TILE_SIZE*0.2, -TILE_SIZE*0.2); ctx.lineTo(-TILE_SIZE*0.2, TILE_SIZE*0.2); ctx.fill(); ctx.restore();
+                }
+            });
+
+            enemies.forEach(e => {
+                let ex = e.x * TILE_SIZE, ey = e.y * TILE_SIZE; ctx.save(); ctx.translate(ex + TILE_SIZE/2, ey + TILE_SIZE/2);
+                let baseAngle = e.dir===DIR_RIGHT?0 : e.dir===DIR_DOWN?Math.PI/2 : e.dir===DIR_LEFT?Math.PI : e.dir===DIR_UP?-Math.PI/2 : e.dir===DIR_UP_RIGHT?-Math.PI/4 : e.dir===DIR_UP_LEFT?-Math.PI*3/4 : e.dir===DIR_DOWN_RIGHT?Math.PI/4 : Math.PI*3/4;
+                let visAngle = baseAngle + (e.visualOffset || 0);
+                
+                ctx.rotate(visAngle); ctx.strokeStyle = e.state===AI_CHASE ? 'rgba(185,28,28,0.3)' : 'rgba(113,113,122,0.15)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]); for(let r=1; r<=3; r++){ ctx.beginPath(); ctx.arc(0, 0, r*TILE_SIZE, -Math.PI/4, Math.PI/4); ctx.stroke(); } ctx.setLineDash([]); ctx.rotate(-visAngle); 
+                ctx.rotate(baseAngle);
+                let bodyColor = region.enemyColor; 
+                if (e.state === AI_CHASE) bodyColor = (Math.floor(Date.now() / 150) % 2 === 0) ? '#991b1b' : '#450a0a'; else if (e.state === AI_SUSPICIOUS) bodyColor = '#b45309';
+                ctx.fillStyle = bodyColor; ctx.beginPath(); ctx.moveTo(TILE_SIZE*0.3, 0); ctx.lineTo(-TILE_SIZE*0.2, -TILE_SIZE*0.2); ctx.lineTo(-TILE_SIZE*0.2, TILE_SIZE*0.2); ctx.fill(); ctx.restore();
+                ctx.font = 'bold 11px serif'; if (e.state === AI_CHASE) { ctx.fillStyle = '#ef4444'; ctx.fillText('❗', ex+TILE_SIZE/2, ey - 1); } else if (e.state === AI_SUSPICIOUS) { ctx.fillStyle = '#f59e0b'; ctx.fillText('❓', ex+TILE_SIZE/2, ey - 1); }
+            });
+
+            if (gameState === STATE_PLAYING && currentPhase !== "REST") renderMovementIndicators();
+
+            let px = player.x * TILE_SIZE, py = player.y * TILE_SIZE; ctx.save();
+            ctx.strokeStyle = player.isVanished ? '#3b82f6' : (isChasing() ? '#ef4444' : '#e5e5e5'); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px+TILE_SIZE/2, py+TILE_SIZE/2, TILE_SIZE*0.35, 0, Math.PI*2); ctx.stroke();
+            ctx.fillStyle = player.isVanished ? '#1e3a8a' : '#141416'; ctx.beginPath(); ctx.arc(px+TILE_SIZE/2, py+TILE_SIZE/2, TILE_SIZE*0.25, 0, Math.PI*2); ctx.fill();
+            ctx.font = '11px serif'; ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('影', px+TILE_SIZE/2, py+TILE_SIZE/2+1); ctx.restore();
+        }
+
+        // --- 結局動畫 ---
+        function drawEndingSequence() {
+            ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            endingTimer++;
+            
+            if (endingTimer > 60) {
+                ctx.fillStyle = '#050505'; ctx.fillRect(CANVAS_SIZE/2 - 40, CANVAS_SIZE*0.2, 80, CANVAS_SIZE*0.8);
+                ctx.strokeStyle = '#111'; ctx.lineWidth = 2; ctx.strokeRect(CANVAS_SIZE/2 - 40, CANVAS_SIZE*0.2, 80, CANVAS_SIZE*0.8);
+            }
+            ctx.font = '14px serif'; ctx.fillStyle = '#a1a1aa'; ctx.textAlign = 'center';
+
+            if (endingTimer > 120) ctx.fillText("影抵達了黑城的最深處。", CANVAS_SIZE/2, CANVAS_SIZE/2 - 60);
+            if (endingTimer > 240) ctx.fillText("他斬下了城主的頭顱，卻發現...", CANVAS_SIZE/2, CANVAS_SIZE/2 - 30);
+            if (endingTimer > 380) {
+                ctx.fillText("城堡中央，矗立著一座漆黑的高塔。", CANVAS_SIZE/2, CANVAS_SIZE/2 + 20);
+                ctx.fillText("歷代城主，皆只是守塔的傀儡。", CANVAS_SIZE/2, CANVAS_SIZE/2 + 45);
+            }
+            if (endingTimer > 540) {
+                ctx.fillStyle = '#f87171';
+                ctx.fillText("『塔仍在沉睡。』", CANVAS_SIZE/2, CANVAS_SIZE/2 + 85);
+                ctx.fillText("『這不是開始，也不是結束。』", CANVAS_SIZE/2, CANVAS_SIZE/2 + 110);
+            }
+            if (endingTimer > 700) { ctx.fillStyle = '#e4e4e7'; ctx.fillText("『總有一天，新的時代將再次找到它。』", CANVAS_SIZE/2, CANVAS_SIZE/2 + 145); }
+
+            if (endingTimer > 880 && endingTimer < 930) {
+                let glowAlpha = Math.sin((endingTimer - 880) / 50 * Math.PI);
+                ctx.save(); ctx.shadowBlur = 15; ctx.shadowColor = `rgba(0, 240, 255, ${glowAlpha})`; ctx.strokeStyle = `rgba(0, 240, 255, ${glowAlpha})`; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(CANVAS_SIZE/2, CANVAS_SIZE*0.3); ctx.lineTo(CANVAS_SIZE/2, CANVAS_SIZE*0.7); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(CANVAS_SIZE/2, CANVAS_SIZE*0.5); ctx.lineTo(CANVAS_SIZE/2 + 15, CANVAS_SIZE*0.5); ctx.stroke(); ctx.restore();
+            }
+
+            if (endingTimer > 1050 && endingPhase === 0) {
+                endingPhase = 1;
+                showOverlay("傳說終結", "深邃的黑暗吞噬了影的輪廓...", "墜入深淵 (前往第21層)", null, true);
+                document.getElementById('btn-restart').innerText = "重返人世 (重新開始)";
+                document.getElementById('btn-restart').onclick = () => {
+                    document.getElementById('overlay').classList.add('hidden');
+                    clearRunData(); generateLevel(1, false); gameState = STATE_PLAYING;
+                };
+            }
+        }
+
+        function isChasing() { return isGlobalAlert || enemies.some(e => e.state === AI_CHASE); }
+
+        function renderMovementIndicators() {
+            let step = player.isRollingMode ? 2 : 1;
+            DIRECTIONS.forEach(d => {
+                let tx = player.x + d.x * step, ty = player.y + d.y * step;
+                if (tx < 0 || tx >= GRID_COUNT || ty < 0 || ty >= GRID_COUNT || isBlocked(tx, ty)) return;
+                if (player.isRollingMode && isBlocked(player.x + d.x, player.y + d.y)) return;
+
+                let enemy = enemies.find(e => e.x === tx && e.y === ty), fake = fakes.find(f => f.x === tx && f.y === ty), rx = tx * TILE_SIZE, ry = ty * TILE_SIZE;
+                ctx.save();
+                if (enemy) {
+                    if (!isFacingEachOther(player, enemy) && enemy.state !== AI_CHASE) {
+                        ctx.strokeStyle = '#ef4444'; ctx.strokeRect(rx+2, ry+2, TILE_SIZE-4, TILE_SIZE-4); ctx.fillStyle = '#f87171'; ctx.font = '14px serif'; ctx.fillText('⚔️', rx+TILE_SIZE/2, ry+TILE_SIZE/2);
+                    } else { ctx.fillStyle = '#facc15'; ctx.font = '14px serif'; ctx.fillText('⚠️', rx+TILE_SIZE/2, ry+TILE_SIZE/2); }
+                } else if (fake) { ctx.fillStyle = '#facc15'; ctx.font = '14px serif'; ctx.fillText('⚠️', rx+TILE_SIZE/2, ry+TILE_SIZE/2); } 
+                else {
+                    ctx.fillStyle = player.isRollingMode ? '#34d399' : '#52525b'; ctx.font = 'bold 12px serif';
+                    let arrowStr = player.isRollingMode ? d.symbol+d.symbol : d.symbol; ctx.fillText(arrowStr, rx+TILE_SIZE/2, ry+TILE_SIZE/2);
+                }
+                ctx.restore();
+            });
+        }
+
+        function finalizeChapterLearning() {
+            playerPathHistory.forEach(step => {
+                let key = `${step.x},${step.y}`;
+                fakeHabitsMap[key] = (fakeHabitsMap[key] || 0) + 1;
+                let found = globallyTrackedPaths.find(p => p.x === step.x && p.y === step.y);
+                if (found) found.count += 1; else globallyTrackedPaths.push({ x: step.x, y: step.y, count: 1 });
+            });
+            if (globallyTrackedPaths.length > 15) { globallyTrackedPaths.sort((a,b) => b.count - a.count); globallyTrackedPaths = globallyTrackedPaths.slice(0, 15); }
+        }
+
+        function updateUI() {
+            let region = getRegion(currentLevel);
+            document.getElementById('level-display').innerText = `${region.name}: ${currentLevel}`;
+            let dot = document.getElementById('status-dot'), text = document.getElementById('status-text');
+            if (isGlobalAlert) { dot.className = "inline-block w-2 h-2 rounded-full bg-red-700 animate-pulse"; text.innerText = `烽火連天 (${alertTurnsLeft})`; text.className = "font-bold text-red-600"; } 
+            else if (player.isVanished) { dot.className = "inline-block w-2 h-2 rounded-full bg-blue-500"; text.innerText = "氣息隱匿"; text.className = "font-medium text-blue-400"; } 
+            else if (player.isRollingMode) { dot.className = "inline-block w-2 h-2 rounded-full bg-emerald-500"; text.innerText = "瞬身蓄力"; text.className = "font-medium text-emerald-500"; } 
+            else if (currentPhase === "REST") { dot.className = "inline-block w-2 h-2 rounded-full bg-zinc-400 animate-pulse"; text.innerText = "古廟清靜"; text.className = "font-medium text-zinc-300"; } 
+            else { dot.className = "inline-block w-2 h-2 rounded-full bg-zinc-600"; text.innerText = "無聲無息"; text.className = "font-medium text-zinc-400"; }
+            document.getElementById('cooldown-roll').innerText = player.rollCooldown > 0 ? `瞬身: ❄️${player.rollCooldown}` : "瞬身: 就緒";
+            document.getElementById('cooldown-decoy').innerText = player.decoyCooldown > 0 ? `苦無: ❄️${player.decoyCooldown}` : "苦無: 就緒";
+        }
+
+        function updateContainerStyle() {
+            const container = document.getElementById('canvas-container');
+            if (isGlobalAlert) container.classList.add('network-alert'); else container.classList.remove('network-alert');
+        }
+
+        function checkVictory() { if (enemies.length === 0) addFeed("🏆 區域肅清，大門已開。"); }
+
+        function triggerWin() {
+            finalizeChapterLearning(); 
+            if (currentLevel === ENDING_LEVEL) {
+                gameState = STATE_ENDING; endingTimer = 0; endingPhase = 0;
+                document.getElementById('overlay').classList.add('hidden'); document.getElementById('story-box').innerHTML = ""; return;
+            }
+            gameState = STATE_WIN;
+            let storyFrag = "";
+            if (currentLevel < 20) storyFrag = chapterCompletedMsgs[Math.min(Math.floor((currentLevel-1)/5), chapterCompletedMsgs.length-1)];
+            else {
+                storyFrag = abyssRumors[Math.floor(Math.random() * abyssRumors.length)];
+                unlockedRumors.add(storyFrag); saveGame();
+            }
+            showOverlay("區域突破", storyFrag + `\n\n你推開了沉重的古門，進入第 ${currentLevel + 1} 層。`, "繼續深入");
+        }
+
+        function triggerGameOver() {
+            gameState = STATE_GAMEOVER; finalizeChapterLearning(); 
+            showOverlay("死劫", "「黑城不會忘記任何一位死者。」\n\n古老陣法已重新推演你的死因。", "重新推演 (原環境)", currentLevel > 1 ? "退回上層" : null, true);
+            document.getElementById('btn-restart').innerText = "散盡修為，重返城門";
+            document.getElementById('btn-restart').onclick = () => {
+                document.getElementById('overlay').classList.add('hidden'); clearRunData(); generateLevel(1, false); gameState = STATE_PLAYING;
+            };
+        }
+
+        function showOverlay(title, desc, primaryText, secondaryText = null, showRestart = false) {
+            document.getElementById('overlay-title').innerText = title; document.getElementById('overlay-desc').innerText = desc;
+            document.getElementById('btn-primary').innerText = primaryText;
+            if (secondaryText) { document.getElementById('btn-secondary').innerText = secondaryText; document.getElementById('btn-secondary').classList.remove('hidden'); }
+            else document.getElementById('btn-secondary').classList.add('hidden');
+            if (showRestart) document.getElementById('btn-restart').classList.remove('hidden'); else document.getElementById('btn-restart').classList.add('hidden');
+            document.getElementById('overlay').classList.remove('hidden');
+        }
+
+        // 事件註冊
+        canvas.addEventListener('click', (e) => {
+            if (gameState !== STATE_PLAYING) return;
+            const rect = canvas.getBoundingClientRect();
+            const gx = Math.floor((e.clientX - rect.left) / (rect.width / GRID_COUNT)), gy = Math.floor((e.clientY - rect.top) / (rect.height / GRID_COUNT));
+            if (currentPhase === "REST") {
+                if (mapGrid[gx][gy] !== 1) { player.x = gx; player.y = gy; if (player.x === exitPos.x && player.y === exitPos.y) triggerWin(); else draw(); }
+                return;
+            }
+            let dx = gx - player.x, dy = gy - player.y, step = player.isRollingMode ? 2 : 1;
+            if (Math.max(Math.abs(dx), Math.abs(dy)) === step && (Math.abs(dx) === Math.abs(dy) || dx === 0 || dy === 0)) tryMoveTo(gx, gy);
+        });
+
+        document.getElementById('btn-hide').addEventListener('click', triggerHide);
+        document.getElementById('btn-roll').addEventListener('click', triggerRollMode);
+        document.getElementById('btn-decoy').addEventListener('click', triggerDecoy);
+        document.getElementById('btn-wait').addEventListener('click', () => { 
+            if (currentPhase !== "REST" && gameState === STATE_PLAYING) { addFeed("🧘 吐納屏息。"); emitSound(player.x, player.y, 0); endPlayerTurn(); }
+        });
+
+        document.getElementById('btn-primary').addEventListener('click', () => {
+            document.getElementById('overlay').classList.add('hidden');
+            if (gameState === STATE_START) { 
+                if (loadGame() && currentLevel > 1) { generateLevel(currentLevel, false); } // 讀檔繼續
+                else { currentLevel = 1; generateLevel(1, false); }
+                gameState = STATE_PLAYING; 
+            }
+            else if (gameState === STATE_WIN) { currentLevel++; generateLevel(currentLevel, false); gameState = STATE_PLAYING; }
+            else if (gameState === STATE_GAMEOVER) { generateLevel(currentLevel, true); gameState = STATE_PLAYING; }
+            else if (gameState === STATE_ENDING) { currentLevel = 21; generateLevel(currentLevel, false); gameState = STATE_PLAYING; }
+        });
+
+        document.getElementById('btn-secondary').addEventListener('click', () => {
+            document.getElementById('overlay').classList.add('hidden');
+            if (gameState === STATE_START) { clearRunData(); generateLevel(1, false); gameState = STATE_PLAYING; } // 重新開始
+            else if (gameState === STATE_GAMEOVER && currentLevel > 1) { currentLevel--; generateLevel(currentLevel, false); gameState = STATE_PLAYING; }
+        });
+
+        function animate() {
+            if (gameState === STATE_PLAYING || gameState === STATE_ENDING) draw();
+            requestAnimationFrame(animate);
+        }
+
+        window.onload = () => {
+            gameState = STATE_START;
+            let hasSave = loadGame();
+            if (hasSave && currentLevel > 1) {
+                showOverlay("闇之紀元：影", "歡迎歸來。\n深淵仍在凝視著你。", "繼續探索", "重新開始");
+            } else {
+                showOverlay("闇之紀元：影", "你奉命潛入那座名為「黑城」的古老要塞。\n\n傳聞城主掌握不死之術。無數高手潛入其中，再也沒有出來。\n\n運用你的忍術：遁影、瞬身與苦無。抵達城主所在的第 20 層。", "潛入黑城");
+            }
+            applyFontSize();
+            animate();
+        };
+    </script>
+</body>
+</html>
