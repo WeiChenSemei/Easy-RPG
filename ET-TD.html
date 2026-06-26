@@ -15,10 +15,11 @@
         .bar-fill { height: 100%; transition: width 0.3s; }
         .shield-fill { position: absolute; top:0; left:0; height:100%; background: rgba(52, 152, 219, 0.8); transition: width 0.3s; }
         .bar-text { position: absolute; top: 0; left: 0; width: 100%; text-align: center; font-size: 0.75rem; line-height: 15px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000; }
-        #top-info { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-top: 5px; color: var(--highlight); font-weight: bold; }
-        #status-bar { display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 5px; background: rgba(0,0,0,0.5); padding: 3px 5px; border-radius: 4px; flex-wrap: wrap; gap: 5px;}
+        #top-info { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin-top: 5px; font-weight: bold; gap: 5px; overflow: hidden; }
+        #info-left { flex: 1; white-space: nowrap; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+        #info-left::-webkit-scrollbar { display: none; }
 
-        .btn-pause { background: #f39c12; color: #fff; border: none; border-radius: 4px; padding: 4px 12px; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
+        .btn-pause { background: #f39c12; color: #fff; border: none; border-radius: 4px; padding: 4px 12px; font-weight: bold; cursor: pointer; transition: transform 0.1s; flex-shrink: 0; }
         .btn-pause:active { transform: scale(0.9); }
         .btn-pause.paused { background: #e74c3c; animation: pulse 1s infinite; }
 
@@ -61,7 +62,7 @@
         .game-over-box h1 { color: #e74c3c; margin-bottom: 10px; font-size: 2rem; }
         .game-over-box p { color: #aaa; font-size: 1rem; line-height: 1.6; margin-bottom: 20px; }
 
-        .floating-text { position: absolute; font-weight: bold; font-size: 1.2rem; pointer-events: none; animation: floatUp 1s forwards; z-index: 50; text-shadow: 0 0 4px #000; }
+        .floating-text { position: absolute; font-weight: bold; pointer-events: none; animation: floatUp 1s forwards; z-index: 50; text-shadow: 0 0 4px #000; }
         @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-40px); } }
         .warning-text { color: #e74c3c; font-size: 0.8rem; font-weight: bold; margin-top: 5px; text-align: center; animation: pulse 1s infinite; }
         @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
@@ -74,8 +75,7 @@
         <div class="bar-container"><div id="hp-bar" class="bar-fill" style="background: var(--hp); width: 100%;"></div><div id="shield-bar" class="shield-fill" style="width: 0%;"></div><div id="hp-text" class="bar-text">主塔核心: 1000 / 1000</div></div>
         <div class="bar-container"><div id="stab-bar" class="bar-fill" style="background: #00b894; width: 100%;"></div><div id="stab-text" class="bar-text">元素穩定度: 100% (平衡)</div></div>
         <div class="bar-container" style="height: 10px; margin-top: -2px; margin-bottom: 5px; border-color: #6c5ce7;"><div id="imbalance-bar" class="bar-fill" style="background: #9b59b6; width: 0%;"></div><div id="imbalance-text" class="bar-text" style="line-height:10px; font-size:0.65rem;">紀元演化度: 0%</div></div>
-        <div id="top-info"><span id="floor-text">塔: 1層 | 波次: 1</span><button id="btn-pause" class="btn-pause" onclick="togglePause()">暫停 (佈陣)</button></div>
-        <div id="status-bar" style="display: none;"><span id="epoch-text" style="color:#a29bfe; font-weight:bold;"></span><span id="will-text" style="color:#ff9f43; font-weight:bold;"></span><span id="event-text" style="color:#e74c3c; font-weight:bold;"></span></div>
+        <div id="top-info"><div id="info-left"></div><button id="btn-pause" class="btn-pause" onclick="togglePause()">暫停 (佈陣)</button></div>
     </div>
 
     <div id="canvas-wrapper"><canvas id="gameCanvas"></canvas><div id="tap-hint">👆 點擊此區域手動匯聚缺乏的元素，並觸發小型震波</div><div id="pause-overlay">時空凍結</div></div>
@@ -110,10 +110,19 @@
     const RELIC_POOL = [{id:'dmg_up',icon:'🗡️',name:'破壞核心',desc:'防禦塔傷害 +30%，穩定度容忍降低'}, {id:'speed_up',icon:'⏱️',name:'時光齒輪',desc:'防禦塔攻速 +30%，敵人跑速 +10%'}, {id:'tap_up',icon:'✋',name:'貪婪之手',desc:'手動收集量 x3，敵人血量 +20%'}, {id:'stab_up',icon:'⚖️',name:'平衡天秤',desc:'不易失衡，塔傷害 -10%'}, {id:'hp_up',icon:'💖',name:'生命結晶',desc:'主塔血量上限 +500，且立刻回滿'}, {id:'range_up',icon:'🔭',name:'鷹眼透鏡',desc:'所有防禦塔射程 +20%'}];
     const EVENTS = [{id:'volcano',name:'🌋 火山爆發',buff:['F','FA'],debuff:['W','I','IW']}, {id:'winter',name:'❄️ 凜冬將至',buff:['I','IW'],debuff:['F','FA']}, {id:'storm',name:'🌪️ 狂雷暴風',buff:['A','L','WL'],debuff:['E']}, {id:'quake',name:'🪨 大地震顫',buff:['E','EP'],debuff:['A','L']}, {id:'eclipse',name:'🌑 日蝕之暗',buff:['D','SD'],debuff:['S']}, {id:'aurora',name:'✨ 極光閃耀',buff:['S','SD'],debuff:['D']}];
     const COUNTER_MAP = { 'F':'I', 'I':'A', 'A':'E', 'E':'L', 'L':'W', 'W':'F', 'S':'D', 'D':'S' };
+    
+    // --- 文明萌芽 Data ---
+    const WONDER_DICT = [{ id: 'volcano', req: ['F','F','F'], icon: '🌋' }, { id: 'mountain', req: ['I','I','I'], icon: '🏔️' }, { id: 'storm', req: ['W','L','A'], icon: '🌩️' }, { id: 'galaxy', req: ['S','D'], icon: '🌌' }];
+    const RESIDENT_ICONS = ['🧑‍🌾', '👷', '🧒', '🏃'];
+    const HERO_ICONS = { mage: '🧙‍♂️', musician: '👩‍🎤', rogue: '🥷', bard: '🧑‍🎤' };
+    const BUILD_ICONS = ['🏕️', '🏠', '🏡', '🏛️'];
+    const PLANT_ICONS = ['🌱', '🌿', '🌳', '🌸'];
 
     let state = {}; let towerSlots = []; 
     function initGameData() {
-        state = { floor: 1, hp: 1000, maxHp: 1000, shield: 0, reviveCount: 0, wave: 1, waveTimer: 0, spawnCount: 0, spawnTarget: 10, stability: 100, imbalance: 0, epoch: { count: 1, type: 'genesis', name: '創世初紀', desc: '萬物平靜。' }, resources: {}, extractors: {}, unlockedElems: ['E'], blueprints: [], towers: [], enemies: [], projectiles: [], particles: [], ripples: [], relics: [], activeWill: null, activeEvent: null, lastTick: 0, tab: 'extract', selectedSlotIndex: -1, isGameOver: false, isPaused: false };
+        state = { floor: 1, hp: 1000, maxHp: 1000, shield: 0, reviveCount: 0, wave: 1, waveTimer: 0, spawnCount: 0, spawnTarget: 10, stability: 100, imbalance: 0, epoch: { count: 1, type: 'genesis', name: '創世初紀', desc: '萬物平靜。' }, resources: {}, extractors: {}, unlockedElems: ['E'], blueprints: [], towers: [], enemies: [], projectiles: [], particles: [], ripples: [], relics: [], activeWill: null, activeEvent: null, lastTick: 0, tab: 'extract', selectedSlotIndex: -1, isGameOver: false, isPaused: false,
+                  // 文明萌芽擴充欄位
+                  residents: [], buildings: [], plants: [], wonders: [], heroesSpawned: [], civTimer: 0 };
         ELEM_KEYS.forEach(k => { state.resources[k] = 0; state.extractors[k] = 0; }); state.resources['E'] = 50; state.extractors['E'] = 1; 
     }
     initGameData();
@@ -127,7 +136,9 @@
     window.importSave = function() { let html = `<div class="list-item" style="flex-direction:column; align-items:stretch;"><span style="margin-bottom:10px;">請貼上繼承碼：</span><textarea id="import-code" style="width:100%; height:100px; background:#000; color:#fff; border:1px solid #444; border-radius:4px; padding:5px; resize:none;"></textarea><button class="btn-action" style="margin-top:10px; background:#e67e22; color:#fff;" onclick="doImportCode()">📥 確定匯入</button></div>`; document.getElementById('modal-title').innerText = '匯入繼承碼'; document.getElementById('modal-list').innerHTML = html; document.getElementById('modal').style.display = 'flex'; };
     window.doImportCode = function() { let code = document.getElementById('import-code').value.trim(); if(code) { importSaveData(code); closeModal(); } };
     window.confirmHardReset = function() { let html = `<div class="list-item" style="flex-direction:column; align-items:stretch; border-color:#e74c3c;"><span style="margin-bottom:10px; color:#e74c3c; font-weight:bold; text-align:center;">警告：這將徹底消除所有進度且無法復原！</span><button class="btn-action" style="margin-top:10px; background:#e74c3c; color:#fff; padding:15px;" onclick="doHardReset()">⚠️ 我確定要重置世界</button></div>`; document.getElementById('modal-title').innerText = '重置確認'; document.getElementById('modal-list').innerHTML = html; document.getElementById('modal').style.display = 'flex'; };
-    function importSaveData(code) { try { let p = decodeSave(code); if(!p || !p.floor) throw new Error(); state = p; state.enemies = []; state.projectiles = []; state.particles = []; state.ripples = []; state.shield = state.shield || 0; state.isPaused = true; state.reviveCount = state.reviveCount || 0; resize(); switchTab('extract'); updateHUD(); alert('讀取成功！已暫停。'); } catch(e) { alert('無效繼承碼！'); } }
+    function importSaveData(code) { try { let p = decodeSave(code); if(!p || !p.floor) throw new Error(); state = p; state.enemies = []; state.projectiles = []; state.particles = []; state.ripples = []; state.shield = state.shield || 0; state.isPaused = true; state.reviveCount = state.reviveCount || 0; 
+        state.residents = state.residents || []; state.buildings = state.buildings || []; state.plants = state.plants || []; state.wonders = state.wonders || []; state.heroesSpawned = state.heroesSpawned || []; state.civTimer = state.civTimer || 0;
+        resize(); switchTab('extract'); updateHUD(); alert('讀取成功！已暫停。'); } catch(e) { alert('無效繼承碼！'); } }
     window.doHardReset = function() { resetGame(); };
 
     window.togglePause = function(f) {
@@ -180,8 +191,10 @@
 
     function advanceEpoch() {
         state.epoch.count++; state.imbalance = 0; equalizeResources();
-        if (state.epoch.count % 10 === 0) { state.epoch.type = 'CHAOS'; state.epoch.name = '混沌紀元'; state.epoch.desc = '規則崩壞：傷害與強度隨機波動！資源已均分。'; } 
-        else { let maxElem = state.unlockedElems.reduce((a, b) => state.resources[a] > state.resources[b] ? a : b); state.epoch.type = maxElem; state.epoch.name = `${ELEMS[maxElem].name}之紀元`; state.epoch.desc = `演化：${ELEMS[maxElem].icon}${ELEMS[maxElem].name}系塔強100%，被剋制系傷害減半。同系敵人大幅強化。資源已均分。`; }
+        state.residents = []; state.buildings = []; state.plants = []; state.wonders = []; state.heroesSpawned = [];
+        
+        if (state.epoch.count % 10 === 0) { state.epoch.type = 'CHAOS'; state.epoch.name = '混沌紀元'; state.epoch.desc = '規則崩壞：傷害與強度隨機波動！文明全毀，資源已均分。'; } 
+        else { let maxElem = state.unlockedElems.reduce((a, b) => state.resources[a] > state.resources[b] ? a : b); state.epoch.type = maxElem; state.epoch.name = `${ELEMS[maxElem].name}之紀元`; state.epoch.desc = `演化：${ELEMS[maxElem].icon}${ELEMS[maxElem].name}系塔強100%，被剋制系傷害減半。同系敵人大幅強化。文明重新萌芽。`; }
         document.getElementById('epoch-modal-title').innerText = `第 ${state.epoch.count} 紀元：${state.epoch.name}`; document.getElementById('epoch-modal-desc').innerText = state.epoch.desc; document.getElementById('epoch-modal').style.display = 'flex'; togglePause(true);
     }
 
@@ -208,6 +221,23 @@
     }
     window.chooseRelic = function(id) { state.relics.push(id); if(id === 'hp_up') { state.maxHp += 500; state.hp = state.maxHp; } document.getElementById('relic-modal').style.display = 'none'; togglePause(false); renderTabContent(); updateHUD(); };
 
+    function spawnResident() {
+        let side = Math.random() < 0.5 ? -1 : 1;
+        let rx = cw/2 + side * (45 + Math.random()*(cw/2 - 65));
+        state.residents.push({ x: rx, y: ch-15 + Math.random()*8, icon: RESIDENT_ICONS[Math.floor(Math.random()*RESIDENT_ICONS.length)], state: 'idle', timer: 1000, tx: 0, speed: 0.2 + Math.random()*0.15, facing: 1, isHero: false, age: 0, maxAge: 20000 + Math.random()*20000, sizeScale: 0.7 + Math.random()*0.5 });
+    }
+    function spawnHero(id) {
+        state.heroesSpawned.push(id);
+        let side = Math.random() < 0.5 ? -1 : 1;
+        let rx = cw/2 + side * (45 + Math.random()*30);
+        state.residents.push({ x: rx, y: ch-12 + Math.random()*5, icon: HERO_ICONS[id], heroId: id, state: 'idle', timer: 1000, tx: 0, speed: 0.4, facing: 1, isHero: true, cd: 0, age: 0, maxAge: Infinity, sizeScale: 1.1 });
+    }
+    function checkWonders() {
+        state.wonders = []; let counts = {};
+        state.towers.forEach(t => { let elems = TOWER_DICT[t.type].elem; for(let i=0; i<elems.length; i++) counts[elems[i]] = (counts[elems[i]] || 0) + 1; });
+        WONDER_DICT.forEach(w => { let meet = true, tempCounts = {...counts}; w.req.forEach(r => { if(!tempCounts[r] || tempCounts[r] <= 0) meet = false; else tempCounts[r]--; }); if(meet) state.wonders.push(w); });
+    }
+
     function updateLogic(dt) {
         let spawnInterval = Math.max(500, (state.stability < 50 ? 1000 : 2500) - state.wave * 50);
         state.waveTimer += dt; if(state.waveTimer > spawnInterval) { state.waveTimer = 0; spawnEnemy(); }
@@ -219,6 +249,93 @@
 
         const basePos = { x: cw/2, y: ch-30 };
 
+        // --- 文明生老病死與建築更新 ---
+        state.civTimer += dt;
+        if(state.civTimer > 1500) {
+            state.civTimer = 0; checkWonders();
+            if(state.floor >= 2 && !state.heroesSpawned.includes('bard')) spawnHero('bard');
+            if(state.floor >= 3 && !state.heroesSpawned.includes('mage')) spawnHero('mage');
+            if(state.floor >= 4 && !state.heroesSpawned.includes('rogue')) spawnHero('rogue');
+            if(state.floor >= 5 && !state.heroesSpawned.includes('musician')) spawnHero('musician');
+            
+            if(state.residents.filter(r=>!r.isHero).length < Math.min(10, 2 + state.floor) && Math.random() < 0.4) spawnResident();
+            if(state.plants.length < 3 + state.floor * 2 && Math.random() < 0.5) {
+                let side = Math.random() < 0.5 ? -1 : 1;
+                let px = basePos.x + side * (45 + Math.random()*(cw/2 - 65));
+                if(px > 10 && px < cw-10) state.plants.push({ x: px, y: ch-15 + Math.random()*10, type: 0, age: 0, maxAge: 15 + Math.random()*20, sizeScale: 0.6 + Math.random()*0.6 });
+            }
+            if(state.buildings.length < Math.floor(state.floor/2)+1 && Math.random() < 0.3) {
+                let side = Math.random() < 0.5 ? -1 : 1;
+                let dist = 55 + Math.pow(Math.random(), 0.5) * (cw/2 - 75);
+                let bx = basePos.x + side * dist;
+                if(bx > 20 && bx < cw-20) state.buildings.push({ x: bx, y: ch-18 + Math.random()*5, type: 0, age: 0, maxAge: 30 + Math.random()*40, sizeScale: 0.7 + Math.random()*0.5 }); 
+            }
+            // 植物輪迴
+            for(let i = state.plants.length - 1; i >= 0; i--) {
+                let p = state.plants[i]; p.age++;
+                if(p.age > p.maxAge) { state.plants.splice(i, 1); continue; }
+                if(p.type < 3 && Math.random() < 0.1) p.type++;
+            }
+            // 建築輪迴
+            for(let i = state.buildings.length - 1; i >= 0; i--) {
+                let b = state.buildings[i]; b.age++;
+                if(b.age > b.maxAge) { state.buildings.splice(i, 1); continue; }
+                if(b.type < 3 && Math.random() < 0.05) b.type++;
+            }
+        }
+
+        // --- 居民與英雄邏輯 ---
+        for(let i = state.residents.length - 1; i >= 0; i--) {
+            let r = state.residents[i];
+            r.age += dt; if(r.age > r.maxAge) { state.residents.splice(i, 1); continue; }
+
+            r.timer -= dt;
+            if(r.timer <= 0) {
+                if(r.state === 'idle') { 
+                    r.state = 'walk'; 
+                    let side = Math.random() < 0.5 ? -1 : 1;
+                    r.tx = basePos.x + side * (45 + Math.random()*(cw/2 - 65));
+                    r.tx = Math.max(20, Math.min(cw-20, r.tx)); 
+                    r.timer = 1000 + Math.random()*3000; 
+                } 
+                else { r.state = 'idle'; r.timer = 2000 + Math.random()*4000; }
+            }
+            if(r.state === 'walk') { let dir = Math.sign(r.tx - r.x); r.x += dir * r.speed * (dt/(1000/60)); r.facing = dir; if(Math.abs(r.tx - r.x) < 5) r.state = 'idle'; }
+            
+            if(r.isHero) {
+                r.cd -= dt;
+                if(r.heroId === 'bard') {
+                    if(state.imbalance > 0) state.imbalance = Math.max(0, state.imbalance - (dt/1000)*1.5);
+                    if(r.cd <= 0) { 
+                        state.ripples.push({ x: r.x, y: r.y-10, r: 5, maxR: 120, life: 1.0, color: '162, 155, 254' });
+                        createFloatingText(r.x, r.y-25, '🎵', '#a29bfe', '2rem'); r.cd = 4000; 
+                    }
+                }
+                if(r.heroId === 'mage' && r.cd <= 0 && state.enemies.length > 0) {
+                    let target = state.enemies[Math.floor(Math.random()*state.enemies.length)];
+                    state.projectiles.push({ x: r.x, y: r.y-10, tx: target.x, ty: target.y, target: target, speed: 4, towerType: 'E', dmgMod: state.floor * 1.5, level: 1 });
+                    createParticles(r.x, r.y-10, '#3498db', 15);
+                    createFloatingText(r.x, r.y-20, '✨', '#3498db', '2rem'); r.cd = 2000;
+                }
+                if(r.heroId === 'musician' && r.cd <= 0) {
+                    state.towers.forEach(t => t.cooldown = Math.max(0, t.cooldown - 800));
+                    state.ripples.push({ x: r.x, y: r.y-10, r: 5, maxR: 150, life: 1.0, color: '241, 196, 15' });
+                    createParticles(r.x, r.y, '#f1c40f', 15); createFloatingText(r.x, r.y-25, '🎶', '#f1c40f', '2rem');
+                    r.cd = 5000;
+                }
+                if(r.heroId === 'rogue' && r.cd <= 0) {
+                    let closeEnemy = state.enemies.find(e => Math.hypot(e.x - basePos.x, e.y - basePos.y) < 70);
+                    if(closeEnemy) {
+                        r.x = closeEnemy.x + (Math.random()<0.5?10:-10); r.facing = Math.sign(closeEnemy.x - r.x) || 1;
+                        closeEnemy.hp -= state.floor * 40; 
+                        createParticles(r.x, r.y, '#e74c3c', 25); createFloatingText(r.x, r.y-20, '🗡️背刺', '#e74c3c', '1.5rem');
+                        r.cd = 3000;
+                    }
+                }
+            }
+        }
+
+        // --- 核心戰鬥與砲塔運作 ---
         if (state.stability < 100 && Math.random() < ((100 - state.stability) / 100) * 0.3 * (dt / 1000)) {
             state.ripples.push({ x: basePos.x, y: basePos.y, r: 10, maxR: 300, life: 1.0 });
             state.enemies.forEach(e => e.hp -= state.floor * 50); createFloatingText(basePos.x, basePos.y - 60, "🌊 元素震波", "#66fcf1");
@@ -256,10 +373,11 @@
             }
         }
 
+        let wonderBuff = 1 + (state.wonders.length * 0.05);
         state.towers.forEach(t => {
             t.cooldown -= dt;
             if(t.cooldown <= 0) {
-                let tData = TOWER_DICT[t.type], mDmg = 1, mCd = Math.pow(0.85, (t.level || 1) - 1), mRange = 1;
+                let tData = TOWER_DICT[t.type], mDmg = wonderBuff, mCd = Math.pow(0.85, (t.level || 1) - 1), mRange = 1;
                 if (state.relics.includes('dmg_up')) mDmg *= 1.3; if (state.relics.includes('stab_up')) mDmg *= 0.9;
                 if (state.relics.includes('speed_up')) mCd *= 0.7; if (state.relics.includes('range_up')) mRange *= 1.2;
                 if (state.activeEvent) { let evt = EVENTS.find(ev => ev.id === state.activeEvent.id); if (evt.buff.includes(t.type)) mDmg *= 1.5; if (evt.debuff.includes(t.type)) mDmg *= 0.5; }
@@ -301,21 +419,63 @@
 
     // --- 繪製 ---
     function draw() {
-        ctx.clearRect(0, 0, cw, ch); const towerW = 50, basePos = { x: cw/2, y: ch-20 };
-        state.ripples.forEach(rp => { ctx.beginPath(); ctx.arc(rp.x || basePos.x, rp.y || basePos.y, rp.r, 0, Math.PI*2); ctx.strokeStyle = `rgba(102, 252, 241, ${Math.max(0, rp.life * 0.8)})`; ctx.lineWidth = 10 * rp.life; ctx.stroke(); });
+        // --- 繪製動態天空與平滑色彩過渡 ---
+        if(!state.bgTop) { state.bgTop = [41, 128, 185]; state.bgBot = [109, 213, 250]; }
+        let tTop = [41, 128, 185], tBot = [109, 213, 250]; // 預設天藍色
+        if (state.activeEvent) {
+            let ev = state.activeEvent.id;
+            if(ev==='volcano'){ tTop=[90,10,10]; tBot=[231,76,60]; }
+            else if(ev==='winter'){ tTop=[144,164,174]; tBot=[236,240,241]; }
+            else if(ev==='storm'){ tTop=[44,62,80]; tBot=[149,165,166]; }
+            else if(ev==='quake'){ tTop=[120,66,18]; tBot=[211,84,0]; }
+            else if(ev==='eclipse'){ tTop=[0,0,0]; tBot=[30,30,30]; }
+            else if(ev==='aurora'){ tTop=[20,10,50]; tBot=[26,188,156]; }
+        }
+        // RGB 色彩線性插值 (Lerp) 實現平滑天氣轉場
+        for(let i=0; i<3; i++){ state.bgTop[i] += (tTop[i]-state.bgTop[i])*0.05; state.bgBot[i] += (tBot[i]-state.bgBot[i])*0.05; }
+        let bgGrad = ctx.createLinearGradient(0,0,0,ch);
+        bgGrad.addColorStop(0, `rgb(${state.bgTop.map(Math.floor).join(',')})`);
+        bgGrad.addColorStop(1, `rgb(${state.bgBot.map(Math.floor).join(',')})`);
+        ctx.fillStyle = bgGrad; ctx.fillRect(0,0,cw,ch);
+
+        // --- 繪製地基與草地 ---
+        ctx.fillStyle = '#1e272e'; ctx.fillRect(0, ch - 25, cw, 25); // 深色泥土層
+        ctx.fillStyle = '#218c74'; ctx.fillRect(0, ch - 25, cw, 4);  // 頂部草皮層
+
+        const towerW = 50, basePos = { x: cw/2, y: ch-20 };
+
+        state.wonders.forEach((w, i) => {
+            ctx.globalAlpha = 0.25; ctx.font = '70px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            let wx = cw/2 + (i - (state.wonders.length-1)/2) * 120; ctx.fillText(w.icon, wx, ch/2 - 40);
+        }); ctx.globalAlpha = 1.0;
+
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        state.plants.forEach(p => { ctx.font = `${Math.floor(16 * p.sizeScale)}px Arial`; ctx.fillText(PLANT_ICONS[Math.min(3, p.type)], p.x, p.y); });
+        state.buildings.forEach(b => { ctx.font = `${Math.floor(24 * b.sizeScale)}px Arial`; ctx.fillText(BUILD_ICONS[Math.min(3, b.type)], b.x, b.y); });
+
+        state.ripples.forEach(rp => { 
+            ctx.beginPath(); ctx.arc(rp.x || basePos.x, rp.y || basePos.y, rp.r, 0, Math.PI*2); 
+            ctx.strokeStyle = rp.color ? `rgba(${rp.color}, ${Math.max(0, rp.life * 0.8)})` : `rgba(102, 252, 241, ${Math.max(0, rp.life * 0.8)})`; 
+            ctx.lineWidth = 10 * rp.life; ctx.stroke(); 
+        });
         
-        let visualFloor = ((state.floor - 1) % 9) + 1; 
+        // 渲染主塔 (最高 10 層，第 10 層不顯示元素符號改顯樓層數字)
+        let visualFloor = Math.min(state.floor, 10); 
         ctx.fillStyle = '#111'; ctx.fillRect(basePos.x - towerW/2, basePos.y - visualFloor * 20, towerW, visualFloor * 20);
         for(let i=0; i<visualFloor; i++) { 
-            let eKey = ELEM_KEYS[(state.floor - visualFloor + i) % 9]; 
-            ctx.fillStyle = ELEMS[eKey].color; ctx.globalAlpha = 0.8; ctx.fillRect(basePos.x - towerW/2 + 2, basePos.y - (i+1)*20 + 2, towerW-4, 16); 
-            ctx.globalAlpha = 1.0; ctx.fillStyle = '#fff'; ctx.font = '12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ELEMS[eKey].icon, basePos.x, basePos.y - i*20 - 10 + 2); 
+            let yPos = basePos.y - (i+1)*20 + 2;
+            if(i === 9) { // 渲染第 10 層
+                ctx.fillStyle = '#f1c40f'; ctx.globalAlpha = 0.8; ctx.fillRect(basePos.x - towerW/2 + 2, yPos, towerW-4, 16); 
+                ctx.globalAlpha = 1.0; ctx.fillStyle = '#000'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; 
+                ctx.fillText(state.floor, basePos.x, yPos + 8);
+            } else {
+                let eKey = ELEM_KEYS[(state.floor - visualFloor + i) % 9]; 
+                ctx.fillStyle = ELEMS[eKey].color; ctx.globalAlpha = 0.8; ctx.fillRect(basePos.x - towerW/2 + 2, yPos, towerW-4, 16); 
+                ctx.globalAlpha = 1.0; ctx.fillStyle = '#fff'; ctx.font = '12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; 
+                ctx.fillText(ELEMS[eKey].icon, basePos.x, yPos + 8); 
+            }
         }
         
-        // 精準計算最底層的樓層數並顯示在最底層旁邊
-        let bottomFloorNum = state.floor - visualFloor + 1;
-        ctx.fillStyle = '#f1c40f'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(bottomFloorNum + "F", basePos.x + towerW/2 + 8, basePos.y - 10);
-
         towerSlots.forEach((slot, idx) => {
             ctx.beginPath(); ctx.arc(slot.x, slot.y, slot.r, 0, Math.PI*2); ctx.fillStyle = 'rgba(255,255,255,0.05)'; ctx.strokeStyle = state.selectedSlotIndex === idx ? varColor('--highlight') : '#555'; ctx.lineWidth = 2; ctx.fill(); ctx.stroke();
             if(slot.tower) {
@@ -324,6 +484,14 @@
                 if(state.selectedSlotIndex === idx) { let mRange = state.relics.includes('range_up') ? 1.2 : 1; ctx.beginPath(); ctx.arc(slot.x, slot.y, tData.range * mRange, 0, Math.PI*2); ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.stroke(); }
             } else { ctx.font = `${Math.floor(slot.r * 0.8)}px Arial`; ctx.fillStyle = '#888'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('+', slot.x, slot.y + 1); }
         });
+
+        // 繪製居民與英雄
+        ctx.textBaseline = 'bottom';
+        state.residents.forEach(r => {
+            ctx.font = `${Math.floor(16 * r.sizeScale)}px Arial`; ctx.save(); ctx.translate(r.x, r.y); ctx.scale(r.facing, 1);
+            ctx.fillText(r.icon, 0, 0); ctx.restore();
+        });
+        ctx.textBaseline = 'middle';
 
         state.enemies.forEach(e => {
             let r = 8 * e.sizeScale; ctx.fillStyle = ELEMS[e.elem].color; ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, Math.PI*2); ctx.fill(); 
@@ -335,7 +503,9 @@
 
         state.projectiles.forEach(p => { let c = ELEMS[TOWER_DICT[p.towerType].elem[0]].color; ctx.fillStyle = c; ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 10; ctx.shadowColor = c; ctx.fill(); ctx.shadowBlur = 0; });
         state.particles.forEach(p => { ctx.fillStyle = p.c; ctx.globalAlpha = p.life / 500; ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill(); }); ctx.globalAlpha = 1.0;
-        if(state.stability < 30) { ctx.fillStyle = 'rgba(231, 76, 60, 0.1)'; ctx.fillRect(0,0,cw,ch); }
+        
+        // 暴走危險警告濾鏡
+        if(state.stability < 30) { ctx.fillStyle = 'rgba(231, 76, 60, 0.15)'; ctx.fillRect(0,0,cw,ch); }
     }
 
     let uiTimer = 0;
@@ -348,10 +518,23 @@
     function updateHUD() {
         document.getElementById('hp-bar').style.width = `${Math.max(0, (state.hp/state.maxHp)*100)}%`; document.getElementById('shield-bar').style.width = `${Math.min(100, ((state.shield||0)/state.maxHp)*100)}%`; document.getElementById('hp-text').innerText = `主塔核心: ${Math.floor(state.hp)} / ${state.maxHp} ${state.shield>0?'(+'+Math.floor(state.shield)+')':''}`;
         document.getElementById('stab-bar').style.width = `${state.stability}%`; document.getElementById('stab-bar').style.background = state.stability > 70 ? '#00b894' : (state.stability > 30 ? '#f39c12' : '#e74c3c'); document.getElementById('stab-text').innerText = `元素穩定度: ${Math.floor(state.stability)}% (${state.stability > 70 ? '平穩' : (state.stability > 30 ? '波動' : '危險！暴走')})`;
-        document.getElementById('imbalance-bar').style.width = `${Math.min(100, state.imbalance)}%`; document.getElementById('imbalance-text').innerText = `紀元演化進度: ${Math.floor(state.imbalance)}%`; document.getElementById('floor-text').innerText = `塔: ${state.floor}層 | 波次: ${state.wave}`;
+        document.getElementById('imbalance-bar').style.width = `${Math.min(100, state.imbalance)}%`; document.getElementById('imbalance-text').innerText = `紀元演化進度: ${Math.floor(state.imbalance)}%`;
         
-        let ep = state.epoch.count > 1 ? `🌍 第${state.epoch.count}紀元: ${state.epoch.name} ` : '', wi = state.activeWill ? `⚠️ ${ELEMS[state.activeWill].icon}${ELEMS[state.activeWill].name}之意志覺醒` : '', ev = state.activeEvent ? `${EVENTS.find(e => e.id === state.activeEvent.id).name} (▲${EVENTS.find(e => e.id === state.activeEvent.id).buff.map(k => ELEMS[k[0]].icon).join('')} ▼${EVENTS.find(e => e.id === state.activeEvent.id).debuff.map(k => ELEMS[k[0]].icon).join('')})` : '';
-        document.getElementById('epoch-text').innerText = ep; document.getElementById('will-text').innerText = wi; document.getElementById('event-text').innerText = ev; document.getElementById('status-bar').style.display = (ep || wi || ev) ? 'flex' : 'none';
+        let ep = state.epoch.count > 1 ? `<span style="color:#a29bfe">🌍 第${state.epoch.count}紀元: ${state.epoch.name}</span>` : '';
+        let wi = state.activeWill ? `<span style="color:#ff9f43">⚠️ ${ELEMS[state.activeWill].icon}${ELEMS[state.activeWill].name}之意志覺醒</span>` : '';
+        let ev = '';
+        if (state.activeEvent) {
+            let evt = EVENTS.find(e => e.id === state.activeEvent.id);
+            ev = `<span style="color:#e74c3c">${evt.name} (▲${evt.buff.map(k => ELEMS[k[0]].icon).join('')} ▼${evt.debuff.map(k => ELEMS[k[0]].icon).join('')})</span>`;
+        }
+        
+        let arr = [`<span style="color:var(--highlight)">塔: ${state.floor}層 | 波次: ${state.wave}</span>`];
+        if (ep) arr.push(ep);
+        if (wi) arr.push(wi);
+        if (ev) arr.push(ev);
+        
+        let infoLeft = document.getElementById('info-left');
+        if(infoLeft) infoLeft.innerHTML = arr.join(' &nbsp;|&nbsp; ');
     }
 
     function updateDynamicUI() {
@@ -393,7 +576,10 @@
     function openBuildModal(idx) { state.selectedSlotIndex = idx; switchTab('tower'); let slot = towerSlots[idx]; if(slot.tower) return; let html = ''; state.unlockedElems.forEach(k => { let t = TOWER_DICT[k]; html += `<div class="list-item"><div class="item-info"><span class="item-title">${ELEMS[k].icon} ${t.name}</span></div><button class="btn-action cost-btn" data-cost='${JSON.stringify(t.cost)}' onclick="buildTower('${k}', ${idx})">建 (${getCostText(t.cost)})</button></div>`; }); state.blueprints.forEach(k => { let t = TOWER_DICT[k]; html += `<div class="list-item" style="border-color:var(--highlight);"><div class="item-info"><span class="item-title">${t.name}</span></div><button class="btn-action cost-btn" data-cost='${JSON.stringify(t.cost)}' onclick="buildTower('${k}', ${idx})">建 (${getCostText(t.cost)})</button></div>`; }); document.getElementById('modal-list').innerHTML = html; document.getElementById('modal').style.display = 'flex'; updateDynamicUI(); }
     window.buildTower = function(type, idx) { let tData = TOWER_DICT[type]; if(canAfford(tData.cost)) { payCost(tData.cost); let tObj = { type: type, x: towerSlots[idx].x, y: towerSlots[idx].y, dmg: tData.dmg, range: tData.range, cooldown: 0, level: 1, slotIndex: idx }; state.towers.push(tObj); towerSlots[idx].tower = tObj; closeModal(); createParticles(tObj.x, tObj.y, '#fff', 20); renderTabContent(); } };
 
-    function createFloatingText(x, y, text, color) { const div = document.createElement('div'); div.className = 'floating-text'; div.innerText = text; div.style.color = color; div.style.left = (x - 10) + 'px'; div.style.top = (y - 20) + 'px'; document.getElementById('canvas-wrapper').appendChild(div); setTimeout(() => div.remove(), 1000); }
+    function createFloatingText(x, y, text, color, fontSize='1.2rem') { 
+        const div = document.createElement('div'); div.className = 'floating-text'; div.innerText = text; div.style.color = color; div.style.fontSize = fontSize;
+        div.style.left = (x - 10) + 'px'; div.style.top = (y - 20) + 'px'; document.getElementById('canvas-wrapper').appendChild(div); setTimeout(() => div.remove(), 1000); 
+    }
     function createParticles(x, y, color, count=5) { for(let i=0; i<count; i++) state.particles.push({ x: x, y: y, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, life: 500, c: color }); }
     function varColor(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
