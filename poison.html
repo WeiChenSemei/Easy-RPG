@@ -10,8 +10,9 @@
             --panel-bg: rgba(10, 15, 10, 0.85); --border-color: #2e4a2e; --boss-color: #d4af37;
             --burst-color: #9b59b6; --fatigue-color: #3498db; --event-color: #1abc9c; --weather-color: #f39c12;
             --info-color: #8e44ad; --rare-color: #e67e22; --shield-color: #9b59b6;
+            --base-font-size: 16px;
         }
-        body { margin: 0; padding: 0; background-color: var(--bg-color); color: var(--text-color); font-family: 'Courier New', Courier, monospace; overflow: hidden; touch-action: manipulation; user-select: none; }
+        body { margin: 0; padding: 0; background-color: var(--bg-color); color: var(--text-color); font-family: 'Courier New', Courier, monospace; overflow: hidden; touch-action: manipulation; user-select: none; font-size: var(--base-font-size); }
         #bg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; pointer-events: none; }
         #ui-container { position: relative; z-index: 2; max-width: 480px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; background: var(--panel-bg); box-shadow: 0 0 20px rgba(0, 50, 0, 0.5); }
         .panel { display: none; flex-direction: column; flex: 1; padding: 15px; box-sizing: border-box; overflow-y: auto; }
@@ -91,17 +92,18 @@
                 <button class="full-width" onclick="Game.startNewGame('spider')" style="margin-bottom:10px; text-align:left;">🕷️ 毒蛛 <small style="color:#aaa;">(偏好: 寄生/孢子)</small><br><small>特徵：【吸血】</small></button>
                 <button class="full-width" onclick="Game.startNewGame('frog')" style="margin-bottom:10px; text-align:left;">🐸 毒蛙 <small style="color:#aaa;">(偏好: 麻痺/再生)</small><br><small>特徵：【麻痺】</small></button>
             </div>
-            <button class="full-width" onclick="Game.switchPanel('panel-title')">返回</button>
+            <button class="full-width" id="btn-select-back" onclick="Game.switchPanel('panel-title')">返回</button>
         </div>
 
         <div id="panel-camp" class="panel">
             <div class="status-bar">
-                <span>安全營地 (天數:<span id="ui-days">1</span>)</span>
+                <span>安全營地 (天數:<span id="ui-days">1</span>) <button onclick="Game.toggleFontSize()" style="padding:2px 8px; font-size:0.8em; margin-left:5px; border-radius:3px;">A</button></span>
                 <span id="camp-weather" class="weather-tag">☀️ 晴朗</span>
             </div>
             <div class="art-display" id="camp-pet-art">🐍</div>
             <div style="text-align:center; margin-bottom: 10px;">
                 <div id="camp-pet-name">我的毒物</div>
+                <button onclick="Game.renamePet()" style="padding:2px 8px; font-size:0.75em; margin-top:2px; border:none; background:transparent; color:#888;">✏️ 改名</button>
                 <div class="hp-bar-container"><div id="camp-hp-fill" class="hp-bar-fill"></div></div>
                 <div style="font-size:0.8em; margin-top:5px;">HP: <span id="camp-hp-text">100/100</span></div>
             </div>
@@ -188,11 +190,7 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
-
+    <script>
         const DB = {
             weathers: {
                 'normal': { id: 'normal', name: '☀️ 晴朗', desc: '普通的荒野日子，萬物穩定生長。' },
@@ -286,48 +284,84 @@
                 { name: '巨大的', trait: 'hard_shell', desc: '體型異常龐大，擁有超越同類的堅硬外殼。' },
                 { name: '被寄生的', trait: 'parasite', desc: '被不明寄生蟲控制了神經樞紐，變得瘋狂且嗜血。' },
                 { name: '發光的', trait: 'spore', desc: '體內充滿了螢光真菌，受到震動會散發致命的孢子粉塵。' }
-            ]
+            ],
+            elementalRelics: ['地之核心🪨', '水之結晶💧', '火之餘燼🔥', '風之羽毛💨', '冰之寒核🧊', '雷之火花⚡', '光之碎片✨', '闇之殘影🌑']
         };
 
         window.Game = {
             state: { days: 1, weather: 'normal', weatherDays: 0, player: { petId: '', name: '', art: '', hp: 0, maxHp: 0, atk: 0, def: 0, traitsPool: [], equippedTraits: [], prefs: [] }, partner: null, bestiary: {}, bossResearch: {}, defeatedBosses: [], currentEncounter: null, combat: {}, relics: [], larvaKarma: 0, discoveredWeathers: ['normal'], discoveredCombos: [], discoveredPartners: [], traitUsage: {}, bossHistory: {} },
-            db: null, user: null, appId: 'epoch-of-poison-encyclopedia',
+            isReincarnating: false,
 
             initApp: async function() {
                 this.initCanvasEffects();
-                try {
-                    const cfg = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {}; this.appId = typeof __app_id !== 'undefined' ? __app_id : this.appId;
-                    if (Object.keys(cfg).length > 0) {
-                        const app = initializeApp(cfg); const auth = getAuth(app); this.db = getFirestore(app);
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth);
-                        onAuthStateChanged(auth, async (u) => { if (u) { this.user = u; await this.checkSaveData(); } }); return;
-                    }
-                } catch (e) {} setTimeout(() => this.checkSaveData(true), 500);
+                
+                let savedFontSize = localStorage.getItem('epoch_of_poison_fontsize');
+                if(savedFontSize) document.documentElement.style.setProperty('--base-font-size', savedFontSize);
+
+                setTimeout(() => this.checkSaveData(true), 100);
             },
             checkSaveData: async function(isLocal=false) {
                 document.getElementById('loading-overlay').style.display = 'none'; let hasSave = false;
-                if (!isLocal && this.db && this.user) {
-                    try { const snap = await getDoc(doc(this.db, 'artifacts', this.appId, 'users', this.user.uid, 'saveData', 'gameProgress'));
-                        if (snap.exists()) { 
-                            this.cachedSave = snap.data(); 
-                            if(!this.cachedSave.discoveredWeathers) this.cachedSave.discoveredWeathers = ['normal'];
-                            if(!this.cachedSave.discoveredCombos) this.cachedSave.discoveredCombos = [];
-                            if(!this.cachedSave.discoveredPartners) this.cachedSave.discoveredPartners = [];
-                            if(!this.cachedSave.traitUsage) this.cachedSave.traitUsage = {};
-                            if(!this.cachedSave.bossHistory) this.cachedSave.bossHistory = {};
-                            hasSave = true; 
-                        }
-                    } catch(e) {}
-                }
+                try {
+                    let localSave = localStorage.getItem('epoch_of_poison_save');
+                    if (localSave) { 
+                        this.cachedSave = JSON.parse(localSave); 
+                        // 相容舊存檔
+                        if(!this.cachedSave.discoveredWeathers) this.cachedSave.discoveredWeathers = ['normal'];
+                        if(!this.cachedSave.discoveredCombos) this.cachedSave.discoveredCombos = [];
+                        if(!this.cachedSave.discoveredPartners) this.cachedSave.discoveredPartners = [];
+                        if(!this.cachedSave.traitUsage) this.cachedSave.traitUsage = {};
+                        if(!this.cachedSave.bossHistory) this.cachedSave.bossHistory = {};
+                        hasSave = true; 
+                    }
+                } catch(e) { console.error("讀檔失敗", e); }
+                
                 if (hasSave) document.getElementById('btn-continue').style.display = 'block';
                 this.switchPanel('panel-title');
             },
-            saveProgress: async function() { if (!this.db || !this.user) return; try { await setDoc(doc(this.db, 'artifacts', this.appId, 'users', this.user.uid, 'saveData', 'gameProgress'), this.state); } catch(e) {} },
+            saveProgress: async function() { 
+                try { localStorage.setItem('epoch_of_poison_save', JSON.stringify(this.state)); } catch(e) {} 
+            },
             loadSavedGame: function() { if (this.cachedSave) { this.state = this.cachedSave; this.updateCampUI(); this.switchPanel('panel-camp'); } },
             startNewGame: function(petKey) {
                 const p = DB.pets[petKey];
-                this.state = { days: 1, weather: 'normal', weatherDays: 0, partner: null, bestiary: {}, bossResearch: {}, defeatedBosses: [], currentEncounter: null, combat: {}, relics: [], larvaKarma: 0, discoveredWeathers: ['normal'], discoveredCombos: [], discoveredPartners: [], traitUsage: {}, bossHistory: {}, player: { petId: petKey, name: p.name, art: p.art, hp: p.baseHp, maxHp: p.baseHp, atk: p.baseAtk, def: p.baseDef, traitsPool: [p.initTrait], equippedTraits: [p.initTrait], prefs: p.prefs } };
-                this.saveProgress(); this.updateCampUI(); this.switchPanel('panel-camp');
+                if (this.isReincarnating) {
+                    // 保留天數、圖鑑、遺物、毒囊等
+                    this.state.player.petId = petKey;
+                    this.state.player.name = p.name;
+                    this.state.player.art = p.art;
+                    this.state.player.hp = p.baseHp;
+                    this.state.player.maxHp = p.baseHp;
+                    this.state.player.atk = p.baseAtk;
+                    this.state.player.def = p.baseDef;
+                    this.state.player.equippedTraits = [p.initTrait];
+                    this.state.player.prefs = p.prefs;
+                    if(!this.state.player.traitsPool.includes(p.initTrait)) this.state.player.traitsPool.push(p.initTrait);
+                    this.isReincarnating = false;
+                } else {
+                    // 全新遊戲
+                    this.state = { days: 1, weather: 'normal', weatherDays: 0, partner: null, bestiary: {}, bossResearch: {}, defeatedBosses: [], currentEncounter: null, combat: {}, relics: [], larvaKarma: 0, discoveredWeathers: ['normal'], discoveredCombos: [], discoveredPartners: [], traitUsage: {}, bossHistory: {}, player: { petId: petKey, name: p.name, art: p.art, hp: p.baseHp, maxHp: p.baseHp, atk: p.baseAtk, def: p.baseDef, traitsPool: [p.initTrait], equippedTraits: [p.initTrait], prefs: p.prefs } };
+                }
+                this.saveProgress(); this.updateCampUI(); 
+                document.getElementById('btn-select-back').style.display = 'block';
+                document.getElementById('btn-return').onclick = () => Game.returnToCamp();
+                this.switchPanel('panel-camp');
+            },
+
+            toggleFontSize: function() {
+                let current = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--base-font-size')) || 16;
+                let next = current === 16 ? 18 : (current === 18 ? 20 : 16);
+                document.documentElement.style.setProperty('--base-font-size', next + 'px');
+                localStorage.setItem('epoch_of_poison_fontsize', next + 'px');
+            },
+
+            renamePet: function() {
+                let newName = prompt("請為你的主毒物命名：", this.state.player.name);
+                if(newName && newName.trim() !== '') {
+                    this.state.player.name = newName.trim().substring(0, 10);
+                    this.updateCampUI();
+                    this.saveProgress();
+                }
             },
 
             switchPanel: function(panelId) { document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); document.getElementById(panelId).classList.add('active'); },
@@ -448,7 +482,7 @@
             },
             
             triggerRandomEvent: function() {
-                const events = [{ id: 'plant', weight: 20 }, { id: 'camp', weight: 15 }, { id: 'partner', weight: (this.state.partner?0:15) }, { id: 'larva', weight: 25 }];
+                const events = [{ id: 'plant', weight: 20 }, { id: 'camp', weight: 15 }, { id: 'partner', weight: (this.state.partner?0:15) }, { id: 'larva', weight: 25 }, { id: 'relic', weight: 15 }];
                 
                 // 世界記憶事件注入
                 if (this.state.bossHistory['boss_toad'] === '生態餵食') events.push({ id: 'memory_toad', weight: 15 });
@@ -470,8 +504,9 @@
                     case 'camp': art.innerText = '🏕️'; title.innerText = '安全營地'; this.state.player.hp = Math.max(this.state.player.hp, this.state.player.maxHp); log.innerHTML = '找到庇護所，<span style="color:#4CAF50;">生命完全恢復！</span><br>可趁機重新配置毒囊。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.showTraitMenu(true)">🧬 整理毒囊</button>${returnBtn}`; break;
                     case 'partner': art.innerText = '🤝'; title.innerText = '共生夥伴'; log.innerHTML = '一隻無害的變異生物願意跟隨你。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('partner_butterfly')">收養 🦋 引路蝶</button><button class="event-btn full-width" onclick="Game.resolveEvent('partner_rat')">收養 🐁 尋寶鼠</button><button class="event-btn full-width" onclick="Game.resolveEvent('partner_spore')">收養 🦠 寄生孢</button>`; break;
                     case 'larva': art.innerText = '🐛'; title.innerText = '幼體毒物'; log.innerHTML = '一隻迷路的變異幼蟲。'; btns.innerHTML = `<button class="danger" onclick="Game.resolveEvent('larva_eat')">吞食 (回血)</button><button class="event-btn" onclick="Game.resolveEvent('larva_tame')">嘗試馴養</button><button class="terrain" onclick="Game.resolveEvent('larva_release')">放生</button>`; break;
+                    case 'relic': art.innerText = '✨'; title.innerText = '元素祭壇'; log.innerHTML = '一座散發著古老元素波動的祭壇，上頭漂浮著不屬於這個生態的遺物。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('relic')">取走遺物</button>`; break;
                     case 'memory_toad': art.innerText = '🐸'; title.innerText = '舊日回饋'; log.innerHTML = '你遇到了一隻巨大的巨蟾，牠似乎認出了你曾餵食過牠。<br>牠吐出了一顆晶瑩的基因球作為回報。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('memory_toad')">收下禮物</button>`; break;
-                    case 'memory_beetle_nest': art.innerText = '🪲'; title.innerText = '空置的巢穴'; log.innerHTML = '你發現了巨甲蟲遺留下來 of 空巢。<br>內部因長時間腐熟，長滿了珍稀的毒草。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('plant')">採集毒草</button>`; break;
+                    case 'memory_beetle_nest': art.innerText = '🪲'; title.innerText = '空置的巢穴'; log.innerHTML = '你發現了巨甲蟲遺留下來的空巢。<br>內部因長時間腐熟，長滿了珍稀的毒草。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('plant')">採集毒草</button>`; break;
                     case 'memory_iron': art.innerText = '🦀'; title.innerText = '強者的認可'; log.innerHTML = '鋼鐵巨蟹在遠處看了你一眼，用巨螯為你砸開了一條佈滿補給的捷徑。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('memory_iron')">進入捷徑</button>`; break;
                 }
                 this.switchPanel('panel-event');
@@ -497,6 +532,10 @@
                     else { log.innerHTML = `幼蟲嚇跑了...`; }
                 } else if (action === 'larva_release') {
                     this.state.larvaKarma += 1; log.innerHTML = `你將幼蟲放生，荒野的意志似乎對你感到滿意。<br><span style="color:#a29bfe;">(下一次遭遇的馴養成功率將大幅提升)</span>`;
+                } else if (action === 'relic') {
+                    const r = DB.elementalRelics[Math.floor(Math.random() * DB.elementalRelics.length)];
+                    if (!this.state.relics.includes(r)) this.state.relics.push(r);
+                    log.innerHTML = `你取走了神秘的元素遺物：<span style="color:#f1c40f;">【${r}】</span><br>已記錄至圖鑑羈絆與遺物中。`;
                 } else if (action === 'memory_toad') {
                     p.maxHp += 15; p.hp += 15; log.innerHTML = `<span style="color:#4CAF50;">基因球融化在體內，最大生命值永久 +15！</span>`;
                 } else if (action === 'memory_iron') {
@@ -922,7 +961,7 @@
                 if (e.habit === 'counter') { this.state.combat.bossCounter += 2; eAtk += this.state.combat.bossCounter; this.log(`[蓄力] 巨蟹攻擊力不斷積蓄攀升至 ${eAtk}！`, 'log-boss'); }
 
                 let poisonWeakness = Math.max(0.5, 1 - (this.state.combat.enemyPoison * 0.05));
-                if (poisonWeakness < 1) { eAtk = Math.floor(eAtk * poisonWeakness); this.log(`[神經衰弱] 劇毒發作，Boss攻擊力降低至 ${eAtk}`, "log-skill"); }
+                if (poisonWeakness < 1) { eAtk = Math.floor(eAtk * poisonWeakness); this.log(`[神經衰弱] 劇毒發作，敵方攻擊力降低至 ${eAtk}`, "log-skill"); }
 
                 let dmg = eAtk;
                 
@@ -1028,14 +1067,29 @@
 
             metamorphosis: async function() {
                 this.state.combat.inProgress = false; document.getElementById('action-buttons-container').style.display = 'none';
-                this.log(`☠️ 受到致命傷害。`, "log-dmg"); await this.sleep(1000);
-                const rebornEvents = ['蛻皮重生', '結繭結蛹', '真菌孢子分裂', '斷尾求生', '細胞基因重組']; const rebornTxt = rebornEvents[Math.floor(Math.random() * rebornEvents.length)];
-                this.log(`✨ 觸發異變本能：【${rebornTxt}】！`, "log-skill"); await this.sleep(1500);
-                this.state.player.hp = this.state.player.maxHp; this.log(`🔄 毒物在樞紐營地重獲新生。`, "log-heal");
-                this.saveProgress(); const btn = document.getElementById('btn-return'); btn.innerText = "甦醒並返回樞紐"; btn.style.display = 'block';
+                this.log(`☠️ 受到致命傷害...`, "log-dmg"); await this.sleep(1000);
+                
+                this.state.partner = null; // 清空夥伴
+                this.isReincarnating = true;
+                
+                this.log(`☠️ 毒物之核在荒野中飄蕩，等待下一個宿主...`, "log-skill"); await this.sleep(1500);
+                this.saveProgress(); 
+                
+                const btn = document.getElementById('btn-return'); 
+                btn.innerText = "重塑肉殼 (重新選擇主毒物)"; 
+                btn.onclick = () => {
+                    document.getElementById('btn-select-back').style.display = 'none';
+                    Game.switchPanel('panel-select');
+                };
+                btn.style.display = 'block';
             },
 
-            returnToCamp: function() { document.getElementById('btn-return').innerText = "繼續"; this.state.currentEncounter = null; this.updateCampUI(); this.switchPanel('panel-camp'); },
+            returnToCamp: function() { 
+                document.getElementById('btn-return').innerText = "繼續"; 
+                document.getElementById('btn-return').onclick = () => Game.returnToCamp();
+                document.getElementById('btn-select-back').style.display = 'block';
+                this.state.currentEncounter = null; this.updateCampUI(); this.switchPanel('panel-camp'); 
+            },
 
             unlockButtons: function() { if(this.state.combat.inProgress) { document.getElementById('action-buttons-container').style.display = 'block'; document.querySelectorAll('#action-buttons button').forEach(b => b.disabled = false); this.toggleActionButtons('combat'); } },
 
