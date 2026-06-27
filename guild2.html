@@ -1,0 +1,4171 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>冒險者公會物語：無盡迷宮</title>
+<style>
+/* ============================================================
+   設計系統：羊皮紙公會帳冊
+   色彩：
+   --parchment: #ECE0C5 (羊皮紙底)
+   --parchment-dark: #D8C79E
+   --ink: #2B1D14 (墨色文字)
+   --leather: #5C3A26 (皮革深棕，邊框/面板)
+   --leather-dark: #3B2417
+   --seal-red: #8C2F2F (印章紅，強調/危險)
+   --gold: #B8893B (金色，貨幣/稀有)
+   --emerald: #3E6B4F (綠色，治療/成功)
+   字體：標題用襯線粗體模擬刻印感，正文用易讀襯線
+   ============================================================ */
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0;
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #1b120c;
+  font-family: "PingFang TC", "Microsoft JhengHei", "Noto Serif TC", serif;
+  color: #2B1D14;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+:root {
+  --parchment: #ECE0C5;
+  --parchment-dark: #D8C79E;
+  --parchment-darker: #c4b186;
+  --ink: #2B1D14;
+  --ink-soft: #5a4632;
+  --leather: #5C3A26;
+  --leather-dark: #3B2417;
+  --leather-darker: #2a1810;
+  --seal-red: #8C2F2F;
+  --seal-red-bright: #b13e3e;
+  --gold: #B8893B;
+  --gold-bright: #e0ab4f;
+  --emerald: #3E6B4F;
+  --emerald-bright: #569470;
+  --steel: #5b6b78;
+  --shadow: rgba(20, 12, 6, 0.45);
+}
+
+#app {
+  position: relative;
+  width: 100%; height: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  background: var(--parchment);
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(0,0,0,0.6);
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.screen.active { display: flex; }
+
+/* ---------------- 紋理背景 ---------------- */
+.screen, #view-container {
+  background-image:
+    radial-gradient(ellipse at top, rgba(255,255,255,0.08), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(120,95,55,0.025) 0px, rgba(120,95,55,0.025) 2px, transparent 2px, transparent 4px);
+}
+
+/* ---------------- 啟動畫面 ---------------- */
+#screen-boot {
+  background: linear-gradient(160deg, var(--leather-darker), var(--leather-dark) 55%, var(--leather));
+  justify-content: center;
+  align-items: center;
+}
+.boot-wrap {
+  text-align: center;
+  padding: 32px;
+  color: var(--parchment);
+}
+.boot-emblem {
+  font-size: 54px;
+  color: var(--gold-bright);
+  text-shadow: 0 0 18px rgba(224,171,79,0.5);
+  margin-bottom: 6px;
+  animation: emblemFloat 3.2s ease-in-out infinite;
+}
+@keyframes emblemFloat { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);} }
+.boot-title {
+  font-size: 30px;
+  letter-spacing: 4px;
+  margin: 4px 0 2px;
+  font-weight: 900;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.4);
+}
+.boot-sub {
+  font-size: 15px;
+  letter-spacing: 10px;
+  color: var(--gold-bright);
+  margin-bottom: 40px;
+}
+.boot-actions { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.boot-footnote { margin-top: 30px; font-size: 12px; color: rgba(236,224,197,0.5); letter-spacing: 2px; }
+
+/* ---------------- 通用按鈕 ---------------- */
+.btn-main, .btn-secondary, .btn-list, .action-btn, .nav-btn, .topbar-btn, .icon-btn {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+.btn-main {
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: var(--leather-darker);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  padding: 14px 38px;
+  border-radius: 6px;
+  border: 2px solid rgba(0,0,0,0.25);
+  box-shadow: 0 4px 0 rgba(0,0,0,0.35), 0 6px 14px rgba(0,0,0,0.3);
+  min-width: 220px;
+  transition: transform 0.08s;
+}
+.btn-main:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.35); }
+.btn-main:disabled { opacity: 0.4; }
+.btn-secondary {
+  background: rgba(236,224,197,0.08);
+  color: var(--parchment);
+  font-size: 14px;
+  padding: 10px 30px;
+  border-radius: 6px;
+  border: 1.5px solid rgba(236,224,197,0.35);
+  min-width: 220px;
+}
+.btn-secondary:active { background: rgba(236,224,197,0.18); }
+
+/* ---------------- 公會命名畫面 ---------------- */
+#screen-namesetup { background: var(--parchment); justify-content: center; align-items: center; }
+.setup-wrap { width: 86%; text-align: center; }
+.setup-title { font-size: 24px; color: var(--leather-dark); margin-bottom: 6px; letter-spacing: 2px; }
+.setup-desc { font-size: 13px; color: var(--ink-soft); margin-bottom: 22px; line-height: 1.6; }
+.text-input {
+  width: 100%; padding: 13px 14px; font-size: 16px;
+  border: 2px solid var(--leather); border-radius: 6px;
+  background: rgba(255,255,255,0.5); color: var(--ink);
+  margin-bottom: 22px; text-align: center; font-weight: 700;
+}
+.text-input:focus { border-color: var(--gold); }
+
+/* ---------------- 頂部狀態列 ---------------- */
+#topbar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, var(--leather), var(--leather-dark));
+  border-bottom: 3px solid var(--leather-darker);
+  flex-shrink: 0;
+  position: relative; z-index: 5;
+}
+.topbar-item {
+  color: var(--parchment);
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(0,0,0,0.22);
+  padding: 6px 10px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+#topbar-day { flex: 0 0 auto; }
+.topbar-btn {
+  margin-left: auto;
+  background: rgba(0,0,0,0.25);
+  color: var(--gold-bright);
+  font-size: 18px;
+  width: 36px; height: 36px;
+  border-radius: 5px;
+}
+.topbar-btn:active { background: rgba(0,0,0,0.4); }
+
+/* ---------------- 視圖容器 ---------------- */
+#view-container {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 12px 90px;
+  position: relative;
+}
+#screen-game { display: none; flex-direction: column; }
+#screen-game.active { display: flex; }
+#screen-game #view-container { padding-bottom: 90px; }
+#screen-game.no-nav #bottom-nav { display: none; }
+#screen-game.no-nav #view-container { padding-bottom: 14px; }
+
+/* ---------------- 底部導航 ---------------- */
+.bottom-nav {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex;
+  background: linear-gradient(0deg, var(--leather-darker), var(--leather-dark));
+  border-top: 3px solid var(--leather-darker);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  z-index: 10;
+}
+.nav-btn {
+  flex: 1;
+  background: transparent;
+  color: rgba(236,224,197,0.55);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 9px 2px;
+  border-radius: 6px;
+  margin: 0 2px;
+  letter-spacing: 1px;
+}
+.nav-btn.active {
+  background: rgba(184,137,59,0.25);
+  color: var(--gold-bright);
+  box-shadow: inset 0 0 0 1px rgba(224,171,79,0.4);
+}
+
+/* ---------------- 卡片 / 面板 通用樣式 ---------------- */
+.panel {
+  background: var(--parchment-dark);
+  border: 2px solid var(--leather);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.15);
+}
+.panel-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--leather-dark);
+  margin: 0 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--leather);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.section-label {
+  font-size: 11px; color: var(--ink-soft); letter-spacing: 1px; margin-bottom: 6px; font-weight: 700;
+}
+
+.card {
+  background: var(--parchment);
+  border: 1.5px solid var(--leather);
+  border-radius: 7px;
+  padding: 10px;
+  margin-bottom: 9px;
+  position: relative;
+}
+.card.clickable:active { background: var(--parchment-darker); }
+.card-row { display: flex; align-items: center; gap: 10px; }
+.card-row + .card-row { margin-top: 6px; }
+
+.adv-card {
+  display: flex; gap: 10px; align-items: center;
+  background: var(--parchment);
+  border: 1.5px solid var(--leather);
+  border-radius: 7px;
+  padding: 9px 10px;
+  margin-bottom: 8px;
+}
+.adv-portrait {
+  width: 46px; height: 46px; border-radius: 6px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  border: 2px solid var(--leather);
+  background: linear-gradient(160deg, #fff, var(--parchment-darker));
+}
+.adv-info { flex: 1; min-width: 0; }
+.adv-name-row { display: flex; align-items: baseline; gap: 6px; }
+.adv-name { font-size: 14.5px; font-weight: 800; color: var(--ink); }
+.adv-tag { font-size: 10.5px; color: var(--ink-soft); background: rgba(92,58,38,0.12); padding: 1px 6px; border-radius: 4px; }
+.adv-sub { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+.hpbar-wrap { margin-top: 4px; }
+.bar-bg { width: 100%; height: 8px; background: rgba(0,0,0,0.18); border-radius: 4px; overflow: hidden; margin-top: 2px; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.25s ease; }
+.bar-hp { background: linear-gradient(90deg, #9e3a3a, #c95757); }
+.bar-mp { background: linear-gradient(90deg, #2f6fa8, #5b9bd5); }
+.bar-exp { background: linear-gradient(90deg, #b8893b, #e0ab4f); }
+.bar-label { font-size: 9.5px; color: var(--ink-soft); display: flex; justify-content: space-between; }
+
+.status-badges { display: flex; gap: 3px; margin-top: 3px; flex-wrap: wrap; }
+.status-badge { font-size: 9px; padding: 1px 5px; border-radius: 3px; background: var(--seal-red); color: #fff; }
+
+/* ---------------- 按鈕：列表型 / 動作型 ---------------- */
+.btn-list {
+  width: 100%;
+  background: var(--parchment);
+  border: 1.5px solid var(--leather);
+  border-radius: 7px;
+  padding: 13px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 9px;
+  text-align: left;
+}
+.btn-list:active { background: var(--parchment-darker); }
+.btn-list.close-btn { text-align: center; background: var(--leather); color: var(--parchment); }
+
+.action-btn {
+  background: linear-gradient(180deg, #fff, var(--parchment-darker));
+  border: 1.5px solid var(--leather);
+  border-radius: 6px;
+  padding: 9px 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.action-btn:active { background: var(--parchment-darker); }
+.action-btn.primary { background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: var(--leather-darker); border-color: rgba(0,0,0,0.3); }
+.action-btn.danger { background: linear-gradient(180deg, var(--seal-red-bright), var(--seal-red)); color: #fff; border-color: rgba(0,0,0,0.3); }
+.action-btn.success { background: linear-gradient(180deg, var(--emerald-bright), var(--emerald)); color: #fff; border-color: rgba(0,0,0,0.3); }
+.action-btn:disabled { opacity: 0.35; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; }
+
+/* ---------------- 標題列（含返回按鈕） ---------------- */
+.view-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.view-back {
+  width: 34px; height: 34px; border-radius: 6px;
+  background: var(--leather); color: var(--parchment);
+  font-size: 16px; flex-shrink: 0;
+}
+.view-heading { font-size: 18px; font-weight: 800; color: var(--leather-dark); letter-spacing: 1px; }
+.view-sub { font-size: 12px; color: var(--ink-soft); margin-top: 1px; }
+
+/* ---------------- Tabs ---------------- */
+.tab-row { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
+.tab-btn {
+  flex-shrink: 0;
+  background: var(--parchment);
+  border: 1.5px solid var(--leather);
+  border-radius: 16px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.tab-btn.active { background: var(--leather); color: var(--parchment); }
+
+/* ---------------- 浮層 ---------------- */
+.overlay {
+  position: absolute; inset: 0;
+  background: rgba(20,12,6,0.55);
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+}
+.overlay.active { display: flex; }
+.overlay-panel {
+  width: 100%;
+  max-height: 86%;
+  background: var(--parchment);
+  border-radius: 16px 16px 0 0;
+  border-top: 3px solid var(--leather);
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  box-shadow: 0 -8px 30px rgba(0,0,0,0.4);
+  animation: slideUp 0.22s ease-out;
+}
+@keyframes slideUp { from { transform: translateY(40px); opacity:0.5; } to { transform: translateY(0); opacity:1; } }
+.overlay-panel h3 { margin: 0 0 14px; font-size: 17px; color: var(--leather-dark); }
+
+/* 置中型彈窗（用於戰鬥結果等） */
+.overlay.center-modal { align-items: center; }
+.overlay.center-modal .overlay-panel { border-radius: 14px; max-width: 92%; }
+
+/* ---------------- Toast ---------------- */
+#toast-container { position: absolute; top: 56px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 100; pointer-events: none; }
+.toast {
+  background: rgba(43,29,20,0.92); color: var(--parchment);
+  padding: 9px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+  animation: toastIn 0.25s ease-out, toastOut 0.3s ease-in 1.8s forwards;
+  max-width: 84%; text-align: center;
+}
+@keyframes toastIn { from { opacity:0; transform: translateY(-8px);} to {opacity:1; transform: translateY(0);} }
+@keyframes toastOut { to { opacity:0; transform: translateY(-6px);} }
+
+/* ---------------- 地下城探索 ---------------- */
+#dungeon-view { display: flex; flex-direction: column; height: 100%; }
+.dungeon-status-bar { display: flex; gap: 6px; padding: 0 0 8px; flex-wrap: wrap; }
+.dungeon-pill { background: var(--leather); color: var(--parchment); font-size: 11.5px; padding: 5px 10px; border-radius: 12px; font-weight: 700; }
+#dungeon-canvas-wrap { position: relative; width: 100%; aspect-ratio: 1/1; max-height: 46vh; margin: 0 auto 10px; background: var(--leather-darker); border-radius: 10px; border: 3px solid var(--leather); overflow: hidden; }
+#dungeon-canvas { width: 100%; height: 100%; display: block; }
+.dpad-wrap { display: flex; justify-content: center; align-items: center; gap: 8px; margin: 6px 0 14px; }
+.dpad-grid { display: grid; grid-template-columns: 52px 52px 52px; grid-template-rows: 52px 52px 52px; gap: 4px; }
+.dpad-btn { background: var(--leather); color: var(--parchment); font-size: 20px; border-radius: 8px; }
+.dpad-btn:active { background: var(--leather-darker); }
+.dpad-btn.empty { background: transparent; }
+.dpad-center { background: var(--gold); color: var(--leather-darker); font-size: 11px; font-weight: 800; border-radius: 8px; }
+
+.party-strip { display: flex; gap: 6px; margin-bottom: 8px; }
+.party-mini { flex: 1; background: var(--parchment); border: 1.5px solid var(--leather); border-radius: 7px; padding: 6px; text-align: center; }
+.party-mini-name { font-size: 11px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.party-mini .bar-bg { height: 6px; }
+
+/* ---------------- 戰鬥畫面 ---------------- */
+#battle-view { display: flex; flex-direction: column; height: 100%; }
+#battle-canvas-wrap { position: relative; width: 100%; height: 38vh; min-height: 230px; background: linear-gradient(180deg, #2c1f17, #1b120c); border-radius: 10px; border: 3px solid var(--leather); overflow: hidden; margin-bottom: 8px; flex-shrink: 0; }
+#battle-canvas { width: 100%; height: 100%; display: block; }
+#battle-log { background: rgba(43,29,20,0.85); color: var(--parchment); font-size: 11.5px; padding: 7px 10px; border-radius: 7px; height: 54px; overflow-y: auto; margin-bottom: 8px; line-height: 1.5; flex-shrink: 0; }
+#battle-party-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
+.battle-unit-card { display: flex; align-items: center; gap: 8px; background: var(--parchment); border: 1.5px solid var(--leather); border-radius: 6px; padding: 6px 8px; }
+.battle-unit-card.dead { opacity: 0.4; }
+.battle-unit-card.acting { box-shadow: 0 0 0 2px var(--gold); }
+.battle-unit-icon { font-size: 18px; width: 26px; text-align: center; flex-shrink: 0; }
+.battle-unit-bars { flex: 1; min-width: 0; }
+.battle-unit-name { font-size: 11.5px; font-weight: 700; display: flex; justify-content: space-between; }
+#battle-actions { margin-top: auto; }
+.battle-action-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 5px; margin-bottom: 6px; }
+.battle-action-btn { background: var(--leather); color: var(--parchment); font-size: 11.5px; font-weight: 700; padding: 11px 2px; border-radius: 6px; }
+.battle-action-btn:active { background: var(--leather-darker); }
+.battle-action-btn.disabled { opacity: 0.35; }
+.battle-sub-panel { background: var(--parchment-dark); border: 1.5px solid var(--leather); border-radius: 7px; padding: 8px; margin-bottom: 6px; max-height: 30vh; overflow-y: auto; }
+.skill-option, .item-option, .target-option {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--parchment); border: 1.5px solid var(--leather);
+  border-radius: 6px; padding: 9px 10px; margin-bottom: 6px; font-size: 12.5px;
+}
+.skill-option .name, .item-option .name, .target-option .name { font-weight: 700; }
+.skill-option .desc, .item-option .desc { font-size: 10.5px; color: var(--ink-soft); }
+.target-option { justify-content: flex-start; gap: 8px; }
+.target-hp-mini { font-size: 10px; color: var(--ink-soft); }
+
+/* 戰鬥特效畫面用 canvas overlay */
+.dmg-float {
+  position: absolute; font-weight: 900; font-size: 18px; color: #fff;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.6); pointer-events: none;
+  animation: dmgFloat 0.9s ease-out forwards;
+}
+@keyframes dmgFloat { 0%{ transform: translateY(0) scale(0.8); opacity:1;} 30%{transform: translateY(-14px) scale(1.15);} 100%{ transform: translateY(-42px) scale(1); opacity:0;} }
+.dmg-float.crit { color: var(--gold-bright); font-size: 23px; }
+.dmg-float.heal { color: #79e0a0; }
+
+/* ---------------- 裝備/物品列表 ---------------- */
+.item-card { display:flex; align-items:center; gap:10px; background: var(--parchment); border:1.5px solid var(--leather); border-radius:7px; padding:9px 10px; margin-bottom:8px; }
+.item-icon { width:36px; height:36px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; border:2px solid; }
+.item-info { flex:1; min-width:0; }
+.item-name { font-size:13px; font-weight:800; }
+.item-sub { font-size:10.5px; color: var(--ink-soft); margin-top:1px; }
+.item-affixes { font-size:10px; color: var(--emerald); margin-top:2px; }
+
+/* ---------------- 空狀態 ---------------- */
+.empty-state { text-align: center; padding: 30px 10px; color: var(--ink-soft); font-size: 13px; }
+.empty-state .emoji { font-size: 32px; display:block; margin-bottom: 8px; }
+
+/* ---------------- 確認彈窗按鈕列 ---------------- */
+.modal-btn-row { display: flex; gap: 8px; margin-top: 14px; }
+.modal-btn-row .action-btn { flex: 1; padding: 12px; font-size: 13.5px; }
+
+/* fx canvas 全螢幕覆蓋層（用於螢幕震動/閃爍特效，平常透明不擋互動） */
+#fx-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 999; opacity: 0; }
+
+/* 滾動條美化（webkit） */
+#view-container::-webkit-scrollbar, .overlay-panel::-webkit-scrollbar, .battle-sub-panel::-webkit-scrollbar { width: 4px; }
+#view-container::-webkit-scrollbar-thumb, .overlay-panel::-webkit-scrollbar-thumb { background: var(--leather); border-radius: 2px; }
+
+/* 小工具：徽章 */
+.badge { display:inline-block; font-size:10px; padding:2px 7px; border-radius:4px; font-weight:700; }
+.badge-rank { background: var(--gold); color: var(--leather-darker); }
+.badge-elite { background: var(--seal-red); color: #fff; }
+.badge-boss { background: linear-gradient(90deg,#5e2424,#8c2f2f); color:#fff; }
+
+.divider { height: 1px; background: var(--leather); opacity: 0.3; margin: 10px 0; }
+
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.mt-8 { margin-top: 8px; }
+.text-center { text-align: center; }
+.muted { color: var(--ink-soft); font-size: 11.5px; }
+
+/* 響應式：較大手機/平板限制最大寬度已由 #app max-width 控制 */
+@media (max-height: 650px) {
+  #dungeon-canvas-wrap { max-height: 38vh; }
+  #battle-canvas-wrap { height: 30vh; min-height: 180px; }
+}
+
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- 啟動畫面 -->
+  <div id="screen-boot" class="screen active">
+    <div class="boot-wrap">
+      <div class="boot-emblem">⚔</div>
+      <h1 class="boot-title">冒險者公會物語</h1>
+      <div class="boot-sub">無 盡 迷 宮</div>
+      <div class="boot-actions">
+        <button class="btn-main" id="btn-new-game">建立新公會</button>
+        <button class="btn-secondary" id="btn-continue">繼續紀錄</button>
+      </div>
+      <div class="boot-footnote">輕觸畫面開始你的傳奇</div>
+    </div>
+  </div>
+
+  <!-- 新遊戲：公會命名 -->
+  <div id="screen-namesetup" class="screen">
+    <div class="setup-wrap">
+      <h2 class="setup-title">創建公會</h2>
+      <p class="setup-desc">為你的公會取一個名字，這將被記入世界史冊。</p>
+      <input type="text" id="input-guild-name" class="text-input" placeholder="例如：晨曦之劍公會" maxlength="14">
+      <button class="btn-main" id="btn-confirm-guild">啟程</button>
+    </div>
+  </div>
+
+  <!-- 主要遊戲畫面容器 -->
+  <div id="screen-game" class="screen">
+    <!-- 頂部狀態列 -->
+    <div id="topbar">
+      <div class="topbar-item" id="topbar-gold">💰 0</div>
+      <div class="topbar-item" id="topbar-day">第1日</div>
+      <div class="topbar-item" id="topbar-rep">📜 0</div>
+      <button id="btn-menu" class="topbar-btn">☰</button>
+    </div>
+
+    <!-- 視圖容器：各子畫面切換 -->
+    <div id="view-container"></div>
+
+    <!-- 底部導航（城鎮場景用） -->
+    <div id="bottom-nav" class="bottom-nav">
+      <button class="nav-btn active" data-view="hall">公會</button>
+      <button class="nav-btn" data-view="dorm">宿舍</button>
+      <button class="nav-btn" data-view="tavern">酒館</button>
+      <button class="nav-btn" data-view="shop">商店</button>
+      <button class="nav-btn" data-view="smith">鐵匠</button>
+      <button class="nav-btn" data-view="training">訓練場</button>
+      <button class="nav-btn" data-view="library">圖書館</button>
+    </div>
+  </div>
+
+  <!-- 浮層：選單 -->
+  <div id="overlay-menu" class="overlay">
+    <div class="overlay-panel">
+      <h3>選單</h3>
+      <button class="btn-list" id="menu-save">手動存檔</button>
+      <button class="btn-list" id="menu-history">世界歷史紀錄</button>
+      <button class="btn-list" id="menu-hof">名人堂</button>
+      <button class="btn-list" id="menu-restart">重新開始（清除存檔）</button>
+      <button class="btn-list close-btn" id="menu-close">關閉</button>
+    </div>
+  </div>
+
+  <!-- 浮層：通用彈窗 -->
+  <div id="overlay-modal" class="overlay">
+    <div class="overlay-panel" id="modal-panel"></div>
+  </div>
+
+  <!-- 浮層：Toast 提示 -->
+  <div id="toast-container"></div>
+</div>
+
+<canvas id="fx-canvas"></canvas>
+
+<script>
+// ============================================================
+// 冒險者公會物語：無盡迷宮 — 資料定義層
+// ============================================================
+
+const RACES = {
+  human:  { name: '人類', desc: '適應力強，成長均衡', mod:{str:1,vit:1,agi:1,int:1,mag:1,luk:2}, growth:1.0 },
+  elf:    { name: '精靈', desc: '魔力與敏捷出眾，體質較弱', mod:{str:-1,vit:-2,agi:2,int:3,mag:3,luk:0}, growth:1.0 },
+  dwarf:  { name: '矮人', desc: '強壯耐久，反應較慢', mod:{str:3,vit:3,agi:-2,int:0,mag:-1,luk:0}, growth:1.0 },
+  orc:    { name: '獸人', desc: '力大無窮，智力較低', mod:{str:4,vit:2,agi:0,int:-3,mag:-2,luk:0}, growth:1.0 },
+  halfling:{ name:'半身人', desc:'靈巧幸運，力量不足', mod:{str:-2,vit:-1,agi:3,int:1,mag:0,luk:4}, growth:1.0 },
+};
+
+const CLASSES = {
+  warrior: { name:'戰士', tier:1, desc:'前排坦克，擅長近戰', baseStat:{str:6,vit:6,agi:3,int:1,mag:1,luk:2},
+    skills:['power_strike','guard_stance','rampage','iron_will'] },
+  mage:    { name:'法師', tier:1, desc:'掌控元素魔法的脆弱輸出', baseStat:{str:1,vit:2,agi:3,int:7,mag:7,luk:2},
+    skills:['firebolt','frost_lance','spark_chain','mana_shield'] },
+  priest:  { name:'牧師', tier:1, desc:'治療與聖光支援', baseStat:{str:2,vit:4,agi:3,int:5,mag:6,luk:2},
+    skills:['heal','bless','smite','sanctuary'] },
+  rogue:   { name:'盜賊', tier:1, desc:'高爆發與閃避的刺客型', baseStat:{str:4,vit:3,agi:7,int:2,mag:1,luk:4},
+    skills:['backstab','poison_blade','shadow_step','steal'] },
+  ranger:  { name:'遊俠', tier:1, desc:'遠程與野外生存專家', baseStat:{str:4,vit:3,agi:6,int:3,mag:2,luk:3},
+    skills:['piercing_shot','trap_set','multi_shot','beast_bond'] },
+
+  knight:    { name:'騎士', tier:2, from:'warrior', desc:'守護隊伍的重裝先鋒', baseStat:{str:8,vit:9,agi:3,int:2,mag:2,luk:2},
+    skills:['guard_stance','shield_bash','last_stand','aegis'] },
+  berserker: { name:'狂戰士', tier:2, from:'warrior', desc:'以血換力的瘋狂戰士', baseStat:{str:10,vit:7,agi:4,int:0,mag:0,luk:1},
+    skills:['rampage','blood_rage','reckless_swing','undying_fury'] },
+  spellblade:{ name:'魔劍士', tier:2, from:'mage', desc:'劍與魔法的融合者', baseStat:{str:5,vit:5,agi:4,int:6,mag:6,luk:2},
+    skills:['enchant_blade','firebolt','spark_chain','arcane_slash'] },
+  summoner:  { name:'召喚師', tier:2, from:'mage', desc:'召喚魔物助戰', baseStat:{str:1,vit:3,agi:3,int:8,mag:9,luk:2},
+    skills:['summon_wolf','summon_elemental','mana_shield','drain_soul'] },
+  sage:      { name:'大賢者', tier:2, from:'priest', desc:'全屬性魔法大師', baseStat:{str:2,vit:4,agi:4,int:9,mag:9,luk:3},
+    skills:['heal','meteor','full_restore','arcane_wisdom'] },
+  assassin:  { name:'刺客', tier:2, from:'rogue', desc:'一擊必殺的暗影殺手', baseStat:{str:6,vit:3,agi:9,int:2,mag:1,luk:5},
+    skills:['backstab','death_mark','shadow_step','execute'] },
+  paladin:   { name:'聖騎士', tier:2, from:'priest', desc:'聖光與劍術兼修的守護者', baseStat:{str:7,vit:8,agi:3,int:4,mag:5,luk:3},
+    skills:['smite','sanctuary','holy_strike','divine_shield'] },
+  druid:     { name:'德魯伊', tier:2, from:'ranger', desc:'自然與變身之力', baseStat:{str:4,vit:6,agi:5,int:5,mag:6,luk:3},
+    skills:['heal','beast_bond','thorn_wrath','wild_shape'] },
+};
+
+const PROMOTIONS = {
+  warrior:['knight','berserker'], mage:['spellblade','summoner'],
+  priest:['sage','paladin'], rogue:['assassin'], ranger:['druid'],
+};
+
+const TALENTS = [
+  { id:'genius', name:'天才', desc:'升級時額外獲得能力值', effect:{statGainMul:1.3} },
+  { id:'iron_body', name:'鐵打的身體', desc:'最大HP提升', effect:{hpMul:1.2} },
+  { id:'quick_learner', name:'學習能手', desc:'技能熟練度成長加快', effect:{skillExpMul:1.25} },
+  { id:'lucky_star', name:'幸運星', desc:'戰鬥中暴擊率提升', effect:{critBonus:0.08} },
+  { id:'iron_will', name:'不屈意志', desc:'瀕死時減傷提升', effect:{lowHpDef:0.2} },
+  { id:'silver_tongue', name:'巧言善道', desc:'招募/委託費用降低', effect:{costDiscount:0.15} },
+  { id:'eagle_eye', name:'鷹眼', desc:'命中率與探索發現率提升', effect:{accBonus:0.1, perceptBonus:0.15} },
+  { id:'born_leader', name:'天生領袖', desc:'隊伍中其他成員獲得小幅增益', effect:{partyBuff:0.05} },
+  { id:'undying', name:'不死之軀', desc:'戰鬥中首次致命傷害可保留1HP', effect:{reviveOnce:true} },
+  { id:'arcane_affinity', name:'魔力親和', desc:'魔法傷害提升', effect:{magDmgMul:1.15} },
+];
+
+const FLAWS = [
+  { id:'fragile', name:'纖弱', desc:'最大HP降低', effect:{hpMul:0.85} },
+  { id:'clumsy', name:'笨拙', desc:'命中率略降', effect:{accPenalty:0.08} },
+  { id:'greedy', name:'貪婪', desc:'索取的薪水較高', effect:{wageMul:1.3} },
+  { id:'coward', name:'膽小', desc:'低HP時可能畏縮不前(略過行動)', effect:{cowardChance:0.12} },
+  { id:'slow', name:'遲緩', desc:'行動速度降低', effect:{spdMul:0.85} },
+  { id:'reckless', name:'魯莽', desc:'防禦力降低但攻擊略升', effect:{defMul:0.85, atkMul:1.08} },
+  { id:'unlucky', name:'倒霉', desc:'暴擊率降低', effect:{critPenalty:0.06} },
+  { id:'prideful', name:'自負', desc:'不愛使用道具(道具效果略降)', effect:{itemEffMul:0.85} },
+  { id:'glass_cannon', name:'玻璃大砲', desc:'攻擊力高但受傷加重', effect:{atkMul:1.15, dmgTakenMul:1.15} },
+  { id:'none', name:'無明顯缺點', desc:'平凡但穩定', effect:{} },
+];
+
+const SURNAMES = ['艾爾','凡德','柯林','洛克','馮','德萊','卡爾','希恩','歐文','貝爾','拉森','摩根','西格','雷恩','布萊克','弗格','艾希','克朗','薇拉','索恩'];
+const GIVEN_M = ['亞瑟','凱文','雷克斯','托馬斯','傑克','里昂','卡爾頓','艾登','馮恩','德里克','瑟蘭','加雷斯','奧丁','布魯諾','西里爾'];
+const GIVEN_F = ['艾莉絲','莉雅','凱特琳','賽琳娜','米娜','伊莎貝拉','薇歐拉','艾莎','諾娃','瑟琳','法蘭西絲卡','艾琳','茉莉','蘿莎'];
+
+const MONSTER_FAMILIES = {
+  slime:   { name:'史萊姆', elem:'none', tier:1 },
+  goblin:  { name:'哥布林', elem:'none', tier:1 },
+  wolf:    { name:'野狼',   elem:'none', tier:1 },
+  bat:     { name:'蝙蝠',   elem:'none', tier:1 },
+  skeleton:{ name:'骷髏兵', elem:'none', tier:2 },
+  zombie:  { name:'喪屍',   elem:'poison', tier:2 },
+  fire_imp:{ name:'火焰小鬼', elem:'fire', tier:2 },
+  ice_wraith:{ name:'寒冰幽魂', elem:'ice', tier:2 },
+  thunder_bird:{ name:'雷鳥', elem:'thunder', tier:2 },
+  orc_brute:{ name:'獸人蠻兵', elem:'none', tier:3 },
+  dark_mage:{ name:'黑暗法師', elem:'dark', tier:3 },
+  troll:   { name:'巨魔', elem:'none', tier:3 },
+  wyvern:  { name:'飛龍獸', elem:'fire', tier:4 },
+  lich:    { name:'巫妖', elem:'dark', tier:4 },
+  dragon:  { name:'巨龍', elem:'fire', tier:5, boss:true },
+  demon_lord:{ name:'魔王', elem:'dark', tier:6, boss:true },
+};
+
+const ELEMENTS = ['none','fire','ice','thunder','poison','holy','dark'];
+const ELEM_NAME = { none:'無', fire:'火焰', ice:'冰霜', thunder:'雷電', poison:'劇毒', holy:'聖光', dark:'暗影' };
+// 屬性相剋表：key 對 value 造成加成傷害
+const ELEM_ADVANTAGE = {
+  fire:['ice'], ice:['thunder'], thunder:['fire'],
+  holy:['dark'], dark:['holy'], poison:['none'],
+};
+
+const EQUIP_SLOTS = ['weapon','armor','accessory'];
+
+const EQUIP_BASE = {
+  weapon: [
+    { name:'短劍', atk:5, classAffinity:['rogue','assassin'] },
+    { name:'長劍', atk:7, classAffinity:['warrior','knight'] },
+    { name:'巨斧', atk:11, classAffinity:['berserker'] },
+    { name:'法杖', atk:4, mag:6, classAffinity:['mage','sage','summoner'] },
+    { name:'錘杖', atk:5, mag:4, classAffinity:['priest','paladin'] },
+    { name:'長弓', atk:6, classAffinity:['ranger','druid'] },
+    { name:'魔劍', atk:8, mag:4, classAffinity:['spellblade'] },
+  ],
+  armor: [
+    { name:'布衣', def:3, mag:2 },
+    { name:'皮甲', def:5 },
+    { name:'鎖鏈甲', def:8 },
+    { name:'板甲', def:12, agiPenalty:1 },
+    { name:'法袍', def:4, mag:4 },
+  ],
+  accessory: [
+    { name:'護身符', vit:2 },
+    { name:'戒指', luk:2 },
+    { name:'項鍊', mag:2 },
+    { name:'臂環', str:2 },
+    { name:'披風', agi:2 },
+  ],
+};
+
+const RARITIES = [
+  { id:'common', name:'普通', color:'#b8b0a0', mul:1.0, affixCount:0, weight:50 },
+  { id:'fine',   name:'優秀', color:'#7fbf6a', mul:1.2, affixCount:1, weight:28 },
+  { id:'rare',   name:'稀有', color:'#5b9bd5', mul:1.45, affixCount:1, weight:14 },
+  { id:'epic',   name:'史詩', color:'#b06fd6', mul:1.8, affixCount:2, weight:6 },
+  { id:'legend', name:'傳奇', color:'#e8b13d', mul:2.3, affixCount:3, weight:2 },
+];
+
+const AFFIXES = [
+  { id:'flame', name:'火焰', elem:'fire', desc:'附加火焰傷害', dmgBonus:0.15 },
+  { id:'frost', name:'冰霜', elem:'ice', desc:'附加冰霜傷害並可能凍結', dmgBonus:0.12, statusChance:0.15, status:'frozen' },
+  { id:'storm', name:'雷電', elem:'thunder', desc:'附加雷電傷害並可能麻痺', dmgBonus:0.12, statusChance:0.15, status:'paralyze' },
+  { id:'vampiric', name:'吸血', elem:'none', desc:'攻擊時回復HP', lifesteal:0.12 },
+  { id:'venom', name:'劇毒', elem:'poison', desc:'攻擊附加中毒效果', statusChance:0.25, status:'poison' },
+  { id:'holy', name:'聖光', elem:'holy', desc:'對不死/暗影系額外傷害', dmgBonus:0.1, vsTag:'dark' },
+  { id:'swift', name:'迅捷', stat:'agi', val:3, desc:'敏捷提升' },
+  { id:'mighty', name:'強力', stat:'str', val:3, desc:'力量提升' },
+  { id:'guarded', name:'堅固', stat:'def', val:3, desc:'防禦提升' },
+  { id:'wise', name:'賢知', stat:'mag', val:3, desc:'魔力提升' },
+];
+
+const SKILLS = {
+  power_strike:{ name:'強力打擊', type:'phys', target:'single', power:1.6, cost:0, desc:'單體強力物理攻擊', cls:'active' },
+  guard_stance:{ name:'防禦姿態', type:'buff', target:'self', power:0, cost:0, desc:'本回合防禦力大幅提升', cls:'active' },
+  rampage:{ name:'狂暴連斬', type:'phys', target:'single', power:2.0, cost:8, desc:'消耗HP造成大量傷害', selfDmg:0.05, cls:'active' },
+  iron_will:{ name:'鐵壁意志', type:'passive', desc:'被動：減少受到的傷害', cls:'passive' },
+  firebolt:{ name:'火焰彈', type:'magic', elem:'fire', target:'single', power:1.7, cost:10, desc:'造成火焰魔法傷害', cls:'active' },
+  frost_lance:{ name:'寒冰槍', type:'magic', elem:'ice', target:'single', power:1.6, cost:10, statusChance:0.2, status:'frozen', desc:'冰霜攻擊並可能凍結', cls:'active' },
+  spark_chain:{ name:'連鎖閃電', type:'magic', elem:'thunder', target:'all', power:1.1, cost:16, desc:'對全體敵人造成雷電傷害', cls:'active' },
+  mana_shield:{ name:'魔力護盾', type:'buff', target:'self', power:0, cost:8, desc:'獲得吸收傷害的護盾', cls:'active' },
+  heal:{ name:'治癒術', type:'heal', target:'ally', power:1.8, cost:10, desc:'回復單體友方HP', cls:'active' },
+  bless:{ name:'祝福', type:'buff', target:'ally', power:0, cost:8, desc:'提升友方命中與暴擊', cls:'active' },
+  smite:{ name:'聖光斬', type:'magic', elem:'holy', target:'single', power:1.6, cost:10, desc:'聖光傷害，對暗影系加成', cls:'active' },
+  sanctuary:{ name:'庇護結界', type:'heal', target:'party', power:0.8, cost:18, desc:'回復全隊HP', cls:'active' },
+  backstab:{ name:'背刺', type:'phys', target:'single', power:1.9, cost:6, critBonus:0.25, desc:'高暴擊率單體攻擊', cls:'active' },
+  poison_blade:{ name:'毒刃', type:'phys', target:'single', power:1.3, cost:6, statusChance:0.4, status:'poison', desc:'附帶中毒的物理攻擊', cls:'active' },
+  shadow_step:{ name:'影步', type:'buff', target:'self', power:0, cost:6, desc:'提升閃避與下次暴擊率', cls:'active' },
+  steal:{ name:'盜取', type:'special', target:'single', power:0, cost:4, desc:'嘗試從敵人處盜取物品', cls:'active' },
+  piercing_shot:{ name:'貫穿射擊', type:'phys', target:'single', power:1.5, cost:6, ignoreDef:0.3, desc:'無視部分防禦的射擊', cls:'active' },
+  trap_set:{ name:'設置陷阱', type:'debuff', target:'single', power:0.5, cost:8, desc:'設置陷阱造成傷害並降低敵方敏捷', cls:'active' },
+  multi_shot:{ name:'多重射擊', type:'phys', target:'all', power:0.9, cost:14, desc:'對全體敵人造成物理傷害', cls:'active' },
+  beast_bond:{ name:'野獸情誼', type:'buff', target:'party', power:0, cost:10, desc:'提升全隊敏捷', cls:'active' },
+  shield_bash:{ name:'盾擊', type:'phys', target:'single', power:1.2, cost:6, statusChance:0.3, status:'stun', desc:'物理攻擊並可能眩暈', cls:'active' },
+  last_stand:{ name:'絕境防禦', type:'buff', target:'self', power:0, cost:10, desc:'瀕死時大幅減傷', cls:'active' },
+  aegis:{ name:'守護之盾', type:'buff', target:'ally', power:0, cost:12, desc:'為友方獲得護盾並嘲諷', cls:'active' },
+  blood_rage:{ name:'血怒', type:'buff', target:'self', power:0, cost:0, selfDmg:0.08, desc:'消耗HP大幅提升攻擊', cls:'active' },
+  reckless_swing:{ name:'捨身揮砍', type:'phys', target:'all', power:1.4, cost:10, desc:'對全體敵人造成物理傷害', cls:'active' },
+  undying_fury:{ name:'不滅之怒', type:'passive', desc:'被動：HP越低攻擊越高', cls:'passive' },
+  enchant_blade:{ name:'附魔斬', type:'phys', elem:'fire', target:'single', power:1.7, cost:10, desc:'附加元素的物理攻擊', cls:'active' },
+  arcane_slash:{ name:'奧術斬', type:'magic', elem:'none', target:'single', power:1.9, cost:14, desc:'融合劍術與魔法的斬擊', cls:'active' },
+  summon_wolf:{ name:'召喚狼魂', type:'summon', target:'self', power:0, cost:16, desc:'召喚狼靈助戰一定回合', cls:'active' },
+  summon_elemental:{ name:'召喚元素', type:'summon', target:'self', power:0, cost:22, desc:'召喚元素生物助戰', cls:'active' },
+  drain_soul:{ name:'噬魂', type:'magic', elem:'dark', target:'single', power:1.5, cost:14, lifesteal:0.3, desc:'暗影傷害並回復自身HP', cls:'active' },
+  meteor:{ name:'隕石墜落', type:'magic', elem:'fire', target:'all', power:1.8, cost:28, desc:'對全體敵人造成大量火焰傷害', cls:'active' },
+  full_restore:{ name:'完全回復', type:'heal', target:'ally', power:3.0, cost:24, desc:'大幅回復友方HP並解除異常', cleanse:true, cls:'active' },
+  arcane_wisdom:{ name:'奧術智慧', type:'passive', desc:'被動：法力消耗降低', cls:'passive' },
+  death_mark:{ name:'死亡印記', type:'debuff', target:'single', power:0.4, cost:10, markDeath:true, desc:'標記目標，下次攻擊必定暴擊', cls:'active' },
+  execute:{ name:'處決', type:'phys', target:'single', power:1.4, cost:12, execThresh:0.25, desc:'對低HP敵人造成巨量傷害', cls:'active' },
+  holy_strike:{ name:'聖擊', type:'phys', elem:'holy', target:'single', power:1.7, cost:10, desc:'聖光附加的物理攻擊', cls:'active' },
+  divine_shield:{ name:'神聖護盾', type:'buff', target:'party', power:0, cost:20, desc:'全隊獲得護盾', cls:'active' },
+  thorn_wrath:{ name:'荊棘之怒', type:'magic', elem:'none', target:'single', power:1.5, cost:10, desc:'自然之力攻擊', cls:'active' },
+  wild_shape:{ name:'野性變身', type:'buff', target:'self', power:0, cost:14, desc:'變身提升全屬性', cls:'active' },
+};
+
+const TOWN_DEFAULT_PRICES = {
+  weapon: 80, armor: 70, accessory: 60,
+  potion_small: 25, potion_mid: 60, antidote: 30, revive_feather:150,
+};
+
+const WORLD_EVENTS = [
+  { id:'dragon_calamity', name:'龍災', desc:'巨龍降臨領地，怪物變得更強，但獎勵豐厚。', effect:{monsterMul:1.3, rewardMul:1.5}, duration:5 },
+  { id:'war', name:'戰爭', desc:'王國徵兵，招募費用上升，但懸賞任務增多。', effect:{recruitCostMul:1.4, bountyRate:1.6}, duration:5 },
+  { id:'plague', name:'瘟疫', desc:'瘟疫蔓延，治療類道具價格上漲，毒系怪物增多。', effect:{potionPriceMul:1.5, poisonMonsterRate:1.5}, duration:4 },
+  { id:'festival', name:'王國慶典', desc:'舉國歡慶，招募與購物都有折扣！', effect:{recruitCostMul:0.7, shopPriceMul:0.8}, duration:3 },
+  { id:'dungeon_riot', name:'地下城暴動', desc:'迷宮深處異常活躍，精英與寶箱出現率提升。', effect:{eliteRate:1.6, chestRate:1.4}, duration:4 },
+];
+
+if (typeof module !== 'undefined') {
+  module.exports = { RACES, CLASSES, PROMOTIONS, TALENTS, FLAWS, SURNAMES, GIVEN_M, GIVEN_F,
+    MONSTER_FAMILIES, ELEMENTS, ELEM_NAME, ELEM_ADVANTAGE, EQUIP_SLOTS, EQUIP_BASE, RARITIES, AFFIXES,
+    SKILLS, TOWN_DEFAULT_PRICES, WORLD_EVENTS };
+}
+
+</script>
+<script>
+// ============================================================
+// 核心邏輯：角色生成 / 數值計算 / 工具函式
+// ============================================================
+
+let _uidCounter = 1;
+function genUID(prefix) { return prefix + '_' + (_uidCounter++) + '_' + Math.floor(Math.random()*100000); }
+
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function randf(min, max) { return Math.random() * (max - min) + min; }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function pickWeighted(items, weightKey) {
+  const total = items.reduce((s, i) => s + i[weightKey], 0);
+  let r = Math.random() * total;
+  for (const it of items) { r -= it[weightKey]; if (r <= 0) return it; }
+  return items[items.length - 1];
+}
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function chance(p) { return Math.random() < p; }
+
+function genName() {
+  const isFemale = Math.random() < 0.5;
+  const given = isFemale ? pick(GIVEN_F) : pick(GIVEN_M);
+  const surname = pick(SURNAMES);
+  return { full: given + '·' + surname, gender: isFemale ? 'f' : 'm' };
+}
+
+function rollRarity() {
+  return pickWeighted(RARITIES, 'weight');
+}
+
+// 產生隨機冒險者
+function generateAdventurer(minTier) {
+  minTier = minTier || 1;
+  const raceKey = pick(Object.keys(RACES));
+  const race = RACES[raceKey];
+  const baseClasses = Object.keys(CLASSES).filter(k => CLASSES[k].tier === 1);
+  const classKey = pick(baseClasses);
+  const cls = CLASSES[classKey];
+  const nameInfo = genName();
+
+  const talent = pick(TALENTS);
+  const flaw = pick(FLAWS);
+
+  const level = clamp(minTier + rand(0, 2), 1, 99);
+
+  const stat = {};
+  ['str','vit','agi','int','mag','luk'].forEach(k => {
+    const base = cls.baseStat[k] || 1;
+    const raceMod = race.mod[k] || 0;
+    const variance = rand(-1, 1);
+    stat[k] = Math.max(1, base + raceMod + variance);
+  });
+
+  const adv = {
+    uid: genUID('adv'),
+    name: nameInfo.full,
+    gender: nameInfo.gender,
+    race: raceKey,
+    classKey: classKey,
+    level: level,
+    exp: 0,
+    talent: talent.id,
+    flaw: flaw.id,
+    baseStat: stat,
+    skillExp: {},
+    learnedSkills: cls.skills.slice(0, 2), // 初始學會前兩個技能
+    equip: { weapon: null, armor: null, accessory: null },
+    hp: 0, maxHp: 0, mp: 0, maxMp: 0,
+    status: [],
+    inParty: false,
+    isResting: false,
+    restUntilDay: 0,
+    affinity: rand(40, 60), // 對公會的忠誠/好感
+    wage: 0,
+    bornDay: 0,
+    retired: false,
+    deceased: false,
+    battlesWon: 0,
+    promoted: false,
+  };
+  recalcStats(adv);
+  adv.hp = adv.maxHp; adv.mp = adv.maxMp;
+  adv.wage = computeWage(adv);
+  return adv;
+}
+
+function getTalent(adv) { return TALENTS.find(t => t.id === adv.talent) || {effect:{}}; }
+function getFlaw(adv) { return FLAWS.find(f => f.id === adv.flaw) || {effect:{}}; }
+
+function getEquipStatBonus(adv) {
+  const bonus = { str:0, vit:0, agi:0, int:0, mag:0, luk:0, atk:0, def:0, magAtk:0 };
+  EQUIP_SLOTS.forEach(slot => {
+    const eq = adv.equip[slot];
+    if (!eq) return;
+    bonus.atk += eq.atk || 0;
+    bonus.def += eq.def || 0;
+    bonus.magAtk += eq.mag || 0;
+    ['str','vit','agi','int','mag','luk'].forEach(s => { bonus[s] += eq[s] || 0; });
+    if (eq.agiPenalty) bonus.agi -= eq.agiPenalty;
+    if (eq.affixes) {
+      eq.affixes.forEach(ax => {
+        if (ax.stat) bonus[ax.stat] = (bonus[ax.stat]||0) + ax.val;
+      });
+    }
+  });
+  return bonus;
+}
+
+// 重新計算角色最終數值（基礎+等級成長+裝備+天賦）
+function recalcStats(adv) {
+  const cls = CLASSES[adv.classKey];
+  const talent = getTalent(adv);
+  const flaw = getFlaw(adv);
+  const lv = adv.level;
+  const growth = 1 + (lv - 1) * 0.12 * (talent.effect.statGainMul || 1);
+
+  const final = {};
+  ['str','vit','agi','int','mag','luk'].forEach(k => {
+    final[k] = Math.round(adv.baseStat[k] * growth);
+  });
+
+  const eqBonus = getEquipStatBonus(adv);
+  ['str','vit','agi','int','mag','luk'].forEach(k => { final[k] += eqBonus[k]; });
+
+  let maxHp = Math.round((20 + final.vit * 6 + lv * 4) * (talent.effect.hpMul || 1) * (flaw.effect.hpMul || 1));
+  let maxMp = Math.round(10 + final.int * 3 + final.mag * 2 + lv * 2);
+
+  let atk = Math.round(final.str * 1.5 + eqBonus.atk);
+  let magAtk = Math.round(final.mag * 1.6 + eqBonus.magAtk);
+  let def = Math.round(final.vit * 0.8 + eqBonus.def);
+  let spd = Math.round(final.agi * 1.2);
+
+  if (flaw.effect.atkMul) atk = Math.round(atk * flaw.effect.atkMul);
+  if (flaw.effect.defMul) def = Math.round(def * flaw.effect.defMul);
+  if (flaw.effect.spdMul) spd = Math.round(spd * flaw.effect.spdMul);
+
+  adv.finalStat = final;
+  adv.maxHp = Math.max(10, maxHp);
+  adv.maxMp = Math.max(5, maxMp);
+  adv.atk = atk; adv.magAtk = magAtk; adv.def = def; adv.spd = spd;
+  adv.acc = clamp(0.85 + (talent.effect.accBonus||0) - (flaw.effect.accPenalty||0), 0.5, 0.99);
+  adv.crit = clamp(0.05 + final.luk * 0.01 + (talent.effect.critBonus||0) - (flaw.effect.critPenalty||0), 0.02, 0.6);
+  adv.evade = clamp(0.03 + final.agi * 0.005, 0.0, 0.35);
+
+  if (adv.hp > adv.maxHp) adv.hp = adv.maxHp;
+  if (adv.mp > adv.maxMp) adv.mp = adv.maxMp;
+}
+
+function computeWage(adv) {
+  const flaw = getFlaw(adv);
+  const talent = getTalent(adv);
+  let w = 10 + adv.level * 4;
+  if (flaw.effect.wageMul) w *= flaw.effect.wageMul;
+  if (talent.effect.costDiscount) w *= (1 - talent.effect.costDiscount * 0.5);
+  return Math.round(w);
+}
+
+function gainExp(adv, amount) {
+  adv.exp += amount;
+  let leveled = false;
+  let needed = expNeeded(adv.level);
+  while (adv.exp >= needed && adv.level < 99) {
+    adv.exp -= needed;
+    adv.level++;
+    leveled = true;
+    needed = expNeeded(adv.level);
+  }
+  if (leveled) recalcStats(adv);
+  return leveled;
+}
+function expNeeded(level) { return Math.round(20 * Math.pow(level, 1.5)); }
+
+function canPromote(adv) {
+  const opts = PROMOTIONS[adv.classKey];
+  return opts && adv.level >= 10 && !adv.promoted;
+}
+
+function promoteClass(adv, newClassKey) {
+  adv.classKey = newClassKey;
+  adv.promoted = true;
+  const cls = CLASSES[newClassKey];
+  cls.skills.forEach(s => { if (!adv.learnedSkills.includes(s) && adv.learnedSkills.length < 4) adv.learnedSkills.push(s); });
+  recalcStats(adv);
+}
+
+// 裝備生成
+function generateEquipment(slot, tier) {
+  tier = tier || 1;
+  const base = pick(EQUIP_BASE[slot]);
+  const rarity = rollRarity();
+  const tierMul = 1 + (tier - 1) * 0.35;
+  const item = {
+    uid: genUID('eq'),
+    slot: slot,
+    baseName: base.name,
+    name: base.name,
+    rarity: rarity.id,
+    rarityName: rarity.name,
+    color: rarity.color,
+    atk: base.atk ? Math.round(base.atk * rarity.mul * tierMul) : 0,
+    def: base.def ? Math.round(base.def * rarity.mul * tierMul) : 0,
+    mag: base.mag ? Math.round(base.mag * rarity.mul * tierMul) : 0,
+    agiPenalty: base.agiPenalty || 0,
+    classAffinity: base.classAffinity || null,
+    affixes: [],
+    str:0, vit:0, agi:0, int:0, luk:0,
+    sellPrice: 0,
+  };
+  for (let i = 0; i < rarity.affixCount; i++) {
+    const ax = pick(AFFIXES);
+    if (item.affixes.find(a => a.id === ax.id)) continue;
+    item.affixes.push(ax);
+    if (ax.stat) item[ax.stat] += ax.val;
+  }
+  if (item.affixes.length) {
+    item.name = item.affixes.map(a => a.name).join('・') + ' ' + base.name;
+  }
+  let sell = (item.atk + item.def + item.mag) * 4 * rarity.mul + item.affixes.length * 25;
+  item.sellPrice = Math.max(10, Math.round(sell));
+  return item;
+}
+
+function elementMultiplier(attackElem, defenderTags) {
+  if (!attackElem || attackElem === 'none') return 1.0;
+  if (!defenderTags) return 1.0;
+  const advList = ELEM_ADVANTAGE[attackElem] || [];
+  for (const t of defenderTags) { if (advList.includes(t)) return 1.5; }
+  // 被剋
+  for (const key in ELEM_ADVANTAGE) {
+    if (ELEM_ADVANTAGE[key].includes(attackElem) && defenderTags.includes(key)) return 0.7;
+  }
+  return 1.0;
+}
+
+function formatNum(n) { return Math.round(n).toLocaleString('zh-TW'); }
+
+</script>
+<script>
+// ============================================================
+// 怪物生成 / 地下城程序生成
+// ============================================================
+
+const MONSTER_NAME_PREFIX = ['野生的','凶暴的','飢餓的','潛伏的','古老的','腐敗的','瘋狂的','警戒的'];
+
+function generateMonster(tier, opts) {
+  opts = opts || {};
+  const pool = Object.keys(MONSTER_FAMILIES).filter(k => {
+    const m = MONSTER_FAMILIES[k];
+    if (opts.bossOnly) return m.boss && m.tier <= tier + 1;
+    if (m.boss) return false;
+    return m.tier <= tier;
+  });
+  const key = pick(pool.length ? pool : Object.keys(MONSTER_FAMILIES));
+  const fam = MONSTER_FAMILIES[key];
+  const isElite = !!opts.elite;
+  const level = clamp(tier + rand(-1, 1), 1, 99);
+
+  const baseHp = 18 + fam.tier * 14 + level * 6;
+  const baseAtk = 4 + fam.tier * 2.6 + level * 1.6;
+  const baseDef = 2 + fam.tier * 1.8 + level * 0.9;
+  const baseSpd = 4 + fam.tier * 1.2 + level * 0.6;
+
+  const eliteMul = isElite ? 1.7 : 1.0;
+  const bossMul = fam.boss ? 3.2 : 1.0;
+
+  const tags = [fam.elem].filter(e => e !== 'none');
+  if (fam.boss) tags.push('boss');
+  if (isElite) tags.push('elite');
+
+  const mon = {
+    uid: genUID('mon'),
+    key, name: (isElite ? '【精英】' : '') + (fam.boss ? '【首領】' : '') + (Math.random()<0.3 && !fam.boss ? pick(MONSTER_NAME_PREFIX) : '') + fam.name,
+    elem: fam.elem,
+    tags,
+    isElite, isBoss: !!fam.boss,
+    level,
+    maxHp: Math.round(baseHp * eliteMul * bossMul),
+    hp: 0,
+    atk: Math.round(baseAtk * eliteMul * bossMul),
+    def: Math.round(baseDef * eliteMul),
+    spd: Math.round(baseSpd * (isElite?1.15:1)),
+    acc: 0.82,
+    crit: 0.05 + fam.tier * 0.01,
+    evade: 0.03 + (fam.tier>=3?0.05:0),
+    expReward: Math.round((10 + fam.tier * 8 + level * 4) * eliteMul * bossMul),
+    goldReward: Math.round((8 + fam.tier * 6 + level * 3) * eliteMul * bossMul),
+    skills: [],
+    status: [],
+  };
+  mon.hp = mon.maxHp;
+
+  // 怪物技能傾向
+  if (fam.tier >= 2) mon.skills.push('mon_heavy_strike');
+  if (fam.elem !== 'none') mon.skills.push('mon_elem_blast');
+  if (fam.boss) mon.skills.push('mon_aoe_roar');
+
+  return mon;
+}
+
+function generateMonsterGroup(floorTier, roomType) {
+  let count;
+  if (roomType === 'boss') count = 1;
+  else if (roomType === 'elite') count = rand(1, 2);
+  else count = rand(1, 3);
+
+  const group = [];
+  for (let i = 0; i < count; i++) {
+    group.push(generateMonster(floorTier, { elite: roomType === 'elite', bossOnly: roomType === 'boss' }));
+  }
+  return group;
+}
+
+// ---------------- 地下城程序生成 ----------------
+// 地圖以簡單格狀網格表示，每格為一個「房間節點」
+
+const ROOM_TYPES = ['empty','monster','elite','treasure','trap','event','npc','exit','boss','hidden'];
+
+function generateDungeonFloor(floorNum, dungeonRank) {
+  // floorNum: 第幾層；dungeonRank: 地下城難度等級（影響怪物tier）
+  const size = clamp(5 + Math.floor(floorNum / 3), 5, 9); // grid size
+  const isBossFloor = floorNum % 5 === 0;
+  const isEliteFloor = !isBossFloor && floorNum % 3 === 0;
+
+  const grid = [];
+  for (let y = 0; y < size; y++) {
+    const row = [];
+    for (let x = 0; x < size; x++) row.push(null);
+    grid.push(row);
+  }
+
+  // 隨機遊走生成可走通路，確保連通（保證終止：frontier 為空才停止，且每格只入隊一次）
+  const startX = Math.floor(size/2), startY = size - 1;
+  const visited = new Set([startX+','+startY]);
+  const cells = [[startX, startY]];
+  grid[startY][startX] = { type:'start', x:startX, y:startY };
+
+  const targetCellCount = Math.min(size*size, Math.floor(size * size * 0.55) + 4);
+  // frontier: 所有「已訪問格的未訪問鄰居」，每次隨機抽一個來開通
+  let frontier = [];
+  function pushNeighborsToFrontier(x, y) {
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (const [dx,dy] of dirs) {
+      const nx = x+dx, ny = y+dy;
+      if (nx<0||ny<0||nx>=size||ny>=size) continue;
+      const key = nx+','+ny;
+      if (visited.has(key)) continue;
+      frontier.push([nx, ny]);
+    }
+  }
+  pushNeighborsToFrontier(startX, startY);
+
+  while (visited.size < targetCellCount && frontier.length > 0) {
+    const idx = Math.floor(Math.random() * frontier.length);
+    const [nx, ny] = frontier[idx];
+    frontier.splice(idx, 1);
+    const key = nx+','+ny;
+    if (visited.has(key)) continue; // 可能在加入frontier後已被其他路徑訪問
+    visited.add(key);
+    grid[ny][nx] = { type:'pending', x:nx, y:ny };
+    cells.push([nx, ny]);
+    pushNeighborsToFrontier(nx, ny);
+  }
+
+  // 找離起點最遠的格作為出口/Boss房
+  let farthest = [startX, startY], farthestDist = -1;
+  cells.forEach(([x,y]) => {
+    const d = Math.abs(x-startX) + Math.abs(y-startY);
+    if (d > farthestDist) { farthestDist = d; farthest = [x,y]; }
+  });
+
+  cells.forEach(([x,y]) => {
+    if (x === startX && y === startY) return;
+    grid[y][x].type = 'pending';
+  });
+
+  const [exitX, exitY] = farthest;
+  grid[exitY][exitX].type = isBossFloor ? 'boss' : 'exit';
+
+  // 為其餘 pending 房間分配類型
+  cells.forEach(([x, y]) => {
+    const cell = grid[y][x];
+    if (cell.type !== 'pending') return;
+    let roll = Math.random();
+    let type;
+    if (isEliteFloor && roll < 0.12) type = 'elite';
+    else if (roll < 0.40) type = 'monster';
+    else if (roll < 0.55) type = 'treasure';
+    else if (roll < 0.65) type = 'trap';
+    else if (roll < 0.78) type = 'event';
+    else if (roll < 0.85) type = 'npc';
+    else if (roll < 0.90) type = 'hidden';
+    else type = 'empty';
+    cell.type = type;
+  });
+
+  // 標記隱藏房間為需發現
+  cells.forEach(([x,y]) => {
+    const cell = grid[y][x];
+    if (cell.type === 'hidden') cell.discovered = false;
+    cell.visited = false;
+    cell.cleared = false;
+  });
+
+  return {
+    floorNum, size, grid,
+    startX, startY,
+    playerX: startX, playerY: startY,
+    dungeonRank,
+    isBossFloor, isEliteFloor,
+  };
+}
+
+const RANDOM_EVENTS = [
+  { id:'wandering_merchant', name:'流浪商人', desc:'一位神秘商人出現，提供稀有商品交易的機會。', type:'merchant' },
+  { id:'ancient_shrine', name:'古老神壇', desc:'神壇散發微光，獻上祈禱或許能獲得祝福……或詛咒。', type:'gamble_blessing' },
+  { id:'wounded_traveler', name:'受傷的旅人', desc:'一位旅人倒在地上，看起來需要幫助。', type:'rescue' },
+  { id:'treasure_map', name:'破損的藏寶圖', desc:'地上散落著一張藏寶圖的殘片。', type:'map_fragment' },
+  { id:'monster_nest', name:'怪物巢穴', desc:'眼前是一處怪物巢穴，可以選擇繞過或主動攻擊獲得豐厚獎勵。', type:'high_risk_fight' },
+  { id:'mysterious_door', name:'神秘之門', desc:'一扇散發奇異氣息的門，內部似乎封印著什麼。', type:'vault' },
+  { id:'old_bones', name:'冒險者遺骸', desc:'似乎是前人遺留下的裝備，能否帶走全憑你的判斷。', type:'loot_or_curse' },
+  { id:'singing_statue', name:'歌唱的石像', desc:'石像吟唱古老旋律，似乎能為隊伍帶來啟發。', type:'exp_bonus' },
+];
+
+function rollRandomEvent() { return pick(RANDOM_EVENTS); }
+
+const NPC_ENCOUNTERS = [
+  { id:'retired_hero', name:'隱居的英雄', desc:'一位曾經的傳奇冒險者隱居於此，願意傳授心得。', type:'mentor' },
+  { id:'lost_child', name:'迷路的孩子', desc:'一個迷路的孩子蜷縮在角落，似乎在等待救援。', type:'rescue_child' },
+  { id:'rival_guild', name:'敵對公會冒險者', desc:'另一個公會的冒險者似乎想試探你們的實力。', type:'rival_duel' },
+  { id:'hermit_sage', name:'隱士賢者', desc:'一位隱士願意以物易物，交換罕見的知識。', type:'trade_knowledge' },
+];
+function rollNPCEncounter() { return pick(NPC_ENCOUNTERS); }
+
+</script>
+<script>
+// ============================================================
+// 回合制戰鬥系統
+// ============================================================
+
+const MONSTER_SKILLS = {
+  mon_heavy_strike: { name:'重擊', power:1.5, type:'phys' },
+  mon_elem_blast: { name:'元素爆發', power:1.4, type:'magic' },
+  mon_aoe_roar: { name:'怒吼', power:1.0, type:'phys', target:'all' },
+};
+
+function createBattleState(party, monsters, context) {
+  return {
+    party: party.map(p => ({...p, battleHp: p.hp, battleMp: p.mp, statusFx: [], shield:0, buffs:{}, summons:[]})),
+    monsters: monsters.map(m => ({...m, battleHp: m.hp, statusFx:[], buffs:{}})),
+    turn: 1,
+    log: [],
+    events: [], // 結構化事件佇列，供UI逐步播放動畫: {kind, sourceUid, sourceSide, targetUid, targetSide, amount, isCrit, isMiss, isHeal, text, ...}
+    over: false,
+    victory: false,
+    context: context || {},
+    fled: false,
+  };
+}
+
+// 推送一個可供UI播放動畫的戰鬥事件，並同步寫入文字log
+function pushEvent(state, evt) {
+  state.events.push(evt);
+  if (evt.text) state.log.push(evt.text);
+}
+
+function findUnitSide(state, uid) {
+  if (state.party.find(p => p.uid === uid)) return 'party';
+  if (state.monsters.find(m => m.uid === uid)) return 'monster';
+  return null;
+}
+
+function getUnitTags(unit) {
+  if (unit.tags) return unit.tags;
+  return [];
+}
+
+function rollHit(attackerAcc, defenderEvade) {
+  const finalChance = clamp(attackerAcc - defenderEvade, 0.15, 0.98);
+  return Math.random() < finalChance;
+}
+
+function rollCrit(critChance) { return Math.random() < critChance; }
+
+function applyStatus(unit, statusId, chance) {
+  if (!chance || Math.random() > chance) return false;
+  if (unit.statusFx.find(s => s.id === statusId)) return false;
+  const durations = { poison: 3, frozen: 2, paralyze: 2, stun: 1, burn: 3 };
+  unit.statusFx.push({ id: statusId, turns: durations[statusId] || 2 });
+  return true;
+}
+
+const STATUS_NAME = { poison:'中毒', frozen:'凍結', paralyze:'麻痺', stun:'眩暈', burn:'燒傷' };
+
+function processStatusTick(unit, hpField, maxHpField, state, name, side, uid) {
+  let skip = false;
+  unit.statusFx = unit.statusFx.filter(s => {
+    if (s.id === 'poison' || s.id === 'burn') {
+      const dmg = Math.round((unit[maxHpField] || unit.maxHp) * 0.06);
+      unit[hpField] = Math.max(0, unit[hpField] - dmg);
+      pushEvent(state, { kind:'status_damage', targetUid:uid, targetSide:side, amount:dmg, statusId:s.id, text:`${name} 因${STATUS_NAME[s.id]}受到 ${dmg} 點傷害` });
+      if (unit[hpField] <= 0) pushEvent(state, { kind:'death', targetUid:uid, targetSide:side, text:`${name} 倒下了！` });
+    }
+    if (s.id === 'frozen' || s.id === 'paralyze' || s.id === 'stun') {
+      if (Math.random() < 0.7) skip = true;
+    }
+    s.turns--;
+    return s.turns > 0;
+  });
+  return skip;
+}
+
+// 計算單次傷害
+function computeDamage(attacker, defender, opts) {
+  opts = opts || {};
+  const isMagic = opts.isMagic;
+  let baseAtk = isMagic ? (attacker.magAtk || attacker.atk) : attacker.atk;
+  let power = opts.power || 1.0;
+  let baseDef = defender.def || 0;
+  if (opts.ignoreDef) baseDef *= (1 - opts.ignoreDef);
+
+  let dmg = Math.max(1, baseAtk * power - baseDef * 0.6);
+
+  const elemMul = elementMultiplier(opts.elem, getUnitTags(defender));
+  dmg *= elemMul;
+
+  let isCrit = rollCrit((attacker.crit || 0.05) + (opts.critBonus || 0));
+  if (isCrit) dmg *= 1.8;
+
+  dmg *= randf(0.9, 1.1);
+  dmg = Math.round(dmg);
+
+  return { dmg: Math.max(1, dmg), isCrit, elemMul };
+}
+
+function aliveMonsters(state) { return state.monsters.filter(m => m.battleHp > 0); }
+function aliveParty(state) { return state.party.filter(p => p.battleHp > 0); }
+
+function checkBattleEnd(state) {
+  if (aliveMonsters(state).length === 0) { state.over = true; state.victory = true; }
+  else if (aliveParty(state).length === 0) { state.over = true; state.victory = false; }
+}
+
+// 執行玩家動作：action = {type:'attack'|'skill'|'item'|'defend'|'flee', actorUid, skillId, targetUid, itemId}
+function executePlayerAction(state, action) {
+  const actor = state.party.find(p => p.uid === action.actorUid);
+  if (!actor || actor.battleHp <= 0) return;
+
+  if (action.type === 'defend') {
+    actor.buffs.guard = 1;
+    pushEvent(state, { kind:'defend', sourceUid:actor.uid, sourceSide:'party', text:`${actor.name} 採取防禦姿態` });
+    return;
+  }
+  if (action.type === 'flee') {
+    const fleeChance = 0.5 + (actor.spd || 0) * 0.005;
+    if (Math.random() < fleeChance) {
+      state.over = true; state.fled = true; state.victory = false;
+      pushEvent(state, { kind:'flee_success', sourceUid:actor.uid, sourceSide:'party', text:`隊伍成功逃離了戰鬥！` });
+    } else {
+      pushEvent(state, { kind:'flee_fail', sourceUid:actor.uid, sourceSide:'party', text:`${actor.name} 試圖逃跑，但失敗了！` });
+    }
+    return;
+  }
+  if (action.type === 'attack') {
+    const target = state.monsters.find(m => m.uid === action.targetUid);
+    if (!target || target.battleHp <= 0) return;
+    if (!rollHit(actor.acc, target.evade)) {
+      pushEvent(state, { kind:'miss', sourceUid:actor.uid, sourceSide:'party', targetUid:target.uid, targetSide:'monster', text:`${actor.name} 的攻擊被 ${target.name} 閃避了！` });
+      return;
+    }
+    const r = computeDamage(actor, target, { power: 1.0 });
+    target.battleHp = Math.max(0, target.battleHp - r.dmg);
+    pushEvent(state, { kind:'attack', sourceUid:actor.uid, sourceSide:'party', targetUid:target.uid, targetSide:'monster',
+      amount:r.dmg, isCrit:r.isCrit, killed: target.battleHp<=0,
+      text:`${actor.name} 攻擊 ${target.name}，造成 ${r.dmg} 點傷害${r.isCrit ? '（暴擊！）' : ''}` });
+    if (target.battleHp <= 0) pushEvent(state, { kind:'death', targetUid:target.uid, targetSide:'monster', text:`${target.name} 倒下了！` });
+    checkBattleEnd(state);
+    return;
+  }
+  if (action.type === 'item') {
+    applyItemInBattle(state, actor, action.itemId, action.targetUid);
+    return;
+  }
+  if (action.type === 'skill') {
+    executeSkill(state, actor, action.skillId, action.targetUid);
+    checkBattleEnd(state);
+    return;
+  }
+}
+
+function executeSkill(state, actor, skillId, targetUid) {
+  const skill = SKILLS[skillId];
+  if (!skill) return;
+  if (actor.battleMp < (skill.cost || 0)) {
+    pushEvent(state, { kind:'skill_fail', sourceUid:actor.uid, sourceSide:'party', text:`${actor.name} 法力不足，無法使用 ${skill.name}！` });
+    return;
+  }
+  actor.battleMp -= (skill.cost || 0);
+  if (skill.selfDmg) {
+    const sd = Math.round(actor.maxHp * skill.selfDmg);
+    actor.battleHp = Math.max(1, actor.battleHp - sd);
+    pushEvent(state, { kind:'self_damage', sourceUid:actor.uid, sourceSide:'party', targetUid:actor.uid, targetSide:'party', amount:sd, text:`${actor.name} 消耗了 ${sd} 點HP` });
+  }
+
+  if (skill.type === 'phys' || skill.type === 'magic') {
+    const isMagic = skill.type === 'magic';
+    const targets = skill.target === 'all' ? aliveMonsters(state) : [state.monsters.find(m => m.uid === targetUid)].filter(Boolean);
+    targets.forEach(target => {
+      if (!target || target.battleHp <= 0) return;
+      if (skill.execThresh && target.battleHp / target.maxHp <= skill.execThresh) {
+        target.battleHp = 0;
+        pushEvent(state, { kind:'skill_hit', sourceUid:actor.uid, sourceSide:'party', targetUid:target.uid, targetSide:'monster', skillId, amount:9999, killed:true,
+          text:`${actor.name} 使用「${skill.name}」直接處決了 ${target.name}！` });
+        pushEvent(state, { kind:'death', targetUid:target.uid, targetSide:'monster', text:`${target.name} 倒下了！` });
+        return;
+      }
+      if (!rollHit(actor.acc, target.evade) && skill.target !== 'all') {
+        pushEvent(state, { kind:'miss', sourceUid:actor.uid, sourceSide:'party', targetUid:target.uid, targetSide:'monster', skillId, text:`${actor.name} 的「${skill.name}」被 ${target.name} 閃避了！` });
+        return;
+      }
+      const r = computeDamage(actor, target, { power: skill.power, isMagic, elem: skill.elem, ignoreDef: skill.ignoreDef, critBonus: skill.critBonus });
+      target.battleHp = Math.max(0, target.battleHp - r.dmg);
+      pushEvent(state, { kind:'skill_hit', sourceUid:actor.uid, sourceSide:'party', targetUid:target.uid, targetSide:'monster', skillId,
+        amount:r.dmg, isCrit:r.isCrit, killed: target.battleHp<=0, elem: skill.elem,
+        text:`${actor.name} 使用「${skill.name}」攻擊 ${target.name}，造成 ${r.dmg} 點傷害${r.isCrit?'（暴擊！）':''}` });
+      if (skill.lifesteal) {
+        const heal = Math.round(r.dmg * skill.lifesteal);
+        actor.battleHp = Math.min(actor.maxHp, actor.battleHp + heal);
+        pushEvent(state, { kind:'heal', sourceUid:actor.uid, sourceSide:'party', targetUid:actor.uid, targetSide:'party', amount:heal, text:`${actor.name} 吸取了 ${heal} 點HP` });
+      }
+      if (skill.statusChance && applyStatus(target, skill.status, skill.statusChance)) {
+        pushEvent(state, { kind:'status_apply', targetUid:target.uid, targetSide:'monster', statusId:skill.status, text:`${target.name} 陷入了${STATUS_NAME[skill.status]}狀態！` });
+      }
+      if (target.battleHp <= 0) pushEvent(state, { kind:'death', targetUid:target.uid, targetSide:'monster', text:`${target.name} 倒下了！` });
+    });
+  } else if (skill.type === 'heal') {
+    if (skill.target === 'party') {
+      aliveParty(state).forEach(p => {
+        const heal = Math.round(p.maxHp * skill.power * 0.5);
+        p.battleHp = Math.min(p.maxHp, p.battleHp + heal);
+        pushEvent(state, { kind:'heal', sourceUid:actor.uid, sourceSide:'party', targetUid:p.uid, targetSide:'party', amount:heal, silent:true });
+      });
+      pushEvent(state, { kind:'skill_cast', sourceUid:actor.uid, sourceSide:'party', text:`${actor.name} 使用「${skill.name}」治癒了全隊！` });
+    } else {
+      const target = state.party.find(p => p.uid === targetUid) || actor;
+      const heal = Math.round(target.maxHp * skill.power * 0.5 + 10);
+      target.battleHp = Math.min(target.maxHp, target.battleHp + heal);
+      if (skill.cleanse) target.statusFx = [];
+      pushEvent(state, { kind:'heal', sourceUid:actor.uid, sourceSide:'party', targetUid:target.uid, targetSide:'party', amount:heal,
+        text:`${actor.name} 治癒了 ${target.name}，回復 ${heal} 點HP` });
+    }
+  } else if (skill.type === 'buff') {
+    if (skill.target === 'self') { actor.buffs[skillId] = 3; pushEvent(state, { kind:'buff', sourceUid:actor.uid, sourceSide:'party', targetUid:actor.uid, targetSide:'party', text:`${actor.name} 使用「${skill.name}」` }); }
+    else if (skill.target === 'party') { aliveParty(state).forEach(p => p.buffs[skillId] = 3); pushEvent(state, { kind:'buff', sourceUid:actor.uid, sourceSide:'party', text:`${actor.name} 為全隊使用了「${skill.name}」` }); }
+    else { const t = state.party.find(p=>p.uid===targetUid)||actor; t.buffs[skillId]=3; pushEvent(state, { kind:'buff', sourceUid:actor.uid, sourceSide:'party', targetUid:t.uid, targetSide:'party', text:`${actor.name} 為 ${t.name} 使用了「${skill.name}」` }); }
+    if (skillId === 'mana_shield' || skillId === 'aegis' || skillId === 'divine_shield') {
+      const targets = skill.target === 'party' ? aliveParty(state) : skill.target === 'ally' ? [state.party.find(p=>p.uid===targetUid)||actor] : [actor];
+      targets.forEach(t => { t.shield = (t.shield||0) + Math.round(t.maxHp * 0.25); });
+    }
+  } else if (skill.type === 'summon') {
+    pushEvent(state, { kind:'summon', sourceUid:actor.uid, sourceSide:'party', text:`${actor.name} 召喚了助戰夥伴！` });
+    actor.buffs.summonBoost = 5;
+  } else if (skill.type === 'debuff') {
+    const target = state.monsters.find(m => m.uid === targetUid);
+    if (target) {
+      const r = computeDamage(actor, target, { power: skill.power });
+      target.battleHp = Math.max(0, target.battleHp - r.dmg);
+      if (skill.markDeath) target.buffs.marked = 2;
+      pushEvent(state, { kind:'skill_hit', sourceUid:actor.uid, sourceSide:'party', targetUid:target.uid, targetSide:'monster', skillId,
+        amount:r.dmg, killed: target.battleHp<=0,
+        text:`${actor.name} 使用「${skill.name}」，${target.name} 受到 ${r.dmg} 點傷害` });
+      if (target.battleHp <= 0) pushEvent(state, { kind:'death', targetUid:target.uid, targetSide:'monster', text:`${target.name} 倒下了！` });
+    }
+  } else if (skill.type === 'special' && skillId === 'steal') {
+    pushEvent(state, { kind:'skill_cast', sourceUid:actor.uid, sourceSide:'party', text:`${actor.name} 嘗試從敵人身上盜取物品……` });
+  }
+}
+
+function applyItemInBattle(state, actor, itemId, targetUid) {
+  const ITEM_DEFS = {
+    potion_small: { heal: 0.35, name:'小型藥水' },
+    potion_mid: { heal: 0.65, name:'中型藥水' },
+    antidote: { cleanse: true, name:'解毒草藥' },
+    revive_feather: { revive: true, name:'復活羽毛' },
+  };
+  const def = ITEM_DEFS[itemId];
+  if (!def) return;
+  const target = state.party.find(p => p.uid === targetUid) || actor;
+  if (def.revive) {
+    if (target.battleHp <= 0) {
+      target.battleHp = Math.round(target.maxHp * 0.4);
+      pushEvent(state, { kind:'revive', sourceUid:actor.uid, sourceSide:'party', targetUid:target.uid, targetSide:'party', text:`${actor.name} 使用復活羽毛復活了 ${target.name}！` });
+    }
+  } else if (def.heal) {
+    const heal = Math.round(target.maxHp * def.heal);
+    target.battleHp = Math.min(target.maxHp, target.battleHp + heal);
+    pushEvent(state, { kind:'heal', sourceUid:actor.uid, sourceSide:'party', targetUid:target.uid, targetSide:'party', amount:heal,
+      text:`${actor.name} 使用了「${def.name}」，${target.name} 回復 ${heal} 點HP` });
+  } else if (def.cleanse) {
+    target.statusFx = [];
+    pushEvent(state, { kind:'cleanse', sourceUid:actor.uid, sourceSide:'party', targetUid:target.uid, targetSide:'party', text:`${actor.name} 使用了「${def.name}」，解除了 ${target.name} 的異常狀態` });
+  }
+}
+
+// 怪物 AI 行動
+function executeMonsterTurn(state, monster) {
+  if (monster.battleHp <= 0) return;
+  const targets = aliveParty(state);
+  if (targets.length === 0) return;
+
+  const skip = processStatusTick(monster, 'battleHp', 'maxHp', state, monster.name, 'monster', monster.uid);
+  if (skip) { pushEvent(state, { kind:'status_skip', sourceUid:monster.uid, sourceSide:'monster', text:`${monster.name} 無法行動！` }); return; }
+  if (monster.battleHp <= 0) return; // 狀態傷害可能已致命
+
+  const useSkill = monster.skills.length > 0 && Math.random() < 0.4;
+  if (useSkill) {
+    const skillKey = pick(monster.skills);
+    const sk = MONSTER_SKILLS[skillKey];
+    if (sk.target === 'all') {
+      targets.forEach(t => {
+        if (!rollHit(monster.acc, t.evade)) { pushEvent(state, { kind:'miss', sourceUid:monster.uid, sourceSide:'monster', targetUid:t.uid, targetSide:'party', text:`${monster.name} 的「${sk.name}」被 ${t.name} 閃避了！` }); return; }
+        const r = computeDamage(monster, t, { power: sk.power, isMagic: sk.type==='magic', elem: monster.elem });
+        const dealt = applyDamageToPartyUnit(t, r.dmg);
+        pushEvent(state, { kind:'skill_hit', sourceUid:monster.uid, sourceSide:'monster', targetUid:t.uid, targetSide:'party',
+          amount:dealt, isCrit:r.isCrit, killed: t.battleHp<=0,
+          text:`${monster.name} 使用「${sk.name}」攻擊 ${t.name}，造成 ${dealt} 點傷害${r.isCrit?'（暴擊！）':''}` });
+        if (t.battleHp <= 0) pushEvent(state, { kind:'death', targetUid:t.uid, targetSide:'party', text:`${t.name} 倒下了！` });
+      });
+    } else {
+      const target = pick(targets);
+      if (!rollHit(monster.acc, target.evade)) { pushEvent(state, { kind:'miss', sourceUid:monster.uid, sourceSide:'monster', targetUid:target.uid, targetSide:'party', text:`${monster.name} 的「${sk.name}」被 ${target.name} 閃避了！` }); return; }
+      const r = computeDamage(monster, target, { power: sk.power, isMagic: sk.type==='magic', elem: monster.elem });
+      const dealt = applyDamageToPartyUnit(target, r.dmg);
+      pushEvent(state, { kind:'skill_hit', sourceUid:monster.uid, sourceSide:'monster', targetUid:target.uid, targetSide:'party',
+        amount:dealt, isCrit:r.isCrit, killed: target.battleHp<=0,
+        text:`${monster.name} 使用「${sk.name}」攻擊 ${target.name}，造成 ${dealt} 點傷害${r.isCrit?'（暴擊！）':''}` });
+      if (target.battleHp <= 0) pushEvent(state, { kind:'death', targetUid:target.uid, targetSide:'party', text:`${target.name} 倒下了！` });
+    }
+  } else {
+    const target = pick(targets);
+    if (!rollHit(monster.acc, target.evade)) { pushEvent(state, { kind:'miss', sourceUid:monster.uid, sourceSide:'monster', targetUid:target.uid, targetSide:'party', text:`${monster.name} 攻擊 ${target.name}，但被閃避了！` }); return; }
+    const guardMul = target.buffs.guard_stance || target.buffs.guard ? 0.5 : 1.0;
+    const r = computeDamage(monster, target, { power: 1.0 * guardMul });
+    const dealt = applyDamageToPartyUnit(target, r.dmg);
+    pushEvent(state, { kind:'attack', sourceUid:monster.uid, sourceSide:'monster', targetUid:target.uid, targetSide:'party',
+      amount:dealt, isCrit:r.isCrit, killed: target.battleHp<=0,
+      text:`${monster.name} 攻擊 ${target.name}，造成 ${dealt} 點傷害${r.isCrit?'（暴擊！）':''}` });
+    if (target.battleHp <= 0) pushEvent(state, { kind:'death', targetUid:target.uid, targetSide:'party', text:`${target.name} 倒下了！` });
+  }
+}
+
+function applyDamageToPartyUnit(unit, dmg) {
+  if (unit.shield > 0) {
+    const absorbed = Math.min(unit.shield, dmg);
+    unit.shield -= absorbed;
+    dmg -= absorbed;
+  }
+  unit.battleHp = Math.max(0, unit.battleHp - dmg);
+  return dmg;
+}
+
+// 處理整個怪物回合（含狀態結算）
+function runMonsterPhase(state) {
+  state.monsters.forEach(m => { if (m.battleHp > 0) executeMonsterTurn(state, m); });
+  checkBattleEnd(state);
+}
+
+function runEndOfTurnStatus(state) {
+  state.party.forEach(p => {
+    if (p.battleHp <= 0) return;
+    processStatusTick(p, 'battleHp', 'maxHp', state, p.name, 'party', p.uid);
+  });
+  checkBattleEnd(state);
+  state.turn++;
+}
+
+function getSpeedOrder(units) {
+  return [...units].sort((a, b) => (b.spd || 0) - (a.spd || 0));
+}
+
+</script>
+<script>
+// ============================================================
+// 主遊戲邏輯 - Part 1: 狀態管理 / 存檔 / 初始化
+// ============================================================
+
+const SAVE_KEY = 'guild_saga_save_v1';
+const AUTosave_DEBOUNCE = 800;
+
+let GAME = null; // 全域遊戲狀態
+let UI = { currentTownView: 'hall', battleState: null, dungeonState: null, pendingAction: null, libraryTab: 'skills', shopTab: 'weapon', recruitFilter: 'all' };
+let autosaveTimer = null;
+
+function defaultGameState() {
+  return {
+    guildName: '',
+    gold: 300,
+    reputation: 0,
+    day: 1,
+    rosterSeed: 0,
+    roster: [],       // 所有冒險者（含在隊與閒置）
+    partyUids: [],    // 目前出戰隊伍 (最多4)
+    inventory: { weapon: [], armor: [], accessory: [], items: { potion_small: 3, potion_mid: 0, antidote: 1, revive_feather: 0 } },
+    facilities: { dorm:1, training:1, tavern:1, smith:1, library:1 },
+    quests: { main: [], side: [], bounty: [], event: [] },
+    questProgress: { mainStage: 0 },
+    currentEvent: null, // 世界事件
+    eventDaysLeft: 0,
+    history: [], // 世界歷史紀錄
+    hallOfFame: [], // 退休/陣亡名人堂
+    dungeon: {
+      currentRank: 1,
+      activeRun: null, // 當前探索中的地下城run
+      deepestFloor: 0,
+      infiniteBest: 0,
+    },
+    flags: { tutorialDone: false },
+    statsTotal: { battlesWon: 0, monstersSlain: 0, dungeonsCleared: 0, goldEarned: 0 },
+  };
+}
+
+function saveGame() {
+  try {
+    const data = JSON.stringify(GAME);
+    localStorage.setItem(SAVE_KEY, data);
+    return true;
+  } catch (e) {
+    console.error('存檔失敗', e);
+    return false;
+  }
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('讀檔失敗', e);
+    return null;
+  }
+}
+
+function hasSaveGame() {
+  return !!localStorage.getItem(SAVE_KEY);
+}
+
+function queueAutosave() {
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => { saveGame(); }, AUTosave_DEBOUNCE);
+}
+
+function showToast(msg, duration) {
+  const c = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(() => { el.remove(); }, duration || 2100);
+}
+
+function addHistory(text) {
+  GAME.history.unshift({ day: GAME.day, text });
+  if (GAME.history.length > 300) GAME.history.length = 300;
+}
+
+// ---------------- 初始化新遊戲 ----------------
+function startNewGame(guildName) {
+  GAME = defaultGameState();
+  GAME.guildName = guildName || '無名公會';
+
+  // 初始招募4名隨從供玩家組隊
+  for (let i = 0; i < 6; i++) {
+    const adv = generateAdventurer(1);
+    GAME.roster.push(adv);
+  }
+  // 預設前4位入隊
+  GAME.partyUids = GAME.roster.slice(0, 4).map(a => a.uid);
+  GAME.roster.forEach(a => { a.inParty = GAME.partyUids.includes(a.uid); });
+
+  // 給點初始裝備
+  GAME.inventory.weapon.push(generateEquipment('weapon', 1));
+  GAME.inventory.armor.push(generateEquipment('armor', 1));
+
+  addHistory(`「${GAME.guildName}」正式成立，開始了無盡迷宮的冒險之路。`);
+  generateMainQuestLine();
+  generateSideQuests();
+  generateBountyQuests();
+  saveGame();
+}
+
+function generateMainQuestLine() {
+  GAME.quests.main = [
+    { id:'main_1', title:'初探迷宮', desc:'派遣隊伍進入無盡迷宮，抵達第3層。', target:{ type:'floor', value:3 }, reward:{ gold:200, rep:20 }, done:false },
+    { id:'main_2', title:'肅清精英', desc:'擊敗一個精英樓層的精英怪物群。', target:{ type:'elite_clear', value:1 }, reward:{ gold:350, rep:35 }, done:false },
+    { id:'main_3', title:'討伐首領', desc:'擊敗任一首領樓層的Boss。', target:{ type:'boss_clear', value:1 }, reward:{ gold:600, rep:60 }, done:false },
+    { id:'main_4', title:'公會壯大', desc:'招募達到8名冒險者。', target:{ type:'roster_size', value:8 }, reward:{ gold:400, rep:50 }, done:false },
+    { id:'main_5', title:'深入無盡', desc:'抵達地下城第10層。', target:{ type:'floor', value:10 }, reward:{ gold:900, rep:90 }, done:false },
+  ];
+}
+
+function generateSideQuests() {
+  const pool = [
+    { id:'side_gather_'+Date.now(), title:'採集任務：藥草', desc:'在地下城中擊敗5隻怪物以收集藥草樣本。', target:{type:'kill_count', value:5}, reward:{gold:80, rep:8} },
+    { id:'side_chest_'+Date.now(), title:'尋寶委託', desc:'在地下城中開啟3個寶箱。', target:{type:'chest_open', value:3}, reward:{gold:100, rep:10} },
+    { id:'side_explore_'+Date.now(), title:'地圖測繪', desc:'完整探索一層地下城的所有房間。', target:{type:'full_explore', value:1}, reward:{gold:90, rep:10} },
+  ];
+  GAME.quests.side = pool.map(q => ({...q, progress:0, done:false}));
+}
+
+function generateBountyQuests() {
+  const families = Object.keys(MONSTER_FAMILIES).filter(k => !MONSTER_FAMILIES[k].boss);
+  GAME.quests.bounty = [];
+  for (let i=0;i<3;i++) {
+    const fam = pick(families);
+    const count = rand(3,6);
+    GAME.quests.bounty.push({
+      id:'bounty_'+i+'_'+Date.now(), title:`懸賞：${MONSTER_FAMILIES[fam].name}`,
+      desc:`討伐 ${count} 隻${MONSTER_FAMILIES[fam].name}`,
+      target:{type:'kill_family', family:fam, value:count}, progress:0,
+      reward:{gold: 40+count*15, rep:5+count*2}, done:false,
+    });
+  }
+}
+
+// ---------------- 任務進度檢查 ----------------
+function updateQuestProgress(type, payload) {
+  payload = payload || {};
+  const allLists = [GAME.quests.main, GAME.quests.side, GAME.quests.bounty];
+  allLists.forEach(list => {
+    list.forEach(q => {
+      if (q.done) return;
+      if (q.target.type !== type) return;
+      if (type === 'kill_family') {
+        if (payload.family === q.target.family) {
+          q.progress = (q.progress||0) + 1;
+          if (q.progress >= q.target.value) completeQuestSilently(q);
+        }
+        return;
+      }
+      if (type === 'kill_count' || type === 'chest_open') {
+        q.progress = (q.progress||0) + (payload.amount||1);
+        if (q.progress >= q.target.value) completeQuestSilently(q);
+        return;
+      }
+      if (type === 'floor') {
+        if (payload.value >= q.target.value) completeQuestSilently(q);
+        return;
+      }
+      if (type === 'elite_clear' || type === 'boss_clear' || type === 'full_explore') {
+        q.progress = (q.progress||0) + 1;
+        if (q.progress >= q.target.value) completeQuestSilently(q);
+        return;
+      }
+      if (type === 'roster_size') {
+        if (payload.value >= q.target.value) completeQuestSilently(q);
+      }
+    });
+  });
+}
+
+function completeQuestSilently(q) {
+  q.done = true;
+  q.completedReady = true; // 標記可領取
+}
+
+function claimQuestReward(q) {
+  if (!q.done || q.claimed) return;
+  q.claimed = true;
+  GAME.gold += q.reward.gold || 0;
+  GAME.reputation += q.reward.rep || 0;
+  GAME.statsTotal.goldEarned += q.reward.gold || 0;
+  addHistory(`公會完成了任務「${q.title}」，獲得 ${q.reward.gold} 金幣與 ${q.reward.rep} 聲望。`);
+  showToast(`✅ 完成任務獎勵：💰${q.reward.gold} 📜${q.reward.rep}`);
+  queueAutosave();
+}
+// ============================================================
+// 主遊戲邏輯 - Part 2: 視圖渲染系統 / 城鎮場景
+// ============================================================
+
+function $(sel) { return document.querySelector(sel); }
+function $$(sel) { return Array.from(document.querySelectorAll(sel)); }
+function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; }
+
+function getAdv(uid) { return GAME.roster.find(a => a.uid === uid); }
+function getParty() { return GAME.partyUids.map(uid => getAdv(uid)).filter(Boolean); }
+function activeRoster() { return GAME.roster.filter(a => !a.retired && !a.deceased); }
+
+function classIcon(classKey) {
+  const icons = { warrior:'⚔️', mage:'🔮', priest:'✨', rogue:'🗡️', ranger:'🏹',
+    knight:'🛡️', berserker:'🪓', spellblade:'🗡️', summoner:'👻', sage:'📖',
+    assassin:'🔪', paladin:'⚜️', druid:'🌿' };
+  return icons[classKey] || '❔';
+}
+function raceLabel(raceKey) { return RACES[raceKey] ? RACES[raceKey].name : raceKey; }
+function classLabel(classKey) { return CLASSES[classKey] ? CLASSES[classKey].name : classKey; }
+
+function setTownNav(visible) {
+  $('#screen-game').classList.toggle('no-nav', !visible);
+}
+
+function switchTownView(view) {
+  UI.currentTownView = view;
+  $$('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  renderCurrentView();
+}
+
+const NO_NAV_VIEWS = new Set(['dungeon_select','dungeon_explore','battle','adv_detail']);
+
+function renderCurrentView() {
+  const c = $('#view-container');
+  c.scrollTop = 0;
+  setTownNav(!NO_NAV_VIEWS.has(UI.currentTownView));
+  $$('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === UI.currentTownView));
+  switch (UI.currentTownView) {
+    case 'hall': renderHall(c); break;
+    case 'dorm': renderDorm(c); break;
+    case 'tavern': renderTavern(c); break;
+    case 'shop': renderShop(c); break;
+    case 'smith': renderSmith(c); break;
+    case 'training': renderTraining(c); break;
+    case 'library': renderLibrary(c); break;
+    case 'dungeon_select': renderDungeonSelect(c); break;
+    case 'dungeon_explore': renderDungeonExplore(c); break;
+    case 'battle': renderBattle(c); break;
+    case 'quests': renderQuests(c); break;
+    case 'roster': renderRosterManage(c); break;
+    case 'adv_detail': renderAdvDetail(c); break;
+    default: renderHall(c);
+  }
+  updateTopbar();
+}
+
+function updateTopbar() {
+  $('#topbar-gold').textContent = '💰 ' + formatNum(GAME.gold);
+  $('#topbar-day').textContent = '第' + GAME.day + '日';
+  $('#topbar-rep').textContent = '📜 ' + formatNum(GAME.reputation);
+}
+
+// ============================================================
+// 公會大廳
+// ============================================================
+function renderHall(c) {
+  c.innerHTML = '';
+
+  const banner = el('div', 'panel');
+  banner.innerHTML = `
+    <div class="panel-title">${escapeHtml(GAME.guildName)} <span class="muted" style="font-weight:400;">會長室</span></div>
+    <div class="muted">公會評級：${guildRankLabel()} ・ 冒險者：${activeRoster().length}人 ・ 出戰隊伍：${getParty().length}/4</div>
+  `;
+  c.appendChild(banner);
+
+  if (GAME.currentEvent) {
+    const ev = WORLD_EVENTS.find(e => e.id === GAME.currentEvent);
+    if (ev) {
+      const evCard = el('div', 'panel');
+      evCard.style.borderColor = 'var(--seal-red)';
+      evCard.innerHTML = `<div class="panel-title">⚠ 世界事件：${ev.name}（剩餘${GAME.eventDaysLeft}日）</div><div class="muted">${ev.desc}</div>`;
+      c.appendChild(evCard);
+    }
+  }
+
+  const partyPanel = el('div', 'panel');
+  partyPanel.innerHTML = `<div class="panel-title">出戰隊伍 <span class="muted" style="font-weight:400;font-size:11px;">輕觸管理</span></div>`;
+  const party = getParty();
+  if (party.length === 0) {
+    partyPanel.appendChild(el('div', 'empty-state', `<span class="emoji">🛡️</span>尚未編組隊伍，前往「冒險者管理」指派成員`));
+  } else {
+    party.forEach(a => partyPanel.appendChild(advCardMini(a)));
+  }
+  const manageBtn = el('button', 'action-btn primary', '管理隊伍與冒險者');
+  manageBtn.style.width = '100%'; manageBtn.style.marginTop = '6px'; manageBtn.style.padding='12px';
+  manageBtn.onclick = () => { UI.currentTownView = 'roster'; renderCurrentView(); };
+  partyPanel.appendChild(manageBtn);
+  c.appendChild(partyPanel);
+
+  const dungeonPanel = el('div', 'panel');
+  dungeonPanel.innerHTML = `<div class="panel-title">🗝️ 無盡迷宮</div><div class="muted">當前公會難度等級：Rank ${GAME.dungeon.currentRank} ・ 最深抵達：第${GAME.dungeon.deepestFloor}層</div>`;
+  const enterBtn = el('button', 'action-btn danger', '組隊出發探索');
+  enterBtn.style.width = '100%'; enterBtn.style.marginTop = '8px'; enterBtn.style.padding = '13px'; enterBtn.style.fontSize='14px';
+  enterBtn.onclick = () => {
+    if (getParty().length === 0) { showToast('請先編組至少1名隊伍成員！'); return; }
+    if (getParty().every(a => a.hp <= 0)) { showToast('隊伍成員皆已倒下，請先讓他們休養！'); return; }
+    UI.currentTownView = 'dungeon_select'; renderCurrentView();
+  };
+  dungeonPanel.appendChild(enterBtn);
+  c.appendChild(dungeonPanel);
+
+  const questPanel = el('div', 'panel');
+  const readyQuests = [...GAME.quests.main, ...GAME.quests.side, ...GAME.quests.bounty].filter(q => q.done && !q.claimed).length;
+  questPanel.innerHTML = `<div class="panel-title">📜 委託任務 ${readyQuests > 0 ? `<span class="badge badge-rank">${readyQuests}項可領取</span>` : ''}</div><div class="muted">主線、支線與懸賞任務一覽</div>`;
+  const qBtn = el('button', 'action-btn', '查看任務看板');
+  qBtn.style.width='100%'; qBtn.style.marginTop='8px'; qBtn.style.padding='11px';
+  qBtn.onclick = () => { UI.currentTownView = 'quests'; renderCurrentView(); };
+  questPanel.appendChild(qBtn);
+  c.appendChild(questPanel);
+
+  const facPanel = el('div', 'panel');
+  facPanel.innerHTML = `<div class="panel-title">🏛️ 公會設施 <span class="muted" style="font-weight:400;font-size:11px;">輕觸卡片可前往該設施</span></div>`;
+  const facGrid = el('div', 'grid-2');
+  const facNames = { dorm:'宿舍', training:'訓練場', tavern:'酒館', smith:'鐵匠鋪', library:'圖書館' };
+  const facViewMap = { dorm:'dorm', training:'training', tavern:'tavern', smith:'smith', library:'library' };
+  Object.keys(GAME.facilities).forEach(k => {
+    const lv = GAME.facilities[k];
+    const item = el('div', 'card clickable');
+    item.innerHTML = `<div style="font-weight:700;font-size:12.5px;">${facNames[k]}</div><div class="muted">等級 ${lv}</div>`;
+    item.onclick = () => switchTownView(facViewMap[k]);
+    facGrid.appendChild(item);
+  });
+  facPanel.appendChild(facGrid);
+  c.appendChild(facPanel);
+
+  const nextDayBtn = el('button', 'btn-list', '🌙 結束今日，進入下一天（不住宿，僅自然恢復）');
+  nextDayBtn.style.textAlign='center'; nextDayBtn.style.background='var(--leather)'; nextDayBtn.style.color='var(--parchment)';
+  nextDayBtn.onclick = () => advanceDay();
+  c.appendChild(nextDayBtn);
+}
+
+function guildRankLabel() {
+  const rep = GAME.reputation;
+  if (rep < 50) return 'F級';
+  if (rep < 150) return 'E級';
+  if (rep < 350) return 'D級';
+  if (rep < 700) return 'C級';
+  if (rep < 1300) return 'B級';
+  if (rep < 2200) return 'A級';
+  return 'S級';
+}
+
+function advCardMini(a) {
+  const card = el('div', 'adv-card clickable');
+  const hpPct = Math.max(0, Math.round(a.hp / a.maxHp * 100));
+  card.innerHTML = `
+    <div class="adv-portrait">${classIcon(a.classKey)}</div>
+    <div class="adv-info">
+      <div class="adv-name-row"><span class="adv-name">${escapeHtml(a.name)}</span><span class="adv-tag">Lv.${a.level}</span></div>
+      <div class="adv-sub">${raceLabel(a.race)}・${classLabel(a.classKey)}</div>
+      <div class="bar-bg"><div class="bar-fill bar-hp" style="width:${hpPct}%"></div></div>
+      ${a.hp<=0 ? '<div class="status-badges"><span class="status-badge">倒下</span></div>' : ''}
+    </div>
+  `;
+  card.onclick = () => { UI.detailAdvUid = a.uid; UI.currentTownView='adv_detail'; UI._returnView='hall'; renderCurrentView(); };
+  return card;
+}
+
+function escapeHtml(s) { return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ============================================================
+// 宿舍：管理容納人數、升級設施、讓隊伍休息回復
+// ============================================================
+function renderDorm(c) {
+  c.innerHTML = '';
+  const capacity = 4 + GAME.facilities.dorm * 2;
+  const header = el('div', 'panel');
+  header.innerHTML = `<div class="panel-title">🛏️ 宿舍 <span class="muted" style="font-weight:400;">等級 ${GAME.facilities.dorm}</span></div><div class="muted">目前容納：${activeRoster().length} / ${capacity} 人 ・ 讓冒險者在此休養恢復HP與MP</div>`;
+  c.appendChild(header);
+
+  const upgradeCost = facilityUpgradeCost('dorm');
+  const upPanel = el('div', 'panel');
+  upPanel.innerHTML = `<div class="panel-title">升級宿舍</div><div class="muted">提升後：可招募/容納上限+2人、隊伍每日自然恢復效率提升、住宿恢復效果更好</div>`;
+  const upBtn = el('button', 'action-btn success', `升級至 Lv.${GAME.facilities.dorm+1}（💰${upgradeCost}）`);
+  upBtn.style.width='100%'; upBtn.style.marginTop='8px'; upBtn.style.padding='11px';
+  upBtn.onclick = () => upgradeFacility('dorm', upgradeCost);
+  upPanel.appendChild(upBtn);
+  c.appendChild(upPanel);
+
+  const restPanel = el('div', 'panel');
+  const injured = activeRoster().filter(a => a.hp < a.maxHp || a.mp < a.maxMp);
+  restPanel.innerHTML = `<div class="panel-title">🌙 讓全隊住宿休養</div><div class="muted">隊伍將在宿舍住一晚（消耗1天），大幅回復HP與MP。宿舍等級越高，回復效果越好。</div>`;
+  const restBtn = el('button', 'action-btn primary', '讓全隊休息一晚');
+  restBtn.style.width='100%'; restBtn.style.marginTop='8px'; restBtn.style.padding='13px'; restBtn.style.fontSize='14px';
+  if (GAME.dungeon.activeRun) {
+    restBtn.disabled = true;
+    restBtn.textContent = '請先完成或撤退目前的地下城探索';
+  } else if (injured.length === 0) {
+    restBtn.textContent = '全隊狀態已是最佳（仍可休息以進入下一天）';
+  }
+  restBtn.onclick = () => restPartyOvernight();
+  restPanel.appendChild(restBtn);
+  c.appendChild(restPanel);
+
+  c.appendChild(el('div', 'section-label', '冒險者休養狀況'));
+  if (activeRoster().length === 0) c.appendChild(el('div', 'empty-state', '<span class="emoji">🛏️</span>目前沒有冒險者'));
+  activeRoster().forEach(a => {
+    const card = el('div', 'adv-card');
+    const hpPct = Math.max(0, Math.round(a.hp/a.maxHp*100));
+    const mpPct = Math.max(0, Math.round(a.mp/a.maxMp*100));
+    const restLabel = a.isResting ? `<span class="status-badge">休養中(${a.restUntilDay-GAME.day}日)</span>` : '';
+    card.innerHTML = `
+      <div class="adv-portrait">${classIcon(a.classKey)}</div>
+      <div class="adv-info">
+        <div class="adv-name-row"><span class="adv-name">${escapeHtml(a.name)}</span><span class="adv-tag">Lv.${a.level}</span></div>
+        <div class="adv-sub">${classLabel(a.classKey)} ${restLabel}</div>
+        <div class="bar-label"><span>HP</span><span>${a.hp}/${a.maxHp}</span></div>
+        <div class="bar-bg"><div class="bar-fill bar-hp" style="width:${hpPct}%"></div></div>
+        <div class="bar-label mt-8"><span>MP</span><span>${a.mp}/${a.maxMp}</span></div>
+        <div class="bar-bg"><div class="bar-fill bar-mp" style="width:${mpPct}%"></div></div>
+      </div>
+    `;
+    c.appendChild(card);
+  });
+}
+
+function restPartyOvernight() {
+  if (GAME.dungeon.activeRun) { showToast('請先完成或撤退目前的地下城探索！'); return; }
+  // 住宿回復比例隨宿舍等級提升，等級越高恢復越接近全滿
+  const recoverPct = clamp(0.55 + GAME.facilities.dorm * 0.12, 0.55, 1.0);
+  activeRoster().forEach(a => {
+    if (a.isResting) return; // 重傷休養中的角色由advanceDay的休養邏輯處理
+    a.hp = Math.min(a.maxHp, a.hp + Math.round(a.maxHp * recoverPct));
+    a.mp = Math.min(a.maxMp, a.mp + Math.round(a.maxMp * recoverPct));
+  });
+  advanceDay();
+  showToast(`🌙 全隊在宿舍中休養了一晚`);
+}
+
+function renderTavern(c) {
+  c.innerHTML = '';
+  const header = el('div', 'panel');
+  header.innerHTML = `<div class="panel-title">🍺 酒館 <span class="muted" style="font-weight:400;">等級 ${GAME.facilities.tavern}</span></div><div class="muted">在此招募新的冒險者加入公會。設施等級影響候補品質與人數</div>`;
+  c.appendChild(header);
+
+  const tavernUpgradeCost = facilityUpgradeCost('tavern');
+  const tavernUpPanel = el('div', 'panel');
+  tavernUpPanel.innerHTML = `<div class="panel-title">升級酒館</div><div class="muted">提升後：每日候補冒險者人數增加、出現更高等級的候補人選</div>`;
+  const tavernUpBtn = el('button', 'action-btn success', `升級至 Lv.${GAME.facilities.tavern+1}（💰${tavernUpgradeCost}）`);
+  tavernUpBtn.style.width='100%'; tavernUpBtn.style.marginTop='8px'; tavernUpBtn.style.padding='11px';
+  tavernUpBtn.onclick = () => upgradeFacility('tavern', tavernUpgradeCost);
+  tavernUpPanel.appendChild(tavernUpBtn);
+  c.appendChild(tavernUpPanel);
+
+  if (!UI.tavernCandidates || UI._tavernDay !== GAME.day) {
+    rerollTavernCandidates();
+  }
+
+  const rerollPanel = el('div', 'panel');
+  const rerollCost = 30;
+  rerollPanel.innerHTML = `<div class="flex-between"><span class="muted">候補名單（每日更新）</span></div>`;
+  const rerollBtn = el('button', 'action-btn', `🔄 花費 ${rerollCost} 金幣重新整理`);
+  rerollBtn.style.width='100%'; rerollBtn.style.marginTop='6px'; rerollBtn.style.padding='10px';
+  rerollBtn.onclick = () => {
+    if (GAME.gold < rerollCost) { showToast('金幣不足！'); return; }
+    GAME.gold -= rerollCost;
+    rerollTavernCandidates();
+    renderCurrentView();
+    queueAutosave();
+  };
+  rerollPanel.appendChild(rerollBtn);
+  c.appendChild(rerollPanel);
+
+  UI.tavernCandidates.forEach((a, idx) => {
+    const card = el('div', 'panel');
+    const talent = TALENTS.find(t=>t.id===a.talent), flaw = FLAWS.find(f=>f.id===a.flaw);
+    const eventMul = GAME.currentEvent === 'war' ? 1.4 : (GAME.currentEvent === 'festival' ? 0.7 : 1);
+    const cost = Math.round((80 + a.level * 25) * eventMul);
+    card.innerHTML = `
+      <div class="card-row">
+        <div class="adv-portrait">${classIcon(a.classKey)}</div>
+        <div class="adv-info">
+          <div class="adv-name-row"><span class="adv-name">${escapeHtml(a.name)}</span><span class="adv-tag">Lv.${a.level}</span></div>
+          <div class="adv-sub">${raceLabel(a.race)}・${classLabel(a.classKey)}</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="muted">✨ 天賦：${talent.name} — ${talent.desc}</div>
+      <div class="muted">⚠ 缺點：${flaw.name} — ${flaw.desc}</div>
+      <div class="muted">STR ${a.finalStat.str} VIT ${a.finalStat.vit} AGI ${a.finalStat.agi} INT ${a.finalStat.int} MAG ${a.finalStat.mag} LUK ${a.finalStat.luk}</div>
+    `;
+    const recruitBtn = el('button', 'action-btn primary', `招募（💰${cost}）`);
+    recruitBtn.style.width='100%'; recruitBtn.style.marginTop='8px'; recruitBtn.style.padding='11px';
+    if (activeRoster().length >= 4 + GAME.facilities.dorm * 2) {
+      recruitBtn.textContent = '宿舍已滿（升級宿舍以擴增）';
+      recruitBtn.disabled = true;
+    }
+    recruitBtn.onclick = () => {
+      if (GAME.gold < cost) { showToast('金幣不足！'); return; }
+      GAME.gold -= cost;
+      GAME.roster.push(a);
+      UI.tavernCandidates.splice(idx, 1);
+      addHistory(`冒險者「${a.name}」（${classLabel(a.classKey)}）加入了公會。`);
+      showToast(`🎉 ${a.name} 加入了公會！`);
+      renderCurrentView();
+      queueAutosave();
+    };
+    card.appendChild(recruitBtn);
+    c.appendChild(card);
+  });
+}
+
+function rerollTavernCandidates() {
+  const tier = Math.max(1, Math.ceil(GAME.dungeon.currentRank / 2));
+  const count = 2 + Math.floor(GAME.facilities.tavern / 2);
+  UI.tavernCandidates = [];
+  for (let i=0;i<count;i++) UI.tavernCandidates.push(generateAdventurer(tier));
+  UI._tavernDay = GAME.day;
+}
+
+// ============================================================
+// 商店：購買裝備與道具
+// ============================================================
+function renderShop(c) {
+  c.innerHTML = '';
+  const header = el('div', 'panel');
+  header.innerHTML = `<div class="panel-title">🛒 商店</div><div class="muted">購買裝備與冒險道具</div>`;
+  c.appendChild(header);
+
+  const tabs = el('div', 'tab-row');
+  [['weapon','武器'],['armor','防具'],['accessory','飾品'],['items','道具']].forEach(([key,label]) => {
+    const t = el('button', 'tab-btn' + (UI.shopTab===key?' active':''), label);
+    t.onclick = () => { UI.shopTab = key; renderCurrentView(); };
+    tabs.appendChild(t);
+  });
+  c.appendChild(tabs);
+
+  if (!UI.shopStock || UI._shopDay !== GAME.day) rerollShopStock();
+  const priceMul = (GAME.currentEvent === 'festival') ? 0.8 : 1;
+
+  if (UI.shopTab === 'items') {
+    const items = [
+      { id:'potion_small', name:'小型藥水', desc:'回復約35%HP', icon:'🧪', price: TOWN_DEFAULT_PRICES.potion_small },
+      { id:'potion_mid', name:'中型藥水', desc:'回復約65%HP', icon:'⚗️', price: TOWN_DEFAULT_PRICES.potion_mid },
+      { id:'antidote', name:'解毒草藥', desc:'解除異常狀態', icon:'🌿', price: TOWN_DEFAULT_PRICES.antidote },
+      { id:'revive_feather', name:'復活羽毛', desc:'戰鬥中復活倒下夥伴', icon:'🪶', price: TOWN_DEFAULT_PRICES.revive_feather },
+    ];
+    items.forEach(it => {
+      const price = Math.round(it.price * priceMul * (GAME.currentEvent==='plague'&&(it.id==='potion_small'||it.id==='potion_mid'||it.id==='antidote')?1.5:1));
+      const card = el('div', 'item-card');
+      card.innerHTML = `
+        <div class="item-icon" style="border-color:var(--leather);background:#fff;">${it.icon}</div>
+        <div class="item-info"><div class="item-name">${it.name}</div><div class="item-sub">${it.desc}</div><div class="item-sub">持有：${GAME.inventory.items[it.id]||0}</div></div>
+      `;
+      const buyBtn = el('button', 'action-btn primary', `💰${price}`);
+      buyBtn.style.flexShrink='0'; buyBtn.style.padding='10px 12px';
+      buyBtn.onclick = () => {
+        if (GAME.gold < price) { showToast('金幣不足！'); return; }
+        GAME.gold -= price;
+        GAME.inventory.items[it.id] = (GAME.inventory.items[it.id]||0) + 1;
+        showToast(`購買了 ${it.name}`);
+        renderCurrentView();
+        queueAutosave();
+      };
+      card.appendChild(buyBtn);
+      c.appendChild(card);
+    });
+    return;
+  }
+
+  const stock = UI.shopStock[UI.shopTab] || [];
+  if (stock.length === 0) c.appendChild(el('div', 'empty-state', '今日無進貨'));
+  stock.forEach((eq, idx) => {
+    c.appendChild(equipCard(eq, () => {
+      const price = Math.round(eq.sellPrice * 1.8 * priceMul);
+      return price;
+    }, (price) => {
+      if (GAME.gold < price) { showToast('金幣不足！'); return; }
+      GAME.gold -= price;
+      GAME.inventory[eq.slot].push(eq);
+      UI.shopStock[UI.shopTab].splice(idx,1);
+      showToast(`購入了 ${eq.name}`);
+      renderCurrentView();
+      queueAutosave();
+    }, '購入'));
+  });
+}
+
+function rerollShopStock() {
+  const tier = Math.max(1, GAME.dungeon.currentRank);
+  UI.shopStock = { weapon:[], armor:[], accessory:[] };
+  EQUIP_SLOTS.forEach(slot => {
+    for (let i=0;i<4;i++) UI.shopStock[slot].push(generateEquipment(slot, tier));
+  });
+  UI._shopDay = GAME.day;
+}
+
+function equipCard(eq, priceFn, onBuy, btnLabel) {
+  const card = el('div', 'item-card');
+  const price = priceFn();
+  card.innerHTML = `
+    <div class="item-icon" style="border-color:${eq.color};background:#fff;color:${eq.color};">${eq.slot==='weapon'?'⚔️':eq.slot==='armor'?'🛡️':'💍'}</div>
+    <div class="item-info">
+      <div class="item-name" style="color:${eq.color};">${escapeHtml(eq.name)}</div>
+      <div class="item-sub">${eq.rarityName} ${eq.slot==='weapon'?'武器':eq.slot==='armor'?'防具':'飾品'} ${eq.atk?` ATK+${eq.atk}`:''}${eq.def?` DEF+${eq.def}`:''}${eq.mag?` MAG+${eq.mag}`:''}</div>
+      ${eq.affixes.length ? `<div class="item-affixes">${eq.affixes.map(a=>a.desc).join('；')}</div>` : ''}
+    </div>
+  `;
+  const btn = el('button', 'action-btn primary', `${btnLabel} 💰${price}`);
+  btn.style.flexShrink='0'; btn.style.padding='10px 10px'; btn.style.fontSize='11.5px';
+  btn.onclick = () => onBuy(price);
+  card.appendChild(btn);
+  return card;
+}
+
+// ============================================================
+// 鐵匠鋪：裝備管理、強化、升級設施
+// ============================================================
+function renderSmith(c) {
+  c.innerHTML = '';
+  const header = el('div', 'panel');
+  header.innerHTML = `<div class="panel-title">🔨 鐵匠鋪 <span class="muted" style="font-weight:400;">等級 ${GAME.facilities.smith}</span></div><div class="muted">管理裝備、為冒險者裝備武具，或出售多餘物品</div>`;
+  c.appendChild(header);
+
+  const upgradeCost = facilityUpgradeCost('smith');
+  const upPanel = el('div', 'panel');
+  upPanel.innerHTML = `<div class="panel-title">升級鐵匠鋪</div><div class="muted">提升後：商店裝備品質提升、強化成功率提升</div>`;
+  const upBtn = el('button', 'action-btn success', `升級至 Lv.${GAME.facilities.smith+1}（💰${upgradeCost}）`);
+  upBtn.style.width='100%'; upBtn.style.marginTop='8px'; upBtn.style.padding='11px';
+  upBtn.onclick = () => upgradeFacility('smith', upgradeCost);
+  upPanel.appendChild(upBtn);
+  c.appendChild(upPanel);
+
+  const tabs = el('div', 'tab-row');
+  [['weapon','武器'],['armor','防具'],['accessory','飾品']].forEach(([key,label]) => {
+    const t = el('button', 'tab-btn' + (UI.shopTab===key?' active':''), label);
+    t.onclick = () => { UI.shopTab = key; renderCurrentView(); };
+    tabs.appendChild(t);
+  });
+  c.appendChild(tabs);
+
+  const list = GAME.inventory[UI.shopTab] || [];
+  c.appendChild(el('div', 'section-label', `倉庫中的裝備（${list.length}件）`));
+  if (list.length === 0) c.appendChild(el('div', 'empty-state', '<span class="emoji">📦</span>倉庫空空如也'));
+  list.forEach((eq, idx) => {
+    const card = el('div', 'item-card');
+    card.innerHTML = `
+      <div class="item-icon" style="border-color:${eq.color};background:#fff;color:${eq.color};">${eq.slot==='weapon'?'⚔️':eq.slot==='armor'?'🛡️':'💍'}</div>
+      <div class="item-info">
+        <div class="item-name" style="color:${eq.color};">${escapeHtml(eq.name)}</div>
+        <div class="item-sub">${eq.rarityName} ${eq.atk?` ATK+${eq.atk}`:''}${eq.def?` DEF+${eq.def}`:''}${eq.mag?` MAG+${eq.mag}`:''}</div>
+        ${eq.affixes.length ? `<div class="item-affixes">${eq.affixes.map(a=>a.desc).join('；')}</div>` : ''}
+      </div>
+    `;
+    const btnWrap = el('div');
+    btnWrap.style.display='flex'; btnWrap.style.flexDirection='column'; btnWrap.style.gap='4px';
+    const equipBtn = el('button', 'action-btn primary', '裝備');
+    equipBtn.style.padding='7px 10px'; equipBtn.style.fontSize='11px';
+    equipBtn.onclick = () => openEquipTargetPicker(eq, idx);
+    const sellBtn = el('button', 'action-btn', `售 💰${Math.round(eq.sellPrice*0.5)}`);
+    sellBtn.style.padding='7px 10px'; sellBtn.style.fontSize='11px';
+    sellBtn.onclick = () => {
+      GAME.gold += Math.round(eq.sellPrice*0.5);
+      list.splice(idx,1);
+      showToast('已售出');
+      renderCurrentView();
+      queueAutosave();
+    };
+    btnWrap.appendChild(equipBtn); btnWrap.appendChild(sellBtn);
+    card.appendChild(btnWrap);
+    c.appendChild(card);
+  });
+}
+
+function facilityUpgradeCost(key) {
+  return Math.round(150 * Math.pow(1.6, GAME.facilities[key]));
+}
+
+function upgradeFacility(key, cost) {
+  if (GAME.gold < cost) { showToast('金幣不足！'); return; }
+  GAME.gold -= cost;
+  GAME.facilities[key]++;
+  showToast(`設施升級！目前等級 ${GAME.facilities[key]}`);
+  addHistory(`公會將「${({dorm:'宿舍',training:'訓練場',tavern:'酒館',smith:'鐵匠鋪',library:'圖書館'})[key]}」升級至 Lv.${GAME.facilities[key]}。`);
+  renderCurrentView();
+  queueAutosave();
+}
+
+function openEquipTargetPicker(eq, idx) {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>裝備「${escapeHtml(eq.name)}」給誰？</h3>`;
+  activeRoster().forEach(a => {
+    const row = el('button', 'btn-list');
+    const cur = a.equip[eq.slot];
+    row.innerHTML = `${classIcon(a.classKey)} ${escapeHtml(a.name)} <span class="muted">（${classLabel(a.classKey)}，目前裝備：${cur?escapeHtml(cur.name):'無'}）</span>`;
+    row.onclick = () => {
+      const old = a.equip[eq.slot];
+      a.equip[eq.slot] = eq;
+      recalcStats(a);
+      const list = GAME.inventory[eq.slot];
+      const i2 = list.indexOf(eq);
+      if (i2 >= 0) list.splice(i2, 1);
+      if (old) list.push(old);
+      closeOverlay('overlay-modal');
+      showToast(`${a.name} 裝備了 ${eq.name}`);
+      renderCurrentView();
+      queueAutosave();
+    };
+    panel.appendChild(row);
+  });
+  const closeBtn = el('button', 'btn-list close-btn', '取消');
+  closeBtn.onclick = () => closeOverlay('overlay-modal');
+  panel.appendChild(closeBtn);
+  openOverlay('overlay-modal');
+}
+
+// ============================================================
+// 訓練場：技能學習、升級設施、屬性訓練
+// ============================================================
+function renderTraining(c) {
+  c.innerHTML = '';
+  const header = el('div', 'panel');
+  header.innerHTML = `<div class="panel-title">🎯 訓練場 <span class="muted" style="font-weight:400;">等級 ${GAME.facilities.training}</span></div><div class="muted">學習新技能、轉職進階、或進行特訓提升能力</div>`;
+  c.appendChild(header);
+
+  const upgradeCost = facilityUpgradeCost('training');
+  const upPanel = el('div', 'panel');
+  upPanel.innerHTML = `<div class="panel-title">升級訓練場</div><div class="muted">提升後：特訓效果提升、可學習技能上限增加</div>`;
+  const upBtn = el('button', 'action-btn success', `升級至 Lv.${GAME.facilities.training+1}（💰${upgradeCost}）`);
+  upBtn.style.width='100%'; upBtn.style.marginTop='8px'; upBtn.style.padding='11px';
+  upBtn.onclick = () => upgradeFacility('training', upgradeCost);
+  upPanel.appendChild(upBtn);
+  c.appendChild(upPanel);
+
+  c.appendChild(el('div', 'section-label', '選擇要訓練的冒險者'));
+  activeRoster().forEach(a => {
+    const card = el('div', 'panel');
+    card.innerHTML = `<div class="card-row"><div class="adv-portrait">${classIcon(a.classKey)}</div>
+      <div class="adv-info"><div class="adv-name-row"><span class="adv-name">${escapeHtml(a.name)}</span><span class="adv-tag">Lv.${a.level}</span></div>
+      <div class="adv-sub">${classLabel(a.classKey)} ・ 已學技能 ${a.learnedSkills.length}/4</div></div></div>`;
+    const btnRow = el('div', 'grid-2'); btnRow.style.marginTop='8px';
+    const skillBtn = el('button', 'action-btn primary', '學習技能');
+    skillBtn.onclick = () => openSkillLearnPicker(a);
+    const trainBtn = el('button', 'action-btn', `特訓（💰${50+a.level*8}）`);
+    trainBtn.onclick = () => doTraining(a);
+    btnRow.appendChild(skillBtn); btnRow.appendChild(trainBtn);
+    card.appendChild(btnRow);
+
+    if (canPromote(a)) {
+      const promoBtn = el('button', 'action-btn danger', '⭐ 進階轉職！');
+      promoBtn.style.width='100%'; promoBtn.style.marginTop='8px'; promoBtn.style.padding='11px';
+      promoBtn.onclick = () => openPromotionPicker(a);
+      card.appendChild(promoBtn);
+    }
+    c.appendChild(card);
+  });
+}
+
+function doTraining(a) {
+  const cost = 50 + a.level * 8;
+  if (GAME.gold < cost) { showToast('金幣不足！'); return; }
+  GAME.gold -= cost;
+  const statKeys = ['str','vit','agi','int','mag','luk'];
+  const gainCount = 1 + Math.floor(GAME.facilities.training / 3);
+  for (let i=0;i<gainCount;i++) {
+    const k = pick(statKeys);
+    a.baseStat[k] += 1;
+  }
+  recalcStats(a);
+  showToast(`${a.name} 完成特訓，能力提升了！`);
+  renderCurrentView();
+  queueAutosave();
+}
+
+function openSkillLearnPicker(a) {
+  const cls = CLASSES[a.classKey];
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>${escapeHtml(a.name)} — 學習技能</h3>`;
+  const maxSkills = 4 + Math.floor(GAME.facilities.training/2);
+  cls.skills.forEach(skillId => {
+    const sk = SKILLS[skillId];
+    const learned = a.learnedSkills.includes(skillId);
+    const row = el('div', 'skill-option');
+    row.innerHTML = `<div><div class="name">${sk.name}${learned?' ✅':''}</div><div class="desc">${sk.desc}</div></div>`;
+    if (!learned) {
+      const btn = el('button', 'action-btn primary', '學習');
+      btn.style.padding='7px 12px'; btn.style.fontSize='11px';
+      btn.onclick = () => {
+        if (a.learnedSkills.length >= maxSkills) { showToast('已學會技能數已達上限！'); return; }
+        a.learnedSkills.push(skillId);
+        showToast(`${a.name} 學會了「${sk.name}」`);
+        closeOverlay('overlay-modal');
+        renderCurrentView();
+        queueAutosave();
+      };
+      row.appendChild(btn);
+    }
+    panel.appendChild(row);
+  });
+  const closeBtn = el('button', 'btn-list close-btn', '關閉');
+  closeBtn.onclick = () => closeOverlay('overlay-modal');
+  panel.appendChild(closeBtn);
+  openOverlay('overlay-modal');
+}
+
+function openPromotionPicker(a) {
+  const opts = PROMOTIONS[a.classKey];
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>${escapeHtml(a.name)} — 選擇進階職業</h3>`;
+  opts.forEach(key => {
+    const cls = CLASSES[key];
+    const row = el('button', 'btn-list');
+    row.innerHTML = `${classIcon(key)} <b>${cls.name}</b> — ${cls.desc}`;
+    row.onclick = () => {
+      promoteClass(a, key);
+      showToast(`${a.name} 轉職為「${cls.name}」！`);
+      addHistory(`「${a.name}」進階轉職為${cls.name}。`);
+      closeOverlay('overlay-modal');
+      renderCurrentView();
+      queueAutosave();
+    };
+    panel.appendChild(row);
+  });
+  const closeBtn = el('button', 'btn-list close-btn', '取消');
+  closeBtn.onclick = () => closeOverlay('overlay-modal');
+  panel.appendChild(closeBtn);
+  openOverlay('overlay-modal');
+}
+
+// ============================================================
+// 圖書館：世界資訊、設施升級、查閱怪物圖鑑
+// ============================================================
+function renderLibrary(c) {
+  c.innerHTML = '';
+  const header = el('div', 'panel');
+  header.innerHTML = `<div class="panel-title">📚 圖書館 <span class="muted" style="font-weight:400;">等級 ${GAME.facilities.library}</span></div><div class="muted">查閱公會紀錄、世界知識與怪物圖鑑</div>`;
+  c.appendChild(header);
+
+  const upgradeCost = facilityUpgradeCost('library');
+  const upPanel = el('div', 'panel');
+  upPanel.innerHTML = `<div class="panel-title">升級圖書館</div><div class="muted">提升後：經驗獲取量提升、地下城事件種類增加</div>`;
+  const upBtn = el('button', 'action-btn success', `升級至 Lv.${GAME.facilities.library+1}（💰${upgradeCost}）`);
+  upBtn.style.width='100%'; upBtn.style.marginTop='8px'; upBtn.style.padding='11px';
+  upBtn.onclick = () => upgradeFacility('library', upgradeCost);
+  upPanel.appendChild(upBtn);
+  c.appendChild(upPanel);
+
+  const tabs = el('div', 'tab-row');
+  [['bestiary','怪物圖鑑'],['history','公會紀錄']].forEach(([key,label]) => {
+    const t = el('button', 'tab-btn' + (UI.libraryTab===key?' active':''), label);
+    t.onclick = () => { UI.libraryTab = key; renderCurrentView(); };
+    tabs.appendChild(t);
+  });
+  c.appendChild(tabs);
+
+  if (UI.libraryTab === 'bestiary') {
+    Object.keys(MONSTER_FAMILIES).forEach(key => {
+      const fam = MONSTER_FAMILIES[key];
+      const card = el('div', 'card');
+      card.innerHTML = `<div class="flex-between"><b>${fam.name}</b>${fam.boss?'<span class="badge badge-boss">首領</span>':''}</div>
+        <div class="muted">屬性：${ELEM_NAME[fam.elem]} ・ 威脅等級：${fam.tier}</div>`;
+      c.appendChild(card);
+    });
+  } else {
+    if (GAME.history.length === 0) c.appendChild(el('div', 'empty-state', '尚無紀錄'));
+    GAME.history.slice(0, 60).forEach(h => {
+      const card = el('div', 'card');
+      card.innerHTML = `<div class="muted" style="font-size:10.5px;">第${h.day}日</div><div style="font-size:12.5px;">${escapeHtml(h.text)}</div>`;
+      c.appendChild(card);
+    });
+  }
+}
+
+function openOverlay(id) { $('#'+id).classList.add('active'); }
+function closeOverlay(id) { $('#'+id).classList.remove('active'); }
+// ============================================================
+// 主遊戲邏輯 - Part 3: 冒險者管理 / 角色詳情 / 任務看板
+// ============================================================
+
+function renderRosterManage(c) {
+  c.innerHTML = '';
+  const headWrap = el('div', 'view-header');
+  const backBtn = el('button', 'view-back', '←');
+  backBtn.onclick = () => { UI.currentTownView = 'hall'; renderCurrentView(); };
+  headWrap.appendChild(backBtn);
+  headWrap.appendChild(el('div', '', `<div class="view-heading">冒險者管理</div><div class="view-sub">出戰隊伍 ${getParty().length}/4 ・ 共 ${activeRoster().length} 名成員</div>`));
+  c.appendChild(headWrap);
+
+  const partyPanel = el('div', 'panel');
+  partyPanel.innerHTML = `<div class="panel-title">⚔️ 出戰隊伍</div>`;
+  if (getParty().length === 0) partyPanel.appendChild(el('div', 'muted', '尚無成員，請在下方名單中加入隊伍'));
+  getParty().forEach(a => {
+    const row = advRowWithAction(a, '移出隊伍', () => {
+      GAME.partyUids = GAME.partyUids.filter(u => u !== a.uid);
+      a.inParty = false;
+      renderCurrentView(); queueAutosave();
+    });
+    partyPanel.appendChild(row);
+  });
+  c.appendChild(partyPanel);
+
+  const restPanel = el('div', 'panel');
+  restPanel.innerHTML = `<div class="panel-title">🛏️ 待命中的冒險者</div>`;
+  const idle = activeRoster().filter(a => !a.inParty);
+  if (idle.length === 0) restPanel.appendChild(el('div', 'muted', '所有成員都在出戰隊伍中'));
+  idle.forEach(a => {
+    const row = advRowWithAction(a, '加入隊伍', () => {
+      if (GAME.partyUids.length >= 4) { showToast('隊伍已滿4人！'); return; }
+      GAME.partyUids.push(a.uid);
+      a.inParty = true;
+      renderCurrentView(); queueAutosave();
+    }, GAME.partyUids.length >= 4);
+    restPanel.appendChild(row);
+  });
+  c.appendChild(restPanel);
+}
+
+function advRowWithAction(a, btnLabel, onClick, disabled) {
+  const row = el('div', 'adv-card');
+  const hpPct = Math.max(0, Math.round(a.hp/a.maxHp*100));
+  const restLabel = a.isResting ? `<span class="status-badge">休養中(${a.restUntilDay-GAME.day}日)</span>` : '';
+
+  const portrait = el('div', 'adv-portrait', classIcon(a.classKey));
+  const info = el('div', 'adv-info', `
+    <div class="adv-name-row"><span class="adv-name">${escapeHtml(a.name)}</span><span class="adv-tag">Lv.${a.level}</span></div>
+    <div class="adv-sub">${raceLabel(a.race)}・${classLabel(a.classKey)} ${restLabel}</div>
+    <div class="bar-bg"><div class="bar-fill bar-hp" style="width:${hpPct}%"></div></div>
+  `);
+  const openDetail = () => { UI.detailAdvUid = a.uid; UI._returnView = UI.currentTownView; UI.currentTownView='adv_detail'; renderCurrentView(); };
+  portrait.onclick = openDetail;
+  info.onclick = openDetail;
+  row.appendChild(portrait);
+  row.appendChild(info);
+
+  const btnWrap = el('div');
+  const btn = el('button', 'action-btn' + (disabled?'':' primary'), btnLabel);
+  btn.style.padding='8px 10px'; btn.style.fontSize='11px'; btn.style.whiteSpace='nowrap';
+  if (disabled) btn.disabled = true;
+  btn.onclick = (e) => { e.stopPropagation(); onClick(); };
+  btnWrap.appendChild(btn);
+  row.appendChild(btnWrap);
+  return row;
+}
+
+function renderAdvDetail(c) {
+  c.innerHTML = '';
+  const a = getAdv(UI.detailAdvUid);
+  if (!a) { UI.currentTownView = UI._returnView || 'hall'; renderCurrentView(); return; }
+
+  const headWrap = el('div', 'view-header');
+  const backBtn = el('button', 'view-back', '←');
+  backBtn.onclick = () => { UI.currentTownView = UI._returnView || 'hall'; renderCurrentView(); };
+  headWrap.appendChild(backBtn);
+  headWrap.appendChild(el('div', '', `<div class="view-heading">${escapeHtml(a.name)}</div><div class="view-sub">${raceLabel(a.race)}・${classLabel(a.classKey)}・Lv.${a.level}</div>`));
+  c.appendChild(headWrap);
+
+  const talent = getTalent(a), flaw = getFlaw(a);
+  const statPanel = el('div', 'panel');
+  const expNeed = expNeeded(a.level);
+  statPanel.innerHTML = `
+    <div class="panel-title">能力數值</div>
+    <div class="bar-label"><span>HP</span><span>${a.hp}/${a.maxHp}</span></div>
+    <div class="bar-bg"><div class="bar-fill bar-hp" style="width:${Math.round(a.hp/a.maxHp*100)}%"></div></div>
+    <div class="bar-label mt-8"><span>MP</span><span>${a.mp}/${a.maxMp}</span></div>
+    <div class="bar-bg"><div class="bar-fill bar-mp" style="width:${Math.round(a.mp/a.maxMp*100)}%"></div></div>
+    <div class="bar-label mt-8"><span>經驗</span><span>${a.exp}/${expNeed}</span></div>
+    <div class="bar-bg"><div class="bar-fill bar-exp" style="width:${Math.round(a.exp/expNeed*100)}%"></div></div>
+    <div class="divider"></div>
+    <div class="grid-3">
+      <div class="card text-center"><div class="muted">STR</div><div style="font-weight:800;">${a.finalStat.str}</div></div>
+      <div class="card text-center"><div class="muted">VIT</div><div style="font-weight:800;">${a.finalStat.vit}</div></div>
+      <div class="card text-center"><div class="muted">AGI</div><div style="font-weight:800;">${a.finalStat.agi}</div></div>
+      <div class="card text-center"><div class="muted">INT</div><div style="font-weight:800;">${a.finalStat.int}</div></div>
+      <div class="card text-center"><div class="muted">MAG</div><div style="font-weight:800;">${a.finalStat.mag}</div></div>
+      <div class="card text-center"><div class="muted">LUK</div><div style="font-weight:800;">${a.finalStat.luk}</div></div>
+    </div>
+    <div class="divider"></div>
+    <div class="muted">攻擊 ${a.atk} ・ 魔攻 ${a.magAtk} ・ 防禦 ${a.def} ・ 速度 ${a.spd}</div>
+    <div class="muted">命中 ${Math.round(a.acc*100)}% ・ 暴擊 ${Math.round(a.crit*100)}% ・ 閃避 ${Math.round(a.evade*100)}%</div>
+  `;
+  c.appendChild(statPanel);
+
+  const traitPanel = el('div', 'panel');
+  traitPanel.innerHTML = `<div class="panel-title">天賦與特質</div>
+    <div class="card"><b>✨ ${talent.name}</b><div class="muted">${talent.desc}</div></div>
+    <div class="card"><b>⚠ ${flaw.name}</b><div class="muted">${flaw.desc}</div></div>
+    <div class="muted">週薪：💰${a.wage} ・ 公會好感度：${a.affinity}/100</div>
+  `;
+  c.appendChild(traitPanel);
+
+  const equipPanel = el('div', 'panel');
+  equipPanel.innerHTML = `<div class="panel-title">裝備欄</div>`;
+  EQUIP_SLOTS.forEach(slot => {
+    const eq = a.equip[slot];
+    const row = el('div', 'card flex-between');
+    const label = slot==='weapon'?'武器':slot==='armor'?'防具':'飾品';
+    if (eq) {
+      row.innerHTML = `<div><div style="color:${eq.color};font-weight:700;font-size:12.5px;">${escapeHtml(eq.name)}</div><div class="muted">${label}</div></div>`;
+      const unequipBtn = el('button', 'action-btn', '卸下');
+      unequipBtn.style.padding='6px 10px'; unequipBtn.style.fontSize='11px';
+      unequipBtn.onclick = () => {
+        GAME.inventory[slot].push(eq);
+        a.equip[slot] = null;
+        recalcStats(a);
+        renderCurrentView(); queueAutosave();
+      };
+      row.appendChild(unequipBtn);
+    } else {
+      row.innerHTML = `<div class="muted">${label}：未裝備</div>`;
+    }
+    equipPanel.appendChild(row);
+  });
+  c.appendChild(equipPanel);
+
+  const skillPanel = el('div', 'panel');
+  skillPanel.innerHTML = `<div class="panel-title">已學技能</div>`;
+  a.learnedSkills.forEach(sid => {
+    const sk = SKILLS[sid];
+    const row = el('div', 'card');
+    row.innerHTML = `<b>${sk.name}</b><div class="muted">${sk.desc}${sk.cost?` ・ 消耗MP ${sk.cost}`:''}</div>`;
+    skillPanel.appendChild(row);
+  });
+  c.appendChild(skillPanel);
+
+  if (a.hp <= 0 && !a.isResting) {
+    const reviveBtn = el('button', 'action-btn danger', '💰 立即治療（150金幣）');
+    reviveBtn.style.width='100%'; reviveBtn.style.marginBottom='10px'; reviveBtn.style.padding='12px';
+    reviveBtn.onclick = () => {
+      if (GAME.gold < 150) { showToast('金幣不足！'); return; }
+      GAME.gold -= 150; a.hp = a.maxHp; a.mp = a.maxMp;
+      showToast(`${a.name} 已完全治療！`);
+      renderCurrentView(); queueAutosave();
+    };
+    c.appendChild(reviveBtn);
+  }
+
+  const actionRow = el('div', 'grid-2');
+  if (!a.retired) {
+    const retireBtn = el('button', 'action-btn', '🏖️ 退休');
+    retireBtn.onclick = () => confirmRetire(a);
+    actionRow.appendChild(retireBtn);
+  }
+  const dismissBtn = el('button', 'action-btn danger', '解雇');
+  dismissBtn.onclick = () => confirmDismiss(a);
+  actionRow.appendChild(dismissBtn);
+  c.appendChild(actionRow);
+}
+
+function confirmRetire(a) {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>讓 ${escapeHtml(a.name)} 退休？</h3><p class="muted">退休後將進入名人堂，無法再出戰，但會留下永久紀錄。</p>`;
+  const row = el('div', 'modal-btn-row');
+  const yes = el('button', 'action-btn danger', '確定退休');
+  yes.onclick = () => {
+    a.retired = true;
+    a.inParty = false;
+    GAME.partyUids = GAME.partyUids.filter(u => u !== a.uid);
+    GAME.hallOfFame.push({ name:a.name, classKey:a.classKey, level:a.level, race:a.race, type:'retired', day:GAME.day, battlesWon:a.battlesWon||0 });
+    addHistory(`「${a.name}」光榮退休，結束了冒險者生涯。`);
+    closeOverlay('overlay-modal');
+    UI.currentTownView = 'roster';
+    renderCurrentView();
+    queueAutosave();
+  };
+  const no = el('button', 'action-btn', '取消');
+  no.onclick = () => closeOverlay('overlay-modal');
+  row.appendChild(yes); row.appendChild(no);
+  panel.appendChild(row);
+  openOverlay('overlay-modal');
+}
+
+function confirmDismiss(a) {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>解雇 ${escapeHtml(a.name)}？</h3><p class="muted">此操作無法復原，該冒險者將離開公會。</p>`;
+  const row = el('div', 'modal-btn-row');
+  const yes = el('button', 'action-btn danger', '確定解雇');
+  yes.onclick = () => {
+    GAME.roster = GAME.roster.filter(x => x.uid !== a.uid);
+    GAME.partyUids = GAME.partyUids.filter(u => u !== a.uid);
+    closeOverlay('overlay-modal');
+    UI.currentTownView = 'roster';
+    renderCurrentView();
+    queueAutosave();
+  };
+  const no = el('button', 'action-btn', '取消');
+  no.onclick = () => closeOverlay('overlay-modal');
+  row.appendChild(yes); row.appendChild(no);
+  panel.appendChild(row);
+  openOverlay('overlay-modal');
+}
+
+// ============================================================
+// 任務看板
+// ============================================================
+function renderQuests(c) {
+  c.innerHTML = '';
+  const headWrap = el('div', 'view-header');
+  const backBtn = el('button', 'view-back', '←');
+  backBtn.onclick = () => { UI.currentTownView = 'hall'; renderCurrentView(); };
+  headWrap.appendChild(backBtn);
+  headWrap.appendChild(el('div', '', `<div class="view-heading">任務看板</div><div class="view-sub">主線・支線・懸賞任務</div>`));
+  c.appendChild(headWrap);
+
+  [['主線任務', GAME.quests.main], ['支線任務', GAME.quests.side], ['懸賞任務', GAME.quests.bounty]].forEach(([label, list]) => {
+    const panel = el('div', 'panel');
+    panel.innerHTML = `<div class="panel-title">${label}</div>`;
+    if (list.length === 0) panel.appendChild(el('div', 'muted', '目前沒有任務'));
+    list.forEach(q => {
+      const card = el('div', 'card');
+      const pct = q.target.value ? Math.min(100, Math.round((q.progress||(q.done?q.target.value:0))/q.target.value*100)) : (q.done?100:0);
+      card.innerHTML = `
+        <div class="flex-between"><b style="font-size:13px;">${q.title}</b>${q.done?(q.claimed?'<span class="badge" style="background:#999;color:#fff;">已領取</span>':'<span class="badge badge-rank">可領取</span>'):''}</div>
+        <div class="muted" style="margin:3px 0;">${q.desc}</div>
+        <div class="bar-bg"><div class="bar-fill bar-exp" style="width:${pct}%"></div></div>
+        <div class="muted" style="margin-top:4px;">獎勵：💰${q.reward.gold} 📜${q.reward.rep}</div>
+      `;
+      if (q.done && !q.claimed) {
+        const claimBtn = el('button', 'action-btn primary', '領取獎勵');
+        claimBtn.style.width='100%'; claimBtn.style.marginTop='6px'; claimBtn.style.padding='9px';
+        claimBtn.onclick = () => { claimQuestReward(q); renderCurrentView(); };
+        card.appendChild(claimBtn);
+      }
+      panel.appendChild(card);
+    });
+    c.appendChild(panel);
+  });
+
+  if (GAME.quests.side.filter(q=>!q.claimed).length < 2) {
+    const refreshBtn = el('button', 'btn-list', '🔄 委託公會接洽新的支線任務');
+    refreshBtn.style.textAlign='center';
+    refreshBtn.onclick = () => { generateSideQuests(); renderCurrentView(); queueAutosave(); };
+    c.appendChild(refreshBtn);
+  }
+}
+// ============================================================
+// 主遊戲邏輯 - Part 4: 地下城選擇 / 探索 / Canvas地圖
+// ============================================================
+
+function renderDungeonSelect(c) {
+  c.innerHTML = '';
+  const headWrap = el('div', 'view-header');
+  const backBtn = el('button', 'view-back', '←');
+  backBtn.onclick = () => { UI.currentTownView = 'hall'; renderCurrentView(); };
+  headWrap.appendChild(backBtn);
+  headWrap.appendChild(el('div', '', `<div class="view-heading">無盡迷宮入口</div><div class="view-sub">選擇出戰隊伍與探索目標</div>`));
+  c.appendChild(headWrap);
+
+  const partyPanel = el('div', 'panel');
+  partyPanel.innerHTML = `<div class="panel-title">出戰隊伍</div>`;
+  const party = getParty();
+  party.forEach(a => partyPanel.appendChild(advCardMiniReadOnly(a)));
+  c.appendChild(partyPanel);
+
+  const hasDowned = party.some(a => a.hp <= 0);
+  if (hasDowned) {
+    const warn = el('div', 'panel'); warn.style.borderColor='var(--seal-red)';
+    warn.innerHTML = `<div class="muted">⚠ 隊伍中有成員已倒下，建議先回宿舍治療。</div>`;
+    c.appendChild(warn);
+  }
+
+  const rankPanel = el('div', 'panel');
+  rankPanel.innerHTML = `<div class="panel-title">迷宮難度</div><div class="muted">公會難度等級 Rank ${GAME.dungeon.currentRank} ・ 最深抵達第${GAME.dungeon.deepestFloor}層</div>`;
+  c.appendChild(rankPanel);
+
+  const startBtn = el('button', 'btn-main', '🗝️ 進入迷宮');
+  startBtn.style.width='100%';
+  startBtn.onclick = () => {
+    if (party.length === 0) { showToast('隊伍為空！'); return; }
+    startDungeonRun();
+  };
+  c.appendChild(startBtn);
+
+  const note = el('div', 'panel');
+  note.innerHTML = `<div class="muted">💡 迷宮每次進入都會重新生成房間配置、怪物與寶箱。深入越深層，挑戰與獎勵越豐厚。中途可隨時撤退返回城鎮（撤退保留已獲得的戰利品）。</div>`;
+  c.appendChild(note);
+}
+
+function advCardMiniReadOnly(a) {
+  const card = el('div', 'adv-card');
+  const hpPct = Math.max(0, Math.round(a.hp/a.maxHp*100));
+  card.innerHTML = `
+    <div class="adv-portrait">${classIcon(a.classKey)}</div>
+    <div class="adv-info">
+      <div class="adv-name-row"><span class="adv-name">${escapeHtml(a.name)}</span><span class="adv-tag">Lv.${a.level}</span></div>
+      <div class="bar-bg"><div class="bar-fill bar-hp" style="width:${hpPct}%"></div></div>
+    </div>`;
+  return card;
+}
+
+function startDungeonRun() {
+  const floor1 = generateDungeonFloor(1, GAME.dungeon.currentRank);
+  GAME.dungeon.activeRun = {
+    floor: 1,
+    floorData: floor1,
+    runLoot: { gold: 0, exp: 0, items: [] },
+    runStats: { kills:0, chests:0, eventsTriggered:0 },
+    startDay: GAME.day,
+  };
+  UI.currentTownView = 'dungeon_explore';
+  renderCurrentView();
+}
+
+const TILE = 40;
+
+function renderDungeonExplore(c) {
+  c.innerHTML = '';
+  const run = GAME.dungeon.activeRun;
+  if (!run) { UI.currentTownView = 'hall'; renderCurrentView(); return; }
+  const fd = run.floorData;
+
+  const wrap = el('div', '');
+  wrap.id = 'dungeon-view';
+
+  const statusBar = el('div', 'dungeon-status-bar');
+  statusBar.innerHTML = `
+    <span class="dungeon-pill">🗝️ 第${run.floor}層</span>
+    <span class="dungeon-pill">💰 +${run.runLoot.gold}</span>
+    <span class="dungeon-pill">⚔️ 擊殺 ${run.runStats.kills}</span>
+    ${fd.isBossFloor ? '<span class="dungeon-pill" style="background:var(--seal-red);">首領樓層</span>' : (fd.isEliteFloor?'<span class="dungeon-pill" style="background:var(--seal-red);">精英樓層</span>':'')}
+  `;
+  wrap.appendChild(statusBar);
+
+  const canvasWrap = el('div', '');
+  canvasWrap.id = 'dungeon-canvas-wrap';
+  const canvas = el('canvas');
+  canvas.id = 'dungeon-canvas';
+  canvasWrap.appendChild(canvas);
+  wrap.appendChild(canvasWrap);
+
+  const partyStrip = el('div', 'party-strip');
+  getParty().forEach(a => {
+    const mini = el('div', 'party-mini');
+    const hpPct = Math.max(0, Math.round(a.hp/a.maxHp*100));
+    mini.innerHTML = `<div class="party-mini-name">${escapeHtml(a.name)}</div><div class="bar-bg"><div class="bar-fill bar-hp" style="width:${hpPct}%"></div></div>`;
+    partyStrip.appendChild(mini);
+  });
+  wrap.appendChild(partyStrip);
+
+  const dpadWrap = el('div', 'dpad-wrap');
+  const grid = el('div', 'dpad-grid');
+  const mkBtn = (label, dx, dy) => {
+    const b = el('button', 'dpad-btn', label);
+    b.onclick = () => moveInDungeon(dx, dy);
+    return b;
+  };
+  grid.appendChild(el('div','dpad-btn empty'));
+  grid.appendChild(mkBtn('▲',0,-1));
+  grid.appendChild(el('div','dpad-btn empty'));
+  grid.appendChild(mkBtn('◀',-1,0));
+  const centerBtn = el('button','dpad-center','撤退');
+  centerBtn.onclick = () => confirmRetreatDungeon();
+  grid.appendChild(centerBtn);
+  grid.appendChild(mkBtn('▶',1,0));
+  grid.appendChild(el('div','dpad-btn empty'));
+  grid.appendChild(mkBtn('▼',0,1));
+  grid.appendChild(el('div','dpad-btn empty'));
+  dpadWrap.appendChild(grid);
+  wrap.appendChild(dpadWrap);
+
+  const legend = el('div', 'muted text-center');
+  legend.style.marginBottom = '10px';
+  legend.innerHTML = '🟫已探索 🟨未知 🟥怪物 📦寶箱 ⚠️陷阱 ❓事件 👤NPC 🚪出口 ⭐你';
+  wrap.appendChild(legend);
+
+  c.appendChild(wrap);
+  drawDungeonCanvas(canvas, fd);
+}
+
+function drawDungeonCanvas(canvas, fd) {
+  const dpr = window.devicePixelRatio || 1;
+  const wrapRect = canvas.parentElement.getBoundingClientRect();
+  const sizePx = Math.min(wrapRect.width, wrapRect.height);
+  canvas.width = sizePx * dpr;
+  canvas.height = sizePx * dpr;
+  canvas.style.width = sizePx + 'px';
+  canvas.style.height = sizePx + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const cell = sizePx / fd.size;
+
+  ctx.fillStyle = '#1b120c';
+  ctx.fillRect(0, 0, sizePx, sizePx);
+
+  for (let y = 0; y < fd.size; y++) {
+    for (let x = 0; x < fd.size; x++) {
+      const room = fd.grid[y][x];
+      const px = x * cell, py = y * cell;
+      if (!room) continue; // 不存在的房間：保持黑暗
+
+      const isHiddenUndiscovered = room.type === 'hidden' && !room.discovered;
+      const known = room.visited || isAdjacentVisited(fd, x, y);
+
+      if (!known) {
+        ctx.fillStyle = '#241910';
+        ctx.fillRect(px+1, py+1, cell-2, cell-2);
+        continue;
+      }
+
+      ctx.fillStyle = room.visited ? '#a98f63' : '#cdb585';
+      ctx.fillRect(px+1, py+1, cell-2, cell-2);
+      ctx.strokeStyle = '#5C3A26';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(px+1, py+1, cell-2, cell-2);
+
+      if (room.visited && room.type !== 'empty') {
+        let icon = '';
+        if (room.type === 'exit') icon = '🚪'; // 出口永遠顯示，提示可重複進入下樓
+        else if (room.cleared) icon = '·';
+        else if (isHiddenUndiscovered) icon = '';
+        else {
+          icon = {
+            monster:'🟥', elite:'🟥', treasure:'📦', trap:'⚠️', event:'❓',
+            npc:'👤', exit:'🚪', boss:'💀', start:'', hidden:'🔍',
+          }[room.type] || '';
+        }
+        if (icon) {
+          ctx.font = (cell*0.5)+'px sans-serif';
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText(icon, px+cell/2, py+cell/2+1);
+        }
+      } else if (!room.visited && known) {
+        ctx.font = (cell*0.4)+'px sans-serif';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle='rgba(43,29,20,0.4)';
+        ctx.fillText('?', px+cell/2, py+cell/2+1);
+      }
+    }
+  }
+
+  // 玩家位置
+  const px = fd.playerX * cell, py = fd.playerY * cell;
+  ctx.font = (cell*0.55)+'px sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('⭐', px+cell/2, py+cell/2+1);
+}
+
+function isAdjacentVisited(fd, x, y) {
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  for (const [dx,dy] of dirs) {
+    const nx=x+dx, ny=y+dy;
+    if (nx<0||ny<0||nx>=fd.size||ny>=fd.size) continue;
+    const r = fd.grid[ny][nx];
+    if (r && r.visited) return true;
+  }
+  return false;
+}
+
+function moveInDungeon(dx, dy) {
+  const run = GAME.dungeon.activeRun;
+  if (!run) return;
+  const fd = run.floorData;
+  const nx = fd.playerX + dx, ny = fd.playerY + dy;
+  if (nx < 0 || ny < 0 || nx >= fd.size || ny >= fd.size) return;
+  const target = fd.grid[ny][nx];
+  if (!target) { showToast('那裡是堵牆，無法通行'); return; }
+
+  fd.playerX = nx; fd.playerY = ny;
+  const firstVisit = !target.visited;
+  target.visited = true;
+
+  if (firstVisit) {
+    enterRoom(target, fd, run);
+  } else if (target.type === 'exit' && !target.bossDefeatPending) {
+    // 出口房間允許重複進入，讓玩家可以先探索完本層其他房間再決定何時下樓
+    showFloorClearModal(fd, run);
+  } else {
+    renderCurrentView();
+  }
+}
+
+function enterRoom(room, fd, run) {
+  switch (room.type) {
+    case 'start': case 'empty':
+      renderCurrentView();
+      break;
+    case 'hidden':
+      const perceptRoll = Math.random() < 0.7 + (GAME.facilities.library*0.03);
+      room.discovered = true;
+      if (perceptRoll) {
+        showToast('🔍 你發現了一間隱藏房間！');
+        room.type = pick(['treasure','event','npc']);
+        room.type = room.type === 'treasure' ? 'treasure' : room.type;
+        // 隱藏房間給予較好獎勵機率
+        enterRoomReveal(room, fd, run, true);
+      } else {
+        showToast('這裡似乎隱藏著什麼，但你沒有發現任何東西……');
+        room.cleared = true;
+        renderCurrentView();
+      }
+      break;
+    case 'monster': case 'elite':
+      triggerMonsterRoom(room, fd, run);
+      break;
+    case 'boss':
+      triggerBossRoom(room, fd, run);
+      break;
+    case 'treasure':
+      triggerTreasureRoom(room, fd, run);
+      break;
+    case 'trap':
+      triggerTrapRoom(room, fd, run);
+      break;
+    case 'event':
+      triggerEventRoom(room, fd, run);
+      break;
+    case 'npc':
+      triggerNPCRoom(room, fd, run);
+      break;
+    case 'exit':
+      triggerExitRoom(room, fd, run);
+      break;
+    default:
+      renderCurrentView();
+  }
+}
+
+function enterRoomReveal(room, fd, run, isHiddenBonus) {
+  if (room.type === 'treasure') triggerTreasureRoom(room, fd, run, isHiddenBonus);
+  else if (room.type === 'event') triggerEventRoom(room, fd, run, isHiddenBonus);
+  else if (room.type === 'npc') triggerNPCRoom(room, fd, run, isHiddenBonus);
+  else renderCurrentView();
+}
+
+function triggerMonsterRoom(room, fd, run) {
+  const monsters = generateMonsterGroup(fd.dungeonRank || GAME.dungeon.currentRank, room.type);
+  enterBattle(monsters, { room, fd, run, source: room.type });
+}
+
+function triggerBossRoom(room, fd, run) {
+  const boss = generateMonster((fd.dungeonRank||GAME.dungeon.currentRank) + 1, { bossOnly:true });
+  const adds = chance(0.4) ? generateMonsterGroup(fd.dungeonRank||GAME.dungeon.currentRank, 'monster').slice(0,1) : [];
+  enterBattle([boss, ...adds], { room, fd, run, source:'boss' });
+}
+
+function triggerTreasureRoom(room, fd, run, bonus) {
+  room.cleared = true;
+  const tier = fd.dungeonRank || GAME.dungeon.currentRank;
+  const roll = Math.random();
+  const lines = [];
+  let goldGain = rand(20, 50) * tier * (bonus?1.6:1);
+  GAME.gold += Math.round(goldGain);
+  run.runLoot.gold += Math.round(goldGain);
+  lines.push(`💰 獲得 ${Math.round(goldGain)} 金幣`);
+
+  const dropChance = bonus ? 0.9 : 0.55;
+  if (chance(dropChance)) {
+    const slot = pick(EQUIP_SLOTS);
+    const eq = generateEquipment(slot, tier + (bonus?1:0));
+    GAME.inventory[slot].push(eq);
+    run.runLoot.items.push(eq.name);
+    lines.push(`✨ 獲得裝備：${eq.name}（${eq.rarityName}）`);
+  }
+  run.runStats.chests++;
+  updateQuestProgress('chest_open', { amount: 1 });
+  showRoomResultModal(bonus ? '🎁 隱藏寶藏' : '📦 寶箱', lines, () => renderCurrentView());
+}
+
+function triggerTrapRoom(room, fd, run) {
+  room.cleared = true;
+  const party = getParty().filter(a => a.hp > 0);
+  const lines = [];
+  if (party.length === 0) { renderCurrentView(); return; }
+  const trapType = pick(['damage','poison','gold_loss','nothing']);
+  if (trapType === 'damage') {
+    const victim = pick(party);
+    const dmg = Math.round(victim.maxHp * randf(0.1, 0.22));
+    victim.hp = Math.max(1, victim.hp - dmg);
+    lines.push(`⚠️ 陷阱發動！${victim.name} 受到 ${dmg} 點傷害`);
+  } else if (trapType === 'poison') {
+    const victim = pick(party);
+    lines.push(`☠️ 毒氣陷阱！${victim.name} 中毒了（返回城鎮前持續扣血）`);
+    victim.hp = Math.max(1, victim.hp - Math.round(victim.maxHp*0.08));
+  } else if (trapType === 'gold_loss') {
+    const loss = Math.min(GAME.gold, rand(10,40));
+    GAME.gold -= loss;
+    lines.push(`💸 陷阱觸發了警報，loss了 ${loss} 金幣的隨身財物`);
+  } else {
+    lines.push('🍃 看起來像陷阱，但什麼也沒發生……');
+  }
+  showRoomResultModal('⚠️ 陷阱', lines, () => renderCurrentView());
+}
+
+function triggerEventRoom(room, fd, run, bonus) {
+  room.cleared = true;
+  const ev = rollRandomEvent();
+  run.runStats.eventsTriggered++;
+  resolveRandomEvent(ev, fd, run, bonus);
+}
+
+function triggerNPCRoom(room, fd, run, bonus) {
+  room.cleared = true;
+  const npc = rollNPCEncounter();
+  resolveNPCEncounter(npc, fd, run, bonus);
+}
+
+function triggerExitRoom(room, fd, run) {
+  room.cleared = true;
+  showFloorClearModal(fd, run);
+}
+
+function showRoomResultModal(title, lines, onClose) {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>${title}</h3>` + lines.map(l => `<div class="card">${l}</div>`).join('');
+  const btn = el('button', 'action-btn primary', '繼續探索');
+  btn.style.width='100%'; btn.style.marginTop='8px'; btn.style.padding='12px';
+  btn.onclick = () => { closeOverlay('overlay-modal'); onClose && onClose(); queueAutosave(); };
+  panel.appendChild(btn);
+  $('#overlay-modal').classList.add('center-modal');
+  openOverlay('overlay-modal');
+}
+
+function showFloorClearModal(fd, run) {
+  const panel = $('#modal-panel');
+  updateQuestProgress('floor', { value: run.floor });
+  panel.innerHTML = `<h3>🚪 下行階梯</h3><p class="muted">通往第${run.floor+1}層的階梯就在眼前。要繼續深入，或先把本層探索完？</p>`;
+  const row = el('div', 'modal-btn-row'); row.style.flexDirection = 'column';
+  const goBtn = el('button', 'action-btn primary', '⬇️ 繼續深入下一層');
+  goBtn.onclick = () => {
+    closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal');
+    run.floor++;
+    run.floorData = generateDungeonFloor(run.floor, GAME.dungeon.currentRank);
+    if (run.floor > GAME.dungeon.deepestFloor) GAME.dungeon.deepestFloor = run.floor;
+    if (run.floor > GAME.dungeon.infiniteBest) GAME.dungeon.infiniteBest = run.floor;
+    renderCurrentView();
+    queueAutosave();
+  };
+  const stayBtn = el('button', 'action-btn', '🔍 先探索本層其他房間');
+  stayBtn.onclick = () => {
+    closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal');
+    showToast('階梯已標記，隨時可以回來下樓');
+    renderCurrentView();
+  };
+  const leaveBtn = el('button', 'action-btn danger', '🏠 返回城鎮');
+  leaveBtn.onclick = () => { closeOverlay('overlay-modal'); finishDungeonRun(true); };
+  row.appendChild(goBtn); row.appendChild(stayBtn); row.appendChild(leaveBtn);
+  panel.appendChild(row);
+  $('#overlay-modal').classList.add('center-modal');
+  openOverlay('overlay-modal');
+}
+
+function confirmRetreatDungeon() {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>撤退回城鎮？</h3><p class="muted">已獲得的戰利品將會保留，但會失去本次探索的進度。</p>`;
+  const row = el('div', 'modal-btn-row');
+  const yes = el('button', 'action-btn danger', '確定撤退');
+  yes.onclick = () => { closeOverlay('overlay-modal'); finishDungeonRun(true); };
+  const no = el('button', 'action-btn', '繼續探索');
+  no.onclick = () => closeOverlay('overlay-modal');
+  row.appendChild(yes); row.appendChild(no);
+  panel.appendChild(row);
+  $('#overlay-modal').classList.add('center-modal');
+  openOverlay('overlay-modal');
+}
+
+function finishDungeonRun(success) {
+  const run = GAME.dungeon.activeRun;
+  if (run) {
+    GAME.statsTotal.dungeonsCleared++;
+    addHistory(`公會隊伍探索無盡迷宮抵達第${run.floor}層，帶回 ${run.runLoot.gold} 金幣的戰利品。`);
+    if (run.floor > GAME.dungeon.deepestFloor) GAME.dungeon.deepestFloor = run.floor;
+  }
+  GAME.dungeon.activeRun = null;
+  // 公會難度提升判定：依累計最深抵達樓層計算，避免單次探索失敗導致進度停滯
+  while (GAME.dungeon.deepestFloor >= GAME.dungeon.currentRank * 4) {
+    GAME.dungeon.currentRank++;
+    showToast(`🔺 公會難度提升！目前 Rank ${GAME.dungeon.currentRank}`);
+    addHistory(`公會的迷宮探索難度提升至 Rank ${GAME.dungeon.currentRank}。`);
+  }
+  $('#overlay-modal').classList.remove('center-modal');
+  UI.currentTownView = 'hall';
+  renderCurrentView();
+  queueAutosave();
+}
+// ============================================================
+// 主遊戲邏輯 - Part 5: 隨機事件 / NPC遭遇 解析
+// ============================================================
+
+function resolveRandomEvent(ev, fd, run, bonus) {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>❓ ${ev.name}</h3><p class="muted">${ev.desc}</p>`;
+  const row = el('div', 'modal-btn-row'); row.style.flexDirection='column';
+
+  const closeAndContinue = () => { closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal'); renderCurrentView(); queueAutosave(); };
+
+  if (ev.type === 'merchant') {
+    panel.appendChild(el('div', 'card', '一位神秘商人願意以較低價格賣給你稀有裝備。'));
+    const tier = (fd.dungeonRank||GAME.dungeon.currentRank) + 1;
+    const eq = generateEquipment(pick(EQUIP_SLOTS), tier);
+    const price = Math.round(eq.sellPrice * 1.1);
+    const buyBtn = el('button', 'action-btn primary', `購買「${eq.name}」（💰${price}）`);
+    buyBtn.onclick = () => {
+      if (GAME.gold < price) { showToast('金幣不足！'); return; }
+      GAME.gold -= price; GAME.inventory[eq.slot].push(eq);
+      showToast('交易成功！'); closeAndContinue();
+    };
+    const skipBtn = el('button', 'action-btn', '不需要，離開');
+    skipBtn.onclick = closeAndContinue;
+    panel.appendChild(buyBtn); panel.appendChild(skipBtn);
+
+  } else if (ev.type === 'gamble_blessing') {
+    panel.appendChild(el('div', 'card', '高風險高報酬：獻上祈禱可能獲得強力祝福，但也可能招致詛咒。'));
+    const prayBtn = el('button', 'action-btn danger', '🙏 獻上祈禱（風險）');
+    prayBtn.onclick = () => {
+      const party = getParty().filter(a=>a.hp>0);
+      if (chance(0.55)) {
+        const target = pick(party.length?party:getParty());
+        if (target) { gainExp(target, Math.round(target.maxHp*2)); recalcStats(target); target.hp=target.maxHp; }
+        showToast('✨ 神壇賜予了祝福！');
+        addHistory('一座古老神壇賜予冒險者祝福之力。');
+      } else {
+        const target = pick(party.length?party:getParty());
+        if (target) target.hp = Math.max(1, Math.round(target.hp*0.5));
+        showToast('💀 詛咒降臨！隊伍受到了傷害……');
+      }
+      closeAndContinue();
+    };
+    const skipBtn = el('button', 'action-btn', '保持距離，離開');
+    skipBtn.onclick = closeAndContinue;
+    panel.appendChild(prayBtn); panel.appendChild(skipBtn);
+
+  } else if (ev.type === 'rescue') {
+    panel.appendChild(el('div', 'card', '救助旅人可能獲得感謝的報酬，也可能只是浪費時間……或是陷阱。'));
+    const helpBtn = el('button', 'action-btn success', '救助旅人');
+    helpBtn.onclick = () => {
+      if (chance(0.7)) {
+        const gold = rand(40,100);
+        GAME.gold += gold; run.runLoot.gold += gold;
+        showToast(`旅人感激地給了你 ${gold} 金幣！`);
+        if (chance(0.25)) {
+          const adv = generateAdventurer(Math.max(1,GAME.dungeon.currentRank-1));
+          GAME.roster.push(adv);
+          showToast(`🎉 旅人決定加入你的公會：${adv.name}！`);
+          addHistory(`獲救的旅人「${adv.name}」加入了公會。`);
+        }
+      } else {
+        const party = getParty().filter(a=>a.hp>0);
+        const target = pick(party.length?party:getParty());
+        if (target) { generateMonsterGroup; triggerMonsterRoom({type:'monster'}, fd, run); closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal'); return; }
+      }
+      closeAndContinue();
+    };
+    const ignoreBtn = el('button', 'action-btn', '不予理會');
+    ignoreBtn.onclick = closeAndContinue;
+    panel.appendChild(helpBtn); panel.appendChild(ignoreBtn);
+
+  } else if (ev.type === 'map_fragment') {
+    GAME.gold += 0;
+    panel.appendChild(el('div', 'card', '拾起藏寶圖殘片，下一個寶箱房間的獎勵將會提升！'));
+    fd.treasureBoost = true;
+    const okBtn = el('button', 'action-btn primary', '收下');
+    okBtn.onclick = closeAndContinue;
+    panel.appendChild(okBtn);
+
+  } else if (ev.type === 'high_risk_fight') {
+    panel.appendChild(el('div', 'card', '繞過巢穴安全離開，或主動攻擊換取豐厚戰利品？'));
+    const fightBtn = el('button', 'action-btn danger', '⚔️ 主動攻擊（高風險）');
+    fightBtn.onclick = () => {
+      closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal');
+      const tier = (fd.dungeonRank||GAME.dungeon.currentRank) + 1;
+      const monsters = generateMonsterGroup(tier, 'elite');
+      enterBattle(monsters, { room:{type:'event_fight'}, fd, run, source:'high_risk', bonusReward:true });
+    };
+    const avoidBtn = el('button', 'action-btn', '謹慎繞過');
+    avoidBtn.onclick = closeAndContinue;
+    panel.appendChild(fightBtn); panel.appendChild(avoidBtn);
+
+  } else if (ev.type === 'vault') {
+    panel.appendChild(el('div', 'card', '開門可能釋出強大的守護者，也可能藏有傳奇寶物。'));
+    const openBtn = el('button', 'action-btn danger', '開啟之門（高風險高報酬）');
+    openBtn.onclick = () => {
+      if (chance(0.5)) {
+        closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal');
+        const tier = (fd.dungeonRank||GAME.dungeon.currentRank) + 2;
+        const guardian = generateMonster(tier, { elite:true });
+        guardian.name = '【門之守護者】' + guardian.name;
+        enterBattle([guardian], { room:{type:'vault_guard'}, fd, run, source:'vault', bonusReward:true, legendaryDrop:true });
+      } else {
+        const tier = (fd.dungeonRank||GAME.dungeon.currentRank) + 2;
+        const eq = generateEquipment(pick(EQUIP_SLOTS), tier);
+        eq.rarity='legend'; eq.rarityName='傳奇'; eq.color=RARITIES[4].color;
+        GAME.inventory[eq.slot].push(eq);
+        showToast(`🏆 門內藏有寶物：${eq.name}！`);
+        closeAndContinue();
+      }
+    };
+    const leaveBtn = el('button', 'action-btn', '不敢冒險，離開');
+    leaveBtn.onclick = closeAndContinue;
+    panel.appendChild(openBtn); panel.appendChild(leaveBtn);
+
+  } else if (ev.type === 'loot_or_curse') {
+    panel.appendChild(el('div', 'card', '前人遺留的裝備散發著微妙的氣息……要帶走嗎？'));
+    const tier = fd.dungeonRank||GAME.dungeon.currentRank;
+    const takeBtn = el('button', 'action-btn', '帶走裝備');
+    takeBtn.onclick = () => {
+      if (chance(0.65)) {
+        const eq = generateEquipment(pick(EQUIP_SLOTS), tier);
+        GAME.inventory[eq.slot].push(eq);
+        showToast(`獲得了 ${eq.name}`);
+      } else {
+        const party = getParty().filter(a=>a.hp>0);
+        const target = pick(party.length?party:getParty());
+        if (target) { target.hp = Math.max(1, target.hp - Math.round(target.maxHp*0.15)); }
+        showToast('💀 裝備帶有詛咒！隊伍受到傷害');
+      }
+      closeAndContinue();
+    };
+    const leaveBtn = el('button', 'action-btn', '不予理會');
+    leaveBtn.onclick = closeAndContinue;
+    panel.appendChild(takeBtn); panel.appendChild(leaveBtn);
+
+  } else if (ev.type === 'exp_bonus') {
+    panel.appendChild(el('div', 'card', '聆聽石像的吟唱，全隊獲得額外經驗值！'));
+    const okBtn = el('button', 'action-btn success', '聆聽旋律');
+    okBtn.onclick = () => {
+      getParty().filter(a=>a.hp>0).forEach(a => { const lv=gainExp(a, 30 + (fd.dungeonRank||1)*10); if(lv) showToast(`${a.name} 升級了！`); });
+      closeAndContinue();
+    };
+    panel.appendChild(okBtn);
+  } else {
+    const okBtn = el('button', 'action-btn primary', '繼續');
+    okBtn.onclick = closeAndContinue;
+    panel.appendChild(okBtn);
+  }
+
+  $('#overlay-modal').classList.add('center-modal');
+  openOverlay('overlay-modal');
+}
+
+function resolveNPCEncounter(npc, fd, run, bonus) {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>👤 ${npc.name}</h3><p class="muted">${npc.desc}</p>`;
+  const closeAndContinue = () => { closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal'); renderCurrentView(); queueAutosave(); };
+
+  if (npc.type === 'mentor') {
+    panel.appendChild(el('div','card','隱居的英雄願意指導一名隊員，使其獲得大量經驗值。'));
+    const party = getParty().filter(a=>a.hp>0);
+    party.forEach(a => {
+      const btn = el('button', 'action-btn primary', `指導 ${a.name}`);
+      btn.onclick = () => { const lv = gainExp(a, 80 + (fd.dungeonRank||1)*20); recalcStats(a); showToast(`${a.name} 獲得了大量經驗！${lv?'並升級了！':''}`); closeAndContinue(); };
+      panel.appendChild(btn);
+    });
+    const skip = el('button','action-btn','離開'); skip.onclick = closeAndContinue;
+    panel.appendChild(skip);
+  } else if (npc.type === 'rescue_child') {
+    panel.appendChild(el('div','card','帶這個孩子回城鎮安全的地方，公會聲望將會提升。'));
+    const btn = el('button', 'action-btn success', '帶孩子回城鎮');
+    btn.onclick = () => { GAME.reputation += 15; showToast('📜 公會聲望 +15'); addHistory('冒險者隊伍救助了一名迷路的孩子，公會聲望提升。'); closeAndContinue(); };
+    const skip = el('button','action-btn','留下孩子'); skip.onclick = closeAndContinue;
+    panel.appendChild(btn); panel.appendChild(skip);
+  } else if (npc.type === 'rival_duel') {
+    panel.appendChild(el('div','card','敵對冒險者下達了挑戰，戰勝可獲得獎金與聲望。'));
+    const btn = el('button', 'action-btn danger', '接受挑戰');
+    btn.onclick = () => {
+      closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal');
+      const tier = fd.dungeonRank||GAME.dungeon.currentRank;
+      const rival = generateMonster(tier, { elite:true });
+      rival.name = '敵對冒險者・' + pick(['雷克斯','薇拉','卡爾頓']);
+      rival.tags = rival.tags.filter(t=>t!=='elite');
+      enterBattle([rival], { room:{type:'rival'}, fd, run, source:'rival', bonusReward:true });
+    };
+    const skip = el('button','action-btn','拒絕挑戰'); skip.onclick = closeAndContinue;
+    panel.appendChild(btn); panel.appendChild(skip);
+  } else if (npc.type === 'trade_knowledge') {
+    panel.appendChild(el('div','card','隱士願意用稀有知識交換金幣，提供一次免費的特訓機會。'));
+    const cost = 60;
+    const btn = el('button', 'action-btn primary', `交換知識（💰${cost}）`);
+    btn.onclick = () => {
+      if (GAME.gold < cost) { showToast('金幣不足！'); return; }
+      GAME.gold -= cost;
+      const a = pick(getParty());
+      if (a) { a.baseStat[pick(['str','vit','agi','int','mag','luk'])] += 2; recalcStats(a); }
+      showToast(`${a?a.name:'隊員'} 領悟了隱士的知識，能力提升！`);
+      closeAndContinue();
+    };
+    const skip = el('button','action-btn','離開'); skip.onclick = closeAndContinue;
+    panel.appendChild(btn); panel.appendChild(skip);
+  } else {
+    const okBtn = el('button', 'action-btn primary', '繼續'); okBtn.onclick = closeAndContinue;
+    panel.appendChild(okBtn);
+  }
+
+  $('#overlay-modal').classList.add('center-modal');
+  openOverlay('overlay-modal');
+}
+// ============================================================
+// 主遊戲邏輯 - Part 6: 戰鬥系統 UI
+// ============================================================
+
+let _battleTokenCounter = 0;
+
+function enterBattle(monsters, context) {
+  const party = getParty().filter(a => a.hp > 0);
+  UI.battleState = createBattleState(party, monsters, context);
+  UI.battleState._token = ++_battleTokenCounter;
+  UI.battleActorUid = null;
+  UI.battlePlaying = false;
+  resetBattleAnim();
+  UI.currentTownView = 'battle';
+  renderCurrentView();
+}
+
+function renderBattle(c) {
+  c.innerHTML = '';
+  const bs = UI.battleState;
+  if (!bs) { UI.currentTownView = 'hall'; renderCurrentView(); return; }
+
+  const wrap = el('div', ''); wrap.id = 'battle-view';
+
+  const canvasWrap = el('div', ''); canvasWrap.id = 'battle-canvas-wrap';
+  const canvas = el('canvas'); canvas.id = 'battle-canvas';
+  canvasWrap.appendChild(canvas);
+  wrap.appendChild(canvasWrap);
+
+  const log = el('div', ''); log.id = 'battle-log';
+  wrap.appendChild(log);
+
+  const unitList = el('div', ''); unitList.id = 'battle-party-list';
+  bs.party.forEach(p => {
+    const card = el('div', 'battle-unit-card' + (p.battleHp<=0?' dead':'') + (UI.battleActorUid===p.uid?' acting':''));
+    const hpPct = Math.max(0, Math.round(p.battleHp/p.maxHp*100));
+    const mpPct = Math.max(0, Math.round(p.battleMp/p.maxMp*100));
+    const statusStr = p.statusFx.map(s=>STATUS_NAME[s.id]).join(' ');
+    card.innerHTML = `
+      <div class="battle-unit-icon">${classIcon(p.classKey)}</div>
+      <div class="battle-unit-bars">
+        <div class="battle-unit-name"><span>${escapeHtml(p.name)}${p.battleHp<=0?'（倒下）':''}</span><span class="muted">${statusStr}</span></div>
+        <div class="bar-bg"><div class="bar-fill bar-hp" style="width:${hpPct}%"></div></div>
+        <div class="bar-bg" style="margin-top:2px;"><div class="bar-fill bar-mp" style="width:${mpPct}%"></div></div>
+      </div>`;
+    unitList.appendChild(card);
+  });
+  wrap.appendChild(unitList);
+
+  const actionsWrap = el('div', ''); actionsWrap.id = 'battle-actions';
+
+  if (!bs.over) {
+    if (UI.battlePlaying) {
+      const playingTag = el('div', 'muted text-center', '── 戰鬥進行中… ──');
+      playingTag.style.marginBottom='6px'; playingTag.style.padding='10px 0';
+      actionsWrap.appendChild(playingTag);
+    } else {
+      const actor = getCurrentActor(bs);
+      if (actor) {
+        const nameTag = el('div', 'muted text-center', `── ${escapeHtml(actor.name)} 的行動 ──`);
+        nameTag.style.marginBottom='6px';
+        actionsWrap.appendChild(nameTag);
+
+        const row = el('div', 'battle-action-row');
+        const mkAction = (label, fn) => { const b = el('button','battle-action-btn',label); b.onclick = fn; return b; };
+        row.appendChild(mkAction('攻擊', () => openTargetMonsterModal(bs, actor, { type:'attack' })));
+        row.appendChild(mkAction('技能', () => openSkillModal(bs, actor)));
+        row.appendChild(mkAction('道具', () => openItemModal(bs, actor)));
+        row.appendChild(mkAction('防禦', () => performPlayerAction(bs, {type:'defend', actorUid:actor.uid})));
+        row.appendChild(mkAction('逃跑', () => performPlayerAction(bs, {type:'flee', actorUid:actor.uid})));
+        actionsWrap.appendChild(row);
+      }
+    }
+  } else {
+    actionsWrap.appendChild(renderBattleResultPanel(bs));
+  }
+
+  wrap.appendChild(actionsWrap);
+  c.appendChild(wrap);
+  // log元素必須等到整個battle-view已插入文件DOM之後才填入內容並捲動，
+  // 否則元素仍處於detached狀態，瀏覽器無法正確計算scrollHeight，會導致捲動停在頂部而非底部
+  renderBattleLogLines(log, bs.log.slice(-20));
+  drawBattleCanvas(canvas, bs);
+}
+
+// 將戰鬥訊息渲染進log區塊，並自動捲動到底部讓玩家看到最新訊息
+function renderBattleLogLines(logEl, lines) {
+  logEl.innerHTML = lines.map(l => `<div>${escapeHtml(l)}</div>`).join('');
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function appendBattleLogLine(text) {
+  const logEl = document.getElementById('battle-log');
+  if (!logEl) return;
+  const lineEl = document.createElement('div');
+  lineEl.textContent = text;
+  logEl.appendChild(lineEl);
+  // 避免無限增長，僅保留最後60行的DOM節點
+  while (logEl.children.length > 60) logEl.removeChild(logEl.firstChild);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function getCurrentActor(bs) {
+  // 找出本回合尚未行動的存活隊員（簡化：依序由前往後，speed排序在開始時決定）
+  if (!bs.actionOrder || bs.actionOrder.length === 0) {
+    bs.actionOrder = getSpeedOrder(bs.party.filter(p=>p.battleHp>0)).map(p=>p.uid);
+    bs.actedThisTurn = new Set();
+  }
+  for (const uid of bs.actionOrder) {
+    if (bs.acted && bs.acted.has(uid)) continue;
+    const p = bs.party.find(x=>x.uid===uid);
+    if (p && p.battleHp > 0) return p;
+  }
+  return null;
+}
+
+// ---------------- 事件佇列播放系統 ----------------
+// 每個事件依kind決定動畫節奏與時長，逐一播放後才繼續下一個，播放完畢呼叫doneCallback
+const EVENT_STEP_MS_BASE = {
+  attack: 520, skill_hit: 520, miss: 380, heal: 420, status_damage: 380,
+  death: 520, defend: 300, flee_success: 200, flee_fail: 380, skill_fail: 300,
+  buff: 380, skill_cast: 380, summon: 380, revive: 480, cleanse: 380,
+  status_apply: 320, self_damage: 420, status_skip: 380, default: 380,
+};
+// 測試環境可設定 window.__BATTLE_ANIM_SPEED__ 為較大值(例如20)以加速動畫播放，縮短自動化測試時間
+function getAnimSpeedMul() {
+  if (typeof window !== 'undefined' && window.__BATTLE_ANIM_SPEED__) return window.__BATTLE_ANIM_SPEED__;
+  return 1;
+}
+function getEventStepMs(kind) {
+  const base = EVENT_STEP_MS_BASE[kind] || EVENT_STEP_MS_BASE.default;
+  return Math.max(4, Math.round(base / getAnimSpeedMul()));
+}
+
+function playBattleEvents(events, onDone) {
+  if (!events || events.length === 0) { onDone && onDone(); return; }
+  let idx = 0;
+  function step() {
+    if (idx >= events.length) { onDone && onDone(); return; }
+    const evt = events[idx];
+    idx++;
+    playSingleEvent(evt, () => step());
+  }
+  step();
+}
+
+function playSingleEvent(evt, next) {
+  const duration = getEventStepMs(evt.kind);
+
+  // 觸發攻擊位移動畫
+  if ((evt.kind === 'attack' || evt.kind === 'skill_hit') && evt.sourceUid) {
+    animLunge(evt.sourceUid, evt.sourceSide, Math.min(380, duration*0.7));
+  }
+
+  // 命中瞬間（位移到一半時）才觸發受擊閃爍與飄字，讓動畫有先後順序
+  const hitDelay = (evt.kind === 'attack' || evt.kind === 'skill_hit') ? Math.min(190, duration*0.35) : 0;
+
+  setTimeout(() => {
+    if (evt.kind === 'miss') {
+      if (evt.targetUid) animFloatText(evt.targetUid, 'MISS', '#cfcfcf');
+    } else if (evt.kind === 'attack' || evt.kind === 'skill_hit' || evt.kind === 'status_damage' || evt.kind === 'self_damage') {
+      if (evt.targetUid) {
+        animHit(evt.targetUid, 240);
+        const color = evt.isCrit ? '#ffd24a' : '#ff6b6b';
+        animFloatText(evt.targetUid, (evt.isCrit ? '暴擊! ' : '') + '-'+formatNum(evt.amount||0), color);
+      }
+    } else if (evt.kind === 'heal' || evt.kind === 'revive') {
+      if (evt.targetUid) animFloatText(evt.targetUid, '+'+formatNum(evt.amount||0), '#79e0a0');
+    } else if (evt.kind === 'status_apply') {
+      if (evt.targetUid) animFloatText(evt.targetUid, STATUS_NAME[evt.statusId]||'', '#c9a6f5');
+    } else if (evt.kind === 'death') {
+      if (evt.targetUid) animDeath(evt.targetUid);
+    }
+
+    // 文字訊息在動畫觸發的同時加入log並捲動
+    if (evt.text && !evt.silent) appendBattleLogLine(evt.text);
+  }, hitDelay);
+
+  setTimeout(next, duration);
+}
+
+function performPlayerAction(bs, action) {
+  if (UI.battlePlaying) return; // 防護：動畫播放期間忽略任何新的行動請求，避免事件佇列競態
+  const token = bs._token;
+  const isStale = () => UI.battleState !== bs || UI.battleState._token !== token;
+
+  if (!bs.acted) bs.acted = new Set();
+  bs.events = [];
+  executePlayerAction(bs, action);
+  bs.acted.add(action.actorUid);
+
+  UI.battlePlaying = true;
+  renderCurrentView(); // 立即鎖定按鈕，顯示「戰鬥進行中」
+
+  const playerEvents = bs.events;
+  playBattleEvents(playerEvents, () => {
+    if (isStale()) return; // 此戰鬥已結束/被取代，忽略過期的callback
+    if (bs.over) { UI.battlePlaying = false; renderCurrentView(); return; }
+
+    const next = getCurrentActor(bs);
+    if (next) {
+      UI.battlePlaying = false;
+      renderCurrentView();
+      return;
+    }
+
+    // 所有隊員已行動 -> 怪物回合
+    bs.events = [];
+    runMonsterPhase(bs);
+    const monsterEvents = bs.events;
+    playBattleEvents(monsterEvents, () => {
+      if (isStale()) return;
+      if (bs.over) { UI.battlePlaying = false; renderCurrentView(); return; }
+      bs.events = [];
+      runEndOfTurnStatus(bs);
+      const statusEvents = bs.events;
+      playBattleEvents(statusEvents, () => {
+        if (isStale()) return;
+        bs.acted = new Set();
+        bs.actionOrder = null;
+        UI.battlePlaying = false;
+        renderCurrentView();
+      });
+    });
+  });
+}
+
+// ---------------- 戰鬥行動：跳出式選單（彈窗） ----------------
+
+function openSkillModal(bs, actor) {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>${escapeHtml(actor.name)} — 選擇技能</h3>`;
+  const learned = actor.learnedSkills.filter(sid => SKILLS[sid].cls === 'active');
+  if (learned.length === 0) panel.appendChild(el('div', 'empty-state', '尚未學會任何主動技能'));
+  learned.forEach(sid => {
+    const sk = SKILLS[sid];
+    const disabled = actor.battleMp < (sk.cost||0);
+    const row = el('div', 'skill-option');
+    row.innerHTML = `<div><div class="name">${sk.name}${sk.cost?` (MP${sk.cost})`:''}</div><div class="desc">${sk.desc}</div></div>`;
+    const btn = el('button', 'action-btn'+(disabled?'':' primary'), '使用');
+    btn.style.padding='7px 10px'; btn.style.fontSize='11px';
+    if (disabled) btn.disabled = true;
+    btn.onclick = () => {
+      closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal');
+      if (sk.target === 'single') {
+        openTargetMonsterModal(bs, actor, { type:'skill', skillId: sid });
+      } else if (sk.target === 'ally') {
+        openTargetAllyModal(bs, actor, { type:'skill', skillId: sid });
+      } else {
+        // self / party / all -> 直接執行
+        performPlayerAction(bs, { type:'skill', actorUid:actor.uid, skillId:sid, targetUid:null });
+      }
+    };
+    row.appendChild(btn);
+    panel.appendChild(row);
+  });
+  const closeBtn = el('button', 'btn-list close-btn', '← 返回');
+  closeBtn.onclick = () => { closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal'); };
+  panel.appendChild(closeBtn);
+  $('#overlay-modal').classList.add('center-modal');
+  openOverlay('overlay-modal');
+}
+
+function openItemModal(bs, actor) {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>${escapeHtml(actor.name)} — 使用道具</h3>`;
+  const items = GAME.inventory.items;
+  const ITEM_NAMES = { potion_small:'小型藥水', potion_mid:'中型藥水', antidote:'解毒草藥', revive_feather:'復活羽毛' };
+  let any = false;
+  Object.keys(ITEM_NAMES).forEach(id => {
+    const count = items[id] || 0;
+    if (count <= 0) return;
+    any = true;
+    const row = el('div', 'item-option');
+    row.innerHTML = `<div><div class="name">${ITEM_NAMES[id]} ×${count}</div></div>`;
+    const btn = el('button', 'action-btn primary', '使用');
+    btn.style.padding='7px 10px'; btn.style.fontSize='11px';
+    btn.onclick = () => {
+      closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal');
+      openTargetAllyModal(bs, actor, { type:'item', itemId: id });
+    };
+    row.appendChild(btn);
+    panel.appendChild(row);
+  });
+  if (!any) panel.appendChild(el('div', 'empty-state', '沒有可用的道具'));
+  const closeBtn = el('button', 'btn-list close-btn', '← 返回');
+  closeBtn.onclick = () => { closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal'); };
+  panel.appendChild(closeBtn);
+  $('#overlay-modal').classList.add('center-modal');
+  openOverlay('overlay-modal');
+}
+
+function openTargetMonsterModal(bs, actor, pending) {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>選擇攻擊目標</h3>`;
+  aliveMonsters(bs).forEach(m => {
+    const row = el('div', 'target-option');
+    const hpPct = Math.max(0, Math.round(m.battleHp/m.maxHp*100));
+    row.innerHTML = `<div style="flex:1;"><div class="name">${escapeHtml(m.name)} Lv.${m.level}</div><div class="bar-bg"><div class="bar-fill bar-hp" style="width:${hpPct}%"></div></div></div>`;
+    row.onclick = () => {
+      closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal');
+      if (pending.type === 'attack') {
+        performPlayerAction(bs, { type:'attack', actorUid:actor.uid, targetUid:m.uid });
+      } else if (pending.type === 'skill') {
+        performPlayerAction(bs, { type:'skill', actorUid:actor.uid, skillId:pending.skillId, targetUid:m.uid });
+      }
+    };
+    panel.appendChild(row);
+  });
+  const closeBtn = el('button', 'btn-list close-btn', '← 返回');
+  closeBtn.onclick = () => {
+    closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal');
+    if (pending.type === 'skill') openSkillModal(bs, actor);
+  };
+  panel.appendChild(closeBtn);
+  $('#overlay-modal').classList.add('center-modal');
+  openOverlay('overlay-modal');
+}
+
+function openTargetAllyModal(bs, actor, pending) {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>選擇對象</h3>`;
+  bs.party.forEach(p => {
+    if (p.battleHp <= 0 && pending.itemId !== 'revive_feather') return;
+    const row = el('div', 'target-option');
+    const hpPct = Math.max(0, Math.round(p.battleHp/p.maxHp*100));
+    row.innerHTML = `<div style="flex:1;"><div class="name">${escapeHtml(p.name)}</div><div class="bar-bg"><div class="bar-fill bar-hp" style="width:${hpPct}%"></div></div></div>`;
+    row.onclick = () => {
+      closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal');
+      if (pending.type === 'item') {
+        performPlayerAction(bs, { type:'item', actorUid:actor.uid, itemId:pending.itemId, targetUid:p.uid });
+        GAME.inventory.items[pending.itemId]--;
+      } else if (pending.type === 'skill') {
+        performPlayerAction(bs, { type:'skill', actorUid:actor.uid, skillId:pending.skillId, targetUid:p.uid });
+      }
+    };
+    panel.appendChild(row);
+  });
+  const closeBtn = el('button', 'btn-list close-btn', '← 返回');
+  closeBtn.onclick = () => {
+    closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal');
+    if (pending.type === 'skill') openSkillModal(bs, actor);
+    else if (pending.type === 'item') openItemModal(bs, actor);
+  };
+  panel.appendChild(closeBtn);
+  $('#overlay-modal').classList.add('center-modal');
+  openOverlay('overlay-modal');
+}
+
+function renderBattleResultPanel(bs) {
+  const wrap = el('div', '');
+  if (bs.fled) {
+    wrap.appendChild(el('div', 'panel text-center', '<b>成功逃離了戰鬥</b>'));
+    const btn = el('button', 'btn-main', '返回探索');
+    btn.style.width='100%';
+    btn.onclick = () => { syncBattleResultsToParty(bs, false); UI.currentTownView='dungeon_explore'; renderCurrentView(); };
+    wrap.appendChild(btn);
+    return wrap;
+  }
+  if (bs.victory) {
+    const ctx = bs.context || {};
+    let totalExp = 0, totalGold = 0;
+    bs.monsters.forEach(m => { totalExp += m.expReward; totalGold += m.goldReward; });
+    if (ctx.bonusReward) { totalExp = Math.round(totalExp*1.6); totalGold = Math.round(totalGold*1.8); }
+    const eventMul = GAME.currentEvent === 'dragon_calamity' ? 1.5 : 1;
+    totalGold = Math.round(totalGold * eventMul);
+
+    wrap.appendChild(el('div', 'panel text-center', `<b style="font-size:16px;color:var(--emerald);">🎉 戰鬥勝利！</b>`));
+    const resPanel = el('div', 'panel');
+    resPanel.innerHTML = `<div class="muted">獲得經驗：${totalExp} ・ 獲得金幣：💰${totalGold}</div>`;
+    wrap.appendChild(resPanel);
+
+    let dropLines = [];
+    if (ctx.legendaryDrop || chance(0.18 + (ctx.bonusReward?0.25:0))) {
+      const tier = (ctx.fd&&ctx.fd.dungeonRank)||GAME.dungeon.currentRank;
+      const eq = generateEquipment(pick(EQUIP_SLOTS), tier + (ctx.legendaryDrop?2:0));
+      if (ctx.legendaryDrop) { eq.rarity='legend'; eq.rarityName='傳奇'; eq.color=RARITIES[4].color; }
+      GAME.inventory[eq.slot].push(eq);
+      dropLines.push(`✨ 戰利品：${eq.name}（${eq.rarityName}）`);
+    }
+    if (dropLines.length) wrap.appendChild(el('div', 'panel', dropLines.join('<br>')));
+
+    const btn = el('button', 'btn-main', '繼續探索');
+    btn.style.width='100%';
+    btn.onclick = () => {
+      getParty().filter(a=>a.hp>0).forEach(a => { const lv = gainExp(a, Math.round(totalExp/Math.max(1,getParty().filter(x=>x.hp>0).length))); if (lv) showToast(`${a.name} 升級了！`); a.battlesWon=(a.battlesWon||0)+1; });
+      GAME.gold += totalGold;
+      if (bs.context && bs.context.run) bs.context.run.runLoot.gold += totalGold;
+      GAME.statsTotal.goldEarned += totalGold;
+      GAME.statsTotal.monstersSlain += bs.monsters.length;
+      if (bs.context && bs.context.run) bs.context.run.runStats.kills += bs.monsters.length;
+      bs.monsters.forEach(m => updateQuestProgress('kill_family', { family:m.key }));
+      updateQuestProgress('kill_count', { amount: bs.monsters.length });
+      if (bs.monsters.some(m=>m.isElite)) updateQuestProgress('elite_clear', {});
+      if (bs.monsters.some(m=>m.isBoss)) { updateQuestProgress('boss_clear', {}); addHistory(`公會隊伍擊敗了首領「${bs.monsters.find(m=>m.isBoss).name}」！`); }
+      syncBattleResultsToParty(bs, true);
+
+      if (bs.context && bs.context.room && bs.context.room.type === 'boss') {
+        finishDungeonRun(true);
+        return;
+      }
+      UI.currentTownView = 'dungeon_explore';
+      renderCurrentView();
+      queueAutosave();
+    };
+    wrap.appendChild(btn);
+  } else {
+    wrap.appendChild(el('div', 'panel text-center', `<b style="font-size:16px;color:var(--seal-red);">💀 隊伍敗退……</b><div class="muted mt-8">隊伍狼狽地逃回了城鎮，損失了部分財物。</div>`));
+    const btn = el('button', 'btn-main', '返回城鎮');
+    btn.style.width='100%';
+    btn.onclick = () => {
+      const loss = Math.min(GAME.gold, Math.round(GAME.gold*0.1));
+      GAME.gold -= loss;
+      syncBattleResultsToParty(bs, false);
+      addHistory('公會隊伍在無盡迷宮中遭遇慘敗，狼狽撤退。');
+      finishDungeonRun(false);
+    };
+    wrap.appendChild(btn);
+  }
+  return wrap;
+}
+
+function syncBattleResultsToParty(bs, victory) {
+  bs.party.forEach(bp => {
+    const a = getAdv(bp.uid);
+    if (!a) return;
+    a.hp = Math.max(0, bp.battleHp);
+    a.mp = bp.battleMp;
+  });
+  UI.battleState = null;
+}
+
+// ---------------- Canvas 戰鬥畫面繪製與動畫 ----------------
+// UI.battleAnim: 暫存各單位的動畫狀態，以uid為key
+// { offsetX, offsetY, flashUntil, floatTexts:[{text,color,startTime,isCrit}], deathFade }
+function ensureAnimState(uid) {
+  if (!UI.battleAnim) UI.battleAnim = {};
+  if (!UI.battleAnim[uid]) UI.battleAnim[uid] = { offsetX:0, offsetY:0, flashUntil:0, floatTexts:[], deathFade:1, shakeUntil:0 };
+  return UI.battleAnim[uid];
+}
+function resetBattleAnim() { UI.battleAnim = {}; }
+
+function nowMs() { return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
+
+// 觸發「攻擊衝刺」動畫：sourceUid衝向targetUid方向再退回
+function animLunge(sourceUid, sourceSide, durationMs) {
+  const st = ensureAnimState(sourceUid);
+  const dir = sourceSide === 'party' ? -1 : 1; // 玩家往上衝(朝怪物)，怪物往下衝(朝玩家)
+  st.lungeStart = nowMs();
+  st.lungeDuration = durationMs || 380;
+  st.lungeDir = dir;
+}
+// 觸發「受擊閃爍+震動」動畫
+function animHit(targetUid, durationMs) {
+  const st = ensureAnimState(targetUid);
+  st.flashUntil = nowMs() + (durationMs || 260);
+  st.shakeUntil = nowMs() + (durationMs || 260);
+}
+// 飄出傷害/治療數字
+function animFloatText(targetUid, text, color) {
+  const st = ensureAnimState(targetUid);
+  st.floatTexts.push({ text, color: color || '#fff', startTime: nowMs() });
+}
+// 觸發死亡淡出
+function animDeath(targetUid) {
+  const st = ensureAnimState(targetUid);
+  st.dying = true;
+  st.deathStart = nowMs();
+}
+
+let battleAnimFrame = 0;
+let battleRafHandle = null;
+
+function drawBattleCanvas(canvas, bs) {
+  if (!canvas || !bs) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  canvas.style.width = rect.width+'px';
+  canvas.style.height = rect.height+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  const t = nowMs();
+
+  // 背景
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, '#2c1f17'); grad.addColorStop(1,'#15100a');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(0, H*0.78, W, H*0.22);
+
+  // 怪物繪製（上半部）
+  const monsters = bs.monsters;
+  const mCount = monsters.length;
+  monsters.forEach((m, i) => {
+    const slotW = W / (mCount+0.6);
+    const baseX = slotW*(i+0.8);
+    const baseY = H*0.36 + (m.isBoss?-10:0);
+    const st = ensureAnimState(m.uid);
+    const dead = m.battleHp <= 0;
+
+    const { dx, dy, shakeX } = computeAnimOffset(st, t, baseX, baseY, 'monster');
+    let alpha = 1;
+    if (dead) {
+      if (st.dying) {
+        const elapsed = t - (st.deathStart||t);
+        alpha = clamp(1 - elapsed/500, 0, 1);
+      } else {
+        alpha = 0.22;
+      }
+    }
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    if (st.flashUntil > t) {
+      // 受擊閃爍：交替顯示亮紅色色塊疊加
+      const flashOn = Math.floor((st.flashUntil - t) / 60) % 2 === 0;
+      if (flashOn) ctx.filter = 'brightness(1.8) saturate(2)';
+    }
+    const size = m.isBoss ? 46 : (m.isElite ? 38 : 30);
+    ctx.font = size+'px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const idleBounce = Math.sin((battleAnimFrame+i*20)/18) * 2;
+    ctx.fillText(monsterEmoji(m), baseX+dx+shakeX, baseY+dy+idleBounce);
+    ctx.restore();
+
+    if (!dead) {
+      const barW = size*1.4;
+      ctx.fillStyle='rgba(0,0,0,0.4)';
+      ctx.fillRect(baseX-barW/2, baseY+size*0.55, barW, 6);
+      ctx.fillStyle = m.isBoss ? '#b13e3e' : '#c95757';
+      ctx.fillRect(baseX-barW/2, baseY+size*0.55, barW*Math.max(0,m.battleHp/m.maxHp), 6);
+      ctx.font = '10px sans-serif'; ctx.fillStyle='#ECE0C5';
+      ctx.fillText(m.name, baseX, baseY+size*0.55+16);
+    } else if (alpha > 0.05) {
+      ctx.font='10px sans-serif'; ctx.fillStyle='rgba(236,224,197,0.4)';
+      ctx.fillText('倒下', baseX, baseY+size*0.55+10);
+    }
+
+    drawFloatTexts(ctx, st, t, baseX, baseY);
+  });
+
+  // 玩家方（下半部，簡化為圖示列）
+  const aliveP = bs.party;
+  aliveP.forEach((p, i) => {
+    const slotW = W / (aliveP.length+0.6);
+    const baseX = slotW*(i+0.8);
+    const baseY = H*0.78;
+    const st = ensureAnimState(p.uid);
+    const dead = p.battleHp <= 0;
+
+    const { dx, dy, shakeX } = computeAnimOffset(st, t, baseX, baseY, 'party');
+    let alpha = 1;
+    if (dead) {
+      if (st.dying) {
+        const elapsed = t - (st.deathStart||t);
+        alpha = clamp(1 - elapsed/500, 0, 1);
+      } else {
+        alpha = 0.3;
+      }
+    }
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    if (st.flashUntil > t) {
+      const flashOn = Math.floor((st.flashUntil - t) / 60) % 2 === 0;
+      if (flashOn) ctx.filter = 'brightness(1.8) saturate(2)';
+    }
+    ctx.font = '26px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(classIcon(p.classKey), baseX+dx+shakeX, baseY+dy);
+    ctx.restore();
+
+    drawFloatTexts(ctx, st, t, baseX, baseY);
+  });
+
+  battleAnimFrame++;
+}
+
+// 計算單位目前的動畫位移（衝刺lunge + 受擊震動shake）
+function computeAnimOffset(st, t, baseX, baseY, side) {
+  let dx = 0, dy = 0, shakeX = 0;
+  if (st.lungeStart !== undefined) {
+    const elapsed = t - st.lungeStart;
+    const dur = st.lungeDuration || 380;
+    if (elapsed >= 0 && elapsed < dur) {
+      const half = dur/2;
+      let progress;
+      if (elapsed < half) progress = elapsed/half; // 衝出
+      else progress = 2 - elapsed/half; // 退回
+      const dist = side === 'party' ? -16 : 16; // 縱向位移：玩家往上衝、怪物往下衝
+      dy = dist * progress;
+    } else if (elapsed >= dur) {
+      st.lungeStart = undefined;
+    }
+  }
+  if (st.shakeUntil > t) {
+    shakeX = Math.sin(t/22) * 3;
+  }
+  return { dx, dy, shakeX };
+}
+
+function drawFloatTexts(ctx, st, t, baseX, baseY) {
+  st.floatTexts = st.floatTexts.filter(ft => (t - ft.startTime) < 850);
+  st.floatTexts.forEach(ft => {
+    const elapsed = t - ft.startTime;
+    const progress = elapsed / 850;
+    const riseY = -30 * progress;
+    const alpha = clamp(1 - progress*1.05, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = ft.isCrit ? '800 19px sans-serif' : '700 15px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline='middle';
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillText(ft.text, baseX+1, baseY-26+riseY+1);
+    ctx.fillStyle = ft.color;
+    ctx.fillText(ft.text, baseX, baseY-26+riseY);
+    ctx.restore();
+  });
+}
+
+function monsterEmoji(m) {
+  const map = { slime:'🟢', goblin:'👺', wolf:'🐺', bat:'🦇', skeleton:'💀', zombie:'🧟',
+    fire_imp:'👹', ice_wraith:'👻', thunder_bird:'🐦', orc_brute:'👹', dark_mage:'🧙', troll:'🧌',
+    wyvern:'🐉', lich:'💀', dragon:'🐲', demon_lord:'👿' };
+  return map[m.key] || '👾';
+}
+
+// 戰鬥畫面持續重繪迴圈（idle動畫 + 事件動畫），用requestAnimationFrame取得流暢度
+// 僅在真實瀏覽器環境（具備requestAnimationFrame）啟動常駐重繪；
+// 在無頭測試環境中，畫面僅於playBattleEvents/renderCurrentView主動呼叫drawBattleCanvas時更新，不需常駐計時器。
+function battleRenderLoop() {
+  if (UI.currentTownView === 'battle' && UI.battleState) {
+    const canvas = document.getElementById('battle-canvas');
+    if (canvas) drawBattleCanvas(canvas, UI.battleState);
+  }
+  battleRafHandle = requestAnimationFrame(battleRenderLoop);
+}
+if (typeof requestAnimationFrame !== 'undefined' && typeof window !== 'undefined' && window.requestAnimationFrame) {
+  battleRenderLoop();
+}
+// ============================================================
+// 主遊戲邏輯 - Part 7: 日期推進 / 世界事件 / 選單 / 初始化
+// ============================================================
+
+function advanceDay() {
+  if (GAME.dungeon.activeRun) { showToast('請先完成或撤退目前的地下城探索！'); return; }
+  GAME.day++;
+
+  // 支薪
+  let totalWage = 0;
+  activeRoster().forEach(a => { totalWage += a.wage; });
+  GAME.gold -= totalWage;
+  if (GAME.gold < 0) {
+    GAME.reputation = Math.max(0, GAME.reputation - 10);
+    showToast(`⚠ 公會資金不足支付薪水！聲望下降`);
+    GAME.gold = 0;
+  }
+
+  // 自然恢復
+  activeRoster().forEach(a => {
+    if (a.isResting) {
+      if (GAME.day >= a.restUntilDay) { a.isResting = false; a.hp = a.maxHp; a.mp = a.maxMp; showToast(`${a.name} 已完成休養`); }
+    } else {
+      a.hp = Math.min(a.maxHp, a.hp + Math.round(a.maxHp*0.25));
+      a.mp = Math.min(a.maxMp, a.mp + Math.round(a.maxMp*0.4));
+      if (a.hp <= 0 && chance(0.5)) { a.isResting = true; a.restUntilDay = GAME.day + rand(2,4); }
+    }
+  });
+
+  // 世界事件邏輯
+  if (GAME.currentEvent) {
+    GAME.eventDaysLeft--;
+    if (GAME.eventDaysLeft <= 0) {
+      const ev = WORLD_EVENTS.find(e=>e.id===GAME.currentEvent);
+      addHistory(`「${ev?ev.name:''}」事件結束，世界恢復了平靜。`);
+      GAME.currentEvent = null;
+    }
+  } else if (chance(0.12)) {
+    const ev = pick(WORLD_EVENTS);
+    GAME.currentEvent = ev.id;
+    GAME.eventDaysLeft = ev.duration;
+    addHistory(`世界發生了「${ev.name}」事件：${ev.desc}`);
+    showToast(`🌍 世界事件：${ev.name}`);
+  }
+
+  // 委託任務每隔幾天補充
+  if (GAME.day % 5 === 0) generateBountyQuests();
+
+  showToast(`📅 第 ${GAME.day} 日開始了`);
+  renderCurrentView();
+  queueAutosave();
+}
+
+// ============================================================
+// 選單 / 名人堂 / 歷史紀錄
+// ============================================================
+function renderHallOfFameModal() {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>🏆 名人堂</h3>`;
+  if (GAME.hallOfFame.length === 0) {
+    panel.appendChild(el('div', 'empty-state', '<span class="emoji">🏆</span>尚無退休或殞落的傳奇'));
+  } else {
+    GAME.hallOfFame.slice().reverse().forEach(h => {
+      const card = el('div', 'card');
+      card.innerHTML = `<div class="flex-between"><b>${escapeHtml(h.name)}</b><span class="badge ${h.type==='retired'?'badge-rank':'badge-elite'}">${h.type==='retired'?'光榮退休':'壯烈犧牲'}</span></div>
+        <div class="muted">${raceLabel(h.race)}・${classLabel(h.classKey)}・Lv.${h.level} ・ 第${h.day}日 ・ 勝場${h.battlesWon||0}</div>`;
+      panel.appendChild(card);
+    });
+  }
+  const closeBtn = el('button', 'btn-list close-btn', '關閉');
+  closeBtn.onclick = () => closeOverlay('overlay-modal');
+  panel.appendChild(closeBtn);
+  $('#overlay-modal').classList.add('center-modal');
+  openOverlay('overlay-modal');
+}
+
+function renderHistoryModal() {
+  const panel = $('#modal-panel');
+  panel.innerHTML = `<h3>📜 世界歷史紀錄</h3>`;
+  const listWrap = el('div', '');
+  listWrap.style.maxHeight = '50vh'; listWrap.style.overflowY='auto';
+  if (GAME.history.length === 0) listWrap.appendChild(el('div', 'empty-state', '尚無紀錄'));
+  GAME.history.forEach(h => {
+    const card = el('div', 'card');
+    card.innerHTML = `<div class="muted" style="font-size:10.5px;">第${h.day}日</div><div style="font-size:12.5px;">${escapeHtml(h.text)}</div>`;
+    listWrap.appendChild(card);
+  });
+  panel.appendChild(listWrap);
+  const closeBtn = el('button', 'btn-list close-btn', '關閉');
+  closeBtn.onclick = () => closeOverlay('overlay-modal');
+  panel.appendChild(closeBtn);
+  $('#overlay-modal').classList.add('center-modal');
+  openOverlay('overlay-modal');
+}
+
+// ============================================================
+// 主程式初始化與事件綁定
+// ============================================================
+function showScreen(id) {
+  $$('.screen').forEach(s => s.classList.remove('active'));
+  $('#'+id).classList.add('active');
+}
+
+function initApp() {
+  $('#btn-new-game').onclick = () => { showScreen('screen-namesetup'); };
+  $('#btn-continue').onclick = () => {
+    const data = loadGame();
+    if (!data) { showToast('找不到存檔紀錄'); return; }
+    GAME = data;
+    migrateLoadedGame();
+    showScreen('screen-game');
+    $('#screen-game').classList.add('active');
+    UI.currentTownView = 'hall';
+    switchTownView('hall');
+  };
+  if (!hasSaveGame()) { $('#btn-continue').disabled = true; $('#btn-continue').style.opacity='0.4'; }
+
+  $('#btn-confirm-guild').onclick = () => {
+    const name = $('#input-guild-name').value.trim() || '無名公會';
+    startNewGame(name);
+    showScreen('screen-game');
+    switchTownView('hall');
+  };
+
+  $$('.nav-btn').forEach(btn => {
+    btn.onclick = () => switchTownView(btn.dataset.view);
+  });
+
+  $('#btn-menu').onclick = () => openOverlay('overlay-menu');
+  $('#menu-close').onclick = () => closeOverlay('overlay-menu');
+  $('#menu-save').onclick = () => { saveGame(); showToast('✅ 已存檔'); closeOverlay('overlay-menu'); };
+  $('#menu-history').onclick = () => { closeOverlay('overlay-menu'); renderHistoryModal(); };
+  $('#menu-hof').onclick = () => { closeOverlay('overlay-menu'); renderHallOfFameModal(); };
+  $('#menu-restart').onclick = () => {
+    closeOverlay('overlay-menu');
+    const panel = $('#modal-panel');
+    panel.innerHTML = `<h3>清除存檔並重新開始？</h3><p class="muted">此操作將永久刪除目前的公會紀錄，無法復原。</p>`;
+    const row = el('div', 'modal-btn-row');
+    const yes = el('button', 'action-btn danger', '確定清除');
+    yes.onclick = () => { localStorage.removeItem(SAVE_KEY); closeOverlay('overlay-modal'); $('#overlay-modal').classList.remove('center-modal'); location.reload(); };
+    const no = el('button', 'action-btn', '取消');
+    no.onclick = () => closeOverlay('overlay-modal');
+    row.appendChild(yes); row.appendChild(no);
+    panel.appendChild(row);
+    $('#overlay-modal').classList.add('center-modal');
+    openOverlay('overlay-modal');
+  };
+
+  // 點擊浮層背景關閉（選單類）
+  $('#overlay-menu').addEventListener('click', (e) => { if (e.target.id==='overlay-menu') closeOverlay('overlay-menu'); });
+
+  // 防止iOS雙指縮放/橡皮筋效果干擾
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+
+  window.addEventListener('resize', () => {
+    if (UI.currentTownView === 'dungeon_explore') renderCurrentView();
+  });
+}
+
+function migrateLoadedGame() {
+  // 確保舊存檔載入後欄位完整，避免缺漏造成錯誤
+  const def = defaultGameState();
+  Object.keys(def).forEach(k => { if (GAME[k] === undefined) GAME[k] = def[k]; });
+  if (!GAME.quests) GAME.quests = def.quests;
+  if (!GAME.facilities) GAME.facilities = def.facilities;
+  if (!GAME.statsTotal) GAME.statsTotal = def.statsTotal;
+  // 重新計算所有角色數值（避免公式更新後不同步，並修正NaN）
+  GAME.roster.forEach(a => { try { recalcStats(a); } catch(e){} });
+  // 若有進行中的地下城探索，因戰鬥狀態不持久化，視為已撤退
+  if (GAME.dungeon && GAME.dungeon.activeRun) {
+    GAME.dungeon.activeRun = null;
+  }
+}
+
+window.addEventListener('DOMContentLoaded', initApp);
+
+</script>
+</body>
+</html>

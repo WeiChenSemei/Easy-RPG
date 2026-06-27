@@ -1,0 +1,2859 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>冒險者公會物語</title>
+<style>
+:root{
+  --bg:#15110c; --panel:#241b13; --panel2:#2e2316; --border:#7a5c34;
+  --gold:#d9a544; --text:#ecdfc4; --dim:#a8967a; --danger:#c0392b; --good:#5fa85f;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'PingFang TC','Heiti TC','Microsoft JhengHei',sans-serif;
+  overscroll-behavior:none; -webkit-tap-highlight-color:transparent; user-select:none;}
+button{font-family:inherit;}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;}
+
+/* ---- topbar ---- */
+#topbar{flex-shrink:0;background:linear-gradient(#1c150e,#241b13);border-bottom:2px solid var(--border);padding:6px 10px;}
+.topbar-row1{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--gold);font-weight:bold;}
+.topbar-row2{display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:12px;}
+.stat-group{display:flex;gap:10px;}
+.stat{display:flex;align-items:center;gap:3px;color:var(--text);}
+.speed-controls{display:flex;gap:3px;}
+.speed-controls button{background:var(--panel2);color:var(--dim);border:1px solid var(--border);border-radius:6px;
+  padding:3px 7px;font-size:11px;}
+.speed-controls button.active{background:var(--gold);color:#1a1410;font-weight:bold;}
+
+/* ---- scene ---- */
+#sceneWrap{flex-shrink:0;height:148px;position:relative;border-bottom:1px solid var(--border);background:#000;}
+#scene{width:100%;height:100%;display:block;}
+#ticker{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);color:#fce8b8;font-size:11px;
+  padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#ticker.flash{animation:flashIn .4s;}
+@keyframes flashIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+/* ---- content ---- */
+#content{flex:1;overflow-y:auto;padding:10px 10px 16px;-webkit-overflow-scrolling:touch;}
+.section-title{font-size:13px;color:var(--gold);font-weight:bold;margin:10px 0 6px;display:flex;justify-content:space-between;}
+.section-sub{font-size:12px;color:var(--gold);margin:10px 0 4px;border-top:1px solid var(--border);padding-top:8px;}
+.hint{font-size:11px;color:var(--dim);font-weight:normal;}
+.empty-hint{font-size:12px;color:var(--dim);text-align:center;padding:14px 0;}
+.hscroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;}
+
+/* ---- recruit card ---- */
+.recruit-card{flex-shrink:0;width:140px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px;}
+.rc-name{font-size:13px;font-weight:bold;}
+.rc-class{font-size:11px;margin:2px 0;}
+.rc-traits{font-size:10px;color:var(--dim);margin-bottom:6px;height:14px;overflow:hidden;}
+.btn{background:var(--gold);color:#1a1410;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:bold;width:100%;}
+.btn.small{padding:5px 8px;font-size:11px;width:auto;}
+.btn.tiny{padding:3px 6px;font-size:10px;width:auto;border-radius:6px;}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border);}
+.btn.danger{background:var(--danger);color:#fff;}
+
+/* ---- roster ---- */
+.roster-list{display:flex;flex-direction:column;gap:8px;}
+.adv-card{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;padding:8px 10px;}
+.adv-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-weight:bold;color:#1a1410;flex-shrink:0;font-size:14px;}
+.adv-info{flex:1;min-width:0;}
+.adv-name{font-size:13px;font-weight:bold;}
+.adv-lv{font-size:11px;color:var(--dim);font-weight:normal;}
+.adv-sub{font-size:11px;color:var(--dim);margin-top:2px;}
+.adv-power{font-size:13px;color:var(--gold);font-weight:bold;}
+
+.status-idle{color:#7fd17f;}
+.status-onQuest{color:#e0b04a;}
+.status-injured{color:#e08a4a;}
+.status-disabled{color:#c08ad0;}
+.status-retired{color:#888;}
+.status-dead{color:#777;text-decoration:line-through;}
+.status-betrayed{color:#e05a4a;}
+
+/* ---- quest ---- */
+.quest-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:9px 10px;margin-bottom:8px;}
+.quest-card.active{border-color:var(--gold);}
+.q-head{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.q-name{font-size:13px;font-weight:bold;}
+.q-desc{font-size:11px;color:var(--dim);margin-bottom:4px;}
+.q-meta{font-size:11px;color:var(--dim);margin:4px 0;}
+.q-party{font-size:11px;color:var(--text);margin-bottom:4px;}
+.q-eta{font-size:11px;color:var(--dim);margin-top:3px;}
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;
+  font-size:11px;font-weight:bold;color:#1a1410;flex-shrink:0;}
+.rank-E{background:#9b9b9b;} .rank-D{background:#6fbf6f;} .rank-C{background:#5fa8d8;}
+.rank-B{background:#b07fe0;} .rank-A{background:#e0a04a;} .rank-S{background:linear-gradient(135deg,#ff5050,#ffd24a);}
+
+.progress-bar{height:8px;background:#1a1410;border-radius:4px;overflow:hidden;border:1px solid var(--border);}
+.progress-bar.small{height:5px;}
+.progress-fill{height:100%;background:linear-gradient(90deg,#d9a544,#f4d35e);}
+
+/* ---- equipment ---- */
+.item-card{background:var(--panel);border:1px solid var(--border);border-left-width:4px;border-radius:8px;
+  padding:8px 10px;margin-bottom:8px;}
+.item-name{font-size:13px;font-weight:bold;}
+.item-sub{font-size:11px;color:var(--dim);margin:2px 0;}
+.item-stats{font-size:11px;color:#9fd89f;margin-bottom:6px;}
+.item-actions{display:flex;gap:6px;}
+
+/* ---- world ---- */
+.kingdom-list{display:flex;flex-direction:column;gap:6px;}
+.kingdom-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:7px 10px;}
+.k-name{font-size:12px;font-weight:bold;}
+.k-bar{height:6px;background:#1a1410;border-radius:3px;margin:4px 0;overflow:hidden;}
+.k-fill{height:100%;background:linear-gradient(90deg,#5fa85f,#9fd89f);}
+.k-status{font-size:10px;color:var(--dim);}
+.world-event-card{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;
+  margin-bottom:6px;font-size:12px;}
+.decision-card{background:#2e2014;border:1px solid var(--gold);border-radius:10px;padding:10px;margin-bottom:8px;}
+.d-title{font-size:13px;font-weight:bold;color:var(--gold);}
+.d-desc{font-size:12px;margin:5px 0 8px;}
+.d-choices{display:flex;flex-direction:column;gap:6px;}
+
+/* ---- history ---- */
+.chronicle-list{display:flex;flex-direction:column;gap:5px;}
+.chron-item{font-size:12px;background:var(--panel);border-left:3px solid var(--border);border-radius:4px;
+  padding:5px 8px;line-height:1.45;}
+.chron-date{color:var(--dim);font-size:10px;display:block;margin-bottom:1px;}
+
+/* ---- tabbar ---- */
+#tabbar{flex-shrink:0;display:flex;background:#1c150e;border-top:2px solid var(--border);
+  padding-bottom:max(4px, env(safe-area-inset-bottom));}
+.tabbtn{flex:1;background:none;border:none;color:var(--dim);font-size:11px;padding:8px 0 6px;position:relative;}
+.tabbtn.active{color:var(--gold);}
+.tabbtn.has-badge::after{content:'';position:absolute;top:4px;right:30%;width:7px;height:7px;border-radius:50%;
+  background:var(--danger);}
+
+/* ---- modal ---- */
+#modalRoot{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .2s;z-index:50;}
+#modalRoot.show{pointer-events:auto;opacity:1;}
+.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.6);}
+.modal-sheet{position:absolute;left:0;right:0;bottom:0;max-height:82vh;overflow-y:auto;background:var(--panel);
+  border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  transform:translateY(100%);transition:transform .25s;border-top:2px solid var(--gold);}
+#modalRoot.show .modal-sheet{transform:translateY(0);}
+.modal-header{font-size:16px;font-weight:bold;color:var(--gold);margin-bottom:8px;}
+.modal-sub{font-size:12px;color:var(--dim);font-weight:normal;margin-left:6px;}
+.modal-body{font-size:12px;}
+.modal-actions{display:flex;gap:8px;margin-top:12px;}
+.status-line{margin-bottom:8px;color:var(--dim);}
+.death-line{color:var(--danger);margin-bottom:8px;}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.bar-row span{font-size:11px;color:var(--dim);flex-shrink:0;}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;}
+.stat-cell{background:var(--panel2);border-radius:6px;padding:5px;text-align:center;}
+.stat-cell span{display:block;font-size:10px;color:var(--dim);}
+.stat-cell b{font-size:13px;color:var(--text);}
+.traits-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;}
+.trait-chip{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:2px 9px;font-size:11px;}
+.equip-row{display:flex;gap:6px;margin-bottom:6px;}
+.equip-slot{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:6px;text-align:center;}
+.slot-label{font-size:10px;color:var(--dim);}
+.slot-item{font-size:11px;margin-top:2px;}
+.skill-list{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;}
+.skill-row{background:var(--panel2);border-radius:8px;padding:6px 8px;}
+.skill-name{font-size:12px;margin-bottom:3px;}
+.skill-lv{color:var(--dim);font-size:10px;}
+.skill-row .btn.tiny{margin-top:4px;}
+.rel-list{display:flex;flex-direction:column;gap:3px;margin-bottom:6px;}
+.rel-row{font-size:11px;color:var(--dim);}
+.history-list{display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto;}
+.dispatch-power{font-size:13px;font-weight:bold;text-align:center;padding:6px;border-radius:8px;margin-bottom:8px;
+  background:var(--panel2);}
+.dispatch-power.good{color:#9fe89f;} .dispatch-power.ok{color:#f0c060;} .dispatch-power.bad{color:#f08070;}
+.dispatch-list{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;}
+.dispatch-row{display:flex;justify-content:space-between;background:var(--panel2);border:1px solid var(--border);
+  border-radius:8px;padding:8px;font-size:12px;}
+.dispatch-row.checked{border-color:var(--gold);background:#3a2d18;}
+
+/* ---- toast ---- */
+.toast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%) translateY(20px);background:#000;color:#fff;
+  padding:8px 16px;border-radius:20px;opacity:0;transition:all .3s;z-index:100;font-size:13px;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ---- 冒險實況 / 流派 / 命運 / 地下城 / 傳聞 (擴充功能) ---- */
+.spec-tag{display:inline-block;background:linear-gradient(135deg,#7a4ea0,#c084fc);color:#fff;font-size:9px;
+  padding:1px 6px;border-radius:8px;margin-left:3px;vertical-align:middle;}
+.choice-badge{background:var(--danger);color:#fff;font-size:10px;padding:1px 7px;border-radius:8px;margin-left:auto;
+  animation:pulseBadge 1.4s infinite;}
+@keyframes pulseBadge{0%,100%{opacity:1;}50%{opacity:0.55;}}
+.exp-latest{font-size:11px;color:var(--dim);background:var(--panel2);border-radius:6px;padding:5px 7px;margin:5px 0;
+  line-height:1.4;}
+.q-head{position:relative;}
+.trait-chip.mutated{background:#3a1820;border-color:var(--danger);color:#ff9b9b;}
+.slot-special{font-size:9px;color:#ffb3c8;margin-top:2px;}
+.special-tag{color:#ffb3c8;}
+.fate-card{background:linear-gradient(135deg,#241b13,#3a2a44);border:1px solid #7a5ca0;border-radius:10px;
+  padding:10px;margin-bottom:6px;}
+.fate-desc{font-size:11px;color:var(--dim);margin-bottom:8px;line-height:1.5;}
+.dungeon-card{border-left:3px solid #8a4a3a;}
+.dungeon-fill{background:linear-gradient(90deg,#8a3a3a,#d87a4a);}
+.rumor-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 10px;
+  margin-bottom:6px;}
+.rumor-text{font-size:12px;font-style:italic;color:var(--text);margin-bottom:6px;}
+.chron-item.epoch{border-left-color:var(--gold);background:#241c10;font-weight:bold;}
+.world-history{margin-bottom:6px;}
+</style>
+</head>
+
+<body>
+<div id="app">
+  <div id="topbar">
+    <div class="topbar-row1">
+      <span id="guildNameDisplay">冒險者公會</span>
+      <span id="dateDisplay">第1年1月1日</span>
+    </div>
+    <div class="topbar-row2">
+      <div class="stat-group">
+        <span class="stat">💰<span id="goldVal">0</span></span>
+        <span class="stat">⭐<span id="repVal">0</span></span>
+        <span class="stat">🧑‍🤝‍🧑<span id="memberVal">0</span></span>
+      </div>
+      <div class="speed-controls" id="speedControls">
+        <button data-speed="0">⏸</button>
+        <button data-speed="1" class="active">1x</button>
+        <button data-speed="2">2x</button>
+        <button data-speed="4">4x</button>
+      </div>
+    </div>
+  </div>
+  <div id="sceneWrap">
+    <canvas id="scene"></canvas>
+    <div id="ticker">📰 歡迎來到冒險者公會物語</div>
+  </div>
+  <div id="content"></div>
+  <div id="tabbar">
+    <button class="tabbtn active" data-tab="guild">🏰<br>公會</button>
+    <button class="tabbtn" data-tab="quest">📜<br>任務</button>
+    <button class="tabbtn" data-tab="equip">⚔️<br>裝備</button>
+    <button class="tabbtn" data-tab="world">🌍<br>世界</button>
+    <button class="tabbtn" data-tab="history">📖<br>紀錄</button>
+  </div>
+</div>
+<div id="modalRoot"></div>
+
+<script>
+(function(){
+'use strict';
+/* =========================================================
+   工具函式
+========================================================= */
+const RNG = Math.random;
+function ri(min,max){ return Math.floor(RNG()*(max-min+1))+min; }
+function rf(min,max){ return RNG()*(max-min)+min; }
+function pick(arr){ return arr[Math.floor(RNG()*arr.length)]; }
+function weightedPick(items){
+  let total=0; for(const it of items) total+=it[1];
+  let r=RNG()*total;
+  for(const it of items){ if(r<it[1]) return it[0]; r-=it[1]; }
+  return items[items.length-1][0];
+}
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+let _idc=1;
+function uid(){ return 'id'+(_idc++)+'_'+Math.random().toString(36).slice(2,8); }
+function fill(tpl, ctx){
+  if(!tpl) return '';
+  return tpl.replace(/\{(\w+)\}/g, (m,k)=> (ctx && ctx[k]!==undefined) ? ctx[k] : m);
+}
+function sampleN(arr, n){
+  const pool=arr.slice(); const out=[];
+  for(let i=0;i<n && pool.length;i++){
+    const idx=Math.floor(RNG()*pool.length);
+    out.push(pool[idx]); pool.splice(idx,1);
+  }
+  return out;
+}
+
+/* =========================================================
+   遊戲資料表
+========================================================= */
+const STAT_KEYS=['hp','atk','def','mag','spd','luk'];
+const STAT_LABEL={hp:'生命',atk:'攻擊',def:'防禦',mag:'魔力',spd:'速度',luk:'幸運'};
+
+const CLASS_DATA={
+  '戰士':{base:{hp:120,atk:14,def:12,mag:2,spd:8,luk:5}, growth:{hp:14,atk:2.2,def:1.8,mag:0.2,spd:0.8,luk:0.5}, skills:['重擊','嘲諷','旋風斬','不屈意志'], color:'#e07b39', focus:['atk','hp'], specs:['狂戰士','劍聖']},
+  '聖騎士':{base:{hp:130,atk:11,def:14,mag:8,spd:6,luk:5}, growth:{hp:15,atk:1.8,def:2.0,mag:1.0,spd:0.6,luk:0.5}, skills:['聖光斬','治癒之手','庇護結界','制裁審判'], color:'#f4d35e', focus:['def','hp'], specs:['聖殿執行官','曙光使徒']},
+  '騎士':{base:{hp:125,atk:13,def:16,mag:3,spd:7,luk:6}, growth:{hp:15,atk:2.0,def:2.4,mag:0.3,spd:0.7,luk:0.5}, skills:['長槍突刺','盾牆','騎乘衝鋒','榮譽誓言'], color:'#a98467', focus:['def','atk'], specs:['圓桌騎士','黑甲執行者']},
+  '遊俠':{base:{hp:95,atk:13,def:7,mag:3,spd:14,luk:8}, growth:{hp:10,atk:1.8,def:0.9,mag:0.3,spd:1.6,luk:0.8}, skills:['連射','陷阱術','鷹眼標記','荒野追蹤'], color:'#6a994e', focus:['spd','atk'], specs:['荒野獵手','風之箭使']},
+  '盜賊':{base:{hp:85,atk:14,def:6,mag:2,spd:16,luk:10}, growth:{hp:9,atk:2.0,def:0.7,mag:0.2,spd:1.7,luk:1.0}, skills:['背刺','偷竊技巧','影遁','毒刃'], color:'#577590', focus:['spd','luk'], specs:['影盜之首','千面盜賊']},
+  '刺客':{base:{hp:80,atk:17,def:5,mag:2,spd:17,luk:7}, growth:{hp:8,atk:2.3,def:0.6,mag:0.2,spd:1.8,luk:0.7}, skills:['暗殺','連環刺擊','劇毒迷霧','瞬步'], color:'#3d3d3d', focus:['atk','spd'], specs:['夜帷死神','無聲獵殺者']},
+  '法師':{base:{hp:70,atk:4,def:5,mag:18,spd:9,luk:6}, growth:{hp:7,atk:0.4,def:0.6,mag:2.4,spd:0.8,luk:0.6}, skills:['火球術','寒冰箭','奧術飛彈','傳送術'], color:'#4361ee', focus:['mag','spd'], specs:['元素掌控者','奧術賢者']},
+  '術士':{base:{hp:75,atk:5,def:5,mag:17,spd:8,luk:6}, growth:{hp:8,atk:0.5,def:0.6,mag:2.3,spd:0.7,luk:0.6}, skills:['暗影箝制','召喚惡魔','死亡詛咒','生命汲取'], color:'#7209b7', focus:['mag','hp'], specs:['深淵契約者','魔女領主']},
+  '牧師':{base:{hp:90,atk:4,def:8,mag:16,spd:7,luk:7}, growth:{hp:10,atk:0.4,def:0.9,mag:2.1,spd:0.6,luk:0.7}, skills:['治癒術','復生祈禱','群體祝福','驅邪術'], color:'#f8edeb', focus:['mag','def'], specs:['大主教','聖光裁決者']},
+  '吟遊詩人':{base:{hp:85,atk:8,def:6,mag:10,spd:11,luk:9}, growth:{hp:9,atk:1.1,def:0.7,mag:1.3,spd:1.1,luk:0.9}, skills:['戰歌','嘲諷之歌','魅惑旋律','鼓舞人心'], color:'#f72585', focus:['luk','mag'], specs:['傳奇敘事者','萬人迷']},
+  '德魯伊':{base:{hp:100,atk:9,def:9,mag:13,spd:9,luk:7}, growth:{hp:11,atk:1.2,def:1.1,mag:1.6,spd:0.8,luk:0.7}, skills:['治療之種','變獸形態','纏繞荊棘','自然之怒'], color:'#2d6a4f', focus:['mag','def'], specs:['古林賢者','化獸之主']},
+  '死靈法師':{base:{hp:78,atk:6,def:5,mag:17,spd:7,luk:5}, growth:{hp:8,atk:0.6,def:0.6,mag:2.3,spd:0.6,luk:0.5}, skills:['骸骨召喚','腐化之觸','靈魂收割','死亡纏繞'], color:'#5a3d6b', focus:['mag','hp'], specs:['冥界執政官','萬骸之王']},
+  '武僧':{base:{hp:105,atk:15,def:10,mag:6,spd:13,luk:6}, growth:{hp:12,atk:2.1,def:1.2,mag:0.6,spd:1.4,luk:0.6}, skills:['連環踢擊','金剛禪定','氣勁爆發','以柔克剛'], color:'#c08552', focus:['atk','spd'], specs:['醉拳宗師','金剛羅漢']}
+};
+const CLASS_NAMES=Object.keys(CLASS_DATA);
+const SPEC_LEVEL=10;
+
+const TRAIT_EFFECTS={
+  '勇敢':{injure:-0.1}, '謹慎':{injure:-0.2}, '衝動':{injure:0.2}, '貪婪':{}, '忠誠':{},
+  '善良':{}, '高傲':{}, '樂觀':{}, '悲觀':{}, '浪漫':{}, '孤僻':{}, '幽默':{}, '嚴肅':{}, '好奇':{}, '冷靜':{injure:-0.1},
+  '多疑':{betray:-0.05}, '瘋狂':{injure:0.15,betray:0.05}, '殘忍':{}, '虔誠':{}
+};
+const TRAIT_NAMES=Object.keys(TRAIT_EFFECTS);
+const CORE_TRAITS=['勇敢','謹慎','衝動','貪婪','忠誠','善良','高傲','樂觀','悲觀','浪漫','孤僻','幽默','嚴肅','好奇','冷靜','殘忍','虔誠'];
+const MUTATED_TRAITS=['多疑','瘋狂'];
+function traitMod(a,key){
+  return a.traits.reduce((s,t)=> s+((TRAIT_EFFECTS[t]&&TRAIT_EFFECTS[t][key])||0), 0);
+}
+
+const GIVEN_NAMES=['亞瑟','凱文','羅蘭','艾莉絲','薇若妮卡','賈斯汀','莉莉安','馮卡爾','索菲亞','加雷斯',
+  '伊莎貝爾','崔斯坦','艾達','貝奧','賽琳娜','雷諾','瑪格麗特','奧斯卡','薇拉','卡蜜兒',
+  '德雷克','艾米莉亞','喬納斯','蘿絲','凱撒','米蘭達','奧丁','薇薇安','哈洛德','伊莉雅'];
+const FAMILY_NAMES=['黑鐵','晨曦','暗影','聖光','狂風','寒冰','烈焰','銀月','荊棘','烏鴉',
+  '獵鷹','雷霆','霜風','深谷','灰燼'];
+function genName(){ return pick(GIVEN_NAMES)+'·'+pick(FAMILY_NAMES); }
+
+const RARITIES=[
+  {name:'普通', color:'#b8b8b8', affixCount:0, mult:1},
+  {name:'魔法', color:'#4ade80', affixCount:1, mult:1.3},
+  {name:'稀有', color:'#60a5fa', affixCount:2, mult:1.7},
+  {name:'史詩', color:'#c084fc', affixCount:3, mult:2.3},
+  {name:'傳奇', color:'#fbbf24', affixCount:4, mult:3.0},
+  {name:'神器', color:'#ff5e7e', affixCount:5, mult:4.2}
+];
+function rarityColor(i){ return RARITIES[i].color; }
+function rarityName(i){ return RARITIES[i].name; }
+const SELL_VALUE=[20,60,150,400,1000,3000];
+
+/* 特殊詞綴：附加在裝備上的特殊效果旗標，不只是數值加成，也帶有敘事與機制鉤子 */
+const SPECIAL_AFFIXES=[
+  {key:'lifesteal', name:'吸血', desc:'戰鬥中能汲取敵人生命', hookDesc:'降低受傷風險'},
+  {key:'fire', name:'火焰', desc:'武器纏繞著不滅之火', hookDesc:'提升戰鬥獎勵'},
+  {key:'frost', name:'冰霜', desc:'寒氣能凍結敵人行動', hookDesc:'提升成功機率'},
+  {key:'poison', name:'劇毒', desc:'傷口會持續腐蝕敵人', hookDesc:'提升戰鬥獎勵'},
+  {key:'holy', name:'聖光', desc:'神聖力量驅散黑暗', hookDesc:'對亡靈/邪教類目標加成'},
+  {key:'cursed', name:'詛咒', desc:'力量強大但伴隨代價', hookDesc:'大幅增益但提升受傷風險'},
+  {key:'dragonslayer', name:'龍族殺手', desc:'專為弒龍而鍛造', hookDesc:'對龍族目標大幅加成'},
+  {key:'undying', name:'不朽', desc:'彷彿擁有自己的意志，從不毀壞', hookDesc:'大幅降低死亡風險'}
+];
+function specialAffixChance(rIdx){ return [0,0,0.08,0.18,0.35,0.7][rIdx]||0; }
+
+const SLOT_LABEL={weapon:'武器',armor:'防具',accessory:'飾品'};
+const BASE_TYPES={
+  weapon:['鐵劍','長劍','巨劍','戰斧','戰錘','長槍','短弓','長弓','弩','匕首','雙刀','法杖','魔導書','聖典','豎琴','權杖'],
+  armor:['布衣','皮甲','鎖鏈甲','鐵甲','板甲','法袍','聖袍','旅行斗篷','戰甲'],
+  accessory:['銅戒','銀戒','項鍊','護符','徽記','手鐲','聖物匣','披風扣','腰帶']
+};
+const AFFIX_POOL=[
+  {word:'鋒利的', stat:'atk', val:[2,5]}, {word:'沉重的', stat:'atk', val:[3,7]},
+  {word:'迅捷的', stat:'spd', val:[2,5]}, {word:'堅固的', stat:'def', val:[2,5]},
+  {word:'智慧的', stat:'mag', val:[2,5]}, {word:'幸運的', stat:'luk', val:[1,4]},
+  {word:'生命的', stat:'hp', val:[10,25]}, {word:'守護者的', stat:'def', val:[3,8]},
+  {word:'嗜血的', stat:'atk', val:[3,8]}, {word:'敏銳的', stat:'spd', val:[3,6]},
+  {word:'神聖的', stat:'mag', val:[3,8]}, {word:'貪婪的', stat:'luk', val:[2,6]},
+  {word:'狂怒的', stat:'atk', val:[4,9]}, {word:'寧靜的', stat:'mag', val:[2,6]},
+  {word:'不屈的', stat:'hp', val:[15,30]}
+];
+const SUFFIX_POOL=[
+  {word:'巨龍', stat:'atk', val:[5,12]}, {word:'深淵', stat:'mag', val:[5,12]},
+  {word:'烈陽', stat:'atk', val:[4,10]}, {word:'寒冬', stat:'def', val:[4,10]},
+  {word:'風暴', stat:'spd', val:[4,10]}, {word:'星辰', stat:'luk', val:[3,8]},
+  {word:'永夜', stat:'mag', val:[5,12]}, {word:'守護', stat:'def', val:[5,12]},
+  {word:'屠戮', stat:'atk', val:[6,14]}, {word:'重生', stat:'hp', val:[20,40]}
+];
+const LEGEND_NAMES=['屠龍者','晨曦之刃','永夜聖典','深淵之心','創世聖盾','末日號角','時光懷錶','不滅之心','王者之冠','虛空行者'];
+const ARTIFACT_NAMES=['創世之牙','終焉啟示錄','諸神黃昏','萬古長存','星辰隕落之刃','命運織錦','原初之火','虛空之眼','永恆審判','龍神遺骸'];
+
+const LOCATIONS=['黑森林','落日峽谷','霧隱山脈','廢棄礦坑','亡者沼澤','風暴群島','龍脊山','古代神殿','邊境要塞',
+  '月光湖畔','灰燼荒原','深淵裂谷','翡翠平原','寒冰高地','烈陽沙漠','迷霧港灣','枯骨荒野','藤蔓遺跡','黯影峭壁','晨曦河谷'];
+const MONSTERS=['哥布林群','巨型蜘蛛','食屍鬼','暗影狼','石巨人','沼澤巫婆','飛龍幼體','不死騎士','邪教徒',
+  '魔化野豬','蠍尾獅','半獸人首領','深淵觸手','冰霜巨魁','火焰元素','骷髏軍團','吸血蝙蝠群','森林暴熊','幽靈船員','蛇蠍女妖'];
+const QUEST_NAME_TEMPLATES=[
+  '{loc}的{mon}討伐戰','護送商隊穿越{loc}','清剿{loc}地下城','調查{loc}的異變','尋找{loc}遺失的寶物',
+  '解救被困於{loc}的村民','驅散{loc}的{mon}','守衛{loc}免受{mon}侵襲','深入{loc}尋找失蹤的冒險者',
+  '為{kingdom}王國肅清{loc}的{mon}','護衛貴族穿越{loc}','在{loc}收集稀有藥草，沿途小心{mon}',
+  '追捕潛逃至{loc}的罪犯','平息{loc}的{mon}暴動','為{kingdom}王國偵查{loc}的軍情',
+  '拆除{loc}中{mon}留下的陷阱','護送補給前往{kingdom}邊境','在{loc}舉行的儀式中擔任護衛，防範{mon}',
+  '追蹤{loc}神秘失蹤事件的真相','討伐盤踞{loc}多年的{mon}首領','在{loc}建立臨時據點，抵禦{mon}的侵襲',
+  '為{kingdom}王國勘查{loc}的礦脈','護送學者前往{loc}研究古代遺跡','肅清盤踞在{loc}的盜賊集團',
+  '於{loc}舉行的拍賣會擔任護衛','深入{loc}尋找傳說中的{mon}巢穴','為{kingdom}王國的婚禮車隊護航，途經{loc}',
+  '調解{loc}居民與{mon}的衝突','在{loc}修復受損的防禦結界','追查{loc}附近接連失蹤案件的真相'
+];
+
+const RANK_ORDER=['S','A','B','C','D','E'];
+const RANK_CFG={
+  E:{powerBase:30, durMin:1,durMax:2, goldBase:40, expBase:55, dangerLow:0.03,dangerHigh:0.08, itemChance:0.15, rep:1},
+  D:{powerBase:60, durMin:2,durMax:3, goldBase:90, expBase:100, dangerLow:0.05,dangerHigh:0.12, itemChance:0.2, rep:2},
+  C:{powerBase:110, durMin:3,durMax:5, goldBase:180, expBase:190, dangerLow:0.08,dangerHigh:0.18, itemChance:0.28, rep:3},
+  B:{powerBase:190, durMin:4,durMax:7, goldBase:340, expBase:330, dangerLow:0.12,dangerHigh:0.25, itemChance:0.38, rep:5},
+  A:{powerBase:300, durMin:6,durMax:10, goldBase:600, expBase:560, dangerLow:0.16,dangerHigh:0.32, itemChance:0.5, rep:8},
+  S:{powerBase:480, durMin:8,durMax:14, goldBase:1100, expBase:900, dangerLow:0.22,dangerHigh:0.42, itemChance:0.7, rep:15}
+};
+
+const KINGDOM_INIT=['艾爾文王國','黑鐵公國','月落聯邦','聖光帝國','荒原部落聯盟','多恩自由邦'];
+const NEW_KINGDOM_NAMES=['翠水新邦','曉風城邦','灰燼重生國','潮汐自治區','烈日同盟','寒霜遺族國','晨曦自由港','荊棘女王領','深谷礦業聯邦','流浪者王國'];
+const GUILD_NAMES=['銀月曙光','黑鐵之盟','晨曦旅人','烽火盟約','薪火相傳'];
+
+/* ---- 活地下城系統 ---- */
+const DUNGEON_THEMES=[
+  {theme:'哥布林洞窟', race:'哥布林', leaderTitle:'酋長'},
+  {theme:'食屍鬼墓穴', race:'食屍鬼', leaderTitle:'墓穴領主'},
+  {theme:'獸人營地', race:'半獸人', leaderTitle:'戰將'},
+  {theme:'蜘蛛巢穴', race:'巨蛛', leaderTitle:'蛛后'},
+  {theme:'不死者地宮', race:'骷髏兵', leaderTitle:'死亡騎士'},
+  {theme:'邪教神殿', race:'邪教徒', leaderTitle:'大祭司'},
+  {theme:'龍族巢穴', race:'幼龍', leaderTitle:'龍王'},
+  {theme:'蠻族要塞', race:'蠻族', leaderTitle:'王者'},
+  {theme:'深淵裂隙', race:'深淵生物', leaderTitle:'裂隙領主'},
+  {theme:'廢棄矮人礦坑', race:'石巨人', leaderTitle:'坑道霸主'}
+];
+const DUNGEON_LEADER_NAMES=['血牙','骸顎','寒爪','焦炎','夜嚎','腐心','鐵蹄','毒眸','灰燼王','深淵低語者','枯骨君主','千刃','沉默者','虛空裂者'];
+const DUNGEON_COUNT=7;
+
+/* ---- 宗教陣營 ---- */
+const RELIGION_NAMES=['光輝聖殿教','古老森林信仰','深淵密教'];
+const RELIGION_BLESS=[
+"{rel}的祭司為公會舉行了祝福儀式，眾人士氣大振。",
+"{rel}的信徒在公會門前獻上祭品，祈求冒險者平安。",
+"{rel}宣布公會為「受庇護之地」，聲望因此提升。",
+"{rel}的聖徒親自造訪公會，留下了祝福的話語。"
+];
+const RELIGION_CURSE=[
+"{rel}的教義與公會的行事產生衝突，雙方關係降至冰點。",
+"{rel}的狂信徒在城鎮散布對公會不利的言論。",
+"{rel}認定公會的某次任務褻瀆了聖地，要求公開道歉。",
+"{rel}的審判者警告公會不得再涉足聖域。"
+];
+
+/* ---- 競爭公會 ---- */
+const RIVAL_GUILD_NAMES=['黑鴉冒險者公會','赤焰傭兵團'];
+const RIVAL_GUILD_EVENTS=[
+"{rg}搶先一步完成了一件原本公會也在考慮的任務。",
+"{rg}的成員在酒館裡公然嘲笑公會的近期表現。",
+"{rg}向公會提出了挑戰，要比較誰能先攻克某座地下城。",
+"{rg}試圖高薪挖角公會的成員，但未能得手。",
+"{rg}的聲望因一次失敗的任務而受損，公會的地位相對提升。",
+"傳聞{rg}正在祕密招募更多戰力，準備擴張勢力範圍。",
+"{rg}與公會在同一座城鎮爭奪補給資源，氣氛緊張。",
+"{rg}意外地向公會提出了短暫合作的提議。"
+];
+
+/* ---- 酒館傳聞 ---- */
+const RUMOR_TEMPLATES=[
+"據說{loc}出現了一顆龍蛋，誰找到就能發一筆橫財。",
+"有人說{loc}附近已經有好幾名旅人失蹤，至今下落不明。",
+"傳聞古老的王室寶藏重新出現在了{loc}。",
+"酒館的老水手聲稱在{loc}見過海怪的身影。",
+"據傳{loc}的深處藏著一座被遺忘的神殿，裡頭滿是寶藏。",
+"有商人說{loc}最近常有奇異的光芒，疑似魔法異變。",
+"流言指出{kingdom}王國正在祕密囤積軍隊，意圖不善。",
+"有人在{loc}撿到了一把會說話的劍，但沒人相信。",
+"據說{mon}最近變得異常活躍，恐怕正在醞釀什麼。",
+"傳聞某位退休的傳奇冒險者隱居在{loc}，等待有緣人拜訪。",
+"有旅人說{loc}的井水突然變成了詭異的紅色。",
+"據傳一名神秘法師正在{loc}進行禁忌的實驗。",
+"酒館裡流傳{loc}藏著能實現願望的古老法陣。",
+"有人聲稱看見已故的冒險者幽魂在{loc}徘徊。",
+"傳聞黑市正在{loc}祕密交易非法的魔法物品。"
+];
+
+/* ---- 命運點數 ---- */
+const FATE_REGEN_DAYS=35;
+const FATE_MAX=5;
+const FATE_ACTIONS={
+  protect:{cost:1, label:'命運庇護', desc:'為一位冒險者賦予一次「死亡轉重傷」的庇護'},
+  boost:{cost:1, label:'扭轉戰局', desc:'大幅提升一場進行中遠征的最終成功率'},
+  genius:{cost:2, label:'招募天才', desc:'立即招募一位罕見的高潛力冒險者'},
+  reroll:{cost:1, label:'改變事件', desc:'重新擲定一場遠征下一個事件的結果'}
+};
+
+const STATUS_LABELS={idle:'待命',onQuest:'任務中',injured:'療傷中',disabled:'殘疾',retired:'已退休',dead:'已故',betrayed:'已叛逃'};
+const WORLD_EVENT_LABEL={war:'⚔️ 戰爭',plague:'🦠 瘟疫',dragon:'🐉 龍災',riot:'🏰 地下城暴動'};
+
+/* =========================================================
+   事件範本庫（總計 200 種以上）
+========================================================= */
+const EV_INJURY=[
+"{a}在與{mon}的戰鬥中被劃傷了手臂，鮮血直流。",
+"{a}閃避不及，被{mon}擊中倒地，痛苦地呻吟著。",
+"{a}在「{mon}」任務中扭傷了腳踝，暫時無法行動。",
+"{a}被陷阱擊中，渾身是傷地撤退回了公會。",
+"{a}與{mon}激戰過後，身負重傷地被同伴扛回了公會。",
+"{a}試圖以肉身擋下致命一擊，雖然保住了性命卻傷勢不輕。",
+"{a}在撤退途中摔下了懸崖邊緣，渾身瘀傷。",
+"{a}被{mon}的毒牙咬傷，中毒症狀讓他臥床不起。",
+"{a}在激戰中肋骨斷裂，需要好好休養一段時間。",
+"{a}雖然完成了任務，卻在最後關頭被波及，傷得不輕。"
+];
+const EV_DISABLE=[
+"{a}在與{mon}的死鬥中失去了一條手臂，從此只能適應新的戰鬥方式。",
+"{a}的腿被巨石壓傷，落下了永久的跛行。",
+"{a}在爆炸中失去了視力的一部分，視野從此變得模糊。",
+"{a}的右手在戰鬥中嚴重受創，再也無法像以往一樣靈活。",
+"{a}被{mon}重創脊椎，行動能力大幅下降。",
+"{a}在那場惡戰之後，留下了再也無法痊癒的傷殘。",
+"{a}失去了一隻耳朵的聽力，戰場上的反應變得遲緩。",
+"{a}的膝蓋永久損傷，從此只能緩慢行走。"
+];
+const EV_QUEST_DEATH=[
+"{a}在「{mon}」的任務中壯烈犧牲，再也沒有回到公會。",
+"{a}被{mon}擊殺，倒在了異鄉的土地上。",
+"{a}為了保護同伴，獻出了自己的生命。",
+"{a}在最後一戰中力竭倒下，未能等到援軍到來。",
+"{a}消失在了任務的迷霧之中，再無音訊。",
+"{a}慘死於{mon}之手，公會收到了沉痛的消息。",
+"{a}在墜落的瓦礫中失去了生命。",
+"{a}因傷勢過重，未能撐到回程的路上。",
+"{a}被困於陷阱深處，最終未能逃出。",
+"{a}的冒險就此終結，永遠地留在了那片戰場上。"
+];
+const EV_OLDAGE=[
+"{a}壽終正寢，於睡夢中安詳離世。",
+"{a}在親友的陪伴下走完了人生最後一程。",
+"{a}年事已高，靜靜地閉上了雙眼，再未醒來。",
+"{a}回顧了自己波瀾壯闊的一生後，安詳離去。",
+"{a}在公會的搖椅上度過了最後的時光，含笑而終。",
+"{a}終於卸下了多年的冒險生涯，平靜地告別了人世。"
+];
+const EV_RETIRE=[
+"{a}決定退出冒險者的行列，回鄉過上平靜的生活。",
+"{a}厭倦了刀劍生涯，選擇隱居山林。",
+"{a}帶著積蓄回到了家鄉，開了一間小店。",
+"{a}覺得自己年紀大了，該把舞台留給年輕人了。",
+"{a}選擇退休，專心教導下一代的冒險者。",
+"{a}決定放下武器，享受餘生的寧靜。",
+"{a}在最後一次任務後，向公會遞交了退休申請。",
+"{a}說想要去看看世界，便辭去了公會的職務。"
+];
+const EV_MARRY=[
+"{a}與{b}在公會眾人的見證下結為連理！",
+"{a}向{b}求婚成功，公會洋溢著喜悅的氣氛。",
+"{a}和{b}決定攜手共度一生，舉辦了簡單而溫馨的婚禮。",
+"經過多年並肩冒險，{a}與{b}終於步入了婚姻的殿堂。",
+"{a}與{b}的婚禮在公會大廳熱鬧舉行，大家紛紛獻上祝福。",
+"{a}與{b}互許終身，從今往後便是彼此最堅實的後盾。",
+"在一次任務的歸途上，{a}向{b}許下了承諾，兩人決定成婚。",
+"{a}與{b}選擇在公會見證下完婚，從戰友變成了家人。"
+];
+const EV_BETRAY=[
+"{a}捲走了{gold}金幣，從此消失無蹤。",
+"{a}被發現私自出售公會物資，捲款{gold}金幣後潛逃。",
+"{a}受不了誘惑，盜取了{gold}金幣後叛逃他鄉。",
+"{a}暗中與敵對勢力勾結，帶著{gold}金幣不知去向。",
+"{a}留下一封簡短的告別信，順手帶走了{gold}金幣。",
+"{a}認為公會虧待了自己，憤而盜取{gold}金幣離去。",
+"{a}被野心蒙蔽，竊取{gold}金幣後另立門戶。",
+"{a}的真實身分曝光——竟是敵方間諜，盜走{gold}金幣逃離。"
+];
+const EV_FRIEND=[
+"{a}與{b}在公會大廳聊得十分投機，結為了朋友。",
+"{a}與{b}一同訓練了一整天，感情更加深厚。",
+"{a}向{b}分享了自己的冒險故事，兩人相談甚歡。",
+"{a}與{b}一起在酒館小酌，氣氛十分融洽。",
+"{a}主動向{b}請教戰鬥技巧，兩人從此熟識起來。",
+"{a}與{b}互相照顧傷勢，培養出深厚的情誼。",
+"{a}邀請{b}一起吃晚餐，兩人的關係更加親近了。",
+"{a}與{b}因為共同的興趣而越走越近。"
+];
+const EV_RIVAL=[
+"{a}與{b}在訓練場上發生了激烈的爭執。",
+"{a}與{b}因為意見不合而大吵了一架。",
+"{a}看不慣{b}的處事方式，兩人之間產生了隔閥。",
+"{a}與{b}在分配任務獎勵時起了爭執。",
+"{a}懷疑{b}搶走了自己的功勞，兩人關係降至冰點。",
+"{a}與{b}因為性格不合，漸漸變得疏遠。"
+];
+const EV_FOUND_ITEM=[
+"{a}在公會後院閒逛時，意外發現了一些零錢。",
+"{a}幫忙整理倉庫，找到了一些被遺忘的硬幣。",
+"{a}在街上撿到了一個錢袋，誠實地交給了公會。",
+"{a}靠著做零工賺了一點外快。",
+"{a}在酒館贏了一局牌，賺了些小錢。",
+"{a}賣掉了一些不需要的雜物，換來了些金幣。",
+"{a}幫鎮上的居民跑腿，得到了一筆謝禮。",
+"{a}在訓練場附近發現了一枚遺失的戒指，賣了個好價錢。"
+];
+const EV_ILLNESS=[
+"{a}染上了風寒，臥床休養了幾天。",
+"{a}水土不服，腸胃不適地躺了好幾天。",
+"{a}因為過度勞累而病倒了。",
+"{a}染上了流行的疫病，需要靜養一段時間。",
+"{a}受了風寒，咳嗽不止，只能暫時休息。",
+"{a}因為飲食不當而食物中毒，臥床休息。",
+"{a}染上了不明的疾病，公會請來大夫為其診治。",
+"{a}因連日操勞而體力不支，倒下了。"
+];
+const EV_RECOVER=[
+"{a}的傷勢已經痊癒，重新回到了公會待命。",
+"{a}終於恢復了健康，迫不及待想接下新任務。",
+"{a}走出了療養室，看起來精神多了。",
+"{a}傷口癒合，重新拾起了武器。",
+"{a}經過一段時間的休養，總算恢復了往日的活力。"
+];
+const EV_MISC=[
+"{a}在公會的訓練場揮灑了一整天的汗水。",
+"{a}在酒館裡向新人講述著自己的冒險故事。",
+"{a}花了一個下午擦拭著自己的裝備。",
+"{a}在公會圖書室裡研究著古老的卷軸。",
+"{a}悠閒地在公會庭院裡曬著太陽。",
+"{a}幫忙打理公會的雜務，受到了大家的讚賞。",
+"{a}獨自在房間裡冥想，似乎在思考著什麼。",
+"{a}和其他成員一起準備了一頓豐盛的晚餐。",
+"{a}在公告板前研究著最新的任務情報。",
+"{a}花時間練習著新學會的招式。",
+"{a}在後院和同伴們切磋武藝。",
+"{a}寄了一封信回家，報告自己的近況。",
+"{a}整理了一下自己的房間，順便回憶起過去的冒險。",
+"{a}在市集逛了一圈，買了些日常用品。",
+"{a}靜靜地擦拭著自己的武器，眼神專注而平靜。",
+"{a}向公會會長報告了近期的訓練成果。",
+"{a}在後山採集了一些稀有的草藥。",
+"{a}花了一整天的時間鑽研新的戰術。",
+"{a}和新加入的成員分享了公會的歷史。",
+"{a}望著公會的旗幟，許下了新的目標。",
+"{a}在公會的鐘樓上眺望著遠方。",
+"{a}細心地保養著自己的坐騎。",
+"{a}向年輕的學徒傳授了幾招實用的技巧。",
+"{a}在雨天裡靜靜地讀著一本舊書。",
+"{a}修補了自己破損的披風。",
+"{a}在公會餐廳裡享用了一頓豐盛的早餐。",
+"{a}花了一整個下午練習瞄準。",
+"{a}和夥伴們討論著下一次任務的策略。",
+"{a}在公會的花園裡種下了一株小樹。",
+"{a}默默地擦拭著公會的徽章，眼神堅定。",
+"{a}寫下了這段時間冒險的心得筆記。",
+"{a}在月光下獨自練劍，揮汗如雨。",
+"{a}和公會的廚師學習了幾道家鄉料理。",
+"{a}靜靜聆聽著吟遊詩人傳唱的英雄故事。",
+"{a}望著公會牆上的紀錄牌，想起了逝去的夥伴。"
+];
+
+const EV_PLAGUE_START=[
+"🦠 一場不明的瘟疫開始在城鎮間悄悄蔓延。",
+"🦠 邊境傳來疫病爆發的消息，人心惶惶。",
+"🦠 詭異的疾病在多個村落同時出現，情況不容樂觀。",
+"🦠 商隊帶來了疫病的傳聞，城鎮間人人自危。",
+"🦠 一種未知的瘟病開始在各地肆虐。",
+"🦠 大量病患湧入城鎮的醫館，瘟疫的陰影籠罩著大地。"
+];
+const EV_RIOT_START=[
+"🏰 地下城深處傳來陣陣騷動，似乎有暴動正在醞釀。",
+"🏰 被囚禁的怪物們集體暴動，衝出了地下城的封印。",
+"🏰 地下城守衛傳來警報，內部秩序已經失控。",
+"🏰 古老遺跡中的封印鬆動，怪物們開始大量湧出。",
+"🏰 地下城的居民發起了暴動，局勢一片混亂。",
+"🏰 探險隊回報，地下城深處正在發生大規模的異變。"
+];
+const EV_FESTIVAL=[
+"🎉 鄰近城鎮舉辦了盛大的豐收祭，公會也受邀共襄盛舉。",
+"🎉 王國舉行了慶典遊行，整座城市都洋溢著歡樂的氣氛。",
+"🎉 一年一度的冒險者大會在城中熱鬧展開。",
+"🎉 城鎮舉辦了煙火大會，公會成員們也一同欣賞了美麗的夜空。",
+"🎉 各地商人齊聚一堂，舉辦了熱鬧的交易市集。",
+"🎉 王室宣布舉國同慶，公會的聲望也跟著水漲船高。",
+"🎉 街頭藝人和吟遊詩人齊聚一堂，獻上了精彩的表演。",
+"🎉 豐收的季節讓各地的市集都熱鬧了起來。"
+];
+const EV_CARAVAN=[
+"🐎 一支商隊經過公會，帶來了{gold}金幣的交易收益。",
+"🐎 商隊用優惠的價格與公會交易，賺取了{gold}金幣。",
+"🐎 遠方來的商人對公會的聲望表示敬意，留下了{gold}金幣。",
+"🐎 一支旅行商隊在此停留補給，公會因此獲得了{gold}金幣。",
+"🐎 商隊帶來了異國的消息，也留下了{gold}金幣的謝禮。",
+"🐎 公會協助商隊修理了馬車，獲得了{gold}金幣的報酬。"
+];
+const EV_ANOMALY=[
+"✨ 夜空中出現了奇異的光芒，持續了整整一夜。",
+"✨ 天降異象，整座城鎮都感受到了魔力的波動。",
+"✨ 一場流星雨劃過天際，引來了無數人的圍觀。",
+"✨ 古老的法陣突然發光，學者們對此議論紛紛。",
+"✨ 空氣中瀰漫著奇異的魔力波動，持續了好一陣子。",
+"✨ 傳說中的異變現象再度出現，引起了魔法界的關注。"
+];
+const EV_KINGDOM_RISE=[
+"👑 新王國「{kingdom}」於廢土上崛起，吸引了無數移民。",
+"👑 在動盪過後，「{kingdom}」宣布建國，重新點燃了希望。",
+"👑 殘存的勢力重新整合，建立了新的國度「{kingdom}」。",
+"👑 廢墟之上，「{kingdom}」的旗幟緩緩升起。",
+"👑 一位英雄統一了零散的部族，建立了「{kingdom}」。"
+];
+const EV_KINGDOM_FALL=[
+"👑 {kingdom}因國力衰竭，最終走向了覆滅。",
+"👑 內憂外患之下，{kingdom}的王座轟然倒塌。",
+"👑 {kingdom}的子民四散逃亡，這個國度就此消失在歷史中。",
+"👑 連年的災禍終於拖垮了{kingdom}，它已成為了過去。",
+"👑 曾經輝煌的{kingdom}，如今只剩下斷壁殘垣。"
+];
+const EV_WAR_START=[
+"⚔️ {kA}王國與{kB}王國之間爆發了戰爭！",
+"⚔️ 邊境衝突升級，{kA}正式向{kB}宣戰。",
+"⚔️ 因領土糾紛，{kA}與{kB}陷入了全面戰爭。",
+"⚔️ {kA}王國集結大軍，向{kB}發動了進攻。",
+"⚔️ 多年的恩怨終於爆發，{kA}與{kB}兵戎相見。",
+"⚔️ 一場突如其來的戰爭，讓{kA}與{kB}陷入了混亂。"
+];
+const EV_DRAFT_DESC=[
+"{kingdom}王國請求公會派遣冒險者支援前線戰事。",
+"戰事告急，{kingdom}王國向公會發出了緊急徵召令。",
+"{kingdom}王國的使者請求公會出兵援助。",
+"前線戰況危急，{kingdom}王國盼望公會伸出援手。"
+];
+const EV_PLAGUE_DESC=[
+"瘟疫在城鎮間蔓延，公會該如何應對？",
+"疫情持續惡化，民眾紛紛尋求公會的協助。",
+"瘟疫的陰影籠罩大地，公會面臨著艱難的抉擇。",
+"病患人數持續增加，公會的決定將影響無數人的性命。"
+];
+const EV_DRAGON_DESC=[
+"一頭巨龍降臨在{loc}，公會收到了緊急求援！",
+"傳說中的巨龍甦醒，{loc}陷入了恐慌之中。",
+"巨龍的咆哮震撼了{loc}，居民紛紛逃離家園。",
+"{loc}的天空被龍影籠罩，毀滅性的災難一觸即發。"
+];
+
+/* =========================================================
+   冒險實況事件庫（遠征中的即時事件，共 13 類 400+ 種範本）
+   每個事件附帶 type（用於決定是否需要玩家介入）與效果鉤子
+========================================================= */
+// 遭遇怪物 monster
+const EXP_MONSTER=[
+"隊伍在{loc}的小徑上遭遇了{mon}，雙方瞬間陷入戰鬥！",
+"一群{mon}從陰影中竄出，擋住了隊伍的去路。",
+"{a}率先察覺到{mon}的氣息，提醒同伴提高警覺。",
+"{mon}的咆哮聲在洞穴中迴盪，戰鬥一觸即發。",
+"隊伍踏入了{mon}的地盤，對方毫不留情地發起攻擊。",
+"夜色中，{mon}悄無聲息地包圍了隊伍。",
+"{a}與{mon}正面交鋒，刀光劍影瞬間四起。",
+"一隻體型異常巨大的{mon}擋在隊伍前方，散發著危險的氣息。",
+"隊伍誤觸了警報機制，引來了大批{mon}。",
+"{mon}似乎在守護著什麼，對闖入者毫不退讓。",
+"狹窄的通道讓隊伍與{mon}的戰鬥更加艱難。",
+"{a}大喊一聲，率先衝向了{mon}群。",
+"濃霧中突然殺出{mon}，讓隊伍猝不及防。",
+"{mon}似乎比想像中更聰明，竟設下了包圍陣型。",
+"一場混戰過後，隊伍勉強壓制住了狂暴的{mon}。",
+"{mon}發出刺耳的尖嘯，似乎在呼喚同伴前來支援。",
+"{a}注意到{mon}的弱點，立刻指揮隊伍集中攻擊。",
+"隊伍與{mon}的戰鬥持續了許久，雙方都已疲憊不堪。",
+"地面突然震動，一隻{mon}破土而出。",
+"{mon}的攻擊又快又猛，隊伍一時間難以招架。",
+"{a}用身體擋下了{mon}的致命一擊，為同伴爭取時間。",
+"隊伍利用地形優勢，成功將{mon}逼入了絕境。",
+"黑暗中傳來低吼，緊接著{mon}便發起了突襲。",
+"{mon}似乎受到了某種力量的驅使，行為異常凶暴。",
+"一場惡戰之後，{mon}的屍體倒在了隊伍腳邊。",
+"{a}用精準的一擊，瞬間擊倒了領頭的{mon}。",
+"隊伍被{mon}從三面包夾，戰況一度十分危急。",
+"{mon}雖然數量眾多，但隊伍配合默契，逐一擊破。",
+"一隻受傷的{mon}狗急跳牆，發動了瘋狂的反撲。",
+"隊伍小心翼翼地繞過了一群正在休息的{mon}，但仍被發現。",
+"{a}注意到{mon}群中有一隻體型特別的個體，似乎是首領。",
+"戰鬥的喧鬧聲引來了更多{mon}前來查看。",
+"{mon}似乎在保護著巢穴深處的某種東西，攻勢異常凶猛。",
+"隊伍合力布下陷阱，成功誘使{mon}自投羅網。",
+"{a}的武器在戰鬥中閃耀著光芒，士氣為之一振。",
+"{mon}的巢穴入口堆滿了同類的遺骸，似乎內部正在自相殘殺。",
+"一場奇襲讓{mon}措手不及，隊伍佔盡了上風。",
+"{a}在混戰中與{mon}近身肉搏，場面一度十分驚險。",
+"隊伍識破了{mon}的詐死陷阱，及時補上了致命一擊。",
+"{mon}的攻勢逐漸減弱，看來戰鬥即將迎來結局。"
+];
+// 發現寶箱 treasure
+const EXP_TREASURE=[
+"隊伍在{loc}的角落發現了一個上鎖的寶箱。",
+"{a}注意到地面上有一塊鬆動的石板，下方藏著寶物。",
+"一道隱藏的暗門後，竟藏著前人遺留的寶藏。",
+"隊伍翻找一處廢墟，找到了幾枚發亮的金幣與飾品。",
+"{a}憑著直覺，在牆角的暗格裡找到了一件寶物。",
+"一具骸骨的手中緊握著一件閃閃發光的飾品。",
+"隊伍小心地拆解了寶箱上的鎖具，裡頭裝滿了金幣。",
+"一座古老的祭壇旁，散落著前人留下的裝備。",
+"{a}在水潭底部摸到了一個沉重的箱子。",
+"隧道盡頭擺放著一個雕飾精美的木箱，似乎無人動過。",
+"隊伍合力推開巨石，下方竟藏著一間密室。",
+"{a}的幸運再次發揮作用，意外踩中了藏寶的地磚。",
+"一隻被擊敗的{mon}巢穴裡，堆滿了搶來的財寶。",
+"隊伍找到了一張藏寶圖的殘頁，似乎指向附近某處。",
+"{loc}深處的一座神龕中，供奉著一件古老的法器。",
+"隊伍打開了寶箱，裡頭的光芒讓眾人眼睛一亮。",
+"一個雕刻精細的箱子靜靜地擺在房間中央，無人看守。",
+"{a}發現寶箱上刻著古老的文字，似乎記載著它的來歷。",
+"隊伍在懸崖邊的縫隙中找到了一袋遺落的財寶。",
+"一座倒塌的神殿中，意外保存著完好的供奉品。",
+"{a}小心翼翼地探查後，確認這個寶箱並無危險。",
+"隊伍在{mon}的巢穴深處，找到了牠們囤積的戰利品。",
+"一個被遺忘的儲藏室裡，堆滿了各式各樣的裝備。",
+"{a}注意到寶箱的造型十分罕見，似乎來自遙遠的國度。",
+"隊伍合力撐開了卡住的石門，裡頭竟是一間藏寶室。",
+"一道彩光從裂縫中透出，隊伍循光找到了寶藏的所在。",
+"{loc}的水流底下，藏著一個被遺忘多年的鐵箱。",
+"一尊神像的眼窩中嵌著兩顆寶石，靜靜等待有緣人取走。",
+"隊伍踩過厚厚的灰塵，發現了一座保存完好的寶庫入口。",
+"{a}從{mon}的胃袋中找回了牠吞下的金幣與飾品。"
+];
+// 遇到商人 merchant
+const EXP_MERCHANT=[
+"一位神秘的旅行商人出現在隊伍面前，兜售著奇異的貨品。",
+"隊伍遇到了一位獨自在{loc}擺攤的老商人。",
+"一名行腳商人邀請隊伍歇腳，順便看看他的貨物。",
+"{a}認出了這位商人，似乎曾在公會的酒館見過他。",
+"商人聲稱自己的貨品「來路特殊」，價格出奇地便宜。",
+"一支小型商隊正好經過，願意與隊伍交易補給品。",
+"商人神色慌張，似乎急著想脫手手中的貨物。",
+"一位賣藥草的老婦人坐在路邊，向隊伍兜售她的草藥。",
+"商人開出了誘人的價格，想收購隊伍身上的戰利品。",
+"{a}與商人討價還價了一番，氣氛十分熱絡。",
+"一位蒙著面紗的神祕商人，只在夜裡才會出現交易。",
+"商人的貨架上擺著幾件造型奇特的裝備，吸引了隊伍的目光。",
+"隊伍遇到的商人似乎對{loc}的歷史十分了解，滔滔不絕地講述著。",
+"一位受傷的商人請求隊伍護送他安全離開{loc}。",
+"商人提議用情報換取金幣，內容似乎與附近的地下城有關。",
+"隊伍買下了商人的補給品，士氣稍有恢復。",
+"商人警告隊伍前方的道路並不安全，建議改道而行。",
+"一名退役的冒險者轉行成了商人，向隊伍分享了不少經驗。",
+"商人手中的某件商品讓{a}一見就難以移開目光。",
+"隊伍與商人交易完畢後，行囊明顯沉重了許多。",
+"商人遞給隊伍一張折扣券，說是「常客優惠」。",
+"一位專賣藥水的商人向隊伍推薦了幾瓶來路不明的補品。",
+"商人感嘆生意難做，{loc}附近的盜賊太多，貨物常常被劫。",
+"{a}從商人那裡買到了一份手繪地圖，似乎標示著附近的危險區域。",
+"商人臨走前，悄悄提醒隊伍小心前方的某個陷阱。"
+];
+// 神秘祭壇 altar（高介入性事件：獻祭/摧毀/探索）
+const EXP_ALTAR=[
+"隊伍發現了一座散發詭異氣息的祭壇，上面刻滿了無法辨識的符文。",
+"一座古老的祭壇靜靜佇立在{loc}深處，似乎仍殘留著某種力量。",
+"祭壇中央放著一顆跳動的紅色寶石，散發著不祥的光芒。",
+"{a}感覺到祭壇散發出強烈的魔力波動，令人不安。",
+"一座血跡斑斑的祭壇前，擺著幾件未完成的獻祭品。",
+"祭壇上的雕像彷彿正注視著隊伍的一舉一動。",
+"{loc}的盡頭，一座被藤蔓纏繞的祭壇沉睡了不知多少年。",
+"祭壇周圍的空氣異常寒冷，彷彿時間在此停滯。",
+"一座發出微光的祭壇前，似乎在等待著某種儀式的完成。",
+"祭壇的石板上刻著古老的預言，內容晦澀難解。",
+"{a}注意到祭壇底部有暗格，似乎藏著什麼東西。",
+"祭壇上殘留著焦黑的痕跡，似乎曾經發生過慘烈的儀式。",
+"一座雙面祭壇同時刻著光明與黑暗的符號，令人難以抉擇。",
+"祭壇前的地面散落著乾枯的花朵，似乎曾有人定期前來祭拜。",
+"{a}伸手觸碰祭壇的瞬間，感覺到一股寒意竄上脊背。",
+"祭壇上的容器盛著暗紅色的液體，不知是何物。"
+];
+// 陷阱 trap
+const EXP_TRAP=[
+"地面突然塌陷，{a}險些墜入下方的深坑！",
+"一道暗箭從牆壁射出，所幸被及時察覺躲開。",
+"隊伍踏中了壓力板，天花板開始落下尖刺。",
+"{a}聽見了機關轉動的聲音，立刻提醒同伴退後。",
+"一團毒氣突然從地板縫隙中噴出，瀰漫了整個房間。",
+"隊伍踩到了絆線，觸發了連環弓箭陣。",
+"通道盡頭的地板竟是偽裝的陷阱，差點讓隊伍跌入深淵。",
+"一個看似普通的寶箱竟是誘餌，觸發後關閉了整間密室。",
+"{a}及時拉住了同伴，避免了一場墜落意外。",
+"天花板上垂下的巨石擺錘，幾乎掃中了隊伍。",
+"隊伍誤觸古老的封印機關，整條通道開始劇烈震動。",
+"地板上浮現的魔法陣突然發光，似乎準備傳送或攻擊。",
+"一陣強風從通道深處吹來，夾雜著細小的飛刃。",
+"{a}憑著敏銳的直覺，提前發現了隱藏的壓力陷阱。",
+"隊伍小心避開了佈滿尖刺的地板，鬆了一口氣。",
+"突然亮起的火焰陷阱，將通道燒得通紅。",
+"一張偽裝成石牆的活板門，差點將隊伍困在密室之中。"
+];
+// 迷路 lost
+const EXP_LOST=[
+"隊伍在錯綜複雜的通道中迷失了方向。",
+"{loc}的構造異常複雜，隊伍走了許久卻像是在原地打轉。",
+"濃霧瀰漫，隊伍漸漸失去了原本的路線。",
+"{a}試圖辨認方向，卻發現周圍的景象似乎都長得一樣。",
+"隊伍誤入了一條死路，只能折返重新尋找出路。",
+"黑暗中傳來回音，讓隊伍一時難以判斷方位。",
+"通道分裂成數十條岔路，隊伍只能憑直覺挑選方向。",
+"{a}用粉筆在牆上做了記號，以免隊伍重複走過同一條路。",
+"隊伍走了大半天，才發現自己又回到了入口附近。",
+"地圖上的標示與實際地形完全不符，隊伍只能摸索前進。",
+"一陣怪異的回聲讓隊伍以為前方有人，結果只是空無一物的迴廊。",
+"{a}建議稍作休息，等頭腦清醒後再繼續尋路。",
+"隊伍終於走出了迷宮般的通道，但已經耗費了不少時間與體力。"
+];
+// NPC求助 npc_help（高介入性：救援/撤退/忽視）
+const EXP_NPC=[
+"一名受困的旅人虛弱地向隊伍求救。",
+"隊伍聽見了求救聲，似乎是被困在陷阱中的村民。",
+"一個渾身是傷的孩子躲在角落，怯怯地望著隊伍。",
+"一位被綁在柱子上的祭司請求隊伍解開他的束縛。",
+"一名同樣身陷{loc}的冒險者，懇求隊伍與他結伴同行。",
+"隊伍發現了一群被{mon}囚禁的村民，正等待救援。",
+"一位老者跌坐在地，說自己的孫女被怪物擒走了。",
+"一名渾身發抖的商隊護衛，請求隊伍護送他離開此地。",
+"一個衣衫破爛的逃犯聲稱自己是被冤枉的，請求隊伍幫助。",
+"隊伍遇見一名失去記憶的旅人，他完全不知道自己為何在此。",
+"一位受傷的士兵倒在路邊，斷斷續續地說著敵情。",
+"一名年輕學徒迷失在{loc}，急切地請求隊伍帶他離開。",
+"一位獵人受困於自己設下的陷阱，狼狽地向隊伍呼救。",
+"一群躲在洞穴深處的難民，正等待著有人能帶領他們逃出。",
+"一名受傷的斥候請求隊伍將重要情報帶回給他的指揮官。",
+"一位被下了詛咒的旅人，懇求隊伍幫他尋找解咒之法。"
+];
+// 神祕聲音 voice（高介入性：探索/忽視/獻祭）
+const EXP_VOICE=[
+"黑暗中傳來一陣低語，內容模糊不清，卻讓人感到不安。",
+"一個蒼老的聲音在隊伍耳邊響起，似乎在訴說著古老的祕密。",
+"四周空無一人，卻清楚地響起了孩童的笑聲。",
+"{a}聽見有人在呼喚自己的名字，但四周根本沒有其他人。",
+"一段旋律從深處傳來，聽起來既熟悉又陌生。",
+"牆壁中似乎傳出了輕微的敲擊聲，彷彿有什麼東西被困在裡面。",
+"一個微弱的聲音不斷重複著同一句警告：「不要再往前了」。",
+"隊伍聽見遠處傳來悲鳴，聲音逐漸逼近又逐漸遠去。",
+"耳邊響起一陣呢喃，內容似乎是某種古老的咒語。",
+"{a}感覺有什麼東西在低聲說著自己的祕密，令人毛骨悚然。",
+"一個低沉的聲音邀請隊伍「加入永恆的盛宴」。",
+"風中夾雜著斷斷續續的歌聲，曲調哀傷而陌生。",
+"{a}聽見了類似心跳的鼓聲，從牆壁深處傳來。",
+"一聲嘆息迴盪在空無一人的房間裡。",
+"隊伍聽見有人在背後輕聲數數，但回頭卻什麼也沒有。",
+"一個稚嫩的聲音請求隊伍「陪我玩一個遊戲」。"
+];
+// 岔路 fork（高介入性：探索/撤退）
+const EXP_FORK=[
+"隊伍來到一處岔路口，必須決定接下來的方向。",
+"前方出現兩條截然不同的通道，一條狹窄陰暗，一條寬敞明亮。",
+"地圖在此處標示不明，隊伍得自行判斷該走哪一條路。",
+"一道分岔路口前，地上的爪痕指向其中一條通道。",
+"{a}注意到其中一條路散發著淡淡的寶物氣息，但也可能更危險。",
+"三條通道同時出現在隊伍面前，各自通向未知的深處。",
+"岔路口的牆上刻著模糊的警示符號，難以判斷含義。",
+"隊伍必須在「更深入」與「更安全」之間做出選擇。",
+"一條岔路傳來陣陣寒意，另一條則隱約有光亮透出。",
+"地面上同時存在新舊兩種足跡，分別通向不同的方向。",
+"{a}用銅板擲出正反面，決定該選哪一條路前進。",
+"岔路口豎立著一根斷裂的路標，無法判斷原本指向何處。"
+];
+// 怪物巢穴 nest（高介入性：摧毀/撤退/探索）
+const EXP_NEST=[
+"隊伍發現了一座{mon}的巢穴，裡頭似乎還有未孵化的幼體。",
+"一座龐大的巢穴擋在前方，{mon}進出頻繁，戒備森嚴。",
+"巢穴深處傳來低沉的咆哮，似乎是首領正在休息。",
+"{a}注意到巢穴周圍堆滿了骸骨，看來不少冒險者曾在此失蹤。",
+"摧毀這座巢穴或許能換來豐厚的獎賞，但風險也同樣巨大。",
+"巢穴的入口窄小，只能容許隊伍一個一個通過，十分危險。",
+"隊伍在巢穴外圍觀察了許久，試圖找出{mon}的巡邏規律。",
+"巢穴內部結構複雜，彷彿是一座小型的地下要塞。",
+"巢穴四周瀰漫著刺鼻的氣味，顯示這裡的{mon}數量遠超想像。",
+"{a}發現巢穴深處堆滿了搶劫來的財物與裝備。",
+"一聲尖銳的警報聲從巢穴內傳出，似乎隊伍已被察覺。",
+"巢穴的牆壁上滿是抓痕，記錄著這裡曾發生過的激烈爭鬥。"
+];
+// 遠古遺跡 ruins（高介入性：探索/摧毀）
+const EXP_RUINS=[
+"隊伍踏入了一座年代久遠的遺跡，牆上的壁畫早已斑駁。",
+"遺跡中央立著一座巨大的石像，神情莫測地俯視著入侵者。",
+"{a}辨認出遺跡牆上的文字，似乎記載著一段失落的歷史。",
+"一座傾頹的神廟靜靜佇立，彷彿訴說著昔日的輝煌。",
+"遺跡深處傳來陣陣回響，似乎仍有某種機制在運作。",
+"隊伍發現了一間保存完好的書房，裡頭堆滿了古老的卷軸。",
+"遺跡的地板上刻著巨大的法陣，至今仍隱隱發光。",
+"{a}推測這座遺跡屬於一個早已消失的古老文明。",
+"遺跡的中庭擺放著數座雕像，造型詭異而陌生。",
+"一道封閉已久的大門後，似乎藏著遺跡最深的祕密。",
+"遺跡的穹頂繪滿星圖，似乎記錄著某個重要的天文時刻。",
+"{a}在遺跡的角落發現了一具保存完好的鎧甲骸骨。",
+"一排斷裂的石柱訴說著這座建築曾經的恢弘規模。",
+"遺跡深處的水池中，倒映著早已不存在的星空。"
+];
+// 休整 rest（低風險，正面）
+const EXP_REST=[
+"隊伍找到一處避風處，稍作休息恢復體力。",
+"{a}生起了一小堆營火，眾人圍坐取暖。",
+"隊伍在一處安全的角落紮營，氣氛輕鬆了不少。",
+"一晚好眠後，隊伍的士氣明顯恢復了許多。",
+"{a}分享了自己攜帶的乾糧，大家分食補充體力。",
+"隊伍利用片刻的寧靜，互相檢查了彼此的裝備與傷勢。",
+"一處清澈的地下水源讓隊伍補充了乾涸的水袋。",
+"隊伍趁機整理行囊，丟棄了不必要的雜物。",
+"{a}哼著小曲，氣氛意外地輕鬆愉快。",
+"隊伍輪流站哨，確保休息時不會遭到突襲。",
+"一場小睡讓疲憊的隊伍重新恢復了銳利的判斷力。",
+"{a}採集了附近的野果，為隊伍補充了一些新鮮的食物。",
+"隊伍趁著空檔，互相分享了各自家鄉的故事。",
+"片刻的寧靜讓隊伍得以喘口氣，重新規劃接下來的路線。"
+];
+// 隊伍摩擦 friction（中介入性：團隊關係波動）
+const EXP_FRICTION=[
+"{a}與{b}在路線選擇上產生了爭執。",
+"{a}認為{b}在剛才的戰鬥中過於冒進，忍不住出言提醒。",
+"分配戰利品時，{a}與{b}起了一些小摩擦。",
+"{a}對{b}的決定感到不滿，但最終還是選擇了沉默。",
+"長途跋涉讓隊伍的氣氛變得有些緊張，{a}率先打破了沉默。",
+"{a}主動向{b}道歉，化解了先前的一場誤會。",
+"{b}在戰鬥中救了{a}一命，兩人之間的信任明顯加深。",
+"{a}與{b}因為意見不合，整段路途都沉默不語。",
+"{a}悄悄向{b}抱怨隊伍的行進速度太慢。",
+"{b}因為{a}搶先擊殺了目標而感到些許不悅。",
+"一段共同經歷的險境，讓{a}與{b}的關係意外地拉近了。",
+"{a}忍不住吐槽{b}總是搶走最好的戰利品。"
+];
+// 環境發現 discover（低風險，敘事性，無實質效果或小效果）
+const EXP_DISCOVER=[
+"隊伍經過一片開闊地，能遠遠望見{loc}壯麗的景色。",
+"牆上的壁畫描繪著一段久遠的戰爭，看得眾人心生敬畏。",
+"一陣涼風從深處吹來，帶著潮濕的氣味。",
+"{a}注意到地面上的足跡，似乎暗示著不只一種生物曾經過此地。",
+"隊伍穿過一條布滿螢光苔蘚的通道，景色十分奇幻。",
+"遠處傳來水流聲，隊伍猜測前方應該有地下河流。",
+"一群蝙蝠突然從頭頂飛過，嚇了隊伍一跳，但並無大礙。",
+"{a}望著{loc}深處的黑暗，不禁感到一陣寒意。",
+"隊伍在牆角發現了前人留下的塗鴉，記錄著探索的心得。",
+"一陣奇異的香氣瀰漫在空氣中，來源不明。",
+"{loc}的天色忽然變得陰沉，隊伍加快了腳步。",
+"隊伍經過一處長滿奇花的小徑，景色美得令人駐足。",
+"腳下的地面逐漸從泥土轉變為古老的石磚，顯示著文明的痕跡。",
+"{a}聽見遠方傳來野獸的長嘯，提醒大家保持警戒。",
+"一道彩虹般的光線從岩縫中灑落，為陰暗的{loc}添了一絲生氣。"
+];
+
+/* 事件分類設定：決定事件池、是否需玩家介入、可選決策、及對應效果 */
+const EXPEDITION_EVENT_TYPES=[
+  {key:'monster', pool:EXP_MONSTER, weight:24, interactive:false, kind:'combat'},
+  {key:'treasure', pool:EXP_TREASURE, weight:14, interactive:false, kind:'reward'},
+  {key:'merchant', pool:EXP_MERCHANT, weight:8, interactive:false, kind:'neutral'},
+  {key:'altar', pool:EXP_ALTAR, weight:8, interactive:true, kind:'altar',
+    choices:[
+      {label:'獻祭', trait:['虔誠','貪婪','殘忍'], effect:{successDelta:0.06, goldDelta:[20,80], riskDelta:0.05, traitGain:'瘋狂', traitChance:0.08}},
+      {label:'摧毀', trait:['衝動','勇敢','殘忍'], effect:{itemChance:0.5, riskDelta:0.1, successDelta:-0.02}},
+      {label:'探索', trait:['好奇','謹慎'], effect:{itemChance:0.25, successDelta:0.02, riskDelta:0.02}}
+    ]},
+  {key:'trap', pool:EXP_TRAP, weight:12, interactive:false, kind:'danger'},
+  {key:'lost', pool:EXP_LOST, weight:7, interactive:false, kind:'delay'},
+  {key:'npc', pool:EXP_NPC, weight:7, interactive:true, kind:'npc',
+    choices:[
+      {label:'救援', trait:['善良','勇敢','虔誠'], effect:{repDelta:[1,3], riskDelta:0.06, relationGain:true}},
+      {label:'撤退', trait:['膽小','謹慎','冷靜'], effect:{successDelta:0.01}},
+      {label:'談判', trait:['冷靜','高傲'], effect:{goldDelta:[10,40], successDelta:0.01}}
+    ]},
+  {key:'voice', pool:EXP_VOICE, weight:6, interactive:true, kind:'voice',
+    choices:[
+      {label:'探索', trait:['好奇','衝動'], effect:{itemChance:0.3, riskDelta:0.08, traitGain:'瘋狂', traitChance:0.05}},
+      {label:'獻祭', trait:['虔誠','殘忍'], effect:{successDelta:0.08, riskDelta:0.1}},
+      {label:'忽視', trait:['冷靜','謹慎'], effect:{successDelta:0.01}}
+    ]},
+  {key:'fork', pool:EXP_FORK, weight:6, interactive:true, kind:'fork',
+    choices:[
+      {label:'探索', trait:['好奇','貪婪'], effect:{itemChance:0.3, riskDelta:0.05}},
+      {label:'撤退', trait:['謹慎','膽小'], effect:{riskDelta:-0.05}}
+    ]},
+  {key:'nest', pool:EXP_NEST, weight:5, interactive:true, kind:'nest',
+    choices:[
+      {label:'摧毀', trait:['勇敢','殘忍','衝動'], effect:{goldDelta:[40,120], successDelta:0.05, riskDelta:0.12}},
+      {label:'撤退', trait:['謹慎','膽小'], effect:{riskDelta:-0.08}},
+      {label:'探索', trait:['好奇'], effect:{itemChance:0.4, riskDelta:0.06}}
+    ]},
+  {key:'ruins', pool:EXP_RUINS, weight:5, interactive:true, kind:'ruins',
+    choices:[
+      {label:'探索', trait:['好奇','貪婪'], effect:{itemChance:0.45, expDelta:[10,30]}},
+      {label:'摧毀', trait:['殘忍','衝動'], effect:{goldDelta:[30,90], riskDelta:0.04}}
+    ]},
+  {key:'rest', pool:EXP_REST, weight:8, interactive:false, kind:'rest'},
+  {key:'friction', pool:EXP_FRICTION, weight:6, interactive:false, kind:'social'},
+  {key:'discover', pool:EXP_DISCOVER, weight:9, interactive:false, kind:'flavor'}
+];
+function eventCountTotal(){
+  let n=0;
+  EXPEDITION_EVENT_TYPES.forEach(t=>n+=t.pool.length);
+  n+=EV_INJURY.length+EV_DISABLE.length+EV_QUEST_DEATH.length+EV_OLDAGE.length+EV_RETIRE.length+EV_MARRY.length+
+     EV_BETRAY.length+EV_FRIEND.length+EV_RIVAL.length+EV_FOUND_ITEM.length+EV_ILLNESS.length+EV_RECOVER.length+
+     EV_MISC.length+EV_PLAGUE_START.length+EV_RIOT_START.length+EV_FESTIVAL.length+EV_CARAVAN.length+EV_ANOMALY.length+
+     EV_KINGDOM_RISE.length+EV_KINGDOM_FALL.length+EV_WAR_START.length+EV_DRAFT_DESC.length+EV_PLAGUE_DESC.length+
+     EV_DRAGON_DESC.length+QUEST_NAME_TEMPLATES.length+RUMOR_TEMPLATES.length+RIVAL_GUILD_EVENTS.length+
+     RELIGION_BLESS.length+RELIGION_CURSE.length;
+  return n;
+}
+
+/* =========================================================
+   遊戲狀態
+========================================================= */
+let day, gold, reputation, guildName, guildLockdownDays;
+let adventurers, inventory, availableQuests, activeQuests, recruitPool;
+let kingdoms, activeWorldEvents, chronicle, decisionQueue, pendingRise;
+let dungeons, religions, rivalGuild, rumors, worldHistory, fatePoints, fateProtectedId, lastSeenTs, lastFateDay;
+let speed=1, currentTab='guild', tickCounter=0, currentDispatchQuestId=null, dispatchSelection=new Set();
+let activeExpeditionView=null;
+
+function getAdv(id){ return adventurers.find(a=>a.id===id); }
+function aliveKingdomNames(){ const n=kingdoms.filter(k=>k.status!=='滅亡').map(k=>k.name); return n.length?n:['無名之地']; }
+function avgLevel(){
+  const living=adventurers.filter(a=>['idle','onQuest','injured','disabled'].includes(a.status));
+  if(!living.length) return 1;
+  return living.reduce((s,a)=>s+a.level,0)/living.length;
+}
+function formatDate(d){
+  const year=Math.floor((d-1)/360)+1;
+  const rem=(d-1)%360;
+  const month=Math.floor(rem/30)+1;
+  const dom=(rem%30)+1;
+  return `第${year}年${month}月${dom}日`;
+}
+function formatYear(d){ return Math.floor((d-1)/360)+1; }
+function formatStats(stats){
+  return Object.keys(stats).map(k=>`+${stats[k]} ${STAT_LABEL[k]}`).join(' ');
+}
+function expNeed(level){ return Math.round(50*Math.pow(level,1.5)+50); }
+function getPower(a, opts){
+  const s=a.stats;
+  let p = s.hp*0.08+s.atk*1+s.def*0.9+s.mag*1+s.spd*0.6+s.luk*0.4;
+  if(opts && opts.monsterTag){
+    ['weapon','armor','accessory'].forEach(slot=>{
+      const it=a.equipment[slot];
+      if(it && it.special==='dragonslayer' && /龍/.test(opts.monsterTag)) p*=1.4;
+      if(it && it.special==='holy' && /(亡靈|不死|邪教|骷髏|食屍)/.test(opts.monsterTag)) p*=1.25;
+    });
+  }
+  return p;
+}
+function hasSpecial(a, key){
+  return ['weapon','armor','accessory'].some(slot=> a.equipment[slot] && a.equipment[slot].special===key);
+}
+function randomSlot(){ return pick(['weapon','armor','accessory']); }
+function pushWorldHistory(text){
+  worldHistory.unshift({day, year:formatYear(day), text});
+  if(worldHistory.length>200) worldHistory.length=200;
+}
+
+/* =========================================================
+   生成器
+========================================================= */
+function recomputeStats(a){
+  const cd=CLASS_DATA[a.class];
+  const lvl=a.level;
+  const s={};
+  for(const k of STAT_KEYS){ s[k]=Math.round(cd.base[k]+cd.growth[k]*(lvl-1)); }
+  ['weapon','armor','accessory'].forEach(slot=>{
+    const it=a.equipment[slot];
+    if(it){
+      for(const k in it.stats){ s[k]=(s[k]||0)+it.stats[k]; }
+      if(it.special==='cursed'){ s.atk=(s.atk||0)+ri(3,8); s.def=Math.max(1,(s.def||0)-ri(1,4)); }
+    }
+  });
+  for(const k in a.bonus){ s[k]=(s[k]||0)+a.bonus[k]; }
+  if(a.specialization && a.specialization.bonus){
+    for(const k in a.specialization.bonus){ s[k]=(s[k]||0)+a.specialization.bonus[k]; }
+  }
+  if(a.status==='disabled' && a.disability){
+    s[a.disability.stat]=Math.max(1, Math.round(s[a.disability.stat]*(1-a.disability.penalty)));
+  }
+  a.stats=s;
+}
+
+function genAdventurer(level, parents){
+  level=level||1;
+  const cls=pick(CLASS_NAMES);
+  const a={
+    id:uid(), name:genName(), class:cls, level:level, exp:0,
+    age: ri(16,30), lifespan: ri(58,88),
+    traits: sampleN(CORE_TRAITS,2),
+    status:'idle',
+    equipment:{weapon:null,armor:null,accessory:null},
+    skills: CLASS_DATA[cls].skills.map(s=>({name:s, level:1, prof:0})),
+    bonus:{}, relationships:[], history:[],
+    isMarried:false, spouseId:null,
+    joinDay: day, recoverDays:0, disability:null,
+    deathDay:null, causeOfDeath:null,
+    specialization:null,
+    counters:{combat:0, betrayed:0, cursed:0},
+    fateShield:false,
+    parents: parents||null,
+    mentorId:null, discipleIds:[]
+  };
+  if(parents){
+    a.traits = RNG()<0.5 ? parents.aTraits.slice(0,2) : sampleN(CORE_TRAITS,2);
+    a.bonus = {}; STAT_KEYS.forEach(k=>{ if(RNG()<0.5) a.bonus[k]=ri(1,3); });
+  }
+  recomputeStats(a);
+  return a;
+}
+function genCandidate(){
+  const lvl=ri(1, Math.max(3, Math.round(avgLevel())+2));
+  const a=genAdventurer(lvl);
+  a.hireCost = 80+lvl*45+ri(0,50);
+  return a;
+}
+function genFamilyCandidate(parentA, parentB){
+  const lvl=ri(1,3);
+  const a=genAdventurer(lvl, {aTraits:parentA.traits});
+  a.name = pick(GIVEN_NAMES)+'·'+(parentA.name.split('·')[1]||pick(FAMILY_NAMES));
+  a.hireCost = Math.round((40+lvl*25)*0.6);
+  a.heritage = `${parentA.name}與${parentB.name}之子女`;
+  a.relationships.push({id:parentA.id, name:parentA.name, type:'親屬', value:60});
+  a.relationships.push({id:parentB.id, name:parentB.name, type:'親屬', value:60});
+  return a;
+}
+function genEquipment(slot, forcedRarityIdx, advLevel){
+  advLevel=advLevel||1;
+  let rIdx=forcedRarityIdx;
+  if(rIdx===undefined||rIdx===null){ rIdx=weightedPick([[0,50],[1,24],[2,14],[3,7],[4,2.5],[5,0.5]]); }
+  const rarity=RARITIES[rIdx];
+  const base=pick(BASE_TYPES[slot]);
+  const lvlScale=1+advLevel*0.08;
+  const stats={};
+  if(slot==='weapon'){ stats.atk=Math.round(ri(2,5)*rarity.mult*lvlScale); }
+  else if(slot==='armor'){ stats.def=Math.round(ri(2,5)*rarity.mult*lvlScale); stats.hp=Math.round(ri(5,12)*rarity.mult*lvlScale); }
+  else { stats.luk=Math.round(ri(1,3)*rarity.mult*lvlScale); }
+  let prefixWord=null, suffixWord=null;
+  for(let i=0;i<rarity.affixCount;i++){
+    const useSuffix = i%2===1;
+    const pool = useSuffix? SUFFIX_POOL : AFFIX_POOL;
+    const af = pick(pool);
+    const val = Math.round(ri(af.val[0],af.val[1])*lvlScale);
+    stats[af.stat]=(stats[af.stat]||0)+val;
+    if(useSuffix) suffixWord=af.word; else prefixWord=af.word;
+  }
+  let special=null;
+  if(RNG()<specialAffixChance(rIdx)){ special=pick(SPECIAL_AFFIXES).key; }
+  let name;
+  if(rIdx===5){ name=pick(ARTIFACT_NAMES); }
+  else if(rIdx===4){ name=pick(LEGEND_NAMES); }
+  else {
+    name=(prefixWord?prefixWord:'')+base+(suffixWord?('之'+suffixWord):'');
+    if(special){ const sa=SPECIAL_AFFIXES.find(x=>x.key===special); name=`【${sa.name}】`+name; }
+  }
+  return {id:uid(), name, slot, rarity:rIdx, stats, special};
+}
+function genQuest(forcedRank, dungeon){
+  const rank = forcedRank || weightedPick([['E',30],['D',25],['C',20],['B',15],['A',8],['S',2]]);
+  const cfg=RANK_CFG[rank];
+  const loc=dungeon?dungeon.location:pick(LOCATIONS);
+  const mon=dungeon?(dungeon.race+'群'):pick(MONSTERS);
+  const kingdom=pick(aliveKingdomNames());
+  let name;
+  if(dungeon){
+    name = dungeon.leaderAlive && RNG()<0.4
+      ? `討伐${dungeon.theme}的${dungeon.leaderTitle}「${dungeon.leaderName}」`
+      : `深入${dungeon.theme}清剿${dungeon.race}`;
+  } else {
+    name = fill(pick(QUEST_NAME_TEMPLATES),{loc,mon,kingdom});
+  }
+  return {
+    id:uid(), name, rank,
+    power: Math.round(cfg.powerBase*(0.85+RNG()*0.3)),
+    duration: ri(cfg.durMin,cfg.durMax),
+    goldReward: Math.round(cfg.goldBase*(0.8+RNG()*0.5)),
+    expReward: Math.round(cfg.expBase*(0.8+RNG()*0.4)),
+    itemDropChance: cfg.itemChance,
+    dangerLow: cfg.dangerLow, dangerHigh: cfg.dangerHigh,
+    repReward: cfg.rep,
+    desc: `地點：${loc} ｜ 目標：${mon}`,
+    expiresIn: ri(15,30),
+    partyIds: [], startDay:0, endDay:0, special:false,
+    dungeonId: dungeon?dungeon.id:null, location:loc, monsterTag:mon,
+    expedition:null
+  };
+}
+
+/* ---- 活地下城 ---- */
+function genDungeon(){
+  const t=pick(DUNGEON_THEMES);
+  const pop=ri(60,200);
+  return {
+    id:uid(), theme:t.theme, race:t.race, leaderTitle:t.leaderTitle,
+    location:pick(LOCATIONS),
+    population:pop, maxPopulation:pop,
+    leaderName:pick(DUNGEON_LEADER_NAMES), leaderAlive:true,
+    state:'thriving', history:[], rebornCount:0
+  };
+}
+function dungeonThreatTier(d){
+  const ratio=d.population/d.maxPopulation;
+  if(d.state==='destroyed') return '已覆滅';
+  if(ratio>0.7) return '強盛';
+  if(ratio>0.35) return '穩定';
+  return '衰弱';
+}
+function dungeonDailyTick(d){
+  if(d.state==='destroyed'){
+    d.rebornDay = d.rebornDay||(day+ri(40,90));
+    if(day>=d.rebornDay){
+      const t=pick(DUNGEON_THEMES);
+      d.theme=t.theme; d.race=t.race; d.leaderTitle=t.leaderTitle;
+      d.population=ri(40,140); d.maxPopulation=d.population;
+      d.leaderName=pick(DUNGEON_LEADER_NAMES); d.leaderAlive=true;
+      d.state='thriving'; d.rebornCount++; d.rebornDay=null;
+      logGlobal(`🕳️ ${d.location}的廢墟中，新的「${d.theme}」勢力悄然興起，首領「${d.leaderName}」自立為${d.leaderTitle}。`);
+    }
+    return;
+  }
+  if(d.population < d.maxPopulation && RNG()<0.04){ d.population=Math.min(d.maxPopulation, d.population+ri(2,6)); }
+  if(!d.leaderAlive && RNG()<0.02 && d.population>20){
+    d.leaderName=pick(DUNGEON_LEADER_NAMES); d.leaderAlive=true;
+    logGlobal(`🕳️ ${d.theme}中誕生了新的首領「${d.leaderName}」，再次統合了${d.race}的勢力。`);
+  }
+}
+function dungeonApplyClear(d, partyPower){
+  const dmg=Math.round(clamp(partyPower/8, 3, 60));
+  d.population=Math.max(0, d.population-dmg);
+  let leaderSlain=false;
+  if(d.leaderAlive && partyPower>d.maxPopulation*1.2 && RNG()<0.35){
+    d.leaderAlive=false; leaderSlain=true;
+    logGlobal(`👑 ${d.theme}的${d.leaderTitle}「${d.leaderName}」被擊敗了！`);
+    pushWorldHistory(`${d.theme}的${d.leaderTitle}「${d.leaderName}」殞落`);
+  }
+  if(d.population<=0 && d.state!=='destroyed'){
+    d.state='destroyed';
+    logGlobal(`🏴 ${d.theme}（${d.location}）的勢力已被徹底剷除，這片土地暫時恢復了平靜。`);
+    pushWorldHistory(`${d.theme}（${d.location}）覆滅`);
+  }
+  return leaderSlain;
+}
+function pickDungeonForQuest(){
+  const alive=dungeons.filter(d=>d.state!=='destroyed');
+  return alive.length? pick(alive) : null;
+}
+
+/* =========================================================
+   經驗 / 技能
+========================================================= */
+function gainExp(a, amount){
+  a.exp += amount;
+  while(a.level<50 && a.exp>=expNeed(a.level)){
+    a.exp -= expNeed(a.level);
+    a.level++;
+    recomputeStats(a);
+  }
+}
+const RANK_SKILL_GAIN={E:5,D:8,C:12,B:18,A:25,S:35};
+function trainRandomSkill(a, rank){
+  const sk=pick(a.skills);
+  sk.prof += (RANK_SKILL_GAIN[rank]||5);
+  while(sk.prof>=100 && sk.level<10){
+    sk.prof-=100; sk.level++;
+    const focus=CLASS_DATA[a.class].focus;
+    const st=pick(focus);
+    a.bonus[st]=(a.bonus[st]||0)+ri(1,3);
+  }
+  if(sk.prof>100) sk.prof=100;
+  recomputeStats(a);
+}
+
+/* =========================================================
+   人際關係
+========================================================= */
+const LOCKED_REL_TYPES=['夫妻','親屬','師徒'];
+function upsertRel(a,b,amount){
+  let r=a.relationships.find(x=>x.id===b.id);
+  if(!r){ r={id:b.id,name:b.name,type:'認識',value:0}; a.relationships.push(r); }
+  r.value=clamp(r.value+amount,-100,100); r.name=b.name;
+  if(LOCKED_REL_TYPES.includes(r.type)) return r;
+  if(r.value>=80) r.type='戀人';
+  else if(r.value>=50) r.type='摯友';
+  else if(r.value>=20) r.type='朋友';
+  else if(r.value<=-60) r.type='宿敵';
+  else if(r.value<=-25) r.type='不合';
+  else r.type='認識';
+  return r;
+}
+function bumpRelationship(a,b,amount){ upsertRel(a,b,amount); upsertRel(b,a,amount); }
+function marryAdventurers(a,b){
+  a.isMarried=true; b.isMarried=true; a.spouseId=b.id; b.spouseId=a.id;
+  upsertRel(a,b,100); upsertRel(b,a,100);
+  const ra=a.relationships.find(r=>r.id===b.id); if(ra) ra.type='夫妻';
+  const rb=b.relationships.find(r=>r.id===a.id); if(rb) rb.type='夫妻';
+  const sentence=fill(pick(EV_MARRY),{a:a.name,b:b.name});
+  logGlobal('💍 '+sentence);
+  a.history.unshift({day,text:sentence}); b.history.unshift({day,text:sentence});
+}
+function formMentorship(mentor, disciple){
+  upsertRel(mentor, disciple, 40); upsertRel(disciple, mentor, 40);
+  const rm=mentor.relationships.find(r=>r.id===disciple.id); if(rm) rm.type='師徒';
+  const rd=disciple.relationships.find(r=>r.id===mentor.id); if(rd) rd.type='師徒';
+  mentor.discipleIds.push(disciple.id);
+  disciple.mentorId=mentor.id;
+  const sentence=`${mentor.name}收${disciple.name}為徒，開始傳授畢生所學。`;
+  logGlobal('📖 '+sentence);
+  mentor.history.unshift({day,text:sentence}); disciple.history.unshift({day,text:sentence});
+}
+function triggerDuel(a,b){
+  const pa=getPower(a), pb=getPower(b);
+  const winner = pa+ri(0,20) > pb+ri(0,20) ? a : b;
+  const loser = winner===a ? b : a;
+  const lethal = RNG()<0.04;
+  const sentence = `${a.name}與${b.name}積怨已久，終於在公會後院展開了一場決鬥，最終由${winner.name}獲勝。`;
+  logGlobal('⚔️ '+sentence);
+  a.history.unshift({day,text:sentence}); b.history.unshift({day,text:sentence});
+  if(lethal){ killAdventurer(loser, `${loser.name}在與${winner.name}的決鬥中不幸身亡。`, '決鬥身亡'); }
+  else { injureAdventurer(loser, `${loser.name}在決鬥中落敗，身上添了不少傷。`); }
+  upsertRel(a,b,-20); upsertRel(b,a,-20);
+}
+function tryEquipmentTheft(a, b){
+  const slot=randomSlot();
+  const item=b.equipment[slot];
+  if(!item) return false;
+  b.equipment[slot]=null; recomputeStats(b);
+  a.equipment[a.equipment[slot]?randomSlot():slot] = a.equipment[slot]?a.equipment[slot]:item;
+  if(!a.equipment[slot]) a.equipment[slot]=item;
+  recomputeStats(a);
+  const sentence=`${a.name}趁{b}不注意，偷走了對方的${SLOT_LABEL[slot]}「${item.name}」！`.replace('{b}',b.name);
+  logGlobal('🪙 '+sentence);
+  a.history.unshift({day,text:sentence}); b.history.unshift({day,text:sentence});
+  bumpRelationship(a,b,-30);
+  return true;
+}
+function tryHaveChild(a,b){
+  if(recruitPool.length>=3 && RNG()<0.7) return false;
+  const child=genFamilyCandidate(a,b);
+  recruitPool.push(child);
+  const sentence=`${a.name}與${b.name}有了一個孩子，孩子已經長大，渴望加入公會延續父母的志業。`;
+  logGlobal('👶 '+sentence);
+  a.history.unshift({day,text:sentence}); b.history.unshift({day,text:sentence});
+  return true;
+}
+
+/* ---- 人格演變 ---- */
+function mutateTrait(a, newTrait, removeCandidates){
+  if(a.traits.includes(newTrait)) return;
+  if(a.traits.length>=3){
+    const rem=removeCandidates.find(t=>a.traits.includes(t));
+    if(rem){ a.traits=a.traits.filter(t=>t!==rem); }
+    else { a.traits=a.traits.slice(1); }
+  }
+  a.traits.push(newTrait);
+  const sentence=`經歷了重重考驗，${a.name}的性格逐漸變得${newTrait}。`;
+  logPersonalOnly(a, sentence);
+}
+function trackPersonalityShift(a, kind){
+  a.counters = a.counters || {combat:0, betrayed:0, cursed:0};
+  if(kind==='combat'){
+    a.counters.combat++;
+    if(a.counters.combat>=20 && !a.traits.includes('勇敢') && RNG()<0.15){ mutateTrait(a,'勇敢',['膽小','悲觀']); }
+  } else if(kind==='betrayed'){
+    a.counters.betrayed++;
+    if(a.counters.betrayed>=3 && !a.traits.includes('多疑') && RNG()<0.25){ mutateTrait(a,'多疑',['樂觀','浪漫']); }
+  } else if(kind==='cursed'){
+    a.counters.cursed++;
+    if(a.counters.cursed>=4 && !a.traits.includes('瘋狂') && RNG()<0.2){ mutateTrait(a,'瘋狂',['冷靜','謹慎']); }
+  }
+}
+
+/* ---- 流派 / 進階 ---- */
+function trySpecialize(a){
+  if(a.specialization || a.level<SPEC_LEVEL) return;
+  const specs=CLASS_DATA[a.class].specs;
+  if(!specs || !specs.length) return;
+  const title=pick(specs);
+  const bonus={};
+  CLASS_DATA[a.class].focus.forEach(k=>{ bonus[k]=(bonus[k]||0)+ri(4,9); });
+  a.specialization={title, bonus};
+  recomputeStats(a);
+  const sentence=`${a.name}在歷練中領悟了屬於自己的流派，被尊稱為「${title}」。`;
+  logGlobal('🌟 '+sentence);
+  a.history.unshift({day,text:sentence});
+}
+
+/* =========================================================
+   人生事件動作
+========================================================= */
+function logGlobal(text){
+  chronicle.unshift({day, text});
+  if(chronicle.length>300) chronicle.length=300;
+  renderTicker(text);
+  if(currentTab==='history') renderHistoryTab();
+}
+function logPersonalOnly(a, text){
+  a.history.unshift({day, text});
+  if(a.history.length>50) a.history.length=50;
+}
+function killAdventurer(a, sentence, causeShort){
+  if(a.status==='dead') return;
+  if(a.fateShield){
+    a.fateShield=false;
+    const saveSentence=`千鈞一髮之際，命運似乎眷顧了${a.name}，讓他在死亡邊緣硬是撐了下來，但身負重傷。`;
+    logGlobal('✨ '+saveSentence);
+    a.history.unshift({day,text:saveSentence});
+    disableAdventurer(a, `${a.name}從死亡邊緣掙脫，卻留下了永久的傷殘。`);
+    return;
+  }
+  a.status='dead'; a.deathDay=day; a.causeOfDeath=causeShort||sentence;
+  logGlobal('💀 '+sentence);
+  a.history.unshift({day,text:sentence});
+  if(a.level>=20 || (a.specialization)){
+    pushWorldHistory(`${a.name}（${a.specialization?a.specialization.title:a.class}）${causeShort||'離世'}`);
+  }
+  if(a.spouseId){
+    const sp=getAdv(a.spouseId);
+    if(sp && sp.status!=='dead'){ logGlobal(`💔 ${sp.name}得知${a.name}的死訊，悲痛不已。`); }
+  }
+  if(a.mentorId){
+    const m=getAdv(a.mentorId);
+    if(m && m.status!=='dead'){ logPersonalOnly(m, `${m.name}聽聞徒弟${a.name}的死訊，沉默了許久。`); }
+  }
+}
+function injureAdventurer(a, sentence){
+  a.status='injured'; a.recoverDays=ri(3,12);
+  logGlobal('🩹 '+sentence);
+  a.history.unshift({day,text:sentence});
+  trackPersonalityShift(a,'combat');
+}
+function disableAdventurer(a, sentence){
+  a.status='disabled';
+  const stat=pick(['atk','def','spd']);
+  a.disability={stat, penalty:rf(0.2,0.4)};
+  recomputeStats(a);
+  logGlobal('🦾 '+sentence);
+  a.history.unshift({day,text:sentence});
+}
+function retireAdventurer(a, sentence){
+  a.status='retired';
+  logGlobal('👋 '+sentence);
+  a.history.unshift({day,text:sentence});
+  if(a.level>=20 || a.specialization){
+    pushWorldHistory(`${a.name}（${a.specialization?a.specialization.title:a.class}）退休`);
+  }
+}
+function betrayAdventurer(a){
+  a.status='betrayed';
+  const stolen=Math.min(gold, ri(40,200)+a.level*10);
+  gold-=stolen;
+  a.equipment={weapon:null,armor:null,accessory:null};
+  const sentence=fill(pick(EV_BETRAY),{a:a.name,gold:stolen});
+  logGlobal('🗡️ '+sentence);
+  a.history.unshift({day,text:sentence});
+  const CLOSE_TYPES=['朋友','摯友','戀人','夫妻','師徒','親屬'];
+  a.relationships.forEach(r=>{
+    const other=getAdv(r.id);
+    if(other && other.status!=='dead' && CLOSE_TYPES.includes(r.type)){ trackPersonalityShift(other,'betrayed'); }
+  });
+}
+
+/* =========================================================
+   任務系統 / 冒險實況引擎
+========================================================= */
+function resolveQuest(q){
+  const party=q.partyIds.map(getAdv).filter(p=>p && p.status==='onQuest');
+  const exp=q.expedition || {successDelta:0, riskDelta:0, goldBonus:0, expBonus:0, itemBonusChance:0};
+  let power=party.reduce((s,a)=>s+getPower(a,{monsterTag:q.monsterTag}),0);
+  if(party.some(a=>hasSpecial(a,'frost'))) power*=1.05;
+  const dangerMod=1 + (activeWorldEvents.some(e=>e.type==='war')?0.15:0)
+    + (activeWorldEvents.some(e=>e.type==='riot')&&/地下城/.test(q.name)?0.2:0)
+    + (exp.riskDelta||0);
+  const ratio=power/Math.max(1,q.power);
+  let successChance=clamp(0.12+ratio*0.5+(exp.successDelta||0), 0.05, 0.97);
+  const success=RNG()<successChance;
+  const names=party.map(a=>a.name).join('、')||'公會';
+  const dungeon = q.dungeonId ? dungeons.find(d=>d.id===q.dungeonId) : null;
+  if(success){
+    const goldGain=Math.round(q.goldReward*(0.85+RNG()*0.3)*(1+(exp.goldBonus||0)));
+    gold+=goldGain; reputation+=q.repReward||1;
+    party.forEach(a=>{
+      gainExp(a, Math.round(q.expReward*(1+(exp.expBonus||0))));
+      trainRandomSkill(a,q.rank);
+      trackPersonalityShift(a,'combat');
+      trySpecialize(a);
+    });
+    let extra='';
+    if(RNG()<clamp(q.itemDropChance+(exp.itemBonusChance||0),0,0.95)){
+      const lvl=Math.round(party.reduce((s,a)=>s+a.level,0)/Math.max(1,party.length))||1;
+      let forced;
+      if(q.rank==='S') forced=weightedPick([[4,80],[5,20]]);
+      else if(q.rank==='A') forced=weightedPick([[2,40],[3,45],[4,15]]);
+      const it=genEquipment(randomSlot(), forced, lvl);
+      inventory.push(it);
+      extra=`，並帶回了「${it.name}」`;
+      if(it.rarity>=5) pushWorldHistory(`${names}帶回了神器級裝備「${it.name}」`);
+    }
+    logGlobal(`✅ ${names} 完成了任務「${q.name}」，獲得${goldGain}金幣${extra}。`);
+    if(dungeon){
+      const leaderSlain=dungeonApplyClear(dungeon, power);
+      if(leaderSlain){ gold+=ri(50,150); reputation+=3; }
+    }
+  } else {
+    logGlobal(`❌ ${names} 未能完成任務「${q.name}」，鎩羽而歸。`);
+    if(dungeon){ dungeonApplyClear(dungeon, power*0.3); }
+  }
+  party.forEach(a=>{
+    if(a.status!=='onQuest') return; // 已在遠征過程中死亡/重傷等，不再二次結算
+    const baseDanger=(success? q.dangerLow : q.dangerHigh) * dangerMod * (1+traitMod(a,'injure')) * (hasSpecial(a,'undying')?0.4:1) * (hasSpecial(a,'lifesteal')?0.85:1);
+    const r=RNG();
+    if(r < baseDanger*0.12){
+      killAdventurer(a, fill(pick(EV_QUEST_DEATH),{a:a.name,mon:q.name}), '任務殉職');
+    } else if(r < baseDanger*0.4){
+      disableAdventurer(a, fill(pick(EV_DISABLE),{a:a.name,mon:q.name}));
+    } else if(r < baseDanger){
+      injureAdventurer(a, fill(pick(EV_INJURY),{a:a.name,mon:q.name}));
+    } else {
+      a.status='idle';
+    }
+  });
+}
+function updateActiveQuests(){
+  for(let i=activeQuests.length-1;i>=0;i--){
+    const q=activeQuests[i];
+    const expDone = q.expedition ? q.expedition.beatsDone>=q.expedition.beatsTotal : true;
+    if(expDone){
+      resolveQuest(q); activeQuests.splice(i,1);
+    }
+  }
+}
+function updateRecoveries(){
+  adventurers.forEach(a=>{
+    if(a.status==='injured'){
+      a.recoverDays--;
+      if(a.recoverDays<=0){
+        a.status='idle';
+        logPersonalOnly(a, fill(pick(EV_RECOVER),{a:a.name}));
+      }
+    }
+  });
+}
+function maybeAddNewQuest(){
+  availableQuests = availableQuests.filter(q=>{ q.expiresIn--; return q.expiresIn>0 || q.special; });
+  if(availableQuests.length<8 && RNG()<0.6){
+    const useDungeon = RNG()<0.4;
+    availableQuests.push(genQuest(undefined, useDungeon?pickDungeonForQuest():null));
+  }
+}
+function maybeRefreshRecruit(){
+  if(RNG()<0.04){ const idx=ri(0,recruitPool.length-1); recruitPool[idx]=genCandidate(); }
+}
+
+/* ---- 冒險實況：遠征引擎 ---- */
+const EXPEDITION_BEAT_MIN_MS=10000, EXPEDITION_BEAT_MAX_MS=20000;
+function startExpedition(q){
+  const beatsTotal=clamp(Math.round(q.duration*1.6), 3, 16);
+  q.expedition={
+    beatsTotal, beatsDone:0, log:[], pendingChoice:null,
+    msUntilNextBeat: ri(EXPEDITION_BEAT_MIN_MS,EXPEDITION_BEAT_MAX_MS),
+    successDelta:0, riskDelta:0, goldBonus:0, expBonus:0, itemBonusChance:0,
+    ended:false
+  };
+}
+function pickExpeditionEventType(){
+  return weightedPick(EXPEDITION_EVENT_TYPES.map(t=>[t, t.weight]));
+}
+function expeditionCtx(q){
+  const party=q.partyIds.map(getAdv).filter(p=>p && p.status==='onQuest');
+  const a=party.length?pick(party):null;
+  const others=party.filter(x=>x!==a);
+  const b=others.length?pick(others):null;
+  return {
+    loc: q.location||pick(LOCATIONS), mon: q.monsterTag||pick(MONSTERS),
+    a: a?a.name:'隊伍', b: b?b.name:'同伴', party, primary:a, secondary:b
+  };
+}
+function applyExpeditionEffect(q, eff, party){
+  const exp=q.expedition;
+  if(eff.successDelta) exp.successDelta+=eff.successDelta;
+  if(eff.riskDelta) exp.riskDelta+=eff.riskDelta;
+  if(eff.goldDelta){ const g=ri(eff.goldDelta[0],eff.goldDelta[1]); gold+=g; exp.log.push(`（隊伍當場獲得 ${g} 金幣）`); }
+  if(eff.expDelta){ const ev=ri(eff.expDelta[0],eff.expDelta[1]); party.forEach(p=>gainExp(p,ev)); }
+  if(eff.repDelta){ reputation+=ri(eff.repDelta[0],eff.repDelta[1]); }
+  if(eff.itemChance && RNG()<eff.itemChance){
+    const lvl=Math.round(party.reduce((s,a)=>s+a.level,0)/Math.max(1,party.length))||1;
+    const it=genEquipment(randomSlot(), null, lvl);
+    inventory.push(it);
+    exp.log.push(`（隊伍當場獲得了「${it.name}」）`);
+  }
+  if(eff.traitGain && RNG()<(eff.traitChance||0.1) && party.length){
+    const target=pick(party);
+    trackPersonalityShift(target,'cursed');
+  }
+  if(eff.relationGain && party.length>=2){
+    bumpRelationship(party[0], pick(party.slice(1)), ri(5,15));
+  }
+}
+function decideChoiceForType(type, q){
+  const party=q.partyIds.map(getAdv).filter(p=>p && p.status==='onQuest');
+  if(!party.length) return type.choices[type.choices.length-1];
+  let best=type.choices[0], bestScore=-999;
+  type.choices.forEach(c=>{
+    let score=RNG()*2;
+    party.forEach(a=>{ (c.trait||[]).forEach(t=>{ if(a.traits.includes(t)) score+=1.5; }); });
+    if(score>bestScore){ bestScore=score; best=c; }
+  });
+  return best;
+}
+function resolveExpeditionChoice(q, choiceIdx){
+  if(!q || !q.expedition) return;
+  const exp=q.expedition;
+  const pending=exp.pendingChoice;
+  if(!pending) return;
+  const type=EXPEDITION_EVENT_TYPES.find(t=>t.key===pending.typeKey);
+  const choice=type.choices[choiceIdx] || type.choices[0];
+  const party=q.partyIds.map(getAdv).filter(p=>p && p.status==='onQuest');
+  applyExpeditionEffect(q, choice.effect, party);
+  exp.log.unshift({day, text:`👉 隊伍選擇了「${choice.label}」。`, beat:exp.beatsDone});
+  exp.pendingChoice=null;
+  exp.beatsDone++;
+  exp.msUntilNextBeat=ri(EXPEDITION_BEAT_MIN_MS,EXPEDITION_BEAT_MAX_MS);
+  if(currentTab==='quest') renderQuestTab();
+  if(activeExpeditionView===q.id) renderExpeditionModal(q.id);
+}
+function produceExpeditionBeat(q){
+  const exp=q.expedition;
+  if(exp.ended || exp.beatsDone>=exp.beatsTotal) return;
+  const type=pickExpeditionEventType();
+  const ctx=expeditionCtx(q);
+  if(!ctx.party.length){
+    // 隊伍全員已陣亡/離隊，直接結束遠征
+    exp.beatsDone=exp.beatsTotal; exp.ended=true; return;
+  }
+  const text=fill(pick(type.pool), ctx);
+  const entry={day, text, beat:exp.beatsDone, typeKey:type.key, choiceLabels:null};
+  if(type.key==='friction' && ctx.party.length>=2){
+    if(RNG()<0.15){ triggerDuel(ctx.party[0], ctx.party[1]); }
+    else { bumpRelationship(ctx.party[0], ctx.party[1], RNG()<0.5?ri(5,15):-ri(5,15)); }
+  }
+  if(type.key==='merchant' && ctx.party.length>=2 && RNG()<0.08){
+    const greedy=ctx.party.find(a=>a.traits.includes('貪婪'));
+    if(greedy){ const victim=pick(ctx.party.filter(x=>x!==greedy)); if(victim) tryEquipmentTheft(greedy,victim); }
+  }
+  if(type.interactive){
+    exp.pendingChoice={typeKey:type.key, text, remainingMs:ri(18000,26000)};
+    entry.choiceLabels=type.choices.map(c=>c.label);
+    exp.log.unshift(entry);
+    if(currentTab==='quest') renderQuestTab();
+    if(activeExpeditionView===q.id) renderExpeditionModal(q.id);
+    return;
+  }
+  if(type.kind==='combat'){
+    applyExpeditionEffect(q, {successDelta:0.01}, ctx.party);
+    if(RNG()<0.05 && ctx.party.length){
+      const victim=pick(ctx.party);
+      if(victim && victim.status==='onQuest'){
+        const r=RNG();
+        if(r<0.15){ killAdventurer(victim, fill(pick(EV_QUEST_DEATH),{a:victim.name,mon:ctx.mon}), '任務殉職'); }
+        else { injureAdventurer(victim, fill(pick(EV_INJURY),{a:victim.name,mon:ctx.mon})); }
+      }
+    }
+  } else if(type.kind==='reward'){
+    applyExpeditionEffect(q, {itemChance:0.3, goldDelta:[5,25]}, ctx.party);
+  } else if(type.kind==='danger'){
+    applyExpeditionEffect(q, {riskDelta:0.02}, ctx.party);
+  }
+  exp.log.unshift(entry);
+  exp.beatsDone++;
+  exp.msUntilNextBeat=ri(EXPEDITION_BEAT_MIN_MS,EXPEDITION_BEAT_MAX_MS);
+  if(currentTab==='quest') renderQuestTab();
+  if(activeExpeditionView===q.id) renderExpeditionModal(q.id);
+}
+function expeditionStep(){
+  if(speed<=0) return;
+  const virtualElapsedMs=1000*speed; // 每次呼叫(約1秒)依當前遊戲速度推進對應的虛擬時間
+  activeQuests.forEach(q=>{
+    if(!q.expedition) return;
+    const exp=q.expedition;
+    if(exp.beatsDone>=exp.beatsTotal){ exp.ended=true; return; }
+    if(exp.pendingChoice){
+      exp.pendingChoice.remainingMs = (exp.pendingChoice.remainingMs!==undefined?exp.pendingChoice.remainingMs:20000) - virtualElapsedMs;
+      if(exp.pendingChoice.remainingMs<=0){
+        const type=EXPEDITION_EVENT_TYPES.find(t=>t.key===exp.pendingChoice.typeKey);
+        const auto=decideChoiceForType(type, q);
+        const idx=type.choices.indexOf(auto);
+        resolveExpeditionChoice(q, idx>=0?idx:0);
+      }
+      return;
+    }
+    exp.msUntilNextBeat = (exp.msUntilNextBeat!==undefined?exp.msUntilNextBeat:ri(EXPEDITION_BEAT_MIN_MS,EXPEDITION_BEAT_MAX_MS)) - virtualElapsedMs;
+    if(exp.msUntilNextBeat<=0){ produceExpeditionBeat(q); }
+  });
+}
+function fastForwardExpedition(q, virtualMs){
+  const exp=q.expedition; if(!exp) return;
+  const avgBeatMs=(EXPEDITION_BEAT_MIN_MS+EXPEDITION_BEAT_MAX_MS)/2;
+  let n=Math.min(exp.beatsTotal-exp.beatsDone, Math.max(1,Math.floor(virtualMs/avgBeatMs)));
+  for(let i=0;i<n;i++){
+    if(exp.beatsDone>=exp.beatsTotal) break;
+    if(exp.pendingChoice){
+      const type=EXPEDITION_EVENT_TYPES.find(t=>t.key===exp.pendingChoice.typeKey);
+      const auto=decideChoiceForType(type, q);
+      resolveExpeditionChoice(q, type.choices.indexOf(auto));
+    } else {
+      produceExpeditionBeat(q);
+    }
+  }
+}
+
+/* =========================================================
+   人生事件 / 世界事件
+========================================================= */
+function agingAndDeathCheck(){
+  adventurers.forEach(a=>{
+    if(a.status==='dead'||a.status==='retired'||a.status==='betrayed') return;
+    a.age += 1/360;
+    if(a.age>=a.lifespan){ killAdventurer(a, fill(pick(EV_OLDAGE),{a:a.name}), '年老去世'); }
+  });
+}
+function personalEventCheck(){
+  const idleList=adventurers.filter(a=>a.status==='idle');
+  idleList.forEach(a=>{
+    let chance=0.012;
+    if(a.traits.includes('好奇')) chance+=0.005;
+    if(RNG()>chance) return;
+    const roll=RNG();
+    if(roll<0.18 && idleList.length>1){
+      const cands=idleList.filter(x=>x.id!==a.id);
+      const b=pick(cands);
+      if(b){
+        const existingRel=a.relationships.find(r=>r.id===b.id);
+        if(existingRel && existingRel.type==='宿敵' && RNG()<0.2){
+          triggerDuel(a,b);
+        } else {
+          const friendly = RNG()<0.78;
+          if(friendly){
+            bumpRelationship(a,b, ri(10,25));
+            logPersonalOnly(a, fill(pick(EV_FRIEND),{a:a.name,b:b.name}));
+            const levelGap=Math.abs(a.level-b.level);
+            if(levelGap>=5 && !a.mentorId && !b.mentorId && RNG()<0.2){
+              const mentor=a.level>b.level?a:b, disciple=a.level>b.level?b:a;
+              formMentorship(mentor, disciple);
+            }
+          } else {
+            bumpRelationship(a,b, -ri(10,20));
+            logPersonalOnly(a, fill(pick(EV_RIVAL),{a:a.name,b:b.name}));
+          }
+        }
+        const rel=a.relationships.find(r=>r.id===b.id);
+        if(rel && rel.type==='戀人' && !a.isMarried && !b.isMarried && RNG()<0.25){
+          marryAdventurers(a,b);
+        }
+        if(a.isMarried && a.spouseId===b.id && RNG()<0.05){
+          tryHaveChild(a,b);
+        }
+      }
+    } else if(roll<0.30){
+      gold += ri(5,40);
+      logPersonalOnly(a, fill(pick(EV_FOUND_ITEM),{a:a.name}));
+    } else if(roll<0.38){
+      const illChance = activeWorldEvents.some(e=>e.type==='plague') ? 0.8 : 0.25;
+      if(RNG()<illChance && guildLockdownDays<=0){
+        injureAdventurer(a, fill(pick(EV_ILLNESS),{a:a.name}));
+      } else {
+        logPersonalOnly(a, fill(pick(EV_MISC),{a:a.name}));
+      }
+    } else if(roll<0.43 && a.age>42){
+      const retChance=clamp(0.25+(a.age-42)*0.012,0,0.9);
+      if(RNG()<retChance){ retireAdventurer(a, fill(pick(EV_RETIRE),{a:a.name})); }
+      else logPersonalOnly(a, fill(pick(EV_MISC),{a:a.name}));
+    } else if(roll<0.46){
+      const bMod=(a.traits.includes('貪婪')?0.12:0)-(a.traits.includes('忠誠')?0.05:0);
+      if(RNG() < 0.04+bMod){ betrayAdventurer(a); }
+      else logPersonalOnly(a, fill(pick(EV_MISC),{a:a.name}));
+    } else if(roll<0.48 && a.level>=SPEC_LEVEL && !a.specialization){
+      trySpecialize(a);
+    } else {
+      logPersonalOnly(a, fill(pick(EV_MISC),{a:a.name}));
+    }
+  });
+}
+
+const DECISION_DEFS={
+  draft:{
+    choiceLabels:['派遣支援','拒絕徵召'],
+    effects:[
+      function(){
+        const idle=adventurers.filter(a=>a.status==='idle');
+        if(!idle.length){ reputation+=2; gold+=ri(50,100); logGlobal('公會雖無人可派，仍以文書回應了徵召，獲得些許謝禮。'); return; }
+        const sent=sampleN(idle, Math.min(2, idle.length));
+        sent.forEach(a=>{
+          const r=RNG();
+          if(r<0.08) killAdventurer(a, `${a.name}在前線戰場上壯烈犧牲。`, '戰爭');
+          else if(r<0.2) disableAdventurer(a, `${a.name}在前線戰事中身負重傷，落下了終身的傷殘。`);
+          else if(r<0.45) injureAdventurer(a, `${a.name}從前線歸來，身上滿是傷痕。`);
+        });
+        reputation+=6; gold+=ri(150,300);
+        logGlobal(`公會派遣了${sent.map(a=>a.name).join('、')}支援前線，獲得了豐厚的獎賞。`);
+      },
+      function(){ reputation=Math.max(0,reputation-3); logGlobal('公會選擇保持中立，引來王國的些許不滿。'); }
+    ]
+  },
+  plague:{
+    choiceLabels:['封鎖公會，謹慎應對','開放救助，挺身而出'],
+    effects:[
+      function(){ guildLockdownDays=ri(15,25); reputation=Math.max(0,reputation-2); logGlobal('公會選擇封鎖大門，謹慎應對瘟疫，但遭到部分民眾批評冷漠。'); },
+      function(){ const cost=ri(50,150); gold=Math.max(0,gold-cost); reputation+=6; logGlobal(`公會開放大門協助救治病患，花費${cost}金幣購買藥材，贏得民眾讚譽。`); }
+    ]
+  },
+  dragon:{
+    choiceLabels:['組織討伐','優先撤離平民'],
+    effects:[
+      function(){ reputation+=2; logGlobal('公會展現魄力，已派人準備討伐巨龍，士氣大振。'); },
+      function(p){ reputation+=5; const gcost=ri(80,200); gold=Math.max(0,gold-gcost); availableQuests=availableQuests.filter(q=>q.id!==p.questId); logGlobal(`公會選擇優先保護平民撤離，花費${gcost}金幣安置難民，獲得民眾讚揚。`); }
+    ]
+  }
+};
+function pushDecision(kind, title, desc, params){
+  decisionQueue.push({id:uid(), kind, title, desc, params:params||{}});
+}
+function resolveDecision(id, idx){
+  const di=decisionQueue.findIndex(d=>d.id===id); if(di<0) return;
+  const d=decisionQueue[di];
+  const def=DECISION_DEFS[d.kind];
+  if(def && def.effects[idx]) def.effects[idx](d.params);
+  decisionQueue.splice(di,1);
+  renderWorldTab(); updateTabBadges();
+}
+
+const WORLD_EVENT_APPLY={
+  war(){
+    const ks=kingdoms.filter(k=>k.status!=='滅亡');
+    if(ks.length<2) return;
+    const a=pick(ks); const bCands=ks.filter(k=>k!==a); if(!bCands.length) return;
+    const b=pick(bCands);
+    activeWorldEvents.push({type:'war', daysLeft:ri(40,80), kA:a.name, kB:b.name,
+      endText:`⚔️ ${a.name}與${b.name}的戰爭終於畫下句點。`});
+    logGlobal(fill(pick(EV_WAR_START),{kA:a.name,kB:b.name}));
+  },
+  plague(){
+    activeWorldEvents.push({type:'plague', daysLeft:ri(30,60), endText:'🌿 籠罩大地的瘟疫終於消散了。'});
+    logGlobal(pick(EV_PLAGUE_START));
+  },
+  dragon(){
+    const loc=pick(LOCATIONS);
+    const q=genQuest('S');
+    q.name=`討伐降臨${loc}的巨龍`;
+    q.special=true;
+    availableQuests.push(q);
+    activeWorldEvents.push({type:'dragon', daysLeft:ri(10,20), endText:'🐉 龍災的威脅暫時遠離了人們的生活。'});
+    logGlobal(`🐉 一頭巨龍降臨在${loc}，公會收到了緊急求援！`);
+    pushDecision('dragon','🐉 龍災應對', fill(pick(EV_DRAGON_DESC),{loc}), {questId:q.id});
+  },
+  riot(){
+    activeWorldEvents.push({type:'riot', daysLeft:ri(15,30), endText:'🏰 地下城的暴動已被平息。'});
+    logGlobal(pick(EV_RIOT_START));
+  },
+  festival(){
+    kingdoms.forEach(k=>{ if(k.status!=='滅亡') k.prosperity=clamp(k.prosperity+2,0,100); });
+    reputation+=ri(1,3);
+    logGlobal(pick(EV_FESTIVAL));
+  },
+  caravan(){
+    const g=ri(20,80); gold+=g;
+    if(RNG()<0.3){
+      const it=genEquipment(randomSlot(), null, avgLevel());
+      inventory.push(it);
+      logGlobal(`🐎 商隊經過公會，贈送了禮物「${it.name}」，並留下了${g}金幣的交易所得。`);
+    } else {
+      logGlobal(fill(pick(EV_CARAVAN),{gold:g}));
+    }
+  },
+  anomaly(){
+    const idle=adventurers.filter(a=>a.status==='idle');
+    if(idle.length){
+      const a=pick(idle); trainRandomSkill(a,'B');
+      logGlobal(`✨ 神秘的魔力異變降臨，${a.name}從中領悟了奧義！`);
+    } else {
+      logGlobal(pick(EV_ANOMALY));
+    }
+  },
+  blackmarket(){
+    const cost=ri(30,80);
+    if(gold>=cost){
+      gold-=cost;
+      const it=genEquipment(randomSlot(), weightedPick([[1,40],[2,35],[3,20],[4,5]]), avgLevel());
+      inventory.push(it);
+      logGlobal(`🕵️ 公會從黑市收購了一件神秘物品「${it.name}」。`);
+    }
+  }
+};
+function triggerWorldEvent(){
+  const type=weightedPick([['war',10],['plague',10],['dragon',6],['riot',8],['festival',15],['caravan',15],['anomaly',10],['blackmarket',8]]);
+  WORLD_EVENT_APPLY[type]();
+}
+function pushDraftDecision(){
+  const warEv=activeWorldEvents.find(e=>e.type==='war');
+  if(!warEv) return;
+  pushDecision('draft','⚔️ 前線徵兵令', fill(pick(EV_DRAFT_DESC),{kingdom:warEv.kA}), {});
+}
+function pushPlagueDecision(){
+  pushDecision('plague','🦠 瘟疫蔓延', pick(EV_PLAGUE_DESC), {});
+}
+function worldEventCheck(){
+  for(let i=activeWorldEvents.length-1;i>=0;i--){
+    const ev=activeWorldEvents[i];
+    ev.daysLeft--;
+    if(ev.daysLeft<=0){ logGlobal(ev.endText||'🌤️ 一場動盪終於平息了。'); activeWorldEvents.splice(i,1); }
+  }
+  for(let i=pendingRise.length-1;i>=0;i--){
+    if(day>=pendingRise[i].day){
+      kingdoms.push({name:pendingRise[i].name, prosperity:ri(35,55), status:'新興'});
+      logGlobal(fill(pick(EV_KINGDOM_RISE),{kingdom:pendingRise[i].name}));
+      pushWorldHistory(`新王國「${pendingRise[i].name}」崛起`);
+      pendingRise.splice(i,1);
+    }
+  }
+  if(activeWorldEvents.some(e=>e.type==='war') && !decisionQueue.some(d=>d.kind==='draft') && RNG()<0.04){ pushDraftDecision(); }
+  if(activeWorldEvents.some(e=>e.type==='plague') && !decisionQueue.some(d=>d.kind==='plague') && RNG()<0.05){ pushPlagueDecision(); }
+  if(RNG()<0.012){ triggerWorldEvent(); }
+  if(guildLockdownDays>0) guildLockdownDays--;
+  religionDailyTick();
+  rivalGuildDailyTick();
+  rumorDailyTick();
+  dungeons.forEach(dungeonDailyTick);
+  fateDailyTick();
+}
+function religionDailyTick(){
+  if(RNG()<0.01){
+    const rel=pick(RELIGION_NAMES);
+    if(RNG()<0.6){ reputation+=ri(1,3); logGlobal(fill(pick(RELIGION_BLESS),{rel})); }
+    else { reputation=Math.max(0,reputation-ri(1,3)); logGlobal(fill(pick(RELIGION_CURSE),{rel})); }
+  }
+}
+function rivalGuildDailyTick(){
+  if(RNG()<0.012){
+    const rg=pick(RIVAL_GUILD_NAMES);
+    logGlobal(fill(pick(RIVAL_GUILD_EVENTS),{rg}));
+  }
+}
+function rumorDailyTick(){
+  if(rumors.length<6 && RNG()<0.1){
+    const loc=pick(LOCATIONS), mon=pick(MONSTERS), kingdom=pick(aliveKingdomNames());
+    const text=fill(pick(RUMOR_TEMPLATES),{loc,mon,kingdom});
+    const truth=weightedPick([['true',35],['false',35],['partial',30]]);
+    rumors.push({id:uid(), text, truth, day, loc, resolved:false});
+  }
+  rumors=rumors.filter(r=> day-r.day < 60 || r.resolved===false ? day-r.day<60 : true);
+}
+function verifyRumor(id){
+  const r=rumors.find(x=>x.id===id); if(!r || r.resolved) return;
+  const cost=30;
+  if(gold<cost){ showToast('金幣不足，無法查證'); return; }
+  gold-=cost; r.resolved=true;
+  if(r.truth==='true'){
+    const bonus=ri(40,150); gold+=bonus;
+    logGlobal(`🔍 公會查證了傳聞，內容屬實！意外獲得了${bonus}金幣的報酬。`);
+    if(RNG()<0.4){ availableQuests.push(genQuest()); logGlobal('📜 因傳聞屬實，公會張貼了一張新的相關任務。'); }
+  } else if(r.truth==='false'){
+    logGlobal('🔍 公會派人查證後，發現這只是個以訛傳訛的謠言。');
+  } else {
+    const bonus=ri(5,30); gold+=bonus;
+    logGlobal(`🔍 傳聞部分屬實，公會從中得到了一些零碎的線索與${bonus}金幣。`);
+  }
+  rumors=rumors.filter(x=>x.id!==id);
+  render();
+}
+function updateKingdoms(){
+  kingdoms.forEach(k=>{
+    if(k.status==='滅亡') return;
+    let delta=rf(-1,1);
+    if(activeWorldEvents.some(e=>e.type==='war' && (e.kA===k.name||e.kB===k.name))) delta-=rf(0.5,1.5);
+    k.prosperity=clamp(k.prosperity+delta,0,100);
+    if(k.prosperity<=0){
+      k.status='滅亡';
+      logGlobal(fill(pick(EV_KINGDOM_FALL),{kingdom:k.name}));
+      pushWorldHistory(`${k.name}覆滅`);
+      const usedNames=kingdoms.map(kk=>kk.name);
+      const candidates=NEW_KINGDOM_NAMES.filter(n=>!usedNames.includes(n));
+      const baseName=k.name.replace(/重建邦$/,'');
+      pendingRise.push({day: day+ri(20,45), name: candidates.length?pick(candidates):(baseName+'重建邦')});
+    } else {
+      k.status = k.prosperity>=75?'繁榮': k.prosperity>=45?'穩定': k.prosperity>=20?'動盪':'衰落';
+    }
+  });
+}
+
+/* ---- 命運點數 ---- */
+function fateDailyTick(){
+  if(fatePoints<FATE_MAX && day-lastFateDay>=FATE_REGEN_DAYS){
+    fatePoints++; lastFateDay=day;
+    logGlobal('✨ 命運的天平再次傾斜，公會獲得了1點命運點數。');
+  }
+}
+
+/* =========================================================
+   存檔 / 載入
+========================================================= */
+const SAVE_KEY='guildStory_save_v1';
+function saveGame(){
+  try{
+    const data={
+      day,gold,reputation,guildName,guildLockdownDays,
+      adventurers,inventory,availableQuests,activeQuests,recruitPool,
+      kingdoms,activeWorldEvents,chronicle,decisionQueue,pendingRise,
+      dungeons,religions,rivalGuild,rumors,worldHistory,fatePoints,lastFateDay,
+      speed, lastSeenTs: Date.now(), version:2
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  }catch(e){ console.warn('save failed', e); }
+}
+function loadGame(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw) return false;
+    const data=JSON.parse(raw);
+    day=data.day; gold=data.gold; reputation=data.reputation;
+    guildName=data.guildName||pick(GUILD_NAMES)+'冒險者公會';
+    guildLockdownDays=data.guildLockdownDays||0;
+    adventurers=data.adventurers||[];
+    inventory=data.inventory||[];
+    availableQuests=data.availableQuests||[];
+    activeQuests=data.activeQuests||[];
+    recruitPool=data.recruitPool||[];
+    kingdoms=data.kingdoms||[];
+    activeWorldEvents=data.activeWorldEvents||[];
+    chronicle=data.chronicle||[];
+    decisionQueue=data.decisionQueue||[];
+    pendingRise=data.pendingRise||[];
+    speed=(data.speed!==undefined)?data.speed:1;
+    // v2 新欄位：舊存檔安全預設值
+    dungeons=data.dungeons || Array.from({length:DUNGEON_COUNT}, genDungeon);
+    religions=data.religions || RELIGION_NAMES.map(n=>({name:n}));
+    rivalGuild=data.rivalGuild || {name:pick(RIVAL_GUILD_NAMES)};
+    rumors=data.rumors || [];
+    worldHistory=data.worldHistory || [];
+    fatePoints=(data.fatePoints!==undefined)?data.fatePoints:2;
+    lastFateDay=(data.lastFateDay!==undefined)?data.lastFateDay:day;
+    lastSeenTs=data.lastSeenTs||Date.now();
+    // 舊版冒險者資料補齊新欄位
+    adventurers.forEach(a=>{
+      if(!a.counters) a.counters={combat:0,betrayed:0,cursed:0};
+      if(a.specialization===undefined) a.specialization=null;
+      if(a.fateShield===undefined) a.fateShield=false;
+      if(a.mentorId===undefined) a.mentorId=null;
+      if(a.discipleIds===undefined) a.discipleIds=[];
+      if(a.parents===undefined) a.parents=null;
+    });
+    activeQuests.forEach(q=>{ if(q.expedition===undefined) q.expedition=null; if(q.dungeonId===undefined) q.dungeonId=null; });
+    availableQuests.forEach(q=>{ if(q.dungeonId===undefined) q.dungeonId=null; });
+    return true;
+  }catch(e){ console.warn('load failed', e); return false; }
+}
+function initNewGame(){
+  day=1; gold=500; reputation=10; guildLockdownDays=0;
+  guildName=pick(GUILD_NAMES)+'冒險者公會';
+  adventurers=[]; inventory=[]; availableQuests=[]; activeQuests=[]; decisionQueue=[]; pendingRise=[];
+  chronicle=[]; activeWorldEvents=[];
+  kingdoms=KINGDOM_INIT.map(n=>({name:n, prosperity:ri(50,80), status:'穩定'}));
+  recruitPool=[genCandidate(),genCandidate(),genCandidate()];
+  dungeons=Array.from({length:DUNGEON_COUNT}, genDungeon);
+  religions=RELIGION_NAMES.map(n=>({name:n}));
+  rivalGuild={name:pick(RIVAL_GUILD_NAMES)};
+  rumors=[]; worldHistory=[];
+  fatePoints=2; lastFateDay=1; lastSeenTs=Date.now();
+  const starterClasses=['戰士','牧師','盜賊'];
+  starterClasses.forEach((cls,i)=>{
+    const a=genAdventurer(i===2?1:2);
+    a.class=cls;
+    a.skills=CLASS_DATA[cls].skills.map(s=>({name:s,level:1,prof:0}));
+    recomputeStats(a);
+    adventurers.push(a);
+  });
+  for(let i=0;i<5;i++) availableQuests.push(genQuest());
+  logGlobal(`⛩️ 「${guildName}」正式成立！願這座公會的故事永世流傳。`);
+  pushWorldHistory(`「${guildName}」成立`);
+}
+
+/* ---- 離線進度 ---- */
+const OFFLINE_MS_PER_DAY=5*60*1000; // 離線時，每5分鐘現實時間 = 1個遊戲日
+const OFFLINE_MAX_DAYS=300;
+function processOfflineProgress(){
+  const now=Date.now();
+  const elapsed=now-(lastSeenTs||now);
+  lastSeenTs=now;
+  if(elapsed < 60000) return null; // 少於1分鐘不處理
+  let offlineDays=Math.min(OFFLINE_MAX_DAYS, Math.floor(elapsed/OFFLINE_MS_PER_DAY));
+  if(offlineDays<=0) return null;
+  const startGold=gold, startDay=day;
+  const startChronicleLen=chronicle.length;
+  const deathsBefore=adventurers.filter(a=>a.status==='dead').length;
+  // 離線期間：先快進所有進行中的遠征到結束，再執行剩餘的每日tick
+  activeQuests.forEach(q=>{ if(q.expedition) fastForwardExpedition(q, offlineDays*EXPEDITION_BEAT_MIN_MS*2); });
+  for(let i=0;i<offlineDays;i++){ dailyTick(); }
+  const deathsAfter=adventurers.filter(a=>a.status==='dead').length;
+  const newDeaths=adventurers.filter(a=>a.status==='dead' && a.deathDay>startDay);
+  return {
+    days: offlineDays,
+    goldDelta: Math.round(gold-startGold),
+    headlines: chronicle.slice(0, Math.min(8, chronicle.length-startChronicleLen+8)),
+    deathCount: deathsAfter-deathsBefore,
+    deadNames: newDeaths.map(a=>a.name)
+  };
+}
+
+/* =========================================================
+   玩家操作
+========================================================= */
+function spendFate(action, advId, questId){
+  const cfg=FATE_ACTIONS[action]; if(!cfg) return;
+  if(fatePoints<cfg.cost){ showToast('命運點數不足！'); return; }
+  if(action==='protect'){
+    const a=getAdv(advId); if(!a || a.status==='dead'){ showToast('無效的對象'); return; }
+    fatePoints-=cfg.cost; a.fateShield=true;
+    showToast(`已為${a.name}賦予命運庇護`);
+    logGlobal(`✨ 公會會長動用了命運的力量，悄悄為${a.name}賦予了庇護。`);
+  } else if(action==='boost'){
+    const q=activeQuests.find(x=>x.id===questId); if(!q || !q.expedition){ showToast('沒有可扭轉的遠征'); return; }
+    fatePoints-=cfg.cost; q.expedition.successDelta+=0.3;
+    showToast('已大幅提升該遠征的成功率！');
+    logGlobal(`✨ 公會會長介入了「${q.name}」的命運，扭轉了戰局的天平。`);
+  } else if(action==='genius'){
+    fatePoints-=cfg.cost;
+    const idx=ri(0,recruitPool.length-1);
+    const a=genCandidate(); a.level=Math.max(a.level, Math.round(avgLevel())+3);
+    recomputeStats(a); a.hireCost=Math.round(a.hireCost*0.5);
+    a.traits=sampleN(CORE_TRAITS,2);
+    recruitPool[idx]=a;
+    showToast('命運帶來了一位罕見的天才！');
+    logGlobal(`✨ 命運的指引下，一位天賦異稟的冒險者「${a.name}」出現在了招募名單中。`);
+  } else if(action==='reroll'){
+    const q=activeQuests.find(x=>x.id===questId); if(!q || !q.expedition || !q.expedition.log.length){ showToast('沒有可重新擲定的事件'); return; }
+    fatePoints-=cfg.cost;
+    q.expedition.log.shift();
+    q.expedition.beatsDone=Math.max(0,q.expedition.beatsDone-1);
+    q.expedition.nextBeatAt=Date.now()+1500;
+    showToast('命運重新編織了下一刻的故事...');
+  }
+  render();
+}
+function hireAdventurer(idx){
+  const cand=recruitPool[idx]; if(!cand) return;
+  if(gold<cand.hireCost){ showToast('金幣不足！'); return; }
+  gold-=cand.hireCost;
+  delete cand.hireCost;
+  adventurers.push(cand);
+  recruitPool[idx]=genCandidate();
+  logGlobal(`🆕 ${cand.name}（${cand.class}）加入了公會！`);
+  render();
+}
+function toggleDispatch(id){
+  if(dispatchSelection.has(id)) dispatchSelection.delete(id);
+  else if(dispatchSelection.size<4) dispatchSelection.add(id);
+  renderDispatchModal();
+}
+function dispatchQuest(qid, ids){
+  const qi=availableQuests.findIndex(q=>q.id===qid); if(qi<0) return;
+  const q=availableQuests[qi];
+  const party=ids.map(getAdv).filter(a=>a && (a.status==='idle'||a.status==='disabled'));
+  if(!party.length){ showToast('請選擇至少一位冒險者'); return; }
+  party.forEach(a=>a.status='onQuest');
+  q.partyIds=party.map(a=>a.id);
+  q.startDay=day; q.endDay=day+q.duration;
+  startExpedition(q);
+  availableQuests.splice(qi,1);
+  activeQuests.push(q);
+  showToast('已派遣冒險者出發！冒險實況開始記錄...');
+  closeModal();
+  render();
+}
+function confirmDispatch(){ dispatchQuest(currentDispatchQuestId, [...dispatchSelection]); }
+function equipItem(advId, itemId){
+  const a=getAdv(advId); const idx=inventory.findIndex(i=>i.id===itemId);
+  if(!a || idx<0) return;
+  const item=inventory[idx];
+  const old=a.equipment[item.slot];
+  if(old) inventory.push(old);
+  inventory.splice(idx,1);
+  a.equipment[item.slot]=item;
+  recomputeStats(a);
+}
+function unequipItem(advId, slot){
+  const a=getAdv(advId); if(!a) return;
+  const item=a.equipment[slot];
+  if(item){ inventory.push(item); a.equipment[slot]=null; recomputeStats(a); }
+}
+function doEquip(advId,itemId){ equipItem(advId,itemId); showToast('裝備完成！'); closeModal(); render(); }
+function doUnequip(advId,slot){ unequipItem(advId,slot); showToast('已卸下裝備'); closeModal(); render(); }
+function sellItem(itemId){
+  const idx=inventory.findIndex(i=>i.id===itemId); if(idx<0) return;
+  const item=inventory[idx];
+  gold += SELL_VALUE[item.rarity];
+  inventory.splice(idx,1);
+  showToast(`出售成功 +${SELL_VALUE[item.rarity]}金幣`);
+  render();
+}
+function trainSkillManual(advId, idx){
+  const a=getAdv(advId); if(!a) return;
+  const sk=a.skills[idx]; if(!sk) return;
+  if(sk.level>=10){ showToast('該技能已達最高等級！'); return; }
+  const cost=20*sk.level+30;
+  if(gold<cost){ showToast('金幣不足！'); return; }
+  gold-=cost; sk.prof+=15;
+  while(sk.prof>=100 && sk.level<10){
+    sk.prof-=100; sk.level++;
+    const focus=CLASS_DATA[a.class].focus;
+    const st=pick(focus);
+    a.bonus[st]=(a.bonus[st]||0)+ri(1,3);
+    logPersonalOnly(a, `${a.name}的技能「${sk.name}」提升至 Lv.${sk.level}！`);
+  }
+  if(sk.prof>100) sk.prof=100;
+  recomputeStats(a);
+  openAdvModal(advId);
+  renderTopBar();
+}
+function manualRetire(id){
+  const a=getAdv(id); if(!a) return;
+  retireAdventurer(a, `${a.name}決定主動退休，告別了冒險者的生涯。`);
+  closeModal(); render();
+}
+function manualDismiss(id){
+  const a=getAdv(id); if(!a) return;
+  retireAdventurer(a, `${a.name}被公會除名，黯然離開了公會。`);
+  closeModal(); render();
+}
+
+/* =========================================================
+   畫面渲染
+========================================================= */
+function showToast(msg){
+  const t=document.createElement('div');
+  t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); }, 1800);
+}
+function renderTicker(text){
+  const t=document.getElementById('ticker');
+  if(!t) return;
+  t.textContent='📰 '+text;
+  t.classList.remove('flash'); void t.offsetWidth; t.classList.add('flash');
+}
+function renderTopBar(){
+  document.getElementById('guildNameDisplay').textContent=guildName;
+  document.getElementById('dateDisplay').textContent=formatDate(day);
+  document.getElementById('goldVal').textContent=Math.round(gold);
+  document.getElementById('repVal').textContent=Math.round(reputation);
+  document.getElementById('memberVal').textContent=adventurers.filter(a=>['idle','onQuest','injured','disabled'].includes(a.status)).length;
+}
+function updateTabBadges(){
+  const worldBtn=document.querySelector('.tabbtn[data-tab="world"]');
+  if(worldBtn) worldBtn.classList.toggle('has-badge', decisionQueue.length>0);
+}
+function renderTabContent(){
+  switch(currentTab){
+    case 'guild': renderGuildTab(); break;
+    case 'quest': renderQuestTab(); break;
+    case 'equip': renderEquipTab(); break;
+    case 'world': renderWorldTab(); break;
+    case 'history': renderHistoryTab(); break;
+  }
+}
+function render(){ renderTopBar(); renderTabContent(); updateTabBadges(); }
+
+function renderAdvCard(a){
+  const cd=CLASS_DATA[a.class];
+  return `<div class="adv-card" data-action="openAdv" data-id="${a.id}">
+    <div class="adv-avatar" style="background:${cd.color}">${a.class[0]}</div>
+    <div class="adv-info">
+      <div class="adv-name">${a.name} <span class="adv-lv">Lv.${a.level}</span>${a.specialization?` <span class="spec-tag">${a.specialization.title}</span>`:''}</div>
+      <div class="adv-sub">${a.class} ・ <span class="status-${a.status}">${STATUS_LABELS[a.status]}</span></div>
+    </div>
+    <div class="adv-power">${a.status==='dead'?'💀':Math.round(getPower(a))}</div>
+  </div>`;
+}
+function renderGuildTab(){
+  const root=document.getElementById('content');
+  const active=adventurers.filter(a=>['idle','onQuest','injured','disabled'].includes(a.status));
+  let html=`<div class="section-title">招募新人 <span class="hint">${Math.round(gold)}💰</span></div><div class="hscroll">`;
+  recruitPool.forEach((c,idx)=>{
+    html+=`<div class="recruit-card">
+      <div class="rc-name">${c.name}</div>
+      <div class="rc-class" style="color:${CLASS_DATA[c.class].color}">${c.class} Lv.${c.level}</div>
+      <div class="rc-traits">${c.traits.join(' / ')}</div>
+      <button class="btn small" data-action="hire" data-idx="${idx}">聘用 (${c.hireCost}💰)</button>
+    </div>`;
+  });
+  html+=`</div><div class="section-title">公會成員（${active.length}）</div><div class="roster-list">`;
+  if(!active.length) html+=`<div class="empty-hint">公會目前空無一人，快去招募新人吧！</div>`;
+  active.forEach(a=>{ html+=renderAdvCard(a); });
+  html+='</div>';
+  root.innerHTML=html;
+}
+function renderQuestTab(){
+  const root=document.getElementById('content');
+  let html=`<div class="section-title">進行中任務（${activeQuests.length}）</div>`;
+  if(!activeQuests.length) html+=`<div class="empty-hint">目前沒有任務在進行中。</div>`;
+  activeQuests.forEach(q=>{
+    const exp=q.expedition;
+    const pct=exp?clamp(Math.round(exp.beatsDone/Math.max(1,exp.beatsTotal)*100),0,100):0;
+    const names=q.partyIds.map(id=>{ const a=getAdv(id); return a?a.name:'???'; }).join('、');
+    const latest=exp && exp.log.length ? exp.log[0] : null;
+    const hasChoice=exp && exp.pendingChoice;
+    html+=`<div class="quest-card active">
+      <div class="q-head"><span class="rank-badge rank-${q.rank}">${q.rank}</span><span class="q-name">${q.name}</span>${hasChoice?'<span class="choice-badge">需決策</span>':''}</div>
+      <div class="q-party">隊伍：${names}</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="q-eta">冒險進度 ${exp?exp.beatsDone:0}/${exp?exp.beatsTotal:0}</div>
+      ${latest?`<div class="exp-latest">${latest.text}</div>`:''}
+      <button class="btn small ghost" data-action="openExpedition" data-id="${q.id}">📖 查看冒險實況</button>
+    </div>`;
+  });
+  html+=`<div class="section-title">可接任務（${availableQuests.length}）</div>`;
+  availableQuests.slice().sort((x,y)=>RANK_ORDER.indexOf(x.rank)-RANK_ORDER.indexOf(y.rank)).forEach(q=>{
+    const dungeon = q.dungeonId ? dungeons.find(d=>d.id===q.dungeonId) : null;
+    html+=`<div class="quest-card">
+      <div class="q-head"><span class="rank-badge rank-${q.rank}">${q.rank}</span><span class="q-name">${q.name}${q.special?' ⭐':''}</span></div>
+      <div class="q-desc">${q.desc}${dungeon?` ・ ${dungeonThreatTier(dungeon)}`:''}</div>
+      <div class="q-meta">推薦戰力 ${q.power} ・ 預估冒險 ${clamp(Math.round(q.duration*1.6),3,16)} 段 ・ 獎勵 ${q.goldReward}💰</div>
+      <button class="btn small" data-action="openDispatch" data-id="${q.id}">派遣冒險者</button>
+    </div>`;
+  });
+  root.innerHTML=html;
+}
+function getActiveQuestForExpeditionModal(){ return activeQuests.find(q=>q.id===activeExpeditionView); }
+function openExpeditionModal(qid){
+  activeExpeditionView=qid;
+  renderExpeditionModal(qid);
+}
+function renderExpeditionModal(qid){
+  const q=activeQuests.find(x=>x.id===qid);
+  if(!q || !q.expedition){ closeModal(); return; }
+  const exp=q.expedition;
+  const names=q.partyIds.map(id=>{ const a=getAdv(id); return a?a.name:'???'; }).join('、');
+  const pct=clamp(Math.round(exp.beatsDone/Math.max(1,exp.beatsTotal)*100),0,100);
+  let html=`<div class="modal-header">冒險實況<span class="modal-sub">${q.name}</span></div>
+  <div class="modal-body">
+    <div class="status-line">隊伍：${names}</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <div class="q-eta">${exp.beatsDone} / ${exp.beatsTotal} 段</div>
+    ${exp.pendingChoice?`
+      <div class="decision-card">
+        <div class="d-title">⚡ 需要您的決策</div>
+        <div class="d-desc">${exp.pendingChoice.text}</div>
+        <div class="d-choices">${EXPEDITION_EVENT_TYPES.find(t=>t.key===exp.pendingChoice.typeKey).choices.map((c,i)=>`<button class="btn small" data-action="expeditionChoice" data-choice="${i}">${c.label}</button>`).join('')}</div>
+        <div class="hint">若不操作，隊伍將依自己的性格在稍後自行決定。</div>
+      </div>`:''}
+    <div class="section-sub">實況紀錄</div>
+    <div class="chronicle-list">${exp.log.map(e=>`<div class="chron-item exp-${e.typeKey||''}">${typeof e==='string'?e:e.text}</div>`).join('')||'<div class="empty-hint">冒險即將展開...</div>'}</div>
+  </div>
+  <div class="modal-actions"><button class="btn ghost" data-action="closeModal">關閉</button></div>`;
+  openModal(html);
+}
+function renderEquipTab(){
+  const root=document.getElementById('content');
+  let html=`<div class="section-title">未裝備物品（${inventory.length}）</div>`;
+  if(!inventory.length) html+=`<div class="empty-hint">倉庫空空如也，去完成任務帶回裝備吧！</div>`;
+  inventory.slice().sort((x,y)=>y.rarity-x.rarity).forEach(it=>{
+    const col=rarityColor(it.rarity);
+    const sa=it.special?SPECIAL_AFFIXES.find(s=>s.key===it.special):null;
+    html+=`<div class="item-card" style="border-left-color:${col}">
+      <div class="item-name" style="color:${col}">${it.name}</div>
+      <div class="item-sub">${SLOT_LABEL[it.slot]} ・ ${rarityName(it.rarity)}${sa?` ・ <span class="special-tag">${sa.name}：${sa.hookDesc}</span>`:''}</div>
+      <div class="item-stats">${formatStats(it.stats)}</div>
+      <div class="item-actions">
+        <button class="btn small" data-action="openEquip" data-id="${it.id}">裝備</button>
+        <button class="btn small ghost" data-action="sellItem" data-id="${it.id}">出售(${SELL_VALUE[it.rarity]}💰)</button>
+      </div>
+    </div>`;
+  });
+  root.innerHTML=html;
+}
+function renderWorldTab(){
+  const root=document.getElementById('content');
+  let html='';
+  if(decisionQueue.length){
+    html+=`<div class="section-title">⚡ 待決策事項</div>`;
+    decisionQueue.forEach(d=>{
+      const def=DECISION_DEFS[d.kind];
+      const labels=def?def.choiceLabels:['確認'];
+      html+=`<div class="decision-card">
+        <div class="d-title">${d.title}</div>
+        <div class="d-desc">${d.desc}</div>
+        <div class="d-choices">${labels.map((lab,i)=>`<button class="btn small" data-action="resolveDecision" data-id="${d.id}" data-choice="${i}">${lab}</button>`).join('')}</div>
+      </div>`;
+    });
+  }
+  html+=`<div class="section-title">命運 <span class="hint">✨ ${fatePoints}/${FATE_MAX}</span></div>
+  <div class="fate-card" data-action="openFatePanel">
+    <div class="fate-desc">命運點數可在關鍵時刻介入冒險者的命運，緩慢回復，請謹慎使用。</div>
+    <button class="btn small">查看可用的命運之力</button>
+  </div>`;
+  html+=`<div class="section-title">王國局勢</div><div class="kingdom-list">`;
+  kingdoms.forEach(k=>{
+    html+=`<div class="kingdom-card">
+      <div class="k-name">${k.name}</div>
+      <div class="k-bar"><div class="k-fill" style="width:${Math.round(k.prosperity)}%"></div></div>
+      <div class="k-status">${k.status}（${Math.round(k.prosperity)}）</div>
+    </div>`;
+  });
+  html+=`</div><div class="section-title">活地下城</div><div class="kingdom-list">`;
+  dungeons.forEach(d=>{
+    const pct=Math.round(d.population/d.maxPopulation*100);
+    html+=`<div class="kingdom-card dungeon-card">
+      <div class="k-name">${d.theme}<span class="hint">（${d.location}）</span></div>
+      <div class="k-bar"><div class="k-fill dungeon-fill" style="width:${pct}%"></div></div>
+      <div class="k-status">${dungeonThreatTier(d)} ・ 人口 ${d.population} ・ ${d.leaderAlive?`首領：${d.leaderTitle}「${d.leaderName}」`:'群龍無首'}</div>
+    </div>`;
+  });
+  html+=`</div><div class="section-title">世界事件</div>`;
+  if(!activeWorldEvents.length) html+=`<div class="empty-hint">目前風平浪靜。</div>`;
+  activeWorldEvents.forEach(e=>{
+    html+=`<div class="world-event-card">${WORLD_EVENT_LABEL[e.type]||e.type} ・ 剩餘 ${e.daysLeft} 天</div>`;
+  });
+  html+=`<div class="section-title">酒館傳聞 <span class="hint">查證費30💰</span></div>`;
+  if(!rumors.length) html+=`<div class="empty-hint">酒館裡暫無新的傳聞。</div>`;
+  rumors.forEach(r=>{
+    html+=`<div class="rumor-card">
+      <div class="rumor-text">「${r.text}」</div>
+      <button class="btn small ghost" data-action="verifyRumor" data-id="${r.id}">派人查證</button>
+    </div>`;
+  });
+  root.innerHTML=html;
+}
+function openFatePanelModal(){
+  const idleAdv=adventurers.filter(a=>['idle','injured','disabled'].includes(a.status));
+  const expQuests=activeQuests.filter(q=>q.expedition);
+  let html=`<div class="modal-header">命運的力量<span class="modal-sub">✨ ${fatePoints}/${FATE_MAX}</span></div>
+  <div class="modal-body">
+    <div class="section-sub">命運庇護（${FATE_ACTIONS.protect.cost}點）— ${FATE_ACTIONS.protect.desc}</div>
+    <div class="dispatch-list">${idleAdv.length?idleAdv.map(a=>`<div class="dispatch-row"><span>${a.name}${a.fateShield?'（已庇護）':''}</span><button class="btn tiny" data-action="spendFate" data-fate-action="protect" data-adv="${a.id}">庇護</button></div>`).join(''):'<div class="empty-hint">目前沒有可庇護的對象。</div>'}</div>
+    <div class="section-sub">扭轉戰局（${FATE_ACTIONS.boost.cost}點）— ${FATE_ACTIONS.boost.desc}</div>
+    <div class="dispatch-list">${expQuests.length?expQuests.map(q=>`<div class="dispatch-row"><span>${q.name}</span><button class="btn tiny" data-action="spendFate" data-fate-action="boost" data-quest="${q.id}">扭轉</button></div>`).join(''):'<div class="empty-hint">目前沒有進行中的遠征。</div>'}</div>
+    <div class="section-sub">招募天才（${FATE_ACTIONS.genius.cost}點）— ${FATE_ACTIONS.genius.desc}</div>
+    <button class="btn small" data-action="spendFate" data-fate-action="genius">動用命運</button>
+  </div>
+  <div class="modal-actions"><button class="btn ghost" data-action="closeModal">關閉</button></div>`;
+  openModal(html);
+}
+function renderHistoryTab(){
+  const root=document.getElementById('content');
+  let html=`<div class="section-title">世界年表</div><div class="chronicle-list world-history">`;
+  html+=worldHistory.slice(0,80).map(h=>`<div class="chron-item epoch"><span class="chron-date">第${h.year}年</span>${h.text}</div>`).join('') || '<div class="empty-hint">歷史尚待書寫。</div>';
+  html+=`</div><div class="section-title">公會紀錄</div><div class="chronicle-list">`;
+  chronicle.slice(0,200).forEach(c=>{
+    html+=`<div class="chron-item"><span class="chron-date">${formatDate(c.day)}</span>${c.text}</div>`;
+  });
+  html+='</div>';
+  const memorial=adventurers.filter(a=>['dead','retired','betrayed'].includes(a.status));
+  html+=`<div class="section-title">公會名譜（${memorial.length}）</div><div class="roster-list">`;
+  if(!memorial.length) html+=`<div class="empty-hint">尚無人離開公會。</div>`;
+  memorial.forEach(a=>{ html+=renderAdvCard(a); });
+  html+='</div>';
+  root.innerHTML=html;
+}
+
+function openModal(html){
+  const root=document.getElementById('modalRoot');
+  root.innerHTML=`<div class="modal-backdrop" data-action="closeModal"></div><div class="modal-sheet">${html}</div>`;
+  root.classList.add('show');
+}
+function closeModal(){
+  const root=document.getElementById('modalRoot');
+  root.classList.remove('show');
+  setTimeout(()=>{ if(!root.classList.contains('show')) root.innerHTML=''; }, 250);
+}
+
+function openAdvModal(id){
+  const a=getAdv(id); if(!a) return;
+  const expN=expNeed(a.level);
+  const titleTag = a.specialization ? `「${a.specialization.title}」` : '';
+  let html=`<div class="modal-header">${a.name}<span class="modal-sub">${titleTag}${a.class} Lv.${a.level}</span></div>
+  <div class="modal-body">
+    <div class="status-line">狀態：<span class="status-${a.status}">${STATUS_LABELS[a.status]}</span> ・ 年齡 ${Math.floor(a.age)}/${a.lifespan} ・ 戰力 ${Math.round(getPower(a))}${a.fateShield?' ・ ✨命運庇護中':''}</div>
+    ${a.status==='dead'?`<div class="death-line">死因：${a.causeOfDeath||''}（${formatDate(a.deathDay)}）</div>`:''}
+    ${a.heritage?`<div class="hint">${a.heritage}</div>`:''}
+    <div class="bar-row"><span>經驗</span><div class="progress-bar"><div class="progress-fill" style="width:${clamp(a.exp/expN*100,0,100)}%"></div></div></div>
+    <div class="stat-grid">${STAT_KEYS.map(k=>`<div class="stat-cell"><span>${STAT_LABEL[k]}</span><b>${a.stats[k]}</b></div>`).join('')}</div>
+    <div class="traits-row">${a.traits.map(t=>`<span class="trait-chip ${MUTATED_TRAITS.includes(t)?'mutated':''}">${t}</span>`).join('')}${a.isMarried?`<span class="trait-chip">💍已婚</span>`:''}</div>
+    <div class="section-sub">裝備</div>
+    <div class="equip-row">${['weapon','armor','accessory'].map(slot=>{
+      const it=a.equipment[slot];
+      const canEdit = a.status==='idle'||a.status==='injured'||a.status==='disabled';
+      const sa=it&&it.special?SPECIAL_AFFIXES.find(s=>s.key===it.special):null;
+      return `<div class="equip-slot" ${canEdit?`data-action="pickEquipSlot" data-id="${a.id}" data-slot="${slot}"`:''}>
+        <div class="slot-label">${SLOT_LABEL[slot]}</div>
+        <div class="slot-item" style="color:${it?rarityColor(it.rarity):'#777'}">${it?it.name:'（空）'}</div>
+        ${sa?`<div class="slot-special">${sa.name}</div>`:''}
+      </div>`;
+    }).join('')}</div>
+    <div class="section-sub">技能</div>
+    <div class="skill-list">${a.skills.map((s,i)=>`
+      <div class="skill-row">
+        <div class="skill-name">${s.name} <span class="skill-lv">Lv.${s.level}</span></div>
+        <div class="progress-bar small"><div class="progress-fill" style="width:${s.prof}%"></div></div>
+        ${a.status!=='dead'?`<button class="btn tiny" data-action="trainSkill" data-id="${a.id}" data-idx="${i}">特訓(${20*s.level+30}💰)</button>`:''}
+      </div>`).join('')}</div>
+    <div class="section-sub">人際關係</div>
+    <div class="rel-list">${a.relationships.length? a.relationships.map(r=>`<div class="rel-row">${r.name} - ${r.type}</div>`).join(''):'<div class="empty-hint">尚無特別的關係。</div>'}</div>
+    <div class="section-sub">個人紀錄</div>
+    <div class="history-list">${a.history.slice(0,30).map(h=>`<div class="chron-item"><span class="chron-date">${formatDate(h.day)}</span>${h.text}</div>`).join('')||'<div class="empty-hint">尚無紀錄。</div>'}</div>
+  </div>
+  ${a.status==='idle'?`<div class="modal-actions"><button class="btn ghost" data-action="retireSelf" data-id="${a.id}">主動退休</button><button class="btn danger" data-action="dismissAdv" data-id="${a.id}">解雇</button></div>`:''}
+  `;
+  openModal(html);
+}
+function openDispatchModal(qid){
+  dispatchSelection=new Set();
+  currentDispatchQuestId=qid;
+  renderDispatchModal();
+}
+function renderDispatchModal(){
+  const q=availableQuests.find(x=>x.id===currentDispatchQuestId);
+  if(!q){ closeModal(); return; }
+  const eligible=adventurers.filter(a=> a.status==='idle' || (a.status==='disabled' && !['A','S'].includes(q.rank)));
+  const totalPower=[...dispatchSelection].reduce((s,id)=>{ const a=getAdv(id); return s+(a?getPower(a):0); },0);
+  const ratio=totalPower/Math.max(1,q.power);
+  let html=`<div class="modal-header">派遣冒險者<span class="modal-sub">${q.name}</span></div>
+  <div class="modal-body">
+  <div class="dispatch-power ${ratio>=0.9?'good':ratio>=0.5?'ok':'bad'}">隊伍戰力：${Math.round(totalPower)} / 建議 ${q.power}</div>
+  <div class="dispatch-list">`;
+  if(!eligible.length) html+=`<div class="empty-hint">目前沒有可派遣的冒險者。</div>`;
+  eligible.forEach(a=>{
+    const checked=dispatchSelection.has(a.id);
+    html+=`<div class="dispatch-row ${checked?'checked':''}" data-action="toggleDispatch" data-id="${a.id}">
+      <span>${a.name}（${a.class} Lv.${a.level}）</span><span>${Math.round(getPower(a))}</span>
+    </div>`;
+  });
+  html+=`</div></div><div class="modal-actions">
+    <button class="btn ghost" data-action="closeModal">取消</button>
+    <button class="btn" data-action="confirmDispatch">出發！</button>
+  </div>`;
+  openModal(html);
+}
+function openEquipForItem(itemId){
+  const it=inventory.find(i=>i.id===itemId); if(!it) return;
+  const eligible=adventurers.filter(a=>['idle','injured','disabled'].includes(a.status));
+  let html=`<div class="modal-header">裝備<span class="modal-sub">${it.name}</span></div><div class="modal-body"><div class="dispatch-list">`;
+  if(!eligible.length) html+=`<div class="empty-hint">目前沒有可裝備的冒險者。</div>`;
+  eligible.forEach(a=>{
+    const cur=a.equipment[it.slot];
+    html+=`<div class="dispatch-row" data-action="doEquip" data-adv="${a.id}" data-item="${it.id}">
+      <span>${a.name}（${a.class}）</span><span>${cur?`目前：${cur.name}`:'（空）'}</span>
+    </div>`;
+  });
+  html+=`</div></div><div class="modal-actions"><button class="btn ghost" data-action="closeModal">取消</button></div>`;
+  openModal(html);
+}
+function openEquipForSlot(advId, slot){
+  const a=getAdv(advId); if(!a) return;
+  const items=inventory.filter(i=>i.slot===slot);
+  let html=`<div class="modal-header">裝備<span class="modal-sub">${SLOT_LABEL[slot]}</span></div><div class="modal-body"><div class="dispatch-list">`;
+  if(a.equipment[slot]) html+=`<div class="dispatch-row" data-action="doUnequip" data-adv="${a.id}" data-slot="${slot}"><span>卸下目前裝備：${a.equipment[slot].name}</span></div>`;
+  if(!items.length) html+=`<div class="empty-hint">倉庫中沒有可用的${SLOT_LABEL[slot]}。</div>`;
+  items.forEach(it=>{
+    html+=`<div class="dispatch-row" data-action="doEquip" data-adv="${a.id}" data-item="${it.id}" style="color:${rarityColor(it.rarity)}">
+      <span>${it.name}</span><span>${formatStats(it.stats)}</span>
+    </div>`;
+  });
+  html+=`</div></div><div class="modal-actions"><button class="btn ghost" data-action="closeModal">取消</button></div>`;
+  openModal(html);
+}
+
+/* =========================================================
+   Canvas 場景繪製
+========================================================= */
+const canvas=document.getElementById('scene');
+const ctx=canvas.getContext('2d');
+let cw=0, ch=0;
+function resizeCanvas(){
+  const wrap=canvas.parentElement;
+  cw=wrap.clientWidth; ch=wrap.clientHeight;
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=Math.max(1,Math.round(cw*dpr));
+  canvas.height=Math.max(1,Math.round(ch*dpr));
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+let particles=[];
+function spawnParticles(){
+  const hasWar=activeWorldEvents.some(e=>e.type==='war');
+  const hasPlague=activeWorldEvents.some(e=>e.type==='plague');
+  const hasDragon=activeWorldEvents.some(e=>e.type==='dragon');
+  if(hasPlague && particles.length<40 && RNG()<0.3){
+    particles.push({x:RNG()*cw, y:ch+5, vx:rf(-0.1,0.1), vy:-rf(0.15,0.35), life:200, type:'fog', size:rf(10,22)});
+  }
+  if(hasWar && particles.length<60 && RNG()<0.2){
+    particles.push({x:RNG()*cw, y:ch*0.5+RNG()*ch*0.3, vx:rf(-0.05,0.05), vy:-rf(0.1,0.25), life:150, type:'smoke', size:rf(6,14)});
+  }
+  if(hasDragon && RNG()<0.05){
+    particles.push({x:-10, y:ch*0.2+RNG()*ch*0.15, vx:rf(0.8,1.4), vy:rf(-0.05,0.05), life:220, type:'ember', size:rf(3,6)});
+  }
+}
+function drawScene(ts){
+  if(!cw){ resizeCanvas(); }
+  if(!cw||!ch) return;
+  ctx.clearRect(0,0,cw,ch);
+  const cyc=(Date.now()/45000)%1;
+  const isNight=cyc>0.5;
+  const skyTop=isNight?'#1a1f3a':'#5a8fc7';
+  const skyBot=isNight?'#3a3050':'#bcd6e8';
+  const grad=ctx.createLinearGradient(0,0,0,ch*0.7);
+  grad.addColorStop(0,skyTop); grad.addColorStop(1,skyBot);
+  ctx.fillStyle=grad; ctx.fillRect(0,0,cw,ch*0.7);
+  if(isNight){
+    ctx.fillStyle='rgba(255,255,255,0.7)';
+    for(let i=0;i<18;i++){
+      const sx=(i*53 + (ts||0)*0.001*10)%cw;
+      const sy=(i*29)%(ch*0.45);
+      ctx.globalAlpha=0.3+0.4*Math.abs(Math.sin(i+(ts||0)*0.0005));
+      ctx.fillRect(sx,sy,2,2);
+    }
+    ctx.globalAlpha=1;
+  }
+  ctx.fillStyle=isNight?'#1c2417':'#3f5a32';
+  ctx.fillRect(0,ch*0.68,cw,ch*0.32);
+  const bw=cw*0.5, bh=ch*0.4, bx=cw*0.5-bw/2, by=ch*0.68-bh;
+  ctx.fillStyle='#4a3526';
+  ctx.fillRect(bx,by,bw,bh);
+  ctx.beginPath();
+  ctx.moveTo(bx-10,by); ctx.lineTo(bx+bw/2,by-bh*0.4); ctx.lineTo(bx+bw+10,by);
+  ctx.closePath();
+  ctx.fillStyle='#6b3f2a'; ctx.fill();
+  ctx.fillStyle='#2a1d12';
+  ctx.fillRect(bx+bw*0.4, by+bh*0.45, bw*0.2, bh*0.55);
+  ctx.fillStyle=isNight?'#ffd97a':'#cdeeff';
+  ctx.fillRect(bx+bw*0.12, by+bh*0.18, bw*0.16, bh*0.16);
+  ctx.fillRect(bx+bw*0.72, by+bh*0.18, bw*0.16, bh*0.16);
+  ctx.fillStyle='#b03030';
+  ctx.fillRect(bx+bw*0.42, by-bh*0.25, bw*0.16, bh*0.3);
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx; p.y+=p.vy; p.life--;
+    if(p.life<=0 || p.x>cw+20 || p.x<-20){ particles.splice(i,1); continue; }
+    ctx.globalAlpha=clamp(p.life/200,0,1)*0.6;
+    if(p.type==='fog') ctx.fillStyle='#7a9e6a';
+    else if(p.type==='smoke') ctx.fillStyle='#555';
+    else ctx.fillStyle='#ff7a30';
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  const idleAll=adventurers.filter(a=>a.status==='idle');
+  const idle=idleAll.slice(0,8);
+  const baseY=ch*0.86;
+  idle.forEach((a,i)=>{
+    const spacing=cw/(idle.length+1);
+    const x=spacing*(i+1);
+    const bob=Math.sin((ts||0)/400+i)*3;
+    const y=baseY+bob;
+    ctx.fillStyle=CLASS_DATA[a.class].color;
+    ctx.beginPath(); ctx.arc(x,y-10,6,0,Math.PI*2); ctx.fill();
+    ctx.fillRect(x-4,y-4,8,12);
+  });
+  if(idleAll.length>8){
+    ctx.fillStyle='#fff'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('+'+(idleAll.length-8), cw-20, baseY-5);
+    ctx.textAlign='left';
+  }
+}
+let frameCount=0;
+function frame(ts){
+  frameCount++;
+  if(frameCount%3===0) spawnParticles();
+  drawScene(ts);
+  requestAnimationFrame(frame);
+}
+
+/* =========================================================
+   每日 Tick / 主循環
+========================================================= */
+function dailyTick(){
+  day++;
+  updateActiveQuests();
+  updateRecoveries();
+  agingAndDeathCheck();
+  personalEventCheck();
+  worldEventCheck();
+  updateKingdoms();
+  maybeAddNewQuest();
+  maybeRefreshRecruit();
+  pruneOldRecords();
+  tickCounter++;
+  if(tickCounter>=4){ saveGame(); tickCounter=0; }
+}
+function pruneOldRecords(){
+  if(chronicle.length>300) chronicle.length=300;
+  if(worldHistory.length>200) worldHistory.length=200;
+  const archivable=adventurers.filter(a=>['dead','retired','betrayed'].includes(a.status));
+  if(archivable.length>260){
+    const sorted=archivable.sort((x,y)=>(x.deathDay||x.joinDay)-(y.deathDay||y.joinDay));
+    const toRemoveIds=new Set(sorted.slice(0, archivable.length-260).map(a=>a.id));
+    adventurers=adventurers.filter(a=>!toRemoveIds.has(a.id));
+  }
+  const INVENTORY_CAP=120;
+  if(inventory.length>INVENTORY_CAP){
+    inventory.sort((x,y)=>y.rarity-x.rarity);
+    const removed=inventory.splice(INVENTORY_CAP);
+    const refund=removed.reduce((s,it)=>s+Math.round(SELL_VALUE[it.rarity]*0.5),0);
+    if(refund>0){
+      gold+=refund;
+      logPersonalOnlyToChronicle(`🗄️ 公會倉庫已滿，自動賤賣了${removed.length}件低價值裝備，換回${refund}金幣。`);
+    }
+  }
+}
+function logPersonalOnlyToChronicle(text){
+  chronicle.unshift({day, text});
+  if(chronicle.length>300) chronicle.length=300;
+}
+function gameLoopStep(){
+  if(speed>0){
+    for(let i=0;i<speed;i++){ dailyTick(); }
+    render();
+  }
+}
+
+/* =========================================================
+   事件綁定
+========================================================= */
+document.addEventListener('click', function(e){
+  const el=e.target.closest('[data-action]');
+  if(!el) return;
+  const action=el.dataset.action;
+  const id=el.dataset.id;
+  switch(action){
+    case 'openAdv': openAdvModal(id); break;
+    case 'hire': hireAdventurer(parseInt(el.dataset.idx,10)); break;
+    case 'openDispatch': openDispatchModal(id); break;
+    case 'toggleDispatch': toggleDispatch(id); break;
+    case 'confirmDispatch': confirmDispatch(); break;
+    case 'closeModal': closeModal(); if(activeExpeditionView){ activeExpeditionView=null; } break;
+    case 'resolveDecision': resolveDecision(id, parseInt(el.dataset.choice,10)); break;
+    case 'openEquip': openEquipForItem(id); break;
+    case 'pickEquipSlot': openEquipForSlot(id, el.dataset.slot); break;
+    case 'sellItem': sellItem(id); break;
+    case 'trainSkill': trainSkillManual(id, parseInt(el.dataset.idx,10)); break;
+    case 'retireSelf': manualRetire(id); break;
+    case 'dismissAdv': manualDismiss(id); break;
+    case 'doEquip': doEquip(el.dataset.adv, el.dataset.item); break;
+    case 'doUnequip': doUnequip(el.dataset.adv, el.dataset.slot); break;
+    case 'openExpedition': openExpeditionModal(id); break;
+    case 'expeditionChoice': resolveExpeditionChoice(getActiveQuestForExpeditionModal(), parseInt(el.dataset.choice,10)); break;
+    case 'verifyRumor': verifyRumor(id); break;
+    case 'spendFate': spendFate(el.dataset.fateAction, el.dataset.adv, el.dataset.quest); break;
+    case 'openFatePanel': openFatePanelModal(); break;
+  }
+});
+document.getElementById('tabbar').addEventListener('click', function(e){
+  const btn=e.target.closest('.tabbtn'); if(!btn) return;
+  document.querySelectorAll('.tabbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentTab=btn.dataset.tab;
+  renderTabContent();
+});
+document.getElementById('speedControls').addEventListener('click', function(e){
+  const btn=e.target.closest('button'); if(!btn) return;
+  speed=parseInt(btn.dataset.speed,10);
+  document.querySelectorAll('#speedControls button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+});
+
+/* =========================================================
+   啟動
+========================================================= */
+function showOfflineReport(report){
+  if(!report) return;
+  let html=`<div class="modal-header">離途歸來<span class="modal-sub">離開了 ${report.days} 個遊戲日</span></div>
+  <div class="modal-body">
+    <div class="status-line">公會金幣變化：${report.goldDelta>=0?'+':''}${report.goldDelta} 💰</div>
+    ${report.deathCount>0?`<div class="death-line">遺憾的是，${report.deadNames.join('、')} 在你離開的這段時間裡離世了。</div>`:''}
+    <div class="section-sub">這段時間的大事記</div>
+    <div class="chronicle-list">${report.headlines.map(c=>`<div class="chron-item"><span class="chron-date">${formatDate(c.day)}</span>${c.text}</div>`).join('')||'<div class="empty-hint">一切平靜無事。</div>'}</div>
+  </div>
+  <div class="modal-actions"><button class="btn" data-action="closeModal">回到公會</button></div>`;
+  openModal(html);
+}
+function boot(){
+  const loaded=loadGame();
+  if(!loaded){ initNewGame(); }
+  resizeCanvas();
+  document.querySelectorAll('#speedControls button').forEach(b=>{
+    b.classList.toggle('active', parseInt(b.dataset.speed,10)===speed);
+  });
+  let offlineReport=null;
+  if(loaded){ offlineReport=processOfflineProgress(); }
+  render();
+  requestAnimationFrame(frame);
+  setInterval(gameLoopStep, 1000);
+  setInterval(expeditionStep, 1000);
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('beforeunload', saveGame);
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden){ saveGame(); }
+    else { lastSeenTs=Date.now(); }
+  });
+  if(offlineReport && offlineReport.days>=1){ showOfflineReport(offlineReport); }
+}
+boot();
+})();
+</script>
+</body>
+</html>
