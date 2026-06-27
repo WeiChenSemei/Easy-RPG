@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>《毒之紀元：毒物使》- 世界演化</title>
+    <style>
+        :root {
+            --bg-color: #060906; --text-color: #b0c4b0; --accent-color: #4CAF50; --danger-color: #8B0000;
+            --panel-bg: rgba(10, 15, 10, 0.85); --border-color: #2e4a2e; --boss-color: #d4af37;
+            --burst-color: #9b59b6; --fatigue-color: #3498db; --event-color: #1abc9c; --weather-color: #f39c12;
+            --info-color: #8e44ad; --rare-color: #e67e22; --shield-color: #9b59b6;
+        }
+        body { margin: 0; padding: 0; background-color: var(--bg-color); color: var(--text-color); font-family: 'Courier New', Courier, monospace; overflow: hidden; touch-action: manipulation; user-select: none; }
+        #bg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; pointer-events: none; }
+        #ui-container { position: relative; z-index: 2; max-width: 480px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; background: var(--panel-bg); box-shadow: 0 0 20px rgba(0, 50, 0, 0.5); }
+        .panel { display: none; flex-direction: column; flex: 1; padding: 15px; box-sizing: border-box; overflow-y: auto; }
+        .panel.active { display: flex; }
+
+        .status-bar { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; margin-bottom: 10px; font-weight: bold; font-size: 0.85em; align-items: center;}
+        .weather-tag { color: var(--weather-color); border: 1px solid var(--weather-color); padding: 2px 6px; border-radius: 4px; font-size: 0.8em; }
+
+        .hp-bar-container { width: 100%; height: 8px; background: #222; border: 1px solid var(--border-color); margin-top: 4px; position: relative; overflow: hidden;}
+        .hp-bar-fill { height: 100%; background: var(--accent-color); width: 100%; transition: width 0.3s, background-color 0.3s; }
+        .hp-bar-fill.danger { background: var(--danger-color); } .hp-bar-fill.boss { background: var(--boss-color); }
+        .hp-bar-fill.overheal { background: var(--shield-color); }
+        .fatigue-bar-fill { height: 3px; background: var(--fatigue-color); width: 0%; transition: width 0.3s; margin-top:2px; border-radius: 2px;}
+
+        .art-display { text-align: center; font-size: 70px; margin: 10px 0; text-shadow: 0 0 15px rgba(76, 175, 80, 0.4); animation: breathe 4s infinite ease-in-out; }
+        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        .boss-art { text-shadow: 0 0 25px rgba(212, 175, 55, 0.6); animation: bossBreathe 3s infinite ease-in-out; }
+        .boss-stunned { filter: grayscale(80%) sepia(50%) hue-rotate(180deg); transform: rotate(15deg); animation: none; }
+        
+        .log-box { flex: 1; border: 1px solid var(--border-color); background: rgba(0, 0, 0, 0.5); padding: 10px; overflow-y: auto; font-size: 0.85em; line-height: 1.5; margin-bottom: 10px; display: flex; flex-direction: column; scroll-behavior: smooth; }
+        .log-entry { margin-bottom: 5px; animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .log-sys { color: #888; } .log-atk { color: #fff; } .log-dmg { color: #ff6b6b; } .log-heal { color: #4CAF50; } .log-skill { color: #a29bfe; }
+        .log-boss { color: var(--boss-color); font-weight: bold; } .log-weakness { color: #f1c40f; font-weight: bold; } .log-resist { color: #7f8c8d; font-style: italic; } .log-hunt { color: #e67e22; font-weight: bold;}
+        .log-eco { color: var(--info-color); font-weight: bold; } .log-rare { color: var(--rare-color); font-weight: bold; }
+
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        button { background: #0d1a0d; border: 1px solid var(--border-color); color: var(--text-color); padding: 12px; font-size: 1em; font-family: inherit; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+        button:active { background: #1f3d1f; transform: scale(0.98); }
+        button:disabled { opacity: 0.3; pointer-events: none; filter: grayscale(100%); }
+        button.full-width { grid-column: span 2; }
+        button.danger { border-color: var(--danger-color); color: #ff9999; }
+        button.burst { border-color: var(--burst-color); color: #e056fd; }
+        button.phero { border-color: #3498db; color: #3498db; }
+
+        .trait-tag { display: inline-block; background: #1a2b1a; border: 1px solid #3a5a3a; padding: 2px 6px; margin: 2px; font-size: 0.75em; border-radius: 4px; }
+        .trait-tag.equipped { border-color: var(--accent-color); background: #2a4b2a;}
+        .pref-tag { color: #f39c12; font-size: 0.7em; border: 1px solid #f39c12; border-radius: 3px; padding: 1px 4px; margin-left: 5px; }
+        
+        .diary-entry { font-size: 0.8em; color: #aaa; margin-top: 4px; border-left: 2px solid #555; padding-left: 8px; font-style: italic; }
+        .eco-data { font-size: 0.75em; color: #bdc3c7; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 3px; margin-top: 4px; }
+        .eco-data span { color: var(--info-color); font-weight: bold; }
+        .bestiary-section-title { color:var(--accent-color); font-weight:bold; margin-top:15px; margin-bottom:5px; border-bottom:1px solid var(--border-color); padding-bottom:3px; }
+
+        .ecology-container { display: flex; justify-content: center; gap: 10px; margin-bottom: 5px; min-height: 25px;}
+        .minion-icon { font-size: 1.5em; filter: drop-shadow(0 0 2px red); }
+        .minion-icon.infected { filter: drop-shadow(0 0 5px #4CAF50) sepia(100%) hue-rotate(90deg); }
+        .terrain-icon { font-size: 1.5em; filter: drop-shadow(0 0 5px #2ecc71); border: 1px dashed #2ecc71; border-radius: 5px; padding: 2px; }
+
+        h1, h2, h3 { text-align: center; font-weight: normal; margin-top: 0;}
+        #loading-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: var(--bg-color); z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    </style>
+</head>
+<body>
+    <canvas id="bg-canvas"></canvas>
+    <div id="ui-container">
+        <div id="loading-overlay"><div class="art-display">🍄</div><p>同步生態資料庫...</p></div>
+
+        <div id="panel-title" class="panel">
+            <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+                <h1>《毒之紀元》</h1><div style="text-align:center; color:#666; font-size:0.8em; margin-bottom:20px;">—— 世界演化 ——</div>
+                <div class="art-display">☠️</div>
+                <p style="text-align:center; color:#888; font-size:0.8em;">每個生命都有其歸宿，殺戮並非唯一解。</p>
+            </div>
+            <div class="btn-grid">
+                <button id="btn-continue" class="full-width" style="display:none; border-color:var(--boss-color); color:var(--boss-color);" onclick="Game.loadSavedGame()">繼續探索</button>
+                <button class="full-width" onclick="Game.switchPanel('panel-select')">新的旅途</button>
+            </div>
+        </div>
+
+        <div id="panel-select" class="panel">
+            <h2>選擇主毒物</h2>
+            <div style="flex:1; overflow-y:auto;">
+                <button class="full-width" onclick="Game.startNewGame('snake')" style="margin-bottom:10px; text-align:left;">🐍 毒蛇 <small style="color:#aaa;">(偏好: 劇毒/追獵)</small><br><small>特徵：【劇毒】</small></button>
+                <button class="full-width" onclick="Game.startNewGame('scorpion')" style="margin-bottom:10px; text-align:left;">🦂 毒蠍 <small style="color:#aaa;">(偏好: 硬甲/穿刺)</small><br><small>特徵：【硬甲】</small></button>
+                <button class="full-width" onclick="Game.startNewGame('spider')" style="margin-bottom:10px; text-align:left;">🕷️ 毒蛛 <small style="color:#aaa;">(偏好: 寄生/孢子)</small><br><small>特徵：【吸血】</small></button>
+                <button class="full-width" onclick="Game.startNewGame('frog')" style="margin-bottom:10px; text-align:left;">🐸 毒蛙 <small style="color:#aaa;">(偏好: 麻痺/再生)</small><br><small>特徵：【麻痺】</small></button>
+            </div>
+            <button class="full-width" onclick="Game.switchPanel('panel-title')">返回</button>
+        </div>
+
+        <div id="panel-camp" class="panel">
+            <div class="status-bar">
+                <span>安全營地 (天數:<span id="ui-days">1</span>)</span>
+                <span id="camp-weather" class="weather-tag">☀️ 晴朗</span>
+            </div>
+            <div class="art-display" id="camp-pet-art">🐍</div>
+            <div style="text-align:center; margin-bottom: 10px;">
+                <div id="camp-pet-name">我的毒物</div>
+                <div class="hp-bar-container"><div id="camp-hp-fill" class="hp-bar-fill"></div></div>
+                <div style="font-size:0.8em; margin-top:5px;">HP: <span id="camp-hp-text">100/100</span></div>
+            </div>
+            <div style="text-align:center; margin-bottom: 10px; font-size:0.8em; color:#aaa;">
+                夥伴：<span id="camp-partner">無</span>
+            </div>
+            <div style="margin-bottom: 10px; text-align:center;">
+                <div style="font-size:0.8em; color:#888; margin-bottom:5px;">裝備特徵 (<span id="equip-count">0</span>/4)</div>
+                <div id="camp-equipped-traits"></div>
+            </div>
+            <div class="btn-grid" style="margin-top:auto;">
+                <button class="full-width" onclick="Game.explore()" style="border-color:var(--accent-color);">👣 啟程探索</button>
+                <button onclick="Game.showTraitMenu()">🧬 毒囊管理</button>
+                <button onclick="Game.showBestiary()">📖 觀察日記</button>
+            </div>
+        </div>
+
+        <div id="panel-traits" class="panel">
+            <h2>🧬 毒囊庫</h2>
+            <div class="log-box" id="trait-list-box" style="flex:1;"></div>
+            <button id="btn-traits-back" class="full-width" onclick="Game.switchPanel('panel-camp')">返回</button>
+        </div>
+
+        <div id="panel-bestiary" class="panel">
+            <h2>📖 觀察日記</h2>
+            <div class="log-box" id="bestiary-list-box" style="flex:1;"></div>
+            <button class="full-width" onclick="Game.switchPanel('panel-camp')">返回</button>
+        </div>
+
+        <div id="panel-event" class="panel">
+            <div class="status-bar"><span>生態事件</span><span style="color:var(--event-color);">未知奇遇</span></div>
+            <div class="art-display" id="event-art" style="animation: float 3s ease-in-out infinite;">🌿</div>
+            <h3 id="event-title" style="color:var(--event-color);">事件</h3>
+            <div class="log-box" id="event-log" style="flex:1; justify-content:center; text-align:center; font-size:0.95em;"></div>
+            <div class="btn-grid" id="event-buttons"></div>
+        </div>
+
+        <div id="panel-encounter" class="panel">
+            <div class="status-bar">
+                <span id="encounter-title" style="color:var(--danger-color);">遭遇毒物</span>
+                <span id="combat-weather" class="weather-tag">☀️ 晴朗</span>
+            </div>
+            <div class="ecology-container" id="ecology-view"></div>
+            <div style="text-align:center;">
+                <div class="art-display" id="enemy-art" style="margin: 5px 0;">🦂</div>
+                <div id="enemy-name">未知生物</div>
+                <div id="enemy-rare" style="font-size:0.75em; color:var(--rare-color); margin-top:2px;"></div>
+                <div id="enemy-habit" style="font-size:0.75em; color:#aaa; margin-top:2px;"></div>
+                <div style="width:70%; margin: 5px auto;">
+                    <div class="hp-bar-container"><div id="enemy-hp-fill" class="hp-bar-fill danger"></div></div>
+                    <div id="fatigue-container" style="display:none; text-align:left;">
+                        <div class="fatigue-bar-fill" id="fatigue-bar"></div>
+                        <div style="font-size:0.7em; color:var(--fatigue-color);">疲勞值 (滿=倒地)</div>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:5px;">
+                <div style="font-size:0.8em; color:#888;">HP: <span id="combat-player-hp">100/100</span></div>
+                <div class="hp-bar-container"><div id="combat-player-hp-fill" class="hp-bar-fill"></div></div>
+            </div>
+            <div class="log-box" id="combat-log" style="margin-top: 5px;"></div>
+            <div id="action-buttons-container">
+                <div class="btn-grid" id="action-buttons">
+                    <button id="btn-obs" onclick="Game.actionObserve()">👁️ 觀察</button>
+                    <button id="btn-tame" onclick="Game.actionTame()">🪤 馴養</button>
+                    <button id="btn-atk-start" onclick="Game.startCombat()" class="danger">⚔️ 狩獵開始</button>
+                    <button id="btn-flee" onclick="Game.actionFlee()">💨 撤退</button>
+                    
+                    <button id="btn-atk" class="combat-btn" onclick="Game.combatTurn('attack')" style="display:none;">⚔️ 攻擊</button>
+                    <button id="btn-def" class="combat-btn" onclick="Game.combatTurn('defend')" style="display:none;">🛡️ 防禦</button>
+                    <button id="btn-skill" class="combat-btn full-width" onclick="Game.combatTurn('skill')" style="display:none; color:#a29bfe; border-color:#a29bfe;">🧪 極限毒技 (耗命10%)</button>
+                    
+                    <button id="btn-terrain" class="combat-btn terrain full-width" onclick="Game.combatTurn('terrain')" style="display:none;">🗺️ 利用地形</button>
+                    <button id="btn-phero-menu" class="combat-btn phero full-width" onclick="Game.showPheroMenu()" style="display:none;">🧫 散發信息素 (單場1次)</button>
+                    <button id="btn-burst" class="combat-btn burst full-width" onclick="Game.combatTurn('burst')" style="display:none;">✨ 共生爆發</button>
+
+                    <button id="btn-phero-1" class="phero-sub" onclick="Game.usePheromone('frenzy')" style="display:none; color:#ff6b6b; border-color:#ff6b6b;">🔴 狂暴素<br><small>引發生物錯亂</small></button>
+                    <button id="btn-phero-2" class="phero-sub" onclick="Game.usePheromone('lure')" style="display:none; color:#4CAF50; border-color:#4CAF50;">🟢 誘食素<br><small>引發掠食或餵食</small></button>
+                    <button id="btn-phero-3" class="phero-sub" onclick="Game.usePheromone('repel')" style="display:none; color:#3498db; border-color:#3498db;">🔵 驅逐素<br><small>破除習性/驅離</small></button>
+                    <button id="btn-phero-cancel" class="phero-sub" onclick="Game.hidePheroMenu()" style="display:none;">↩️ 取消</button>
+                </div>
+            </div>
+            <button id="btn-return" onclick="Game.returnToCamp()" class="full-width" style="display:none; margin-top:10px;">繼續</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+        const DB = {
+            weathers: {
+                'normal': { id: 'normal', name: '☀️ 晴朗', desc: '普通的荒野日子，萬物穩定生長。' },
+                'toxic_rain': { id: 'toxic_rain', name: '🌧️ 毒雨', desc: '空氣中瀰漫劇毒，劇毒特徵觸發率與傷害大幅提升。' },
+                'drought': { id: 'drought', name: '🏜️ 乾旱', desc: '水源枯竭，再生與吸血的生命回復效果完全失效。' },
+                'spore_season': { id: 'spore_season', name: '🌫️ 孢子季', desc: '真菌活躍，孢子類生物繁衍，幼體出生即被感染。' },
+                'breeding': { id: 'breeding', name: '🌸 繁殖季', desc: '萬物發情，Boss 頻繁召喚幼體，但馴養生物也更容易。' }
+            },
+            partners: {
+                'butterfly': { name: '🦋 引路蝶', desc: '具有敏銳的感知，能自動解鎖並揭露敵方 Boss 的弱點與抗性。' },
+                'rat': { name: '🐁 尋寶鼠', desc: '對寶物有異常直覺，大幅增加探索時遇到稀有生態事件的機率。' },
+                'spore': { name: '🦠 寄生孢', desc: '能散發安撫神經的粉塵，永久提升 20% 的馴養成功率。' }
+            },
+            traits: {
+                'toxic': { name: '劇毒', icon: '🟢', desc: '【神經衰弱】敵方每層中毒會降低其 5% 攻擊力。可點燃地形毒草。' },
+                'paralyze': { name: '麻痺', icon: '⚡', desc: '【防禦瓦解】延遲敵方行動累積疲勞，且每次觸發永久削弱敵方防禦。' },
+                'lifesteal': { name: '吸血', icon: '🩸', desc: '【過載護盾】吸取生命，血滿時能過量治療至 150% 形成護盾。' },
+                'corrosive': { name: '腐蝕', icon: '🧪', desc: '【裝甲崩壞】永久降防，且每層腐蝕使敵方額外承受 5% 所有傷害。' },
+                'spore': { name: '孢子', icon: '🍄', desc: '【粉塵反噬】受擊時必定反彈傷害，並自動感染全場敵方幼體。' },
+                'hard_shell': { name: '硬甲', icon: '🪨', desc: '【絕對防禦】減免傷害，且完全免疫低於你最大生命值 5% 的微弱攻擊。' },
+                'parasite': { name: '寄生', icon: '🐛', desc: '【血肉榨取】每回合強力吸血，並主動寄生幼體為己所用。' },
+                'proliferate': { name: '增殖', icon: '🦠', desc: '【無盡分裂】攻擊變為兩段連擊，完美觸發各種攻擊特效。' },
+                'mimicry': { name: '擬態', icon: '🍂', desc: '【破綻反擊】受擊有 20% 機率完美迴避，並自動對敵人追加一次致命反擊。' },
+                'regen': { name: '再生', icon: '🌿', desc: '【自體淨化】回合結束大量回復 HP，並自動清除身上所有的劇毒層數。' },
+                'hunt': { name: '追獵', icon: '👁️', desc: '【越戰越勇】戰鬥時間越長，攻擊力提升倍率極高，對付血牛有奇效。' },
+                'bleed': { name: '流血', icon: '🔴', desc: '【劇痛疲勞】造成疊加真實傷害，且每回合撕裂痛楚會增加 Boss 疲勞。' },
+                'pierce': { name: '穿刺', icon: '🗡️', desc: '【無視護甲】無視敵方 50% 防禦力，且極易撕裂傷口造成流血。' },
+                'acid_blood': { name: '酸血', icon: '💧', desc: '【腐蝕飛濺】受擊時依比例反彈傷害給攻擊者。' }
+            },
+            pets: {
+                'snake': { name: '劇毒黑蛇', art: '🐍', baseHp: 80, baseAtk: 12, baseDef: 1, initTrait: 'toxic', prefs: ['toxic', 'hunt'] },
+                'scorpion': { name: '荒野毒蠍', art: '🦂', baseHp: 100, baseAtk: 9, baseDef: 4, initTrait: 'hard_shell', prefs: ['hard_shell', 'pierce'] },
+                'spider': { name: '吸血魔蛛', art: '🕷️', baseHp: 90, baseAtk: 10, baseDef: 2, initTrait: 'lifesteal', prefs: ['parasite', 'spore'] },
+                'frog': { name: '劇毒沼蛙', art: '🐸', baseHp: 110, baseAtk: 8, baseDef: 3, initTrait: 'paralyze', prefs: ['paralyze', 'regen'] }
+            },
+            terrains: [
+                { id: 'grass', icon: '🌿', name: '腐化毒草', req: 'toxic', msg: '劇毒引爆毒草，引發猛烈毒爆！', effect: 'poison' },
+                { id: 'crystal', icon: '💎', name: '脈動毒晶', req: 'lifesteal', msg: '吸血特徵抽乾了毒晶，生命完全恢復！', effect: 'heal' },
+                { id: 'shroom', icon: '🍄', name: '迷幻孢子', req: 'mimicry', msg: '擬態引發了迷幻粉塵！Boss 陷入極度疲勞！', effect: 'fatigue' }
+            ],
+            symbiosisCombos: [
+                { id: 'plague', name: '瘟疫溫床', req: ['toxic', 'parasite', 'spore', 'proliferate'], desc: '【機制爆發】毒素層數瞬間翻倍，強制感染全場幼體。' },
+                { id: 'blood', name: '鮮血渴望', req: ['lifesteal', 'bleed', 'hunt', 'regen'], desc: '【機制爆發】吸血與攻擊力巨幅提升。' },
+                { id: 'domain', name: '絕對領域', req: ['hard_shell', 'corrosive', 'mimicry', 'paralyze'], desc: '【機制爆發】防禦崩潰，Boss 強制倒地滿疲勞。' },
+                { id: 'thorns', name: '荊棘王冠', req: ['acid_blood', 'hard_shell', 'regen', 'pierce'], desc: '【機制爆發】化身不朽反傷裝甲，反彈巨額真實傷害。' }
+            ],
+            enemies: [
+                { id: 'toad', name: '泥沼毒蟾', art: '🐸', hp: 45, atk: 6, def: 2, traits: ['toxic'], weight: 10, diary: ["喜歡潮濕，毒雨天異常活躍。", "皮膚分泌的毒液會麻痺神經。", "據說牠們害怕寄生蟲的反噬。"] },
+                { id: 'wasp', name: '殺手毒蜂', art: '🐝', hp: 30, atk: 12, def: 1, traits: ['paralyze'], weight: 10, diary: ["群居生物，尾針帶有麻痺毒素。", "攻擊頻率高但極度脆弱。", "畏懼大範圍的孢子感染。"] },
+                { id: 'bat', name: '洞穴血蝠', art: '🦇', hp: 35, atk: 10, def: 1, traits: ['lifesteal'], weight: 10, diary: ["靠吸食大型生物的血液維生。", "擁有敏銳的聽覺與回聲定位。", "會在乾旱時進入休眠狀態。"] },
+                { id: 'centipede', name: '百足蜈蚣', art: '🪱', hp: 45, atk: 9, def: 3, traits: ['corrosive'], weight: 10, diary: ["常在廢棄骸骨附近徘徊。", "分泌的強酸液連岩石都能融化。", "堅甲被熔穿後將非常脆弱。"] },
+                { id: 'shroom', name: '致幻巨菇', art: '🍄', hp: 55, atk: 3, def: 5, traits: ['spore'], weight: 10, diary: ["散發著迷幻的發光粉塵。", "孢子季時會大面積向外擴散。", "極度害怕劇毒和強酸。"] },
+                { id: 'snail', name: '鐵殼蝸牛', art: '🐌', hp: 60, atk: 4, def: 8, traits: ['hard_shell'], weight: 10, diary: ["背負著堅不可摧的礦石鐵殼。", "行動極其緩慢，不易捕捉。", "鐵殼在劇毒腐蝕下容易崩碎。"] },
+                { id: 'leech', name: '荒地巨蛭', art: '🩸', hp: 50, atk: 5, def: 1, traits: ['parasite'], weight: 10, diary: ["潛伏在泥濘水窪中的無聲殺手。", "一旦被咬住，體液會被抽乾。", "對寄生特徵有極高的包容性。"] },
+                { id: 'slime', name: '裂變史萊姆', art: '🦠', hp: 30, atk: 5, def: 0, traits: ['proliferate'], weight: 10, diary: ["受到重擊時身體會進行無性增殖。", "內部沒有脆弱的單一核心。", "穿刺與撕裂能打亂其增殖能力。"] },
+                { id: 'leafbug', name: '枯葉蟲', art: '🍂', hp: 35, atk: 7, def: 2, traits: ['mimicry'], weight: 10, diary: ["完美融入環境的擬態大師。", "靜止時肉眼幾乎無法察覺。", "但對大範圍寄生毫無辦法。"] },
+                { id: 'larva', name: '變異幼蟲', art: '🐛', hp: 30, atk: 4, def: 0, traits: ['regen'], weight: 10, diary: ["富含高蛋白質，體壁再生極快。", "是荒野中霸主們最愛的口糧。", "放生牠能得到荒野意志的眷顧。"] },
+                { id: 'mantis', name: '幻影螳螂', art: '🦗', hp: 40, atk: 11, def: 2, traits: ['hunt'], weight: 10, diary: ["天生的掠食獵手，耐性極佳。", "戰鬥越久，前臂刀刃越發鋒利。", "追獵積累時威脅會成倍上升。"] },
+                { id: 'sandworm', name: '鋸齒沙蟲', art: '🪱', hp: 45, atk: 8, def: 1, traits: ['bleed'], weight: 10, diary: ["隱藏在沙土之下的肉食蠕蟲。", "口器充滿尖牙，造成撕裂流血。", "劇毒能在沙土下麻痺其行動。"] },
+                { id: 'urchin', name: '尖刺豪豬', art: '🦔', hp: 50, atk: 9, def: 4, traits: ['pierce'], weight: 10, diary: ["渾身是能瞬間射出的毒刺。", "穿透力極強，輕易造成流血。", "極度害怕堅硬的外殼。"] },
+                { id: 'mutant_plant', name: '食人毒花', art: '🥀', hp: 65, atk: 6, def: 3, traits: ['acid_blood'], weight: 10, diary: ["誘捕野生獵物的豔麗植物。", "受重創時噴灑出高腐蝕的酸血。", "可以藉由吸血抽乾牠的組織液。"] },
+                
+                { id: 'boss_beetle', name: '腐蝕巨甲蟲', art: '🪲', isBoss: true, weight: 0, hp: 300, atk: 15, def: 15, traits: ['hard_shell'], weaknesses: ['corrosive', 'parasite'], resistances: ['toxic', 'bleed'], minionIcon: '🐛', 
+                  habit: 'nest_guard', habitName: '【行為】守護者', behaviorType: '守護者', diet: '礦石、腐肉', tamable: '否', repellable: '是', solution: '使用【驅逐素】迫使牠離開巢穴後，選擇「撤退」即可和平驅離通過。',
+                  desc: '固守原地，防禦極高。', diary: ["統治廢墟的移動要塞。", "會利用背上的幼蟲阻擋攻擊。", "一旦被迫離開巢穴就會變得慌亂。"] },
+                { id: 'boss_queen', name: '毒蜂女王', art: '🐝', isBoss: true, weight: 0, hp: 200, atk: 8, def: 2, traits: ['mimicry'], weaknesses: ['spore', 'paralyze'], resistances: ['lifesteal', 'hunt'], minionIcon: '🐝', 
+                  habit: 'swarm', habitName: '【行為】領袖', behaviorType: '領袖', diet: '花蜜、樹液', tamable: '否', repellable: '是 (族群覆滅)', solution: '清空場上幼體並維持3回合，女王判定族群覆滅後會主動撤退。',
+                  desc: '開局自帶大量護衛。', diary: ["蜂群的絕對統治者。", "單體作戰能力極弱。", "失去護衛後會果斷放棄領地。"] },
+                { id: 'boss_toad', name: '疫病巨蟾', art: '🐸', isBoss: true, weight: 0, hp: 350, atk: 12, def: 5, traits: ['regen', 'toxic'], weaknesses: ['parasite', 'lifesteal'], resistances: ['hard_shell', 'mimicry'], minionIcon: '🩸', 
+                  habit: 'flee', habitName: '【行為】膽小者', behaviorType: '膽小者', diet: '飛蟲、小型毒物', tamable: '否', repellable: '是', solution: '戰鬥中使用【誘食素】引來飛蟲，巨蟾吃飽後會心滿意足地離開。',
+                  desc: '血低於25%會逃跑。', diary: ["吞噬一切的貪婪大嘴。", "能高速再生受損的軀體。", "只要有足夠的食物就能安撫牠。"] },
+                { id: 'boss_spider', name: '深淵魔蛛', art: '🕷️', isBoss: true, weight: 0, hp: 280, atk: 14, def: 6, traits: ['lifesteal', 'proliferate'], weaknesses: ['corrosive', 'pierce'], resistances: ['parasite', 'bleed'], minionIcon: '🕸️', 
+                  habit: 'ambush', habitName: '【行為】掠食者', behaviorType: '掠食者', diet: '任何活物', tamable: '是 (限極限狀態)', repellable: '否', solution: '當其血量低於30%且處於【疲勞倒地】狀態時，點擊馴養可100%成功收服。',
+                  desc: '開局必定先手並吐網中毒。', diary: ["在黑暗中結網等待獵物。", "第一擊往往是致命的。", "處於極度虛弱與僵直時有機率被馴服。"] },
+                { id: 'boss_chameleon', name: '隱形獵手', art: '🦎', isBoss: true, weight: 0, hp: 240, atk: 16, def: 3, traits: ['mimicry', 'hunt'], weaknesses: ['spore', 'parasite'], resistances: ['pierce', 'hunt'], minionIcon: '🍂', 
+                  habit: 'stealth', habitName: '【行為】掠食者', behaviorType: '掠食者', diet: '昆蟲、小型蜥蜴', tamable: '否', repellable: '否', solution: '只能依賴實力將其擊殺。使用驅逐素或散發孢子可破除隱身。',
+                  desc: '常駐高閃避，直到被破除。', diary: ["與背景完美融合。", "狩獵時間越長攻擊越致命。", "孢子粉塵能讓牠無所遁形。"] },
+                { id: 'boss_vine', name: '嗜血藤蔓', art: '🌿', isBoss: true, weight: 0, hp: 320, atk: 10, def: 8, traits: ['lifesteal', 'acid_blood'], weaknesses: ['corrosive', 'toxic'], resistances: ['regen', 'lifesteal'], minionIcon: '🌸', 
+                  habit: 'symbiosis', habitName: '【行為】共生者', behaviorType: '共生植物', diet: '血液、養分', tamable: '否', repellable: '否 (可破壞)', solution: '若戰場生成【腐化毒草】，利用劇毒引爆地形，大火會瞬間燒毀藤蔓體系。',
+                  desc: '共生花會持續治療Boss。', diary: ["古老遺跡中的嗜血植物。", "周圍生長的共生花提供源源不絕的生命力。", "環境的劇烈爆炸能摧毀其根系。"] },
+                { id: 'boss_host', name: '寄生宿主', art: '🧟', isBoss: true, weight: 0, hp: 250, atk: 13, def: 4, traits: ['parasite', 'proliferate'], weaknesses: ['toxic', 'corrosive'], resistances: ['parasite', 'bleed'], minionIcon: '🐛', 
+                  habit: 'undead', habitName: '【行為】受害者', behaviorType: '受害者(共生)', diet: '無', tamable: '否', repellable: '是 (需解除寄生)', solution: '使用【驅逐素】精準破壞寄生中樞，宿主將重獲自由並離開戰場。',
+                  desc: '死亡時以50%血復活一次。', diary: ["被寄生蟲完全控制的悲慘軀殼。", "普通的致命傷無法徹底殺死牠。", "驅除寄生蟲是唯一拯救牠的方法。"] },
+                { id: 'boss_iron', name: '鋼鐵巨蟹', art: '🦀', isBoss: true, weight: 0, hp: 350, atk: 8, def: 12, traits: ['hard_shell', 'pierce'], weaknesses: ['corrosive', 'paralyze'], resistances: ['hard_shell', 'pierce'], minionIcon: '🪨', 
+                  habit: 'counter', habitName: '【行為】武鬥派', behaviorType: '武鬥派', diet: '礦石、甲殼', tamable: '否', repellable: '是 (需懾服)', solution: '累計打斷其蓄力 3 次（利用驅逐素或麻痺），牠會認可你的實力主動讓路。',
+                  desc: '每回合攻擊力提升，需打斷。', diary: ["擁有金屬般光澤的甲殼類。", "會隨著戰鬥不斷積蓄力量。", "只敬佩能正面瓦解牠攻勢的強者。"] }
+            ],
+            rarePrefixes: [
+                { name: '白化的', trait: 'mimicry', desc: '失去了原本的保護色，但基因突變使牠學會了光學擬態。' },
+                { name: '古老的', trait: 'hunt', desc: '在殘酷的荒野中存活了漫長歲月，狩獵經驗無比豐富。' },
+                { name: '巨大的', trait: 'hard_shell', desc: '體型異常龐大，擁有超越同類的堅硬外殼。' },
+                { name: '被寄生的', trait: 'parasite', desc: '被不明寄生蟲控制了神經樞紐，變得瘋狂且嗜血。' },
+                { name: '發光的', trait: 'spore', desc: '體內充滿了螢光真菌，受到震動會散發致命的孢子粉塵。' }
+            ]
+        };
+
+        window.Game = {
+            state: { days: 1, weather: 'normal', weatherDays: 0, player: { petId: '', name: '', art: '', hp: 0, maxHp: 0, atk: 0, def: 0, traitsPool: [], equippedTraits: [], prefs: [] }, partner: null, bestiary: {}, bossResearch: {}, defeatedBosses: [], currentEncounter: null, combat: {}, relics: [], larvaKarma: 0, discoveredWeathers: ['normal'], discoveredCombos: [], discoveredPartners: [], traitUsage: {}, bossHistory: {} },
+            db: null, user: null, appId: 'epoch-of-poison-encyclopedia',
+
+            initApp: async function() {
+                this.initCanvasEffects();
+                try {
+                    const cfg = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {}; this.appId = typeof __app_id !== 'undefined' ? __app_id : this.appId;
+                    if (Object.keys(cfg).length > 0) {
+                        const app = initializeApp(cfg); const auth = getAuth(app); this.db = getFirestore(app);
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth);
+                        onAuthStateChanged(auth, async (u) => { if (u) { this.user = u; await this.checkSaveData(); } }); return;
+                    }
+                } catch (e) {} setTimeout(() => this.checkSaveData(true), 500);
+            },
+            checkSaveData: async function(isLocal=false) {
+                document.getElementById('loading-overlay').style.display = 'none'; let hasSave = false;
+                if (!isLocal && this.db && this.user) {
+                    try { const snap = await getDoc(doc(this.db, 'artifacts', this.appId, 'users', this.user.uid, 'saveData', 'gameProgress'));
+                        if (snap.exists()) { 
+                            this.cachedSave = snap.data(); 
+                            if(!this.cachedSave.discoveredWeathers) this.cachedSave.discoveredWeathers = ['normal'];
+                            if(!this.cachedSave.discoveredCombos) this.cachedSave.discoveredCombos = [];
+                            if(!this.cachedSave.discoveredPartners) this.cachedSave.discoveredPartners = [];
+                            if(!this.cachedSave.traitUsage) this.cachedSave.traitUsage = {};
+                            if(!this.cachedSave.bossHistory) this.cachedSave.bossHistory = {};
+                            hasSave = true; 
+                        }
+                    } catch(e) {}
+                }
+                if (hasSave) document.getElementById('btn-continue').style.display = 'block';
+                this.switchPanel('panel-title');
+            },
+            saveProgress: async function() { if (!this.db || !this.user) return; try { await setDoc(doc(this.db, 'artifacts', this.appId, 'users', this.user.uid, 'saveData', 'gameProgress'), this.state); } catch(e) {} },
+            loadSavedGame: function() { if (this.cachedSave) { this.state = this.cachedSave; this.updateCampUI(); this.switchPanel('panel-camp'); } },
+            startNewGame: function(petKey) {
+                const p = DB.pets[petKey];
+                this.state = { days: 1, weather: 'normal', weatherDays: 0, partner: null, bestiary: {}, bossResearch: {}, defeatedBosses: [], currentEncounter: null, combat: {}, relics: [], larvaKarma: 0, discoveredWeathers: ['normal'], discoveredCombos: [], discoveredPartners: [], traitUsage: {}, bossHistory: {}, player: { petId: petKey, name: p.name, art: p.art, hp: p.baseHp, maxHp: p.baseHp, atk: p.baseAtk, def: p.baseDef, traitsPool: [p.initTrait], equippedTraits: [p.initTrait], prefs: p.prefs } };
+                this.saveProgress(); this.updateCampUI(); this.switchPanel('panel-camp');
+            },
+
+            switchPanel: function(panelId) { document.querySelectorAll('.panel').forEach(p => p.classList.remove('active')); document.getElementById(panelId).classList.add('active'); },
+            log: function(msg, type='log-sys') { const box = document.getElementById('combat-log'); const p = document.createElement('div'); p.className = `log-entry ${type}`; p.innerHTML = msg; box.appendChild(p); box.scrollTop = box.scrollHeight; },
+            clearLog: function() { document.getElementById('combat-log').innerHTML = ''; },
+            sleep: ms => new Promise(r => setTimeout(r, ms)),
+
+            updateWeather: function() {
+                this.state.weatherDays++;
+                if (this.state.weatherDays >= 4) {
+                    this.state.weatherDays = 0; const wList = Object.keys(DB.weathers);
+                    this.state.weather = wList[Math.floor(Math.random() * wList.length)];
+                    if (!this.state.discoveredWeathers.includes(this.state.weather)) this.state.discoveredWeathers.push(this.state.weather);
+                    this.log(`氣候改變了：${DB.weathers[this.state.weather].name}`, 'log-sys');
+                }
+            },
+
+            updateCampUI: function() {
+                const p = this.state.player;
+                document.getElementById('ui-days').innerText = this.state.days; document.getElementById('camp-weather').innerText = DB.weathers[this.state.weather].name;
+                document.getElementById('camp-pet-art').innerText = p.art; document.getElementById('camp-pet-name').innerText = p.name;
+                
+                const fill = document.getElementById('camp-hp-fill');
+                fill.style.width = Math.min(100, (p.hp/p.maxHp)*100) + '%';
+                if(p.hp > p.maxHp) fill.classList.add('overheal'); else fill.classList.remove('overheal');
+                document.getElementById('camp-hp-text').innerText = `${Math.floor(p.hp)}/${p.maxHp}`;
+                
+                document.getElementById('camp-partner').innerText = this.state.partner ? DB.partners[this.state.partner].name : '無';
+                
+                document.getElementById('equip-count').innerText = p.equippedTraits.length;
+                const trDiv = document.getElementById('camp-equipped-traits'); trDiv.innerHTML = '';
+                if(p.equippedTraits.length===0) trDiv.innerHTML = '<span style="color:#555;">未裝備</span>';
+                else p.equippedTraits.forEach(tId => {
+                    const isPref = p.prefs.includes(tId);
+                    trDiv.innerHTML += `<span class="trait-tag equipped" title="${DB.traits[tId].desc}">${DB.traits[tId].icon} ${DB.traits[tId].name}${isPref?'<span class="pref-tag">偏好</span>':''}</span>`;
+                });
+            },
+            showTraitMenu: function(fromEvent = false) {
+                const box = document.getElementById('trait-list-box'); box.innerHTML = ''; const p = this.state.player;
+                const backBtn = document.getElementById('btn-traits-back');
+                if (fromEvent) { backBtn.onclick = () => this.switchPanel('panel-event'); backBtn.innerText = "完成配置"; } else { backBtn.onclick = () => this.switchPanel('panel-camp'); backBtn.innerText = "返回"; }
+
+                if(p.traitsPool.length===0) return box.innerHTML = '<p style="text-align:center;color:#666;">尚未收集。</p>';
+                p.traitsPool.forEach(tId => {
+                    const t = DB.traits[tId], isEq = p.equippedTraits.includes(tId), isPref = p.prefs.includes(tId);
+                    const div = document.createElement('div');
+                    div.style.cssText = `border:1px solid #333; padding:10px; margin-bottom:10px; border-radius:4px; display:flex; justify-content:space-between; align-items:center; background:${isEq ? 'rgba(76, 175, 80, 0.1)' : 'transparent'}`;
+                    div.innerHTML = `<div><div style="font-weight:bold; color:${isEq ? '#4CAF50' : '#ddd'};">${t.icon} ${t.name} ${isPref?'<span class="pref-tag">物種偏好</span>':''}</div><div style="font-size:0.8em; color:#888; margin-top:4px;">${t.desc}</div></div>
+                        <button style="padding:8px; font-size:0.9em; ${isEq?'border-color:#4CAF50':''}" onclick="Game.toggleTrait('${tId}', ${fromEvent})">${isEq?'卸下':'裝備'}</button>`;
+                    box.appendChild(div);
+                }); this.switchPanel('panel-traits');
+            },
+            toggleTrait: function(tId, fromEvent) {
+                const eq = this.state.player.equippedTraits; const idx = eq.indexOf(tId);
+                if(idx > -1) eq.splice(idx, 1);
+                else { if(eq.length >= 4) return alert("最多裝備 4 個特徵！"); eq.push(tId); }
+                this.saveProgress(); this.showTraitMenu(fromEvent); this.updateCampUI();
+            },
+            
+            showBestiary: function() {
+                const box = document.getElementById('bestiary-list-box'); let html = '';
+                
+                html += `<div class="bestiary-section-title">🐾 生態筆記</div>`;
+                let enemyCount = 0;
+                DB.enemies.forEach(enemy => {
+                    const encCount = this.state.bestiary[enemy.id] || 0;
+                    if(encCount > 0) {
+                        enemyCount++;
+                        let mark = this.state.defeatedBosses.includes(enemy.id) ? '<span class="boss-mark" title="已完成狩獵/生態事件">👑</span>' : '';
+                        let res = this.state.bossResearch[enemy.id] || 0;
+                        if(this.state.partner === 'butterfly' && enemy.isBoss && res < 3) res++; 
+
+                        let infoHtml = '';
+                        if (enemy.isBoss) {
+                            let wText = res>=2 ? enemy.weaknesses.map(w=>`[${DB.traits[w].name}]`).join(' ') : '???';
+                            let ecoData = res>=2 ? `<div class="eco-data">行為: <span>${enemy.behaviorType}</span> | 食性: <span>${enemy.diet}</span><br>馴服: <span>${enemy.tamable}</span> | 驅離: <span>${enemy.repellable}</span></div>` : '';
+                            let solData = res>=3 ? `<div class="eco-data" style="background:rgba(142, 68, 173, 0.2); border-left:2px solid #8e44ad;">💡 生態解法：<br>${enemy.solution}</div>` : '';
+                            let memData = this.state.bossHistory[enemy.id] ? `<div class="eco-data" style="color:var(--boss-color);">📜 世界記憶：已達成 [ ${this.state.bossHistory[enemy.id]} ]</div>` : '';
+                            infoHtml = `<div style="font-size:0.8em; color:#aaa; margin-top:4px;">研究: ${res>=3?'MAX':res} / 弱點: ${wText}</div>${ecoData}${solData}${memData}`;
+                        } else {
+                            infoHtml = `<div style="margin-top:4px;">特徵: ${enemy.traits.map(t => `<span class="trait-tag">${DB.traits[t].name}</span>`).join('')||'無'}</div>`;
+                        }
+                        
+                        let diaryHtml = '';
+                        diaryHtml += `<div class="diary-entry">${encCount >= 1 ? (enemy.diary[0]||'') : '<span style="color:#555;">[遭遇 1 次解鎖觀察紀錄]</span>'}</div>`;
+                        diaryHtml += `<div class="diary-entry">${encCount >= 3 ? (enemy.diary[1]||'') : '<span style="color:#555;">[遭遇 3 次解鎖觀察紀錄]</span>'}</div>`;
+                        diaryHtml += `<div class="diary-entry">${encCount >= 5 ? (enemy.diary[2]||'') : '<span style="color:#555;">[遭遇 5 次解鎖觀察紀錄]</span>'}</div>`;
+
+                        html += `<div class="bestiary-item"><div style="display:flex; gap:10px;"><span style="font-size:2.5em; display:flex; align-items:center;">${enemy.art}</span>
+                            <div style="flex:1;"><div style="font-weight:bold; color:${enemy.isBoss?'var(--boss-color)':'#fff'}">${enemy.name} ${mark}</div><div style="font-size:0.8em;color:#666;">遭遇次數: ${encCount}</div>${infoHtml}${diaryHtml}</div></div></div>`;
+                    }
+                }); 
+                if(enemyCount===0) html += '<p style="color:#666;">尚未遇見任何生物。</p>';
+
+                html += `<div class="bestiary-section-title" style="color:var(--weather-color);">🌦️ 氣候觀測</div>`;
+                this.state.discoveredWeathers.forEach(wId => { const w = DB.weathers[wId]; html += `<div class="bestiary-item" style="font-size:0.9em;"><div style="font-weight:bold;">${w.name}</div><div class="diary-entry">${w.desc}</div></div>`; });
+
+                html += `<div class="bestiary-section-title" style="color:var(--burst-color);">🧬 變異與共生</div>`;
+                this.state.player.traitsPool.forEach(tId => { const t = DB.traits[tId]; html += `<div class="bestiary-item" style="font-size:0.9em;"><div style="font-weight:bold;">${t.icon} ${t.name}</div><div class="diary-entry">${t.desc}</div></div>`; });
+                this.state.discoveredCombos.forEach(cId => { const c = DB.symbiosisCombos.find(x => x.id === cId); html += `<div class="bestiary-item" style="font-size:0.9em;"><div style="font-weight:bold; color:var(--burst-color);">✨ ${c.name}</div><div class="diary-entry">${c.desc}</div></div>`; });
+
+                html += `<div class="bestiary-section-title" style="color:var(--event-color);">🤝 羈絆與遺物</div>`;
+                if (this.state.discoveredPartners.length > 0) this.state.discoveredPartners.forEach(pId => { const pt = DB.partners[pId]; html += `<div class="bestiary-item" style="font-size:0.9em;"><div style="font-weight:bold;">${pt.name}</div><div class="diary-entry">${pt.desc}</div></div>`; });
+                if (this.state.relics.length > 0) html += `<div class="bestiary-item" style="font-size:0.9em;"><div style="font-weight:bold; color:#f1c40f;">🦴 珍稀骸骨</div><div class="diary-entry">${this.state.relics.join('、')}</div></div>`;
+                if (this.state.discoveredPartners.length === 0 && this.state.relics.length === 0) html += '<p style="color:#666;">尚未發現任何羈絆或遺物。</p>';
+
+                box.innerHTML = html;
+                this.switchPanel('panel-bestiary');
+            },
+
+            explore: function() {
+                this.state.days++; this.updateWeather();
+                if (this.state.days % 10 === 0) return this.triggerBossEncounter();
+                
+                let eventChance = this.state.partner === 'rat' ? 0.6 : 0.4;
+                if (Math.random() < eventChance) this.triggerRandomEvent();
+                else this.triggerEncounter();
+            },
+            
+            triggerRandomEvent: function() {
+                const events = [{ id: 'plant', weight: 20 }, { id: 'camp', weight: 15 }, { id: 'partner', weight: (this.state.partner?0:15) }, { id: 'larva', weight: 25 }];
+                
+                // 世界記憶事件注入
+                if (this.state.bossHistory['boss_toad'] === '生態餵食') events.push({ id: 'memory_toad', weight: 15 });
+                if (this.state.bossHistory['boss_beetle'] === '和平驅離' || this.state.bossHistory['boss_beetle'] === '擊敗目標') events.push({ id: 'memory_beetle_nest', weight: 15 });
+                if (this.state.bossHistory['boss_iron'] === '懾服巨蟹') events.push({ id: 'memory_iron', weight: 15 });
+                
+                let r = Math.random() * events.reduce((s,e)=>s+e.weight,0); let selectedEvent = 'plant';
+                for(let e of events) if((r-=e.weight)<=0) { selectedEvent = e.id; break; }
+                this.setupEventUI(selectedEvent);
+            },
+
+            setupEventUI: function(evType) {
+                const art = document.getElementById('event-art'); const title = document.getElementById('event-title');
+                const log = document.getElementById('event-log'); const btns = document.getElementById('event-buttons');
+                btns.innerHTML = ''; const returnBtn = `<button class="full-width" onclick="Game.returnToCamp()">繼續旅途</button>`;
+
+                switch(evType) {
+                    case 'plant': art.innerText = '🌿'; title.innerText = '稀有生態'; log.innerHTML = '發現了一株散發奇異光芒的植物。'; btns.innerHTML = `<button class="full-width event-btn" onclick="Game.resolveEvent('plant')">吞食</button>`; break;
+                    case 'camp': art.innerText = '🏕️'; title.innerText = '安全營地'; this.state.player.hp = Math.max(this.state.player.hp, this.state.player.maxHp); log.innerHTML = '找到庇護所，<span style="color:#4CAF50;">生命完全恢復！</span><br>可趁機重新配置毒囊。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.showTraitMenu(true)">🧬 整理毒囊</button>${returnBtn}`; break;
+                    case 'partner': art.innerText = '🤝'; title.innerText = '共生夥伴'; log.innerHTML = '一隻無害的變異生物願意跟隨你。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('partner_butterfly')">收養 🦋 引路蝶</button><button class="event-btn full-width" onclick="Game.resolveEvent('partner_rat')">收養 🐁 尋寶鼠</button><button class="event-btn full-width" onclick="Game.resolveEvent('partner_spore')">收養 🦠 寄生孢</button>`; break;
+                    case 'larva': art.innerText = '🐛'; title.innerText = '幼體毒物'; log.innerHTML = '一隻迷路的變異幼蟲。'; btns.innerHTML = `<button class="danger" onclick="Game.resolveEvent('larva_eat')">吞食 (回血)</button><button class="event-btn" onclick="Game.resolveEvent('larva_tame')">嘗試馴養</button><button class="terrain" onclick="Game.resolveEvent('larva_release')">放生</button>`; break;
+                    case 'memory_toad': art.innerText = '🐸'; title.innerText = '舊日回饋'; log.innerHTML = '你遇到了一隻巨大的巨蟾，牠似乎認出了你曾餵食過牠。<br>牠吐出了一顆晶瑩的基因球作為回報。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('memory_toad')">收下禮物</button>`; break;
+                    case 'memory_beetle_nest': art.innerText = '🪲'; title.innerText = '空置的巢穴'; log.innerHTML = '你發現了巨甲蟲遺留下來 of 空巢。<br>內部因長時間腐熟，長滿了珍稀的毒草。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('plant')">採集毒草</button>`; break;
+                    case 'memory_iron': art.innerText = '🦀'; title.innerText = '強者的認可'; log.innerHTML = '鋼鐵巨蟹在遠處看了你一眼，用巨螯為你砸開了一條佈滿補給的捷徑。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('memory_iron')">進入捷徑</button>`; break;
+                }
+                this.switchPanel('panel-event');
+            },
+
+            resolveEvent: function(action) {
+                const log = document.getElementById('event-log'); const btns = document.getElementById('event-buttons');
+                const returnBtn = `<button class="full-width" onclick="Game.returnToCamp()">繼續旅途</button>`; const p = this.state.player;
+
+                if (action === 'plant') {
+                    const unowned = Object.keys(DB.traits).filter(t => !p.traitsPool.includes(t));
+                    if (unowned.length > 0 && Math.random() < 0.6) {
+                        const tId = unowned[Math.floor(Math.random() * unowned.length)]; p.traitsPool.push(tId); log.innerHTML = `🧬 獲得全新特徵：【${DB.traits[tId].name}】`;
+                    } else { p.maxHp += 10; p.hp += 10; log.innerHTML = `<span style="color:#4CAF50;">最大生命值永久 +10</span>`; }
+                } else if (action.startsWith('partner_')) {
+                    const pType = action.split('_')[1]; this.state.partner = pType; 
+                    if (!this.state.discoveredPartners.includes(pType)) this.state.discoveredPartners.push(pType);
+                    log.innerHTML = `你收養了 ${DB.partners[pType].name}！<br><span style="color:#a29bfe;">${DB.partners[pType].desc}</span>`;
+                } else if (action === 'larva_eat') {
+                    let heal = Math.floor(p.maxHp * 0.3); p.hp = Math.min(Math.floor(p.maxHp * 1.5), p.hp + heal); log.innerHTML = `<span style="color:#4CAF50;">過量回復了 ${heal} 點 HP。</span>`;
+                } else if (action === 'larva_tame') {
+                    if (Math.random() < 0.5) { const tId = 'regen'; if(!p.traitsPool.includes(tId)) p.traitsPool.push(tId); log.innerHTML = `馴養成功！獲得特徵：【再生】。`; } 
+                    else { log.innerHTML = `幼蟲嚇跑了...`; }
+                } else if (action === 'larva_release') {
+                    this.state.larvaKarma += 1; log.innerHTML = `你將幼蟲放生，荒野的意志似乎對你感到滿意。<br><span style="color:#a29bfe;">(下一次遭遇的馴養成功率將大幅提升)</span>`;
+                } else if (action === 'memory_toad') {
+                    p.maxHp += 15; p.hp += 15; log.innerHTML = `<span style="color:#4CAF50;">基因球融化在體內，最大生命值永久 +15！</span>`;
+                } else if (action === 'memory_iron') {
+                    this.state.days += 2; // 跳過天數加速探索
+                    p.hp = Math.min(Math.floor(p.maxHp * 1.5), p.hp + 50);
+                    log.innerHTML = `<span style="color:#4CAF50;">捷徑讓你避開了危險，並獲得大量補給（HP +50，探索天數 +2）。</span>`;
+                }
+                btns.innerHTML = returnBtn; this.saveProgress();
+            },
+
+            triggerBossEncounter: function() { const b = DB.enemies.filter(e => e.isBoss); this.initEncounter(b[Math.floor(Math.random() * b.length)]); },
+            
+            triggerEncounter: function() { 
+                const n = JSON.parse(JSON.stringify(DB.enemies.filter(e => !e.isBoss)));
+                
+                // 【動態演化】計算玩家最常使用的特徵
+                let topTrait = Object.keys(this.state.traitUsage).reduce((a, b) => this.state.traitUsage[a] > this.state.traitUsage[b] ? a : b, '');
+
+                let totalWeight = 0;
+                n.forEach(e => {
+                    e.weight = e.weight || 10;
+                    
+                    // 天氣影響
+                    if (this.state.weather === 'toxic_rain') { if (e.traits.includes('toxic') || e.traits.includes('acid_blood')) e.weight *= 3.0; } 
+                    else if (this.state.weather === 'drought') { if (e.traits.includes('regen') || e.traits.includes('lifesteal') || e.id === 'toad' || e.id === 'leech') { e.weight = Math.max(1, Math.floor(e.weight * 0.2)); } } 
+                    else if (this.state.weather === 'spore_season') { if (e.traits.includes('spore') || e.traits.includes('parasite')) e.weight *= 3.0; } 
+                    else if (this.state.weather === 'breeding') { if (e.id === 'larva') e.weight *= 4.0; }
+
+                    // 生態演化影響 (怪物會試圖克制你最常用的特徵)
+                    if (topTrait && this.state.traitUsage[topTrait] > 20) {
+                        if (topTrait === 'toxic' && e.traits.includes('regen')) e.weight *= 2.0;
+                        if (topTrait === 'lifesteal' && e.traits.includes('acid_blood')) e.weight *= 2.0;
+                        if (topTrait === 'hard_shell' && e.traits.includes('corrosive')) e.weight *= 2.0;
+                        if (topTrait === 'mimicry' && e.traits.includes('spore')) e.weight *= 2.0;
+                    }
+
+                    totalWeight += e.weight;
+                });
+                let r = Math.random() * totalWeight; let selected = n[0];
+                for(let e of n) { r -= e.weight; if(r <= 0) { selected = e; break; } }
+
+                // 【稀有個體突變】
+                if (Math.random() < 0.20) {
+                    let pref = DB.rarePrefixes[Math.floor(Math.random() * DB.rarePrefixes.length)];
+                    selected.name = pref.name + selected.name;
+                    if (!selected.traits.includes(pref.trait)) selected.traits.push(pref.trait);
+                    selected.rareDesc = pref.desc;
+                }
+
+                this.initEncounter(selected); 
+            },
+            initEncounter: function(enemyData, isAmbush = false) {
+                const e = JSON.parse(JSON.stringify(enemyData)); if(!e.maxHp) e.maxHp = e.hp;
+                this.state.currentEncounter = e;
+                this.state.bestiary[e.id] = (this.state.bestiary[e.id] || 0) + 1;
+                if(e.isBoss) this.state.bossResearch[e.id] = (this.state.bossResearch[e.id] || 0) + 1;
+                this.saveProgress(); this.setupEncounterUI(isAmbush); this.switchPanel('panel-encounter');
+            },
+
+            setupEncounterUI: function(isAmbush) {
+                this.clearLog(); const e = this.state.currentEncounter;
+                document.getElementById('encounter-title').innerText = e.isBoss ? '⚠️ 首領狩獵' : (isAmbush ? '⚠️ 遭遇伏擊' : '遭遇生物');
+                document.getElementById('encounter-title').style.color = e.isBoss || isAmbush ? 'var(--boss-color)' : 'var(--danger-color)';
+                document.getElementById('combat-weather').innerText = DB.weathers[this.state.weather].name;
+                const art = document.getElementById('enemy-art'); art.innerText = e.art; art.className = e.isBoss ? 'art-display boss-art' : 'art-display';
+                
+                document.getElementById('enemy-name').innerText = e.name; document.getElementById('enemy-name').style.color = e.isBoss ? 'var(--boss-color)' : '#fff';
+                
+                document.getElementById('enemy-rare').innerText = e.rareDesc ? `【突變】${e.rareDesc}` : '';
+                document.getElementById('enemy-habit').innerText = e.habitName ? e.habitName : '';
+
+                this.state.combat = {
+                    inProgress: false, turnCount: 0, enemyPoison: 0, playerPoison: 0, enemyStunned: false, enemyDefDebuff: 0,
+                    playerHuntStacks: 0, enemyBleedStacks: 0, enemyParasiteStacks: 0, bossFatigue: 0, bossStunTurns: 0, minions: [], terrain: null, terrainUsed: false, bossAdaptation: {}, burstUsed: false, bloodBurstActive: false, thornsBurstActive: false, pheroUsed: false,
+                    bossNestGuard: e.habit === 'nest_guard', bossStealth: e.habit === 'stealth', bossCounter: 0, queenAloneTurns: 0, ironInterrupts: 0
+                };
+
+                if (e.isBoss) {
+                    document.getElementById('fatigue-container').style.display = 'block'; document.getElementById('fatigue-bar').style.width = '0%';
+                    if (Math.random() < 0.8) this.state.combat.terrain = DB.terrains[Math.floor(Math.random() * DB.terrains.length)];
+                } else { document.getElementById('fatigue-container').style.display = 'none'; }
+
+                this.renderEcologyUI(); this.updateCombatBars();
+                
+                if (isAmbush) this.startCombat(true, "遭到突然襲擊，敵方搶得先機！");
+                else this.toggleActionButtons('encounter');
+                this.checkSymbiosisCombo();
+            },
+
+            renderEcologyUI: function() {
+                const container = document.getElementById('ecology-view'); container.innerHTML = '';
+                const { minions, terrain } = this.state.combat;
+                if (terrain) container.innerHTML += `<div class="terrain-icon" title="${terrain.name}">${terrain.icon}</div>`;
+                minions.forEach(m => { container.innerHTML += `<div class="minion-icon ${m.infected ? 'infected' : ''}">${this.state.currentEncounter.minionIcon}</div>`; });
+            },
+
+            updateCombatBars: function() {
+                const p = this.state.player, e = this.state.currentEncounter;
+                
+                const pFill = document.getElementById('combat-player-hp-fill');
+                pFill.style.width = Math.min(100, (p.hp/p.maxHp)*100) + '%';
+                if(p.hp > p.maxHp) pFill.classList.add('overheal'); else pFill.classList.remove('overheal');
+                document.getElementById('combat-player-hp').innerText = `${Math.floor(p.hp)}/${p.maxHp}`;
+                
+                if(e) {
+                    const eFill = document.getElementById('enemy-hp-fill');
+                    eFill.style.width = Math.min(100, (e.hp/e.maxHp)*100) + '%';
+                    eFill.className = e.isBoss ? 'hp-bar-fill boss' : 'hp-bar-fill danger';
+                    if(e.isBoss) {
+                        const fatPct = Math.min(100, this.state.combat.bossFatigue);
+                        document.getElementById('fatigue-bar').style.width = fatPct + '%';
+                        const art = document.getElementById('enemy-art');
+                        if (this.state.combat.bossStunTurns > 0) art.classList.add('boss-stunned');
+                        else art.classList.remove('boss-stunned');
+                    }
+                }
+            },
+
+            toggleActionButtons: function(mode) {
+                document.getElementById('action-buttons-container').style.display = 'block';
+                const allComBtns = document.querySelectorAll('.combat-btn'); const allPheroBtns = document.querySelectorAll('.phero-sub');
+                
+                if(mode === 'encounter') {
+                    document.getElementById('btn-obs').style.display='block'; document.getElementById('btn-tame').style.display='block';
+                    document.getElementById('btn-atk-start').style.display='block'; document.getElementById('btn-flee').style.display='block';
+                    allComBtns.forEach(b => b.style.display='none'); allPheroBtns.forEach(b => b.style.display='none');
+                } else if(mode === 'combat') {
+                    document.getElementById('btn-obs').style.display='none'; document.getElementById('btn-tame').style.display='none';
+                    document.getElementById('btn-atk-start').style.display='none'; document.getElementById('btn-flee').style.display='none';
+                    document.getElementById('btn-atk').style.display='block'; document.getElementById('btn-def').style.display='block'; document.getElementById('btn-skill').style.display='block';
+                    document.getElementById('btn-phero-menu').style.display = this.state.combat.pheroUsed ? 'none' : 'block';
+                    
+                    const btnTerrain = document.getElementById('btn-terrain'); const t = this.state.combat.terrain;
+                    if(t && !this.state.combat.terrainUsed && this.state.player.equippedTraits.includes(t.req)) { btnTerrain.style.display = 'block'; btnTerrain.innerText = `🗺️ 利用地形: ${t.name}`; } else { btnTerrain.style.display = 'none'; }
+
+                    const btnBurst = document.getElementById('btn-burst');
+                    if(this.state.combat.activeCombo && !this.state.combat.burstUsed) { btnBurst.style.display = 'block'; btnBurst.innerText = `✨ ${this.state.combat.activeCombo.name}`; } else { btnBurst.style.display = 'none'; }
+                    allPheroBtns.forEach(b => b.style.display='none');
+                }
+                document.getElementById('btn-return').style.display = 'none'; document.querySelectorAll('#action-buttons button').forEach(b => b.disabled = false);
+            },
+
+            showPheroMenu: function() { document.querySelectorAll('.combat-btn').forEach(b => b.style.display='none'); document.querySelectorAll('.phero-sub').forEach(b => b.style.display='block'); },
+            hidePheroMenu: function() { this.toggleActionButtons('combat'); },
+            checkSymbiosisCombo: function() { const e = this.state.currentEncounter; if(!e.isBoss) { this.state.combat.activeCombo = null; return; } const eq = this.state.player.equippedTraits; if(eq.length < 4) { this.state.combat.activeCombo = null; return; } this.state.combat.activeCombo = DB.symbiosisCombos.find(c => c.req.every(t => eq.includes(t))) || null; },
+
+            actionObserve: function() {
+                const e = this.state.currentEncounter;
+                if(e.isBoss) this.log(`👁️ 觀察：<br>【生態】${e.desc}`); else this.log(`👁️ 觀察：<br>特徵: <span style="color:#4CAF50">${e.traits.map(t=>DB.traits[t].name).join(' ')||'無'}</span>`);
+            },
+            
+            actionFlee: function() {
+                const e = this.state.currentEncounter;
+                if(e.id === 'boss_beetle' && !this.state.combat.bossNestGuard && this.state.combat.pheroUsed) {
+                    this.log(`巨甲蟲已被趕出巢穴，你緩步退出其領地範圍。巨甲蟲沒有追擊。`, "log-eco"); this.winEncounter('和平驅離'); return;
+                }
+                if(e.isBoss) return this.startCombat(true, "⚠️ 毒王鎖定了你，無法輕易撤退！");
+                if(Math.random() > 0.4) { this.log("💨 撤退成功。"); setTimeout(() => this.returnToCamp(), 1000); }
+                else this.startCombat(true, "💨 撤退失敗！被包圍了！");
+            },
+
+            actionTame: function() {
+                const e = this.state.currentEncounter;
+                if(e.id === 'boss_spider') {
+                    if ((e.hp / e.maxHp) < 0.3 && this.state.combat.bossStunTurns > 0) {
+                        this.log("✨ 魔蛛處於極度虛弱與僵直，馴養成功！", "log-eco");
+                        if(!this.state.player.traitsPool.includes('proliferate')) { this.state.player.traitsPool.push('proliferate'); this.log(`🧬 獲得特徵：【增殖】！`, "log-skill"); }
+                        this.winEncounter('和平馴服'); return;
+                    } else { return this.startCombat(true, "⚠️ 魔蛛仍在極度危險狀態，馴養失敗，遭到反撲！"); }
+                }
+
+                if(e.isBoss) return this.startCombat(true, "⚠️ 此霸主無法被馴養！");
+                let rate = 0.25 + ((1 - e.hp/e.maxHp) * 0.4);
+                if (this.state.partner === 'spore') rate += 0.20; if (this.state.weather === 'breeding') rate += 0.20; if (this.state.larvaKarma > 0) { rate += 0.3; this.state.larvaKarma--; this.log(`(荒野意志加護，馴養率提升)`); }
+                if(Math.random() < rate) {
+                    this.log("✨ 馴養成功！", "log-heal");
+                    if(e.traits.length > 0) {
+                        const t = e.traits[Math.floor(Math.random() * e.traits.length)];
+                        if(!this.state.player.traitsPool.includes(t)) { this.state.player.traitsPool.push(t); this.log(`🧬 獲得特徵：【${DB.traits[t].name}】！`, "log-skill"); } 
+                        else { this.state.player.hp = Math.min(Math.floor(this.state.player.maxHp * 1.5), this.state.player.hp + 30); this.log(`🧬 特徵重複，轉為回復生命。`, "log-heal"); }
+                    }
+                    this.saveProgress(); this.endEncounter();
+                } else { this.startCombat(true, "❌ 馴養失敗！目標發怒！"); }
+            },
+
+            startCombat: function(enemyFirst = false, msg = "⚔️ 狩獵開始！") {
+                this.state.combat.inProgress = true; this.toggleActionButtons('combat'); this.log(msg, enemyFirst ? "log-dmg" : "log-sys"); const e = this.state.currentEncounter;
+                if (e.habit === 'nest_guard') { this.log(`【守護者】巨甲蟲固守原地，防禦力大幅提升！`, 'log-boss'); e.def += 20; }
+                else if (e.habit === 'swarm') { this.log(`【領袖】女王呼喚毒蜂護衛湧現！`, 'log-boss'); for(let i=0;i<3;i++) this.state.combat.minions.push({infected:false}); this.renderEcologyUI(); }
+                else if (e.habit === 'ambush') { this.log(`【掠食者】深淵魔蛛搶得先手，吐出厚重的黏網並使你中毒！`, 'log-boss'); this.state.combat.playerPoison += 5; for(let i=0;i<2;i++) this.state.combat.minions.push({infected:false}); this.renderEcologyUI(); enemyFirst = true; }
+                else if (e.habit === 'stealth') { this.log(`【掠食者】獵手遁入環境中，極難被擊中。`, 'log-boss'); }
+                if(enemyFirst) setTimeout(() => this.processEnemyTurnSafe(), 800);
+            },
+
+            processEnemyTurnSafe: async function(pDefending=false) {
+                try {
+                    await this.processEnemyTurn(pDefending);
+                    if(this.state.combat.inProgress) { await this.processEndTurnEffects(); if(!await this.checkDeath()) this.unlockButtons(); }
+                } catch(err) { console.error(err); this.unlockButtons(); }
+            },
+
+            getPrefMultiplier: function(traitId) { return this.state.player.prefs.includes(traitId) ? 1.5 : 1.0; },
+
+            applyTraitWithAdaptation: function(traitId, logName, actionFn) {
+                const e = this.state.currentEncounter; if (!e.isBoss) { actionFn(1.0); return; }
+                let adaptCount = this.state.combat.bossAdaptation[traitId] || 0; this.state.combat.bossAdaptation[traitId] = adaptCount + 1;
+                if (adaptCount >= 4) { this.log(`⚠️ Boss 對【${logName}】產生抗性，效果減半！`, 'log-resist'); actionFn(0.5); } else { actionFn(1.0); }
+            },
+
+            addFatigue: function(amount) {
+                if(!this.state.currentEncounter.isBoss) return; if(this.state.combat.bossStunTurns > 0) return;
+                this.state.combat.bossFatigue += amount;
+                if(this.state.combat.bossFatigue >= 100) {
+                    this.state.combat.bossFatigue = 0; this.state.combat.bossStunTurns = 2;
+                    this.log(`💥 Boss 陷入極度疲勞，重重倒地！(受傷加倍，無法行動)`, 'log-hunt');
+                    if (this.state.combat.bossNestGuard) { this.state.combat.bossNestGuard = false; this.state.currentEncounter.def -= 20; this.log(`巨甲蟲被迫離開巢穴，防禦崩潰！`, 'log-skill'); }
+                    if (this.state.combat.bossStealth) { this.state.combat.bossStealth = false; this.log(`隱身獵手跌落，隱匿解除！`, 'log-skill'); }
+                }
+            },
+
+            usePheromone: async function(type) {
+                this.state.combat.pheroUsed = true; this.hidePheroMenu(); document.querySelectorAll('#action-buttons button').forEach(b => b.disabled = true);
+                const e = this.state.currentEncounter;
+                if(type === 'frenzy') {
+                    this.log(`🔴 散發狂暴素！全場幼體與生態結構陷入混亂！`, "log-skill"); await this.sleep(600);
+                    if(this.state.combat.minions.length > 0) {
+                        this.log(`幼體在狂暴素作用下發狂，反咬了 Boss！`, "log-dmg");
+                        e.hp -= 30 * this.state.combat.minions.length; this.addFatigue(20);
+                        if(e.habit === 'symbiosis') { this.state.player.hp = Math.min(Math.floor(this.state.player.maxHp * 1.5), this.state.player.hp + 30); this.log(`共生花體系被氣味混亂，轉而治癒了你！`, "log-heal"); }
+                        this.state.combat.minions = []; this.renderEcologyUI();
+                    } else this.log(`但場上沒有幼體...`, "log-sys");
+                } else if(type === 'lure') {
+                    if (e.id === 'boss_toad') {
+                        this.log(`🟢 散發誘食素！引來了滿天飛蟲！`, "log-skill"); await this.sleep(600);
+                        this.log(`🐸 巨蟾看見最愛的飛蟲，忘記了戰鬥，瘋狂進食！`, "log-eco"); await this.sleep(600);
+                        this.log(`巨蟾吃飽喝足，心滿意足地跳回了泥沼深處。`, "log-heal"); this.winEncounter('生態餵食'); return;
+                    }
+                    this.log(`🟢 散發誘食素！強大而致命的捕食天敵在荒野盤旋！`, "log-skill"); await this.sleep(600);
+                    if(this.state.combat.minions.length > 0) {
+                        this.log(`捕食鳥俯衝掠過，瞬間啄食了所有幼體！Boss 大受震懾，疲勞激增！`, "log-hunt");
+                        this.state.combat.minions = []; this.renderEcologyUI(); this.addFatigue(50);
+                    } else { this.log(`捕食天敵發現沒有獵物，在空中不甘地嘶鳴一聲離開了。`, "log-sys"); }
+                } else if(type === 'repel') {
+                    this.log(`🔵 散發強烈驅逐素！令人極度不適的化學迷霧封鎖戰場！`, "log-skill"); await this.sleep(600);
+                    this.addFatigue(30);
+                    if (this.state.combat.bossNestGuard) { this.state.combat.bossNestGuard = false; e.def -= 20; this.log(`巨甲蟲因劇烈氣味被驅離巢穴！`, 'log-hunt'); }
+                    if (this.state.combat.bossStealth) { this.state.combat.bossStealth = false; this.log(`迷霧破壞了隱形獵手的肌體擬態！`, 'log-hunt'); }
+                    if (e.habit === 'counter') { 
+                        this.state.combat.bossCounter = 0; this.state.combat.ironInterrupts++; this.log(`鋼鐵巨蟹被熏得暈頭轉向，蓄力被打斷！`, 'log-hunt'); 
+                        if(this.state.combat.ironInterrupts >= 3) { await this.sleep(600); this.log(`🦀 鋼鐵巨蟹屢次被打斷蓄力，認可了你的技巧，主動收起雙螯讓出了道路。`, 'log-eco'); this.winEncounter('懾服巨蟹'); return; }
+                    }
+                    if (e.habit === 'undead') { 
+                        e.habit = 'none'; this.log(`宿主體內的寄生中樞被驅逐素完全殺死！`, 'log-hunt'); await this.sleep(600);
+                        if (e.id === 'boss_host') { this.log(`🧟 宿主失去了寄生蟲的控制，重獲自由離開了戰場。`, 'log-eco'); this.winEncounter('解除寄生'); return; }
+                    }
+                }
+                
+                this.updateCombatBars(); if(await this.checkDeath()) return; await this.processEnemyTurnSafe(false);
+            },
+
+            combatTurn: async function(actionType) {
+                if(!this.state.combat.inProgress) return;
+                const p = this.state.player, e = this.state.currentEncounter, eq = p.equippedTraits;
+                
+                if(actionType === 'skill') { const cost = Math.floor(p.maxHp * 0.1); if(p.hp <= cost) { this.log("生命不足以釋放毒技！", "log-sys"); return; } }
+
+                document.querySelectorAll('#action-buttons button').forEach(b => b.disabled = true);
+                
+                // 記錄演化數據
+                eq.forEach(t => { this.state.traitUsage[t] = (this.state.traitUsage[t] || 0) + 1; });
+
+                try {
+                    this.state.combat.turnCount++; let pDefending = false;
+
+                    if(actionType === 'burst') {
+                        await this.executeBurst();
+                    } else if(actionType === 'terrain') {
+                        await this.executeTerrain();
+                        if (e.id === 'boss_vine' && this.state.combat.terrain.effect === 'poison') {
+                            await this.sleep(600); this.log(`🌿 劇烈的毒草爆炸瞬間燒毀了嗜血藤蔓脆弱的共生根系！藤蔓枯萎進入了長眠。`, 'log-eco'); this.winEncounter('環境破壞'); return;
+                        }
+                    } else if(actionType === 'defend') {
+                        pDefending = true; this.log(`➤ ${p.name} 採取防禦姿態。`); await this.sleep(400);
+                        if (eq.includes('spore') && this.state.combat.minions.length > 0) {
+                            let infectedAny = false; this.state.combat.minions.forEach(m => { if(!m.infected) { m.infected = true; infectedAny = true; } });
+                            if (infectedAny) { this.log(`🍄 散發防禦孢子，感染了靠近的幼體！`, 'log-skill'); this.renderEcologyUI(); }
+                        }
+                    } else {
+                        let dmgMultiplier = 1;
+                        if(actionType === 'skill') { const cost = Math.floor(p.maxHp * 0.1); p.hp -= cost; dmgMultiplier = 1.8; this.log(`➤ 消耗 ${cost} 生命釋放【極限毒技】！`, "log-skill"); } 
+                        else { this.log(`➤ ${p.name} 發動攻擊！`, "log-atk"); }
+                        await this.sleep(300);
+                        
+                        if(this.state.combat.bloodBurstActive) dmgMultiplier *= 2;
+                        const huntMult = eq.includes('hunt') ? (this.getPrefMultiplier('hunt') > 1 ? 0.6 : 0.4) : 0;
+                        dmgMultiplier *= (1 + huntMult * this.state.combat.playerHuntStacks);
+                        if(this.state.combat.bossStunTurns > 0) dmgMultiplier *= 2.0;
+
+                        const hits = eq.includes('proliferate') ? 2 : 1;
+                        for(let i=0; i<hits; i++) {
+                            if(e.hp<=0) break;
+                            let baseAtk = Math.floor(p.atk * dmgMultiplier * (hits===2?0.6:1));
+                            
+                            this.applyTraitWithAdaptation('corrosive', '腐蝕', (eff) => { 
+                                if(eq.includes('corrosive')) {
+                                    this.state.combat.enemyDefDebuff += (1*eff); 
+                                    if(e.id === 'boss_beetle' && this.state.combat.bossNestGuard) { this.state.combat.bossNestGuard = false; e.def -= 20; this.log(`💥 極高濃度的酸蝕徹底腐蝕了巢穴防線，守巢破除！`, 'log-skill'); }
+                                }
+                            });
+                            
+                            let effectiveDef = e.def;
+                            if (eq.includes('pierce')) { effectiveDef = Math.floor(effectiveDef * (this.getPrefMultiplier('pierce') > 1 ? 0.3 : 0.5)); if(Math.random()<0.3) this.state.combat.enemyBleedStacks++; }
+                            let eDef = Math.max(0, effectiveDef - this.state.combat.enemyDefDebuff); 
+                            
+                            let dmg = Math.max(1, baseAtk - eDef);
+                            dmg = Math.floor(dmg * (1 + this.state.combat.enemyDefDebuff * 0.05));
+
+                            let evadeChance = 0; if(e.traits.includes('mimicry')) evadeChance += 0.2; if(this.state.combat.bossStealth) evadeChance += 0.55; if(this.state.combat.bossStunTurns > 0) evadeChance = 0;
+                            if(Math.random() < evadeChance) { this.log(`[閃避] 獵物身形模糊，攻擊被完美閃避！`); continue; }
+                            if(e.traits.includes('hard_shell')) dmg = Math.floor(dmg*0.8);
+
+                            e.hp -= dmg; this.log(`💥 造成 ${dmg} 傷害！`, "log-dmg");
+
+                            if(eq.includes('lifesteal')) { if(this.state.weather !== 'drought') { let healMult = this.state.combat.bloodBurstActive ? 2.0 : 0.5; p.hp = Math.min(Math.floor(p.maxHp*1.5), p.hp + Math.floor(dmg * healMult)); } }
+                            
+                            let toxicRate = actionType === 'skill' ? 1.0 : 0.6; if (this.state.weather === 'toxic_rain') toxicRate = 1.0;
+                            if(eq.includes('toxic') && Math.random() < toxicRate) { this.applyTraitWithAdaptation('toxic', '劇毒', (eff) => { let stacks = 2 * eff * this.getPrefMultiplier('toxic'); if(this.state.weather === 'toxic_rain') stacks *= 2.0; this.state.combat.enemyPoison += Math.ceil(stacks); }); }
+                            
+                            let paralyzeRate = actionType === 'skill' ? 1.0 : 0.4;
+                            if(eq.includes('paralyze') && Math.random() < paralyzeRate) { 
+                                this.applyTraitWithAdaptation('paralyze', '麻痺', (eff) => { 
+                                    e.def = Math.max(0, e.def - 1); this.log('[麻痺] 電擊瓦解了敵方防禦結構！', "log-skill");
+                                    if(e.isBoss) { 
+                                        this.addFatigue(20 * eff * this.getPrefMultiplier('paralyze')); 
+                                        if (e.habit === 'counter') { this.state.combat.bossCounter = 0; this.state.combat.ironInterrupts++; this.log(`[麻痺] 鋼鐵巨蟹蓄力被打斷！`, 'log-skill'); }
+                                    } else { this.state.combat.enemyStunned = true; } 
+                                }); 
+                            }
+                            
+                            if(eq.includes('bleed')) { this.applyTraitWithAdaptation('bleed', '流血', (eff) => { this.state.combat.enemyBleedStacks += Math.ceil(1*eff); }); }
+                            if(eq.includes('parasite')) {
+                                this.applyTraitWithAdaptation('parasite', '寄生', (eff) => { this.state.combat.enemyParasiteStacks += Math.ceil(1*eff * this.getPrefMultiplier('parasite')); if(e.isBoss) this.addFatigue(5 * eff); });
+                                if (this.state.combat.minions.length > 0) { this.state.combat.minions.forEach(m => m.infected = true); this.log(`🐛 寄生蟲感染幼體！`, 'log-skill'); this.renderEcologyUI(); }
+                            }
+                            await this.sleep(300);
+                        }
+                    }
+
+                    if (e.id === 'boss_iron' && this.state.combat.ironInterrupts >= 3) {
+                        await this.sleep(600); this.log(`🦀 鋼鐵巨蟹屢次被打斷蓄力，認可了你的技巧，主動收起雙螯讓出了道路。`, 'log-eco'); this.winEncounter('懾服巨蟹'); return;
+                    }
+
+                    this.updateCombatBars(); if(await this.checkDeath()) return; await this.processEnemyTurnSafe(pDefending);
+
+                } catch(err) { console.error(err); this.unlockButtons(); }
+            },
+
+            executeTerrain: async function() {
+                const t = this.state.combat.terrain; this.state.combat.terrainUsed = true; document.getElementById('btn-terrain').style.display = 'none';
+                this.log(`🗺️ ${t.msg}`, 'log-hunt'); document.querySelector('.terrain-icon').style.filter = 'grayscale(100%)'; await this.sleep(800);
+                if(t.effect === 'poison') this.state.combat.enemyPoison += 20; else if (t.effect === 'heal') this.state.player.hp = Math.max(this.state.player.hp, this.state.player.maxHp); else if (t.effect === 'fatigue') this.addFatigue(50);
+                this.updateCombatBars();
+            },
+
+            executeBurst: async function() {
+                const c = this.state.combat.activeCombo, e = this.state.currentEncounter; this.state.combat.burstUsed = true;
+                if(!this.state.discoveredCombos.includes(c.id)) this.state.discoveredCombos.push(c.id);
+                this.log(`🌟 觸發共生爆發：【${c.name}】！`, "log-boss"); await this.sleep(800);
+
+                if(c.id === 'plague') {
+                    this.state.combat.enemyPoison *= 2; this.state.combat.enemyBleedStacks *= 2;
+                    if(this.state.combat.minions.length > 0) { this.state.combat.minions.forEach(m => m.infected = true); this.log(`瘟疫擴散！毒素翻倍並感染全場幼體！`, "log-skill"); this.renderEcologyUI(); }
+                    else this.log(`瘟疫擴散！毒素層數瞬間翻倍！`, "log-skill");
+                } else if(c.id === 'blood') { this.state.combat.bloodBurstActive = true; this.log(`進入鮮血渴望狀態！`, "log-heal"); } 
+                else if(c.id === 'domain') { e.def = 0; this.state.combat.enemyDefDebuff = 99; this.state.combat.bossFatigue = 100; this.addFatigue(0); this.log(`絕對領域展開！防禦崩潰，Boss 強制倒地滿疲勞！`, "log-hunt"); } 
+                else if(c.id === 'thorns') { this.state.combat.thornsBurstActive = true; this.log(`化身不朽反傷裝甲！`, "log-heal"); }
+                document.getElementById('btn-burst').style.display = 'none'; this.updateCombatBars(); this.saveProgress();
+            },
+
+            processEnemyTurn: async function(pDefending) {
+                const p = this.state.player, e = this.state.currentEncounter, eq = p.equippedTraits;
+                let sporeTriggered = false;
+                
+                if (this.state.combat.minions.length > 0) {
+                    let newMinions = [];
+                    for(let i=0; i<this.state.combat.minions.length; i++) {
+                        let m = this.state.combat.minions[i];
+                        if (m.infected) {
+                            this.log(`🐛 幼體被寄生控制，發起反叛撕咬 Boss！`, 'log-skill');
+                            let backbiteDmg = 15; if (e.id === 'boss_queen' && eq.includes('spore')) { backbiteDmg = 35; this.log(`孢子在蜂群中引發猛烈爆破！`, 'log-skill'); }
+                            e.hp -= backbiteDmg; this.addFatigue(10); await this.sleep(300);
+                        } else {
+                            this.log(`⚠️ 幼體襲擊！`, 'log-dmg');
+                            let mDmg = pDefending ? 2 : 5; p.hp -= mDmg;
+                            if (eq.includes('spore') && mDmg > 0 && !sporeTriggered) { sporeTriggered = true; }
+                            newMinions.push(m); await this.sleep(300);
+                        }
+                    }
+                    this.state.combat.minions = newMinions; 
+                    if(p.hp <= 0 || e.hp <= 0) { this.renderEcologyUI(); this.updateCombatBars(); return; }
+                }
+
+                if(this.state.combat.bossStunTurns > 0) {
+                    this.log(`💤 ${e.name} 陷入疲勞倒地中，無法行動！`, "log-hunt"); this.state.combat.bossStunTurns--;
+                    if(this.state.combat.bossStunTurns === 0) this.log(`⚠️ ${e.name} 搖晃著爬了起來！`, "log-sys");
+                    this.updateCombatBars(); return;
+                }
+
+                if(this.state.combat.enemyStunned) { this.log(`⚡ ${e.name} 被麻痺，無法行動！`, "log-skill"); this.state.combat.enemyStunned = false; return; }
+
+                if(e.habit === 'flee' && (e.hp / e.maxHp) < 0.25 && this.state.combat.bossStunTurns === 0) {
+                    this.log(`💨 疫病巨蟾感到恐懼，迅速鑽入泥沼逃跑了！`, "log-sys"); await this.sleep(1000); this.endEncounter(true); return;
+                }
+
+                this.log(`▼ ${e.name} 行動！`, "log-sys"); await this.sleep(400);
+
+                let eAtk = e.atk; let summonChance = this.state.weather === 'breeding' ? 0.8 : 0.4;
+                if (e.isBoss && Math.random() < summonChance && this.state.combat.minions.length < 3) {
+                    this.log(`🦠 Boss 釋放幼體！`, 'log-boss'); let initInfect = (this.state.weather === 'spore_season' && eq.includes('spore'));
+                    this.state.combat.minions.push({ infected: initInfect }); if(initInfect) this.log(`[環境孢子] 剛出生的幼體在粉塵中瞬間被孢子寄生控制！`, 'log-skill'); await this.sleep(400);
+                }
+
+                if (e.habit === 'counter') { this.state.combat.bossCounter += 2; eAtk += this.state.combat.bossCounter; this.log(`[蓄力] 巨蟹攻擊力不斷積蓄攀升至 ${eAtk}！`, 'log-boss'); }
+
+                let poisonWeakness = Math.max(0.5, 1 - (this.state.combat.enemyPoison * 0.05));
+                if (poisonWeakness < 1) { eAtk = Math.floor(eAtk * poisonWeakness); this.log(`[神經衰弱] 劇毒發作，Boss攻擊力降低至 ${eAtk}`, "log-skill"); }
+
+                let dmg = eAtk;
+                
+                if(eq.includes('mimicry') && Math.random()<0.2) { this.log(`[擬態] 完美閃避，並發動了致命反擊！`, 'log-skill'); e.hp -= Math.floor(p.atk * 1.5); this.updateCombatBars(); return; }
+                if(eq.includes('hard_shell')) {
+                    dmg = Math.floor(dmg*(this.getPrefMultiplier('hard_shell')>1?0.7:0.8));
+                    if (dmg < p.maxHp * 0.05) { this.log(`[硬甲] 攻擊太弱，被硬甲完全彈開！(免疫傷害)`, "log-skill"); dmg = 0; }
+                }
+                
+                if(pDefending) dmg = Math.floor(dmg*0.5);
+
+                dmg = Math.max(1, dmg - p.def); 
+                if (dmg > 0) p.hp -= dmg; 
+                if (dmg > 0) this.log(`🩸 受到 ${dmg} 傷害！`, "log-dmg");
+                
+                if(eq.includes('acid_blood') && dmg > 0) { let reflect = Math.floor(dmg * (this.getPrefMultiplier('acid_blood')>1?0.30:0.20)); if(reflect > 0) { e.hp -= reflect; this.log(`[酸血] 濺射強酸液，反彈 ${reflect} 傷害！`, "log-skill"); } }
+                if(this.state.combat.thornsBurstActive && dmg > 0) { let reflect = dmg * 3; e.hp -= reflect; this.state.combat.enemyBleedStacks += 2; this.log(`[荊棘] 狂暴刺甲反彈了 ${reflect} 點真實傷害並撕裂其外殼！`, "log-hunt"); }
+
+                if (dmg > 0 && eq.includes('spore')) sporeTriggered = true;
+                if (sporeTriggered) {
+                    this.state.combat.enemyPoison += 2; let infectedAny = false;
+                    this.state.combat.minions.forEach(m => { if(!m.infected) { m.infected = true; infectedAny = true; } });
+                    if(infectedAny) this.log(`🍄 受擊散發孢子反噬！感染了全場幼體！`, "log-skill");
+                }
+
+                if(e.traits && e.traits.includes('toxic') && Math.random()<0.4) this.state.combat.playerPoison += 2;
+                
+                this.renderEcologyUI(); await this.sleep(200);
+            },
+
+            processEndTurnEffects: async function() {
+                const p = this.state.player, e = this.state.currentEncounter, eq = p.equippedTraits;
+                let dotMsg = [];
+
+                if(eq.includes('regen') && this.state.weather !== 'drought') { 
+                    let r = this.getPrefMultiplier('regen')>1?0.15:0.10; let h=Math.floor(p.maxHp*r); p.hp=Math.max(p.hp, Math.min(p.maxHp, p.hp+h)); dotMsg.push(`[再生] 回復 ${h}`); 
+                    if(this.state.combat.playerPoison > 0) { this.state.combat.playerPoison = 0; dotMsg.push(`<span style="color:#4CAF50;">[再生] 自體淨化了所有劇毒</span>`); }
+                } else if(eq.includes('regen') && this.state.weather === 'drought') { dotMsg.push(`<span class="log-resist">[再生] 因乾旱環境無法發揮治療作用</span>`); }
+                
+                if(eq.includes('hunt')) this.state.combat.playerHuntStacks++;
+
+                if(this.state.combat.enemyBleedStacks>0) { let d=this.state.combat.enemyBleedStacks*4; e.hp-=d; dotMsg.push(`[流血] ${d} 真實傷害`); if(e.isBoss) this.addFatigue(this.state.combat.enemyBleedStacks * 2); }
+                
+                if(this.state.combat.enemyParasiteStacks>0) { 
+                    let d=this.state.combat.enemyParasiteStacks*3; 
+                    if (e.id === 'boss_toad') { d *= 2; e.hp -= d; p.hp = Math.min(Math.floor(p.maxHp*1.5), p.hp + d); dotMsg.push(`<span class="log-weakness">[寄生] 寄生蟲瘋狂蠶食巨蟾組織，反噬汲取 ${d} 點 HP！</span>`); } 
+                    else { e.hp -= d; p.hp = Math.min(Math.floor(p.maxHp*1.5), p.hp + d); dotMsg.push(`[寄生] 汲取 ${d}`); }
+                }
+                
+                if(this.state.combat.enemyPoison>0) { let d=this.state.combat.enemyPoison; e.hp-=d; dotMsg.push(`[劇毒] 毒發 ${d} 傷害`); this.state.combat.enemyPoison=Math.max(0, this.state.combat.enemyPoison-1); }
+                if(this.state.combat.playerPoison>0) { let d=this.state.combat.playerPoison; p.hp-=d; dotMsg.push(`⚠️ 毒發 ${d} 傷害`); this.state.combat.playerPoison=Math.max(0, this.state.combat.playerPoison-1); }
+                
+                if(e.habit === 'symbiosis' && this.state.combat.minions.length > 0) { let heal = 15 * this.state.combat.minions.length; e.hp = Math.min(e.maxHp, e.hp + heal); dotMsg.push(`<span style="color:var(--boss-color);">[共生] 花朵吐出精華治癒了 Boss ${heal} 點 HP！</span>`); }
+
+                if (e.id === 'boss_queen') {
+                    if (this.state.combat.minions.length === 0) {
+                        this.state.combat.queenAloneTurns++;
+                        if (this.state.combat.queenAloneTurns >= 3) {
+                            this.log(`🐝 女王長時間沒有感應到幼體的氣息，認為族群已覆滅，黯然撤退了。`, "log-eco");
+                            this.updateCombatBars(); await this.sleep(1000); this.winEncounter('族群覆滅'); return;
+                        }
+                    } else { this.state.combat.queenAloneTurns = 0; }
+                }
+
+                if(dotMsg.length>0) { this.log(`-- 狀態結算 --<br>` + dotMsg.join('<br>'), "log-sys"); this.updateCombatBars(); await this.sleep(500); }
+            },
+
+            winEncounter: function(reasonText) {
+                const p = this.state.player, e = this.state.currentEncounter;
+                this.state.combat.inProgress = false; document.getElementById('action-buttons-container').style.display = 'none';
+                
+                this.log(`✨ 目標達成：${reasonText}！`, "log-eco");
+                if(e.isBoss) {
+                    if (!this.state.defeatedBosses.includes(e.id)) this.state.defeatedBosses.push(e.id);
+                    this.log(`👑 獲得了生態霸主圖鑑紀錄。`, "log-boss");
+                    // ★ 記錄世界記憶
+                    this.state.bossHistory[e.id] = reasonText;
+                }
+                
+                let heal = 20; p.hp = Math.max(p.hp, Math.min(p.maxHp, p.hp + heal)); this.log(`收集了現場遺留的基因物質，回復 ${heal} 點 HP。`);
+                
+                this.saveProgress(); document.getElementById('btn-return').style.display = 'block';
+            },
+
+            checkDeath: async function() {
+                const p = this.state.player, e = this.state.currentEncounter;
+                if(e.hp <= 0) {
+                    e.hp = 0; this.updateCombatBars(); 
+                    if(e.habit === 'undead') { this.log(`⚠️ 寄生中樞強行電擊心臟！Boss 滿血復活了！`, "log-boss"); e.hp = e.maxHp; e.habit = 'none'; return false; }
+                    this.log(`💀 狩獵成功！${e.name} 倒下了！`, "log-heal"); this.winEncounter('擊敗目標'); return true;
+                }
+                if(p.hp <= 0) { p.hp = 0; this.updateCombatBars(); await this.metamorphosis(); return true; }
+                return false;
+            },
+
+            endEncounter: function(fled = false) { 
+                this.state.combat.inProgress = false; document.getElementById('action-buttons-container').style.display = 'none'; 
+                if(!fled && this.state.player.hp > 0 && this.state.currentEncounter.hp <= 0) {
+                    let heal = 20; this.state.player.hp = Math.max(this.state.player.hp, Math.min(this.state.player.maxHp, this.state.player.hp + heal)); this.log(`吞食殘骸，回復 ${heal} 點 HP。`);
+                }
+                document.getElementById('btn-return').style.display = 'block'; 
+            },
+
+            metamorphosis: async function() {
+                this.state.combat.inProgress = false; document.getElementById('action-buttons-container').style.display = 'none';
+                this.log(`☠️ 受到致命傷害。`, "log-dmg"); await this.sleep(1000);
+                const rebornEvents = ['蛻皮重生', '結繭結蛹', '真菌孢子分裂', '斷尾求生', '細胞基因重組']; const rebornTxt = rebornEvents[Math.floor(Math.random() * rebornEvents.length)];
+                this.log(`✨ 觸發異變本能：【${rebornTxt}】！`, "log-skill"); await this.sleep(1500);
+                this.state.player.hp = this.state.player.maxHp; this.log(`🔄 毒物在樞紐營地重獲新生。`, "log-heal");
+                this.saveProgress(); const btn = document.getElementById('btn-return'); btn.innerText = "甦醒並返回樞紐"; btn.style.display = 'block';
+            },
+
+            returnToCamp: function() { document.getElementById('btn-return').innerText = "繼續"; this.state.currentEncounter = null; this.updateCampUI(); this.switchPanel('panel-camp'); },
+
+            unlockButtons: function() { if(this.state.combat.inProgress) { document.getElementById('action-buttons-container').style.display = 'block'; document.querySelectorAll('#action-buttons button').forEach(b => b.disabled = false); this.toggleActionButtons('combat'); } },
+
+            initCanvasEffects: function() {
+                const cvs = document.getElementById('bg-canvas'), ctx = cvs.getContext('2d');
+                let w = window.innerWidth, h = window.innerHeight; cvs.width = w; cvs.height = h;
+                window.addEventListener('resize', () => { cvs.width=w=window.innerWidth; cvs.height=h=window.innerHeight; });
+                const pts = Array.from({length: 35}, () => ({ x:Math.random()*w, y:Math.random()*h, r:Math.random()*2+1, vx:(Math.random()-0.5)*0.3, vy:(Math.random()-1)*0.5-0.1, c:Math.random()>0.5?'rgba(76,175,80,0.2)':'rgba(52,152,219,0.1)' }));
+                const ani = () => {
+                    ctx.clearRect(0,0,w,h); let grad = ctx.createLinearGradient(0,0,0,h); grad.addColorStop(0,'#040704'); grad.addColorStop(1,'#0a120a'); ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
+                    pts.forEach(p => { p.x+=p.vx; p.y+=p.vy; if(p.y<-10)p.y=h+10; if(p.x<-10)p.x=w+10; if(p.x>w+10)p.x=-10; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle=p.c; ctx.fill(); }); 
+                    requestAnimationFrame(ani);
+                };
+                ani();
+            }
+        };
+        window.onload = () => Game.initApp();
+    </script>
+</body>
+</html>
