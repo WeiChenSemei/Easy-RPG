@@ -24,8 +24,11 @@
 
     <style>
         /* 基礎樣式重置，確保全螢幕且禁用預設的滑動行為 */
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: black; overflow: hidden; touch-action: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: black; overflow: hidden; touch-action: none; -webkit-tap-highlight-color: transparent; }
         #root { width: 100%; height: 100%; }
+        button { font-family: inherit; letter-spacing: 0.02em; }
+        @keyframes vignette-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.85; } }
+        .hp-critical-vignette { animation: vignette-pulse 1.4s ease-in-out infinite; }
     </style>
 </head>
 <body>
@@ -166,7 +169,7 @@
           meta: { deaths: 0, maxDmg: 0, maxJob: 'nov', maxJLvl: 1 } 
         };
 
-        const getExpReq = (lvl) => Math.floor(25 * Math.pow(lvl, 1.25));
+        const getExpReq = (lvl) => Math.floor(25 * Math.pow(lvl, 1.6));
         const delay = ms => new Promise(r => setTimeout(r, ms));
 
         const StIcons = ({st}) => {
@@ -511,7 +514,7 @@
 
             if (pDealtDmg > (pl.meta.maxDmg || 0)) pl.meta.maxDmg = pDealtDmg;
 
-            if (pCanAct && pl.st.bleed) { let bd=Math.floor(getMaxHp(pl)*0.05); pl.hp-=bd; msg.push(`🩸 流血造成 ${bd} 傷害！`); pl.st.bleed--; }
+            if (pl.st.bleed) { let bd=Math.floor(getMaxHp(pl)*0.05); pl.hp-=bd; msg.push(`🩸 流血造成 ${bd} 傷害！`); pl.st.bleed--; }
             if (en.hp <= 0) enDead = true;
 
             if (!enDead && !en.isMetal) {
@@ -587,9 +590,9 @@
                 let dropTypes = ['w', 'a', 'c']; let isType = dropTypes[Math.floor(Math.random()*3)]; let dropLvl = Math.min(7, Math.ceil(pl.mapLvl/2));
                 let nid = isType === 'c' ? `c${Math.min(7, dropLvl)}` : `${isType}${dropLvl}`; let itm = ITEMS[nid];
                 if(itm) {
-                  if(!pl.inv) pl.inv = []; pl.inv.push(nid); let cid = pl.eq[itm.t];
+                  if(!pl.inv) pl.inv = []; let cid = pl.eq[itm.t];
                   let getPwr = id => { if(ITEMS[id]?.t==='w') return ITEMS[id].atk+getUpgVal(id,pl.upg?.[id]||0,true); if(ITEMS[id]?.t==='a') return ITEMS[id].def+getUpgVal(id,pl.upg?.[id]||0,false); return (ITEMS[id]?.atk||0)+(ITEMS[id]?.def||0)+(ITEMS[id]?.hp||0); };
-                  if(!cid || getPwr(nid)>getPwr(cid)) { pl.eq[itm.t]=nid; msg.push(`🎁 換上裝備 ${itm.n}`); } else { msg.push(`🎁 獲得 ${itm.n}`); }
+                  if(!cid || getPwr(nid)>getPwr(cid)) { if(cid) pl.inv.push(cid); pl.eq[itm.t]=nid; msg.push(`🎁 撿到並換上裝備 ${itm.n}`); } else { pl.inv.push(nid); msg.push(`🎁 獲得 ${itm.n}`); }
                 }
               }
 
@@ -784,6 +787,11 @@
           return (
             <div className="h-[100dvh] w-full max-w-lg mx-auto bg-black text-green-500 font-mono flex flex-col overflow-hidden touch-none select-none relative">
               
+              {/* 🌟 低血量警示暈影 (純視覺，不影響操作) */}
+              {(scene === 'PLAY' || scene === 'COMBAT') && p.hp > 0 && p.hp < getMaxHp() * 0.25 && (
+                <div className="absolute inset-0 z-40 pointer-events-none hp-critical-vignette" style={{ boxShadow: 'inset 0 0 120px 30px rgba(220,38,38,0.65)' }} />
+              )}
+
               {/* 🌟 系統控制列 (字體與存檔) */}
               <div className="flex justify-between items-center bg-gray-950 border-b-2 border-green-900 px-2 py-1.5 text-[11px] sm:text-xs text-gray-400 shrink-0 z-30">
                  <button onClick={()=>setFontLevel(l=>(l+1)%3)} className="hover:text-white px-1 active:scale-95 transition-transform flex items-center gap-1 font-bold">
@@ -819,10 +827,21 @@
                       {saveCodeModal.mode === 'export' ? (
                         <button onClick={() => {
                             const ta = document.getElementById('saveCodeTextarea');
-                            ta.select();
-                            document.execCommand('copy');
-                            print('📋 繼承碼已成功複製！');
-                            setSaveCodeModal({show: false, mode: '', code: ''});
+                            const fallbackCopy = () => { ta.select(); try { document.execCommand('copy'); } catch(e) {} };
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                navigator.clipboard.writeText(ta.value).then(() => {
+                                    print('📋 繼承碼已成功複製！');
+                                    setSaveCodeModal({show: false, mode: '', code: ''});
+                                }).catch(() => {
+                                    fallbackCopy();
+                                    print('📋 繼承碼已成功複製！');
+                                    setSaveCodeModal({show: false, mode: '', code: ''});
+                                });
+                            } else {
+                                fallbackCopy();
+                                print('📋 繼承碼已成功複製！');
+                                setSaveCodeModal({show: false, mode: '', code: ''});
+                            }
                         }} className="flex-1 bg-cyan-900 border border-cyan-500 text-cyan-100 py-2 rounded font-bold text-sm active:bg-cyan-800">📋 一鍵複製</button>
                       ) : (
                         <button onClick={() => handleImport(saveCodeModal.code)} className="flex-1 bg-cyan-900 border border-cyan-500 text-cyan-100 py-2 rounded font-bold text-sm active:bg-cyan-800">✔️ 確認匯入</button>
@@ -871,7 +890,7 @@
                   <div className="flex-1 overflow-y-auto space-y-2 pb-4 pr-1">
                      {sortedInvKeys.length === 0 ? <p className="text-gray-500 text-center mt-10 text-sm">背包空空如也</p> : null}
                      {sortedInvKeys.map(id => {
-                         const it = ITEMS[id]; if(!it)return null; const count = currentInvCounts[id]; const isEq = p.eq?.w === id || p.eq?.a === id || p.eq?.c === id; const sellable = isEq ? count - 1 : count; 
+                         const it = ITEMS[id]; if(!it)return null; const count = currentInvCounts[id]; const isEq = p.eq?.w === id || p.eq?.a === id || p.eq?.c === id; const sellable = count; 
                          return (
                             <div key={id} className={`p-3 border rounded-lg flex justify-between items-center ${isEq && sellable === 0 ? 'border-gray-800 bg-gray-900' : 'border-yellow-700 bg-yellow-900/20'}`}>
                                <div className="flex items-center gap-3"><span className="text-2xl cursor-pointer" onClick={()=>openInfo('item',id)}>{it.e}</span><div><div className="font-bold text-white text-sm sm:text-base flex items-center gap-2 cursor-pointer" onClick={()=>openInfo('item',id)}>{it.n} <span className="text-xs text-gray-400">x{count}</span>{isEq && <span className="text-[10px] sm:text-xs bg-blue-900 text-blue-200 px-1 rounded">裝備中</span>}</div><div className="text-xs sm:text-sm text-yellow-500 mt-0.5 tabular-nums">賣出單價: {it.sell} 🪙</div></div></div>
@@ -894,7 +913,7 @@
                 </div>
               )}
 
-              <div className="flex-shrink-0 h-[115px] border-b-2 border-green-800 px-3 py-1.5 leading-tight bg-gray-950 flex flex-col justify-between z-20">
+              <div className="flex-shrink-0 min-h-[115px] border-b-2 border-green-800 px-3 py-1.5 leading-tight bg-gradient-to-b from-gray-900 to-gray-950 flex flex-col justify-between z-20">
                 <div className="flex justify-between items-end text-yellow-400 font-bold mb-0.5">
                   <div className="flex items-center gap-1 flex-1 min-w-0 pr-2">
                     [ {editName ? <input type="text" maxLength={6} value={tempN} onChange={e=>setTempN(e.target.value)} onKeyDown={e => { if(e.key === 'Enter') e.target.blur(); }} className="text-black px-1 rounded outline-none w-20 text-center" style={{ fontSize: '16px' }} autoFocus onBlur={() => { setP(pl => { let npl=JSON.parse(JSON.stringify(pl)); npl.name=tempN.trim()||'無名冒險者'; return npl; }); setEditName(false); }} /> : <span className="cursor-pointer hover:bg-gray-800 px-1 rounded shrink-0" onClick={()=>{setTempN(p.name);setEditName(true);}}>{p.name}</span>} ]
@@ -1035,26 +1054,26 @@
                 </div>
               </div>
 
-              <div className="flex-shrink-0 h-[150px] sm:h-[160px] border-t-2 border-green-800 p-1.5 bg-black pb-3 sm:pb-2 z-10">
+              <div className="flex-shrink-0 min-h-[150px] sm:min-h-[160px] border-t-2 border-green-800 p-1.5 bg-gradient-to-t from-gray-950 to-black pb-3 sm:pb-2 z-10">
                 <div className="w-full h-full font-bold">
                   {scene === 'COMBAT' ? (
                     cMenu === 'MAIN' ? (
                       <div className="flex flex-col h-full gap-1.5">
                         <div className="grid grid-cols-2 grid-rows-2 gap-1.5 flex-1">
-                          <button onClick={()=>setCMenu('MAGIC')} disabled={auto} className="border-2 border-purple-800 bg-purple-900/30 text-purple-300 text-lg sm:text-xl rounded active:bg-purple-800 flex items-center justify-center">
+                          <button onClick={()=>setCMenu('MAGIC')} disabled={auto} className="border-2 border-purple-800 bg-purple-900/30 text-purple-300 text-lg sm:text-xl rounded active:bg-purple-800 active:scale-95 transition-transform flex items-center justify-center">
                              🔮 魔法
                           </button>
-                          <button onClick={()=>setCMenu('SKILL')} disabled={auto} className="border-2 border-indigo-800 bg-indigo-900/30 text-indigo-300 text-lg sm:text-xl rounded active:bg-indigo-800 flex items-center justify-center">
+                          <button onClick={()=>setCMenu('SKILL')} disabled={auto} className="border-2 border-indigo-800 bg-indigo-900/30 text-indigo-300 text-lg sm:text-xl rounded active:bg-indigo-800 active:scale-95 transition-transform flex items-center justify-center">
                              ✨ 特技
                           </button>
-                          <button onClick={()=>setCMenu('ITEM')} disabled={auto} className="border-2 border-teal-800 bg-teal-900/30 text-teal-300 text-lg sm:text-xl rounded active:bg-teal-800 flex flex-col items-center justify-center leading-none">
+                          <button onClick={()=>setCMenu('ITEM')} disabled={auto} className="border-2 border-teal-800 bg-teal-900/30 text-teal-300 text-lg sm:text-xl rounded active:bg-teal-800 active:scale-95 transition-transform flex flex-col items-center justify-center leading-none">
                              <span>🎒 道具</span><span className="text-[10px] text-teal-400 font-normal mt-1">共 {Object.values(p.pot).reduce((a,b)=>a+b,0)} 件</span>
                           </button>
-                          <button onClick={()=>doCombat('FLEE')} disabled={auto} className="border-2 border-gray-700 bg-gray-900/50 text-gray-400 text-lg sm:text-xl rounded active:bg-gray-800">
+                          <button onClick={()=>doCombat('FLEE')} disabled={auto} className="border-2 border-gray-700 bg-gray-900/50 text-gray-400 text-lg sm:text-xl rounded active:bg-gray-800 active:scale-95 transition-transform">
                              🏃 逃跑
                           </button>
                         </div>
-                        <button onClick={() => !auto && doCombat('ATTACK')} disabled={auto} className={`w-full py-2 border-2 rounded ${auto ? 'border-gray-700 text-gray-600 bg-gray-900/50' : 'border-red-800 text-red-500 hover:bg-red-900/40 active:bg-red-900/60'} text-sm sm:text-base font-bold uppercase shrink-0 transition-colors`}>
+                        <button onClick={() => !auto && doCombat('ATTACK')} disabled={auto} className={`w-full py-2 border-2 rounded ${auto ? 'border-gray-700 text-gray-600 bg-gray-900/50' : 'border-red-800 text-red-500 hover:bg-red-900/40 active:bg-red-900/60 active:scale-[0.98]'} text-sm sm:text-base font-bold uppercase shrink-0 transition-all`}>
                            ⚔️ 普通攻擊
                         </button>
                       </div>
@@ -1086,15 +1105,15 @@
                   ) : (
                     <div className="grid grid-cols-4 gap-1.5 h-full">
                       <div className="col-span-2 grid grid-cols-3 gap-1.5">
-                        <div/><button onClick={()=>move(0,-1)} disabled={auto} className="border-2 border-green-700 bg-green-900/30 text-lg sm:text-xl rounded active:bg-green-800 flex items-center justify-center leading-none pb-1">N</button><div/>
-                        <button onClick={()=>move(-1,0)} disabled={auto} className="border-2 border-green-700 bg-green-900/30 text-lg sm:text-xl rounded active:bg-green-800 flex items-center justify-center leading-none pr-1">W</button>
-                        <button onClick={()=>move(0,1)} disabled={auto} className="border-2 border-green-700 bg-green-900/30 text-lg sm:text-xl rounded active:bg-green-800 flex items-center justify-center leading-none pt-1">S</button>
-                        <button onClick={()=>move(1,0)} disabled={auto} className="border-2 border-green-700 bg-green-900/30 text-lg sm:text-xl rounded active:bg-green-800 flex items-center justify-center leading-none pl-1">E</button>
+                        <div/><button onClick={()=>move(0,-1)} disabled={auto} className="border-2 border-green-700 bg-green-900/30 text-lg sm:text-xl rounded active:bg-green-800 active:scale-95 transition-transform flex items-center justify-center leading-none pb-1">N</button><div/>
+                        <button onClick={()=>move(-1,0)} disabled={auto} className="border-2 border-green-700 bg-green-900/30 text-lg sm:text-xl rounded active:bg-green-800 active:scale-95 transition-transform flex items-center justify-center leading-none pr-1">W</button>
+                        <button onClick={()=>move(0,1)} disabled={auto} className="border-2 border-green-700 bg-green-900/30 text-lg sm:text-xl rounded active:bg-green-800 active:scale-95 transition-transform flex items-center justify-center leading-none pt-1">S</button>
+                        <button onClick={()=>move(1,0)} disabled={auto} className="border-2 border-green-700 bg-green-900/30 text-lg sm:text-xl rounded active:bg-green-800 active:scale-95 transition-transform flex items-center justify-center leading-none pl-1">E</button>
                       </div>
                       <div className="col-span-2 grid grid-cols-2 gap-1.5">
-                        <button onClick={()=>{if(p.x===1&&p.y===1)setMenu('TOWN');else print('需在 [T] 城鎮上方才能進入。');}} disabled={auto} className="border-2 border-cyan-800 bg-cyan-900/20 text-cyan-400 text-base rounded active:bg-cyan-900">城鎮</button>
-                        <button onClick={()=>setMenu('SKILL')} disabled={auto} className="border-2 border-yellow-800 bg-yellow-900/20 text-yellow-400 text-base rounded active:bg-yellow-900">狀態</button>
-                        <button onClick={()=>{setAuto(!auto); if(!auto)print('>>> 啟動 BOT <<<');else print('>>> 終止 BOT <<<');}} className={`col-span-2 border-2 rounded ${auto?'border-yellow-500 text-yellow-500 animate-pulse bg-yellow-900/20':'border-green-800 text-green-500'} text-base uppercase`}>{auto?'STOP BOT':'AUTO BOT'}</button>
+                        <button onClick={()=>{if(p.x===1&&p.y===1)setMenu('TOWN');else print('需在 [T] 城鎮上方才能進入。');}} disabled={auto} className="border-2 border-cyan-800 bg-cyan-900/20 text-cyan-400 text-base rounded active:bg-cyan-900 active:scale-95 transition-transform">城鎮</button>
+                        <button onClick={()=>setMenu('SKILL')} disabled={auto} className="border-2 border-yellow-800 bg-yellow-900/20 text-yellow-400 text-base rounded active:bg-yellow-900 active:scale-95 transition-transform">狀態</button>
+                        <button onClick={()=>{setAuto(!auto); if(!auto)print('>>> 啟動 BOT <<<');else print('>>> 終止 BOT <<<');}} className={`col-span-2 border-2 rounded active:scale-95 transition-transform ${auto?'border-yellow-500 text-yellow-500 animate-pulse bg-yellow-900/20':'border-green-800 text-green-500'} text-base uppercase`}>{auto?'STOP BOT':'AUTO BOT'}</button>
                       </div>
                     </div>
                   )}
