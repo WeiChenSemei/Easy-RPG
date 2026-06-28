@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>風之紀元：蒼穹</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; touch-action: none; user-select: none; -webkit-user-select: none; }
+        canvas { display: block; }
+        .text-shadow { text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+        .glass-panel { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(4px); border: 1px solid rgba(148, 163, 184, 0.2); }
+        
+        /* 簡單的按鈕點擊效果 */
+        button:active { transform: scale(0.98); }
+    </style>
+</head>
+<body class="text-slate-200 font-sans antialiased">
+
+    <!-- 遊戲容器 -->
+    <div id="game-container" class="relative w-full h-screen">
+        
+        <!-- Canvas 渲染層 -->
+        <canvas id="gameCanvas" class="absolute inset-0 z-0"></canvas>
+
+        <!-- UI 狀態列 (上) -->
+        <div id="ui-layer" class="absolute top-0 left-0 w-full z-10 p-2 pointer-events-none flex flex-col gap-2">
+            <div class="glass-panel rounded-lg p-3 flex justify-between items-center shadow-lg pointer-events-auto">
+                <div class="flex flex-col gap-1 w-full">
+                    <!-- 資源條 -->
+                       <div class="flex justify-between text-xs sm:text-sm font-bold">
+                        <span class="text-yellow-400 flex items-center gap-1">⚡ 燃料: <span id="res-fuel">100</span></span>
+                        <span class="text-green-400 flex items-center gap-1">🛡️ 耐久: <span id="res-hull">100</span></span>
+                        <span class="text-orange-400 flex items-center gap-1">🍖 食物: <span id="res-food">100</span></span>
+                        <span class="text-gray-300 flex items-center gap-1">🔧 工具: <span id="res-tools">3</span></span>
+                    </div>
+                    <!-- 狀態與進度 -->
+                    <div class="flex justify-between text-xs text-slate-400 mt-1 border-t border-slate-700 pt-1">
+                        <span>探索天數: <span id="stat-days" class="text-white">1</span></span>
+                        <span>古代遺物: <span id="stat-relics" class="text-sky-300">0</span></span>
+                        <span>⚖️ 負重: <span id="stat-weight" class="text-white">0</span></span>
+                        <span id="stat-buff" class="text-emerald-400 hidden">✦ 乘風者</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 系統提示訊息 -->
+            <div id="sys-message" class="text-center text-sm font-bold text-sky-200 text-shadow opacity-0 transition-opacity duration-300">
+                發現廢棄空島
+            </div>
+        </div>
+
+          <!-- 操作提示 (下) -->
+        <div id="control-hint" class="absolute bottom-6 left-0 w-full z-10 pointer-events-none text-center">
+            <p class="text-slate-400/60 text-sm tracking-widest bg-slate-900/40 inline-block px-4 py-1 rounded-full backdrop-blur-sm">長按螢幕推進方向 / 放開隨風漂流</p>
+        </div>
+
+        <!-- 掠空者筆記 (Toast) -->
+        <div id="journal-toast" class="absolute bottom-16 right-4 z-40 max-w-xs bg-slate-800/95 border-l-4 border-sky-400 p-3 rounded shadow-lg transition-transform duration-500 translate-y-20 opacity-0 pointer-events-none">
+            <p class="text-xs text-sky-300 font-bold mb-1">掠空者筆記</p>
+            <p id="journal-text" class="text-sm text-slate-200 italic"></p>
+        </div>
+
+        <!-- 事件互動視窗 (Modal) -->
+        <div id="event-modal" class="hidden absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center p-6">
+            <div class="glass-panel max-w-md w-full p-6 rounded-xl shadow-2xl border border-slate-600 flex flex-col gap-4">
+                <h2 id="event-title" class="text-xl font-bold text-sky-400 border-b border-slate-600 pb-2">事件標題</h2>
+                <p id="event-desc" class="text-sm sm:text-base text-slate-300 leading-relaxed min-h-[5rem]">事件描述內容...</p>
+                <div id="event-choices" class="flex flex-col gap-3 mt-4">
+                    <!-- 選項按鈕會動態生成於此 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 主選單 / 結算畫面 -->
+        <div id="menu-modal" class="absolute inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-6">
+            <div class="max-w-sm w-full flex flex-col items-center gap-6 text-center">
+                <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-sky-200 to-slate-500 tracking-wider">
+                    風之紀元<br><span class="text-2xl text-sky-400">蒼穹</span>
+                </h1>
+                <p class="text-slate-400 text-sm mb-4">元素失控，大地崩毀。<br>你是一名掠空者，在殘破的浮島間，<br>乘風尋找活下去的物資。</p>
+                
+                <div id="game-over-stats" class="hidden w-full glass-panel p-4 rounded-lg text-left text-sm text-slate-300 flex flex-col gap-2 mb-2">
+                    <h3 class="text-red-400 font-bold text-center border-b border-slate-700 pb-1 mb-1">航行日誌終止</h3>
+                    <p>存活天數: <span id="end-days" class="text-white">0</span></p>
+                    <p>收集遺物: <span id="end-relics" class="text-sky-300">0</span></p>
+                    <p class="text-xs text-slate-500 mt-2 italic" id="end-reason">燃料耗盡，飛艇墜入無盡深淵...</p>
+                </div>
+
+                <button id="btn-start" class="w-full bg-sky-700 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg border border-sky-500 transition-colors">
+                    啟動飛艇引擎
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 《風之紀元：蒼穹》 核心程式碼
+         * 架構：模組化設計，包含 GameState, Renderer, Physics, MapManager, EventSystem
+         */
+
+        // --- 核心設定與常數 ---
+        const WORLD_SIZE = 6000;
+        const FPS = 60;
+        
+          // --- 遊戲狀態管理 ---
+        const Game = {
+            state: 'menu', // 'menu', 'playing', 'event', 'gameover'
+            lastTime: 0,
+            timer: 0, // 用於計算天數 (時間流逝)
+            
+            // 資源
+            res: { fuel: 100, hull: 100, food: 100, tools: 2 },
+            stats: { days: 1, relics: 0, logsRead: 0, journal: new Set() },
+            buff: { type: null, timer: 0 },
+            
+            // 控制輸入
+            input: { active: false, x: 0, y: 0, targetAngle: 0 },
+            
+            // 計算總重量 (影響飛行性能)
+            get weight() {
+                // 基礎重量20 + 貨物重量
+                return 20 + (this.res.fuel * 0.2) + (this.res.food * 0.3) + (this.res.tools * 4) + (this.stats.relics * 10);
+            },
+
+            init() {
+                Canvas.init();
+                Events.init();
+                this.bindUI();
+                requestAnimationFrame(this.loop.bind(this));
+            },
+
+             start() {
+                this.res = { fuel: 100, hull: 100, food: 100, tools: 2 };
+                this.stats = { days: 1, relics: 0, logsRead: 0, journal: new Set() };
+                this.buff = { type: null, timer: 0 };
+                this.timer = 0;
+                Ship.reset();
+                MapManager.generate();
+                this.updateUI();
+                
+                document.getElementById('menu-modal').classList.add('hidden');
+                document.getElementById('game-over-stats').classList.add('hidden');
+                this.state = 'playing';
+            },
+
+            gameOver(reason) {
+                this.state = 'gameover';
+                document.getElementById('end-days').textContent = this.stats.days;
+                document.getElementById('end-relics').textContent = this.stats.relics;
+                document.getElementById('end-reason').textContent = reason;
+                
+                document.getElementById('game-over-stats').classList.remove('hidden');
+                document.getElementById('menu-modal').classList.remove('hidden');
+                document.getElementById('btn-start').textContent = "再次出發";
+            },
+
+            loop(timestamp) {
+                const dt = (timestamp - this.lastTime) / 1000;
+                this.lastTime = timestamp;
+
+                if (this.state === 'playing') {
+                    this.update(dt);
+                }
+                
+                // 渲染與狀態無關，保持背景動畫
+                Canvas.draw(dt);
+                
+                requestAnimationFrame(this.loop.bind(this));
+            },
+
+              update(dt) {
+                // 生存消耗 (每秒)
+                this.timer += dt;
+                if (this.timer > 5) { // 每5秒算一天
+                    this.timer = 0;
+                    this.stats.days++;
+                    this.res.food = Math.max(0, this.res.food - 2); // 食物消耗
+                    
+                    if (this.res.food <= 0) {
+                        this.res.hull -= 5; // 沒食物開始扣耐久
+                        this.showMessage("飢餓！耐久度下降", "text-red-400");
+                    }
+                        this.updateUI();
+                }
+
+                if (this.buff.timer > 0) {
+                    this.buff.timer -= dt;
+                    if (this.buff.timer <= 0 && this.buff.type) {
+                        this.buff.type = null;
+                        this.updateUI();
+                    }
+                }
+
+                Ship.update(dt);
+                MapManager.update(dt); // 更新動態風場
+                MapManager.updateChunks(Ship.x, Ship.y); // 動態加載新區域
+                MapManager.checkCollisions();
+                this.checkDeath();
+            },
+
+            checkDeath() {
+                if (this.res.hull <= 0) this.gameOver("船體崩解，飛艇墜毀於雷暴之中。");
+                else if (this.res.fuel <= 0) this.gameOver("燃料耗盡，只能在無盡的氣流中絕望漂流...");
+            },
+
+            modifyRes(type, amount) {
+                this.res[type] += amount;
+                if (this.res[type] > 100 && type !== 'tools') this.res[type] = 100; // 燃料食物耐久上限 100
+                if (this.res[type] < 0) this.res[type] = 0;
+                this.updateUI();
+            },
+
+             updateUI() {
+                document.getElementById('res-fuel').textContent = Math.floor(this.res.fuel);
+                document.getElementById('res-hull').textContent = Math.floor(this.res.hull);
+                document.getElementById('res-food').textContent = Math.floor(this.res.food);
+                document.getElementById('res-tools').textContent = this.res.tools;
+                document.getElementById('stat-days').textContent = this.stats.days;
+                document.getElementById('stat-relics').textContent = this.stats.relics;
+
+                // 負重與 Buff 顯示
+                const w = this.weight;
+                const wEl = document.getElementById('stat-weight');
+                wEl.textContent = Math.floor(w);
+                wEl.className = w > 60 ? 'text-red-400' : 'text-white'; // 超過60會明顯感到遲緩
+
+                const bEl = document.getElementById('stat-buff');
+                if (this.buff.timer > 0) {
+                    bEl.classList.remove('hidden');
+                    bEl.textContent = this.buff.type === 'glide' ? '✦ 滑翔大師' : '✦ 御風而行';
+                } else {
+                    bEl.classList.add('hidden');
+                }
+            },
+
+            showJournal(text) {
+                const toast = document.getElementById('journal-toast');
+                document.getElementById('journal-text').textContent = `「${text}」`;
+                toast.classList.remove('translate-y-20', 'opacity-0');
+                clearTimeout(this.journalTimeout);
+                this.journalTimeout = setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 6000);
+            },
+
+            showMessage(text, colorClass = "text-sky-200") {
+                const msg = document.getElementById('sys-message');
+                msg.textContent = text;
+                msg.className = `text-center text-sm font-bold text-shadow transition-opacity duration-300 ${colorClass} opacity-100`;
+                clearTimeout(this.msgTimeout);
+                this.msgTimeout = setTimeout(() => { msg.classList.replace('opacity-100', 'opacity-0'); }, 2000);
+            },
+
+            bindUI() {
+                document.getElementById('btn-start').addEventListener('click', () => this.start());
+                
+                // 觸控與滑鼠控制
+                const container = document.getElementById('game-container');
+                const handleInput = (e) => {
+                    if (this.state !== 'playing') return;
+                    e.preventDefault();
+                    let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    this.input.x = clientX;
+                    this.input.y = clientY;
+                    
+                    // 計算螢幕中心(飛艇位置)與觸控點的夾角
+                    const cx = window.innerWidth / 2;
+                    const cy = window.innerHeight / 2;
+                    this.input.targetAngle = Math.atan2(clientY - cy, clientX - cx);
+                };
+
+                container.addEventListener('touchstart', (e) => { this.input.active = true; handleInput(e); }, {passive: false});
+                container.addEventListener('touchmove', handleInput, {passive: false});
+                container.addEventListener('touchend', () => { this.input.active = false; });
+                
+                container.addEventListener('mousedown', (e) => { this.input.active = true; handleInput(e); });
+                container.addEventListener('mousemove', (e) => { if(this.input.active) handleInput(e); });
+                container.addEventListener('mouseup', () => { this.input.active = false; });
+                container.addEventListener('mouseleave', () => { this.input.active = false; });
+            }
+        };
+
+         // --- 飛艇物件 ---
+        const Ship = {
+            x: 0, y: 0,
+            vx: 0, vy: 0,
+            angle: 0,
+            speedLimit: 150,
+            enginePower: 80,
+            friction: 0.96, // 空氣阻力
+            glideTimer: 0,
+            updraftTimer: 0,
+            
+            reset() {
+                this.x = 0; this.y = 0;
+                this.vx = 0; this.vy = 0;
+                this.angle = 0;
+                this.glideTimer = 0;
+                this.updraftTimer = 0;
+            },
+
+            update(dt) {
+                // 1. 取得當前風場影響
+                const wind = MapManager.getWindAt(this.x, this.y);
+                const currentWeight = Game.weight;
+                const weightFactor = Math.max(1, currentWeight / 45); // 重量大於45開始感受阻力
+
+                // 第一次進入雷暴的筆記
+                if (wind.type === 'storm' && !Game.stats.journal.has('storm')) {
+                    Game.stats.journal.add('storm');
+                    Game.showJournal("雷暴...引擎聽起來像在哀嚎，這鬼天氣隨時會把船撕裂。");
+                }
+
+                // 2. 飛行技巧判定
+                if (!Game.input.active && Math.hypot(this.vx, this.vy) > 20) {
+                    this.glideTimer += dt;
+                    if (this.glideTimer > 5 && Game.buff.type !== 'glide') {
+                        Game.buff = { type: 'glide', timer: 10 };
+                        Game.showMessage("飛行技巧：滑翔大師！", "text-emerald-400");
+                        Game.updateUI();
+                    }
+                } else {
+                    this.glideTimer = 0;
+                }
+
+                if (wind.type === 'updraft') {
+                    this.updraftTimer += dt;
+                    if (this.updraftTimer > 3 && Game.buff.type !== 'updraft') {
+                        Game.buff = { type: 'updraft', timer: 12 };
+                        Game.showMessage("飛行技巧：御風而行！", "text-emerald-400");
+                        Game.updateUI();
+                    }
+                } else {
+                    this.updraftTimer = 0;
+                }
+
+                // 3. 引擎推進 (玩家控制)
+                let fuelDrain = 2;
+                if (wind.type === 'updraft') fuelDrain = 0; // 上升氣流不耗油
+                else if (wind.type === 'downdraft') fuelDrain = 4 * weightFactor; // 下降氣流且過重會巨量耗油
+
+                // 判斷逆風
+                let headwindFactor = 1;
+                if (wind.vx !== 0 || wind.vy !== 0) {
+                    const moveDotWind = Math.cos(this.angle) * wind.vx + Math.sin(this.angle) * wind.vy;
+                    if (moveDotWind < -0.3) headwindFactor = 1 + (0.5 * weightFactor); // 逆風時，重量越重耗能越劇烈
+                }
+
+                if (Game.input.active && Game.res.fuel > 0) {
+                    // 緩慢轉向目標角度 (受重量影響轉向靈活度)
+                    let diff = Game.input.targetAngle - this.angle;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    this.angle += diff * (5 / weightFactor) * dt; 
+
+                    // 推進力受到氣流與重量影響
+                    let power = this.enginePower;
+                    if (wind.type === 'downdraft') power *= 0.6; // 引擎出力受下降氣流減弱
+                    if (wind.type === 'updraft') power *= 1.3; // 引擎出力受上升氣流增強
+                    
+                    if (Game.buff.type === 'glide') fuelDrain *= 0.5; // 滑翔大師降低耗油
+                    if (Game.buff.type === 'updraft') power *= 1.2; // 御風大師提升動力
+
+                    // 加速度受重量限制
+                    this.vx += Math.cos(this.angle) * (power / weightFactor) * dt;
+                    this.vy += Math.sin(this.angle) * (power / weightFactor) * dt;
+                    
+                    // 扣燃料
+                    Game.res.fuel -= fuelDrain * headwindFactor * dt; 
+                    if(Math.random() < 0.1) Game.updateUI(); // 偶爾更新UI節省效能
+                }
+
+                // 4. 風力推動
+                this.vx += wind.vx * dt;
+                this.vy += wind.vy * dt;
+
+                // 5. 速度限制與摩擦力
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+
+                // 6. 亂流/雷暴環境傷害
+                if (wind.type === 'storm') {
+                    if (Math.random() < 0.05) { // 每幀機率扣血
+                        Game.res.hull -= 1;
+                        Game.showMessage("雷暴襲擊！船體受損", "text-red-400");
+                        Game.updateUI();
+                    }
+                }
+
+                // 6. 更新位置 (移除原本的邊界限制，實現無限天空)
+                this.x += this.vx * dt * 50; 
+                this.y += this.vy * dt * 50;
+            }
+        };
+
+         // --- 地圖與風場生成 ---
+        const MapManager = {
+            islands: [],
+            windZones: [],
+            particles: [], // 用於渲染風的視覺線條
+            loadedChunks: new Set(),
+            chunkSize: 2000,
+
+            generate() {
+                this.islands = [];
+                this.windZones = [];
+                this.particles = [];
+                this.loadedChunks.clear();
+
+                // 準備風的粒子視覺
+                for(let i=0; i<150; i++) {
+                    this.particles.push({
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        life: Math.random() * 100
+                    });
+                }
+            },
+
+             update(dt) {
+                // 風區動態漂移，讓天空真正活起來
+                for(let z of this.windZones) {
+                    z.x += z.dx * dt;
+                    z.y += z.dy * dt;
+                }
+            },
+
+            updateChunks(px, py) {
+                let cx = Math.floor(px / this.chunkSize);
+                let cy = Math.floor(py / this.chunkSize);
+                
+                for(let x = cx - 1; x <= cx + 1; x++) {
+                    for(let y = cy - 1; y <= cy + 1; y++) {
+                        let key = `${x},${y}`;
+                        if(!this.loadedChunks.has(key)) {
+                            this.generateChunk(x, y);
+                            this.loadedChunks.add(key);
+                        }
+                    }
+                }
+
+                // 隨機清理過遠的物件，確保記憶體不會爆掉 (距離大於 2.5 個區塊即銷毀)
+                // 為了符合世界觀：漂浮島嶼一旦遠離，便會隨風消散在天際，無法回頭尋找。
+                if(Math.random() < 0.02) {
+                    this.islands = this.islands.filter(i => Math.hypot(i.x - px, i.y - py) < this.chunkSize * 2.5);
+                    this.windZones = this.windZones.filter(z => Math.hypot(z.x - px, z.y - py) < this.chunkSize * 2.5);
+                }
+            },
+
+            generateChunk(cx, cy) {
+                let baseX = cx * this.chunkSize;
+                let baseY = cy * this.chunkSize;
+
+                // 隨機生成特殊風區
+                let numWinds = 2 + Math.floor(Math.random() * 3);
+                for (let i = 0; i < numWinds; i++) {
+                    const r = Math.random();
+                    let type = 'calm';
+                    if (r > 0.8) type = 'storm'; // 雷暴
+                    else if (r > 0.6) type = 'updraft'; // 上升氣流
+                    else if (r > 0.4) type = 'downdraft'; // 下降氣流
+                    else if (r > 0.2) type = 'gale'; // 強風
+
+                    this.windZones.push({
+                        x: baseX + Math.random() * this.chunkSize,
+                        y: baseY + Math.random() * this.chunkSize,
+                        radius: 300 + Math.random() * 600,
+                        angle: Math.random() * Math.PI * 2,
+                        strength: type === 'storm' ? 3.5 : (type === 'gale' ? 2.5 : (type === 'calm' ? 0.5 : 1.5)),
+                        type: type,
+                        // 加入風區移動向量
+                        dx: (Math.random() - 0.5) * 15,
+                        dy: (Math.random() - 0.5) * 15
+                    });
+                }
+
+                // 生成空島節點
+                let numIslands = 1 + Math.floor(Math.random() * 3);
+                for (let i = 0; i < numIslands; i++) {
+                    let ix = baseX + Math.random() * this.chunkSize;
+                    let iy = baseY + Math.random() * this.chunkSize;
+                    
+                    // 避免在起點直接生成重疊
+                    if(cx === 0 && cy === 0 && Math.hypot(ix, iy) < 400) continue;
+
+                    const biome = this.getRandomBiome();
+
+                    this.islands.push({
+                        id: Math.random().toString(36).substr(2, 9),
+                        x: ix, y: iy,
+                        radius: 40 + Math.random() * 30,
+                        visited: false,
+                        biome: biome.type,
+                        color: biome.color,
+                        shape: this.generateIslandShape() // 產生多邊形
+                    });
+                }
+            },
+
+            getRandomBiome() {
+                const rand = Math.random();
+                if (rand < 0.20) return { type: 'forest', color: '#4ade80' }; // 森林 (綠)
+                if (rand < 0.40) return { type: 'ore', color: '#94a3b8' }; // 礦石 (灰)
+                if (rand < 0.55) return { type: 'ruins', color: '#64748b' }; // 廢墟 (深灰)
+                if (rand < 0.65) return { type: 'wreck', color: '#3f3f46' }; // 殘骸 (鐵黑)
+                if (rand < 0.75) return { type: 'temple', color: '#facc15' }; // 神殿 (金黃)
+                if (rand < 0.90) return { type: 'creature', color: '#f472b6' }; // 生物巢穴 (粉紫)
+                return { type: 'merchant', color: '#38bdf8' }; // 商人 (亮藍)
+            },
+
+            generateIslandShape() {
+                let pts = [];
+                let sides = 6 + Math.floor(Math.random() * 4);
+                for (let i = 0; i < sides; i++) {
+                    let a = (i / sides) * Math.PI * 2;
+                    let r = 0.6 + Math.random() * 0.4; // 隨機半徑比例
+                    pts.push({a, r});
+                }
+                return pts;
+            },
+
+            getWindAt(x, y) {
+                // 基礎微風 (向右下)
+                let wx = 0.2, wy = 0.2; 
+                let type = 'normal';
+
+                for (let z of this.windZones) {
+                    let dist = Math.hypot(x - z.x, y - z.y);
+                    if (dist < z.radius) {
+                        // 距離中心越近影響越大
+                        let influence = 1 - (dist / z.radius);
+                        
+                        if (z.type === 'storm') {
+                            // 亂流：加入隨機向量
+                            wx += (Math.cos(z.angle) * z.strength + (Math.random()-0.5)*2) * influence;
+                            wy += (Math.sin(z.angle) * z.strength + (Math.random()-0.5)*2) * influence;
+                            type = 'storm';
+                        } else if (z.type === 'updraft') {
+                            wx += Math.cos(z.angle) * z.strength * influence;
+                            wy += Math.sin(z.angle) * z.strength * influence;
+                            type = 'updraft';
+                        } else if (z.type === 'downdraft') {
+                            wx += Math.cos(z.angle) * z.strength * influence;
+                            wy += Math.sin(z.angle) * z.strength * influence;
+                            type = 'downdraft';
+                        } else {
+                            wx += Math.cos(z.angle) * z.strength * influence;
+                            wy += Math.sin(z.angle) * z.strength * influence;
+                        }
+                    }
+                }
+                return { vx: wx, vy: wy, type: type };
+            },
+
+            checkCollisions() {
+                for (let island of this.islands) {
+                    if (!island.visited) {
+                        let dist = Math.hypot(Ship.x - island.x, Ship.y - island.y);
+                        if (dist < island.radius + 15) { // 15為飛艇大約半徑
+                            island.visited = true;
+                            Events.trigger(island);
+                        }
+                    }
+                }
+            }
+        };
+
+        // --- 繪圖渲染 ---
+        const Canvas = {
+            ctx: null,
+            width: 0, height: 0,
+
+            init() {
+                const cvs = document.getElementById('gameCanvas');
+                this.ctx = cvs.getContext('2d');
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            },
+
+            resize() {
+                const cvs = document.getElementById('gameCanvas');
+                this.width = window.innerWidth;
+                this.height = window.innerHeight;
+                cvs.width = this.width;
+                cvs.height = this.height;
+            },
+
+            draw(dt) {
+                const ctx = this.ctx;
+                
+                // 清除背景 (深空色)
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, this.width, this.height);
+
+                ctx.save();
+                // 攝影機跟隨飛艇
+                let camX = this.width/2 - Ship.x;
+                let camY = this.height/2 - Ship.y;
+                ctx.translate(camX, camY);
+
+                // 1. 畫風區底部顏色 (雷暴區、上升氣流、下降氣流)
+                for (let z of MapManager.windZones) {
+                    if(z.type === 'storm' || z.type === 'updraft' || z.type === 'downdraft') {
+                        // 檢查是否在視窗內
+                        if(Math.hypot(Ship.x - z.x, Ship.y - z.y) < z.radius + Math.max(this.width, this.height)) {
+                            let grad = ctx.createRadialGradient(z.x, z.y, 0, z.x, z.y, z.radius);
+                            
+                            if (z.type === 'storm') {
+                                grad.addColorStop(0, 'rgba(76, 29, 149, 0.3)'); // 紫色雷暴
+                                grad.addColorStop(1, 'rgba(76, 29, 149, 0)');
+                            } else if (z.type === 'updraft') {
+                                grad.addColorStop(0, 'rgba(14, 165, 233, 0.15)'); // 亮藍色上升氣流
+                                grad.addColorStop(1, 'rgba(14, 165, 233, 0)');
+                            } else if (z.type === 'downdraft') {
+                                grad.addColorStop(0, 'rgba(39, 39, 42, 0.6)'); // 灰黑色下降氣流
+                                grad.addColorStop(1, 'rgba(39, 39, 42, 0)');
+                            }
+
+                            ctx.fillStyle = grad;
+                            ctx.beginPath();
+                            ctx.arc(z.x, z.y, z.radius, 0, Math.PI*2);
+                            ctx.fill();
+                            
+                            // 閃電特效
+                            if (z.type === 'storm' && Math.random() < 0.05) {
+                                ctx.fillStyle = 'rgba(253, 224, 71, 0.2)';
+                                ctx.fill();
+                            }
+                        }
+                    }
+                }
+
+                // 2. 畫空島
+                for (let island of MapManager.islands) {
+                    // 視錐剔除簡單版
+                    if(Math.abs(Ship.x - island.x) > this.width || Math.abs(Ship.y - island.y) > this.height) continue;
+
+                    ctx.save();
+                    ctx.translate(island.x, island.y);
+                    
+                    // 島嶼本體
+                    ctx.beginPath();
+                    for(let i=0; i<island.shape.length; i++) {
+                        let pt = island.shape[i];
+                        let r = island.radius * pt.r;
+                        let px = Math.cos(pt.a) * r;
+                        let py = Math.sin(pt.a) * r;
+                        if(i===0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    
+                    ctx.fillStyle = island.visited ? '#1e293b' : island.color; // 根據生態系上色
+                    ctx.fill();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = island.visited ? '#0f172a' : '#cbd5e1';
+                    ctx.stroke();
+
+                    // 島上標記
+                    if (!island.visited) {
+                        ctx.fillStyle = '#bae6fd';
+                        ctx.font = '16px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('?', 0, 0);
+                    }
+                    ctx.restore();
+                }
+
+                // 3. 畫飛艇
+                ctx.save();
+                ctx.translate(Ship.x, Ship.y);
+                ctx.rotate(Ship.angle);
+
+                // 引擎火焰
+                if (Game.input.active && Game.res.fuel > 0) {
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.beginPath();
+                    ctx.moveTo(-10, -5);
+                    ctx.lineTo(-20 - Math.random()*10, 0);
+                    ctx.lineTo(-10, 5);
+                    ctx.fill();
+                }
+
+                // 船體 (簡單風箏形)
+                ctx.fillStyle = '#0284c7'; // 藍色船體
+                ctx.beginPath();
+                ctx.moveTo(15, 0);   // 機頭
+                ctx.lineTo(-10, 10); // 右翼
+                ctx.lineTo(-5, 0);   // 尾部
+                ctx.lineTo(-10, -10);// 左翼
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#e0f2fe';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                ctx.restore();
+                ctx.restore(); // 結束相機矩陣
+
+                // 4. 在 UI 層畫風場流線 (基於螢幕座標，提取世界座標的風)
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 1;
+                for (let p of MapManager.particles) {
+                    // 將螢幕座標轉為世界座標查風力
+                    let worldX = p.x - camX;
+                    let worldY = p.y - camY;
+                    let wind = MapManager.getWindAt(worldX, worldY);
+                    
+                    // 根據風速決定線條長度與顏色
+                    let speed = Math.hypot(wind.vx, wind.vy);
+                    let len = speed * 15;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(p.x + wind.vx * len, p.y + wind.vy * len);
+                    
+                    if(wind.type === 'storm') {
+                        ctx.strokeStyle = 'rgba(216, 180, 254, 0.5)'; // 紫色風
+                    } else if (wind.type === 'updraft') {
+                        ctx.strokeStyle = 'rgba(186, 233, 255, 0.8)'; // 明亮的上升流線
+                    } else if (wind.type === 'downdraft') {
+                        ctx.strokeStyle = 'rgba(161, 161, 170, 0.3)'; // 黯淡的下降流線
+                    } else if (speed > 1.5) {
+                        ctx.strokeStyle = 'rgba(186, 230, 253, 0.6)'; // 強風
+                    } else {
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; // 微風
+                    }
+                    ctx.stroke();
+
+                    // 更新粒子生命與位置 (製造流動感)
+                    p.life -= dt * 60;
+                    p.x += wind.vx * speed * 2;
+                    p.y += wind.vy * speed * 2;
+
+                    if (p.life <= 0 || p.x < 0 || p.x > this.width || p.y < 0 || p.y > this.height) {
+                        p.x = Math.random() * this.width;
+                        p.y = Math.random() * this.height;
+                        p.life = 50 + Math.random() * 100;
+                    }
+                }
+            }
+        };
+
+         // --- 探索事件系統 ---
+        const Events = {
+            db: {},          
+            init() {
+                // 定義各種事件庫
+                this.db = {
+                    'forest': [
+                        {
+                            title: "蒼翠浮島",
+                            desc: "島上長滿了能在強風中生長的韌草與奇異果實。這是難得的天然補給點。",
+                            choices: [
+                                { text: "採集可食用果實 (花費時間，扣燃料)", action: () => {
+                                    Game.modifyRes('fuel', -10); Game.modifyRes('food', 35);
+                                    return {msg: "果實微酸但充滿水分，補滿了體力！", type: "text-green-400"};
+                                }},
+                                { text: "深入樹海打獵 (高回報但可能受傷)", action: () => {
+                                    if(Math.random() > 0.4) { Game.modifyRes('food', 60); return {msg: "捕獲了一隻肥美的風稚鳥！", type: "text-green-400"}; }
+                                    else { Game.modifyRes('hull', -10); return {msg: "遭到隱藏在樹冠的風蛇襲擊，受了點輕傷。", type: "text-red-400"}; }
+                                }},
+                                { text: "離開", action: () => { return null; } }
+                            ]
+                        }
+                    ],
+                    'ore': [
+                        {
+                            title: "銳角礦岩",
+                            desc: "這座島主要由堅硬的礦石構成。岩層中露出了一些可用來打造工具的金屬母礦。",
+                            choices: [
+                                { text: "手動開採 (消耗大量食物-20)", action: () => {
+                                    if(Game.res.food < 20) return {msg: "餓著肚子無法敲碎岩石", type: "text-slate-400"};
+                                    Game.modifyRes('food', -20); Game.modifyRes('tools', 2);
+                                    return {msg: "費了九牛二虎之力，敲下了足夠製作工具的礦石。", type: "text-yellow-400"};
+                                }},
+                                { text: "用飛艇暴力衝撞岩壁 (扣除耐久)", action: () => {
+                                    Game.modifyRes('hull', -15); Game.modifyRes('tools', 3);
+                                    return {msg: "裝甲凹陷了，但大把的礦石掉進了甲板。", type: "text-yellow-400"};
+                                }},
+                                { text: "離開", action: () => { return null; } }
+                            ]
+                        }
+                    ],
+                    'ruins': [
+                        {
+                            title: "廢棄空島聚落",
+                            desc: "木屋早已腐朽，風中傳來微弱的哨音。這裡似乎曾是某個掠空者家族的營地，也許能找到剩下的物資。",
+                            choices: [
+                                { text: "仔細搜索 (消耗食物-10)", action: () => {
+                                    if(Game.res.food < 10) return {msg: "食物不足以支持長時間搜索", type: "text-slate-400"};
+                                    Game.modifyRes('food', -10);
+                                    let found = Math.random();
+                                    if(found > 0.5) { Game.modifyRes('tools', 1); Game.modifyRes('fuel', 15); return {msg: "找到了1個工具與些許燃料！", type: "text-green-400"}; }
+                                    else { return {msg: "一無所獲，白白浪費了體力。", type: "text-slate-400"}; }
+                                }},
+                                { text: "快速翻找 (無消耗)", action: () => {
+                                    if(Math.random() > 0.7) { Game.modifyRes('food', 15); return {msg: "幸運找到一些合成口糧。", type: "text-green-400"}; }
+                                    return {msg: "除了一地灰塵，什麼也沒有。", type: "text-slate-400"};
+                                }},
+                                { text: "離開", action: () => { return {msg: "安全第一，你駛離了這片廢墟。"}; } }
+                            ]
+                        }
+                    ],
+                    'wreck': [
+                        {
+                            title: "失事飛艇殘骸",
+                            desc: "一艘巨大的舊式飛艇卡在岩壁上，引擎部位還冒著微弱的火花。拆解它有風險，但也可能有高回報。",
+                            choices: [
+                                { text: "冒險拆解引擎 (機率扣耐久)", action: () => {
+                                    if(Math.random() > 0.4) { Game.modifyRes('fuel', 30); Game.modifyRes('tools', 1); return {msg: "成功拆出大量燃料與1個工具！", type: "text-yellow-400"}; }
+                                    else { Game.modifyRes('hull', -20); return {msg: "引擎殘骸發生氣爆！船體受損。", type: "text-red-400"}; }
+                                }},
+                                { text: "使用工具安全拆解 (消耗工具-1)", action: () => {
+                                    if(Game.res.tools < 1) return {msg: "工具不足！", type: "text-slate-400"};
+                                    Game.modifyRes('tools', -1); Game.modifyRes('fuel', 25); Game.modifyRes('hull', 15);
+                                    return {msg: "安全拆解，獲得燃料並修補了部分船體。", type: "text-green-400"};
+                                }},
+                                { text: "離開", action: () => { return null; } }
+                            ]
+                        }
+                    ],
+                    'temple': [
+                        {
+                            title: "古老神殿",
+                            desc: "這座神殿隱藏在雲霧中，巨大的石柱上刻滿了風的符文。傳聞這類神殿祭壇上常留有古老科技。",
+                            choices: [
+                                { text: "深入祭壇 (極高機率遭遇亂流，消耗大量耐久)", action: () => {
+                                    Game.modifyRes('hull', -25);
+                                    Game.stats.relics += 2;
+                                    Game.updateUI();
+                                    return {msg: "神殿防禦機制啟動，狂風撕裂了部分船體，但你搶到了兩塊古代遺物！", type: "text-sky-300"};
+                                }},
+                                { text: "在外圍搜刮", action: () => {
+                                    if(Math.random() > 0.5) { Game.modifyRes('tools', 1); return {msg: "在外圍找到了一個尚可使用的古代工具。", type: "text-green-400"}; }
+                                    return {msg: "外圍空無一物。", type: "text-slate-400"};
+                                }},
+                                { text: "離開", action: () => { return null; } }
+                            ]
+                        }
+                    ],
+                    'relic_site': [
+                        {
+                            title: "神秘遺跡",
+                            desc: "一塊散發著奇異藍光的巨大金屬碑立在島中央。它似乎需要某種能量才能啟動。",
+                            choices: [
+                                { text: "注入飛艇燃料 (消耗燃料-30)", action: () => {
+                                    if(Game.res.fuel < 30) return {msg: "燃料不足以啟動石碑", type: "text-slate-400"};
+                                    Game.modifyRes('fuel', -30);
+                                    Game.modifyRes('hull', 50);
+                                    return {msg: "石碑釋放出柔和的立場，飛艇的裝甲奇蹟般地自我修復了！", type: "text-green-400"};
+                                }},
+                                { text: "獻上古代遺物 (需 1 遺物)", action: () => {
+                                    if(Game.stats.relics < 1) return {msg: "身上沒有遺物", type: "text-slate-400"};
+                                    Game.stats.relics -= 1;
+                                    Game.modifyRes('food', 50); Game.modifyRes('fuel', 50);
+                                    return {msg: "碑文亮起，周圍的物質被轉化成了純淨的補給品！", type: "text-yellow-400"};
+                                }},
+                                { text: "不觸碰，離開", action: () => { return null; } }
+                            ]
+                        }
+                    ],
+                    'creature': [
+                        {
+                            title: "遭遇：晶殼風蛇",
+                            desc: "一條巨大的風蛇在氣流中盤旋，牠的鱗片閃爍著靜電。牠似乎被你飛艇的引擎熱能吸引了。",
+                            choices: [
+                                { text: "關閉引擎靜止躲避 (消耗食物-15)", action: () => {
+                                    if(Game.res.food < 15) return {msg: "餓著肚子無法保持專注躲避", type: "text-slate-400"};
+                                    Game.modifyRes('food', -15);
+                                    return {msg: "你在黑暗中屏息，風蛇盤旋幾圈後失去了興趣。", type: "text-green-400"};
+                                }},
+                                { text: "全速逃離 (消耗大量燃料)", action: () => {
+                                    Game.modifyRes('fuel', -20);
+                                    if(Math.random() > 0.3) return {msg: "你驚險地衝出風蛇的領地。", type: "text-yellow-400"};
+                                    else { Game.modifyRes('hull', -15); return {msg: "逃脫不及，尾翼被風蛇擦撞！", type: "text-red-400"}; }
+                                }},
+                                { text: "投擲食物誘餌 (消耗食物-20)", action: () => {
+                                    if(Game.res.food < 20) return {msg: "食物不夠作誘餌", type: "text-slate-400"};
+                                    Game.modifyRes('food', -20); Game.stats.relics += 1; Game.updateUI();
+                                    return {msg: "風蛇吞下食物，高興地吐出了一塊發光的古代遺物！", type: "text-sky-300"};
+                                }}
+                            ]
+                        },
+                        {
+                            title: "遭遇：引雷鳥",
+                            desc: "一隻雙翼纏繞著閃電的巨鳥正在雷暴邊緣狩獵。牠的目光鎖定了你的金屬船體。",
+                            choices: [
+                                { text: "誘導其衝入雷暴 (需極佳操作)", action: () => {
+                                    if(Math.random() > 0.5) { Game.modifyRes('fuel', -10); return {msg: "你巧妙地甩開了雷鳥，牠衝入雷暴中不見蹤影。", type: "text-green-400"}; }
+                                    else { Game.modifyRes('hull', -25); return {msg: "誘導失敗！雷鳥釋放了閃電鏈，船體大破！", type: "text-red-400"}; }
+                                }},
+                                { text: "丟棄金屬工具自保 (消耗工具-1)", action: () => {
+                                    if(Game.res.tools < 1) return {msg: "沒有工具可以丟棄！", type: "text-slate-400"};
+                                    Game.modifyRes('tools', -1);
+                                    return {msg: "雷鳥被閃亮的工具吸引，抓起工具飛走了。", type: "text-yellow-400"};
+                                }}
+                            ]
+                        },
+                        {
+                            title: "遭遇：浮空水母群",
+                            desc: "一群半透明的巨大水母在空中緩慢漂浮，牠們體內似乎有著純淨的生物燃料。",
+                            choices: [
+                                { text: "小心翼翼地抽取 (消耗時間與食物-10)", action: () => {
+                                    if(Game.res.food < 10) return {msg: "體力不支，無法進行精細操作", type: "text-slate-400"};
+                                    Game.modifyRes('food', -10); Game.modifyRes('fuel', 30);
+                                    return {msg: "成功抽取生物燃料！", type: "text-green-400"};
+                                }},
+                                { text: "直接撞擊捕撈 (機率受傷)", action: () => {
+                                    if(Math.random() > 0.4) { Game.modifyRes('fuel', 40); return {msg: "粗暴但有效，獲得大量燃料。", type: "text-yellow-400"}; }
+                                    else { Game.modifyRes('hull', -15); Game.modifyRes('fuel', 15); return {msg: "水母破裂釋放酸液，獲得少量燃料但船體受損。", type: "text-red-400"}; }
+                                }},
+                                { text: "繞道而行", action: () => { return null; } }
+                            ]
+                        },
+                        {
+                            title: "遭遇：遠古風龍",
+                            desc: "雲海深處，一頭只存在於傳說中的風龍正冷冷地注視著你。四周的氣流因牠的呼吸而狂暴。",
+                            choices: [
+                                { text: "利用下降氣流急速俯衝 (消耗大量燃料)", action: () => {
+                                    Game.modifyRes('fuel', -30);
+                                    return {msg: "引擎全開配合重力，你驚險地逃離了風龍的視線。", type: "text-yellow-400"};
+                                }},
+                                { text: "關閉一切動力裝死 (機率死亡)", action: () => {
+                                    if(Math.random() > 0.7) { 
+                                        Game.stats.relics += 3; Game.updateUI();
+                                        return {msg: "風龍對死物沒有興趣，離去前牠抖落了三枚閃耀的鱗片(遺物)！", type: "text-sky-300"}; 
+                                    }
+                                    else { 
+                                        Game.res.hull = 0; 
+                                        return {msg: "風龍一口咬碎了你的飛艇...", type: "text-red-400"}; 
+                                    }
+                                }}
+                            ]
+                        }
+                    ],
+                    'merchant': [
+                        {
+                            title: "漂流商人「老骨頭」",
+                            desc: "一艘掛滿破布的拼裝船靠了過來，擴音器傳來沙啞的聲音：「掠空者，要拿遺物換點能活命的東西嗎？」",
+                            choices: [
+                                { text: "換取全套補給 (需 2 遺物)", action: () => {
+                                    if(Game.stats.relics < 2) return {msg: "遺物不足，老骨頭冷笑著拒絕了。", type: "text-slate-400"};
+                                    Game.stats.relics -= 2; Game.modifyRes('fuel', 30); Game.modifyRes('food', 30); Game.modifyRes('hull', 30); Game.modifyRes('tools', 1);
+                                    return {msg: "一筆好交易！物資大幅補充。", type: "text-green-400"};
+                                }},
+                                { text: "換取維修工具 (需 1 遺物)", action: () => {
+                                    if(Game.stats.relics < 1) return {msg: "遺物不足。", type: "text-slate-400"};
+                                    Game.stats.relics -= 1; Game.modifyRes('tools', 2);
+                                    return {msg: "獲得了2個工具。", type: "text-green-400"};
+                                }},
+                                { text: "沒有東西交換，離開", action: () => { return {msg: "「祝你好運，可憐蟲。」商人隨風遠去。"}; } }
+                            ]
+                        }
+                    ],
+                    'log': [
+                        {
+                            title: "古代日誌殘片",
+                            desc: "在石柱的縫隙中，你發現了一塊防水的電子日誌板。文字斷斷續續：\n『...元素之塔的運轉已經無法停止，大地正在撕裂...但只要那座高於雲層的巨塔還在，或許...』",
+                            choices: [
+                                { text: "提取數據板 (獲取遺物)", action: () => {
+                                    Game.stats.logsRead++;
+                                    Game.stats.relics++;
+                                    Game.updateUI();
+                                    return {msg: "這塊舊時代的數據板本身就是有價值的遺物。遠方的巨塔，依舊靜默。", type: "text-sky-300"};
+                                }}
+                            ]
+                        }
+                    ]
+                };
+            },
+
+            trigger(island) {
+                Game.state = 'event'; // 暫停遊戲
+                Game.input.active = false;
+
+                // --- 掠空者筆記 (第一次遭遇該地貌時觸發) ---
+                if (!Game.stats.journal.has(island.biome)) {
+                    Game.stats.journal.add(island.biome);
+                    const notes = {
+                        'forest': "綠色的植物...好久沒看到了，希望能找到點吃的。",
+                        'ore': "這座島都是堅硬的岩盤，或許能敲些修補船體的素材下來。",
+                        'ruins': "又有一個聚落被風吹垮了。我們都在等著同一種結局嗎？",
+                        'wreck': "另一艘運氣不好的飛艇。抱歉了老兄，為了活下去，你的零件我收下了。",
+                        'temple': "那些古人為什麼要把神殿蓋在天上？真是不知死活。",
+                        'relic_site': "這東西還在發光。古代的科技總是讓人毛骨悚然。",
+                        'creature': "那是什麼聲音...天空裡的怪物越來越多了。",
+                        'merchant': "老骨頭這傢伙，到底是怎麼在這種環境活到現在的？"
+                    };
+                    if(notes[island.biome]) Game.showJournal(notes[island.biome]);
+                }
+
+                // 根據生態系取得事件池
+                const pool = this.db[island.biome] || this.db['ruins'];
+                const evtData = pool[Math.floor(Math.random() * pool.length)];
+
+                document.getElementById('event-title').textContent = evtData.title;
+                document.getElementById('event-desc').innerText = evtData.desc;
+                
+                const choicesContainer = document.getElementById('event-choices');
+                choicesContainer.innerHTML = ''; // 清空
+
+                evtData.choices.forEach(choice => {
+                    const btn = document.createElement('button');
+                    btn.className = "w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-3 px-4 rounded border border-slate-600 transition-colors text-left text-sm sm:text-base";
+                    btn.textContent = "▶ " + choice.text;
+                    btn.onclick = () => {
+                        const result = choice.action();
+                        if (result && result.msg) {
+                            // 判斷是否因選項導致死亡，若無則顯示訊息並關閉
+                            if(Game.res.fuel <= 0 || Game.res.hull <= 0) {
+                                this.closeModal();
+                                Game.checkDeath();
+                            } else {
+                                // 將按鈕替換為結果確認
+                                choicesContainer.innerHTML = '';
+                                const resText = document.createElement('p');
+                                resText.className = `font-bold ${result.type || 'text-slate-300'} mb-4`;
+                                resText.textContent = result.msg;
+                                
+                                const closeBtn = document.createElement('button');
+                                closeBtn.className = "w-full bg-sky-800 hover:bg-sky-700 text-white font-bold py-3 px-4 rounded transition-colors";
+                                closeBtn.textContent = "繼續航行";
+                                closeBtn.onclick = () => this.closeModal();
+                                
+                                choicesContainer.appendChild(resText);
+                                choicesContainer.appendChild(closeBtn);
+                            }
+                        } else {
+                            this.closeModal();
+                        }
+                    };
+                    choicesContainer.appendChild(btn);
+                });
+
+                document.getElementById('event-modal').classList.remove('hidden');
+            },
+
+            closeModal() {
+                document.getElementById('event-modal').classList.add('hidden');
+                Game.state = 'playing';
+            }
+        };
+
+        // --- 啟動遊戲 ---
+        window.onload = () => {
+            Game.init();
+        };
+
+    </script>
+</body>
+</html>
