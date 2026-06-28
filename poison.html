@@ -364,7 +364,9 @@
                 }
                 this.saveProgress(); this.updateCampUI(); 
                 document.getElementById('btn-select-back').style.display = 'block';
-                document.getElementById('btn-return').onclick = () => Game.returnToCamp();
+                const btnReturn = document.getElementById('btn-return');
+                btnReturn.innerText = "繼續";
+                btnReturn.onclick = () => Game.returnToCamp();
                 this.switchPanel('panel-camp');
             },
 
@@ -639,7 +641,7 @@
                 document.getElementById('enemy-habit').innerText = e.habitName ? e.habitName : '';
 
                 this.state.combat = {
-                    inProgress: false, turnCount: 0, enemyPoison: 0, playerPoison: 0, enemyStunned: false, enemyDefDebuff: 0, defShattered: false,
+                    inProgress: false, turnCount: 0, enemyPoison: 0, playerPoison: 0, enemyStunned: false, enemyDefDebuff: 0, defShattered: false, turnLocked: false,
                     playerHuntStacks: 0, enemyBleedStacks: 0, enemyParasiteStacks: 0, bossFatigue: 0, bossStunTurns: 0, minions: [], terrain: null, terrainUsed: false, bossAdaptation: {}, burstUsed: false, bloodBurstActive: false, thornsBurstActive: false, pheroUsed: false,
                     bossNestGuard: e.habit === 'nest_guard', bossStealth: e.habit === 'stealth', bossCounter: 0, queenAloneTurns: 0, ironInterrupts: 0
                 };
@@ -790,8 +792,11 @@
             },
 
             usePheromone: async function(type) {
-                this.state.combat.pheroUsed = true; this.hidePheroMenu(); document.querySelectorAll('#action-buttons button').forEach(b => b.disabled = true);
+                if(!this.state.combat.inProgress || this.state.combat.turnLocked || this.state.combat.pheroUsed) return;
+                this.state.combat.turnLocked = true; this.state.combat.pheroUsed = true; 
+                this.hidePheroMenu(); document.querySelectorAll('#action-buttons button').forEach(b => b.disabled = true);
                 const e = this.state.currentEncounter;
+                try {
                 if(type === 'frenzy') {
                     this.log(`🔴 散發狂暴素！全場幼體與生態結構陷入混亂！`, "log-skill"); await this.sleep(600);
                     if(this.state.combat.minions.length > 0) {
@@ -827,13 +832,15 @@
                 }
                 
                 this.updateCombatBars(); if(await this.checkDeath()) return; await this.processEnemyTurnSafe(false);
+                } finally { this.state.combat.turnLocked = false; }
             },
 
             combatTurn: async function(actionType) {
-                if(!this.state.combat.inProgress) return;
+                if(!this.state.combat.inProgress || this.state.combat.turnLocked) return;
+                this.state.combat.turnLocked = true;
                 const p = this.state.player, e = this.state.currentEncounter, eq = p.equippedTraits;
                 
-                if(actionType === 'skill') { const cost = Math.floor(p.maxHp * 0.1); if(p.hp <= cost) { this.log("生命不足以釋放毒技！", "log-sys"); return; } }
+                if(actionType === 'skill') { const cost = Math.floor(p.maxHp * 0.1); if(p.hp <= cost) { this.log("生命不足以釋放毒技！", "log-sys"); this.state.combat.turnLocked = false; return; } }
 
                 document.querySelectorAll('#action-buttons button').forEach(b => b.disabled = true);
                 
@@ -924,6 +931,7 @@
                     this.updateCombatBars(); if(await this.checkDeath()) return; await this.processEnemyTurnSafe(pDefending);
 
                 } catch(err) { console.error(err); this.unlockButtons(); }
+                finally { this.state.combat.turnLocked = false; }
             },
 
             executeTerrain: async function() {
