@@ -92,6 +92,14 @@
             </div>
         </div>
 
+        <div id="event-reward-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(4,7,4,0.92); z-index:21; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+            <div style="background:#0d150d; border:1px solid var(--event-color); border-radius:8px; padding:24px 20px; width:100%; max-width:380px; max-height:80vh; overflow-y:auto; box-shadow:0 0 30px rgba(26,188,156,0.25); text-align:center;">
+                <div id="event-reward-art" style="font-size:48px; margin-bottom:10px;">✨</div>
+                <div id="event-reward-text" style="font-size:1em; line-height:1.6; margin-bottom:18px;"></div>
+                <button class="full-width" onclick="Game.closeEventReward()" style="border-color:var(--event-color); color:var(--event-color);">繼續旅途</button>
+            </div>
+        </div>
+
         <div id="panel-title" class="panel">
             <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
                 <h1>《毒之紀元》</h1><div style="text-align:center; color:#666; font-size:0.8em; margin-bottom:20px;">—— 世界演化 ——</div>
@@ -527,6 +535,7 @@
             },
 
             setupEventUI: function(evType) {
+                document.getElementById('event-reward-modal').style.display = 'none';
                 const art = document.getElementById('event-art'); const title = document.getElementById('event-title');
                 const log = document.getElementById('event-log'); const btns = document.getElementById('event-buttons');
                 btns.innerHTML = ''; const returnBtn = `<button class="full-width" onclick="Game.returnToCamp()">繼續旅途</button>`;
@@ -538,44 +547,55 @@
                     case 'larva': art.innerText = '🐛'; title.innerText = '幼體毒物'; log.innerHTML = '一隻迷路的變異幼蟲。'; btns.innerHTML = `<button class="danger" onclick="Game.resolveEvent('larva_eat')">吞食 (回血)</button><button class="event-btn" onclick="Game.resolveEvent('larva_tame')">嘗試馴養</button><button class="terrain" onclick="Game.resolveEvent('larva_release')">放生</button>`; break;
                     case 'relic': art.innerText = '✨'; title.innerText = '元素祭壇'; log.innerHTML = '一座散發著古老元素波動的祭壇，上頭漂浮著不屬於這個生態的遺物。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('relic')">取走遺物</button>`; break;
                     case 'memory_toad': art.innerText = '🐸'; title.innerText = '舊日回饋'; log.innerHTML = '你遇到了一隻巨大的巨蟾，牠似乎認出了你曾餵食過牠。<br>牠吐出了一顆晶瑩的基因球作為回報。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('memory_toad')">收下禮物</button>`; break;
-                    case 'memory_beetle_nest': art.innerText = '🪲'; title.innerText = '空置的巢穴'; log.innerHTML = '你發現巨甲蟲遺留下來的空巢。<br>內部長時間腐熟，長滿珍稀毒草。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('plant')">採集毒草</button>`; break;
+                    case 'memory_beetle_nest': art.innerText = '🪲'; title.innerText = '空置的巢穴'; log.innerHTML = '你發現了巨甲蟲遺留下來的空巢。<br>內部因長時間腐熟，長滿了珍稀的毒草。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('plant')">採集毒草</button>`; break;
                     case 'memory_iron': art.innerText = '🦀'; title.innerText = '強者的認可'; log.innerHTML = '鋼鐵巨蟹在遠處看了你一眼，用巨螯為你砸開了一條佈滿補給的捷徑。'; btns.innerHTML = `<button class="event-btn full-width" onclick="Game.resolveEvent('memory_iron')">進入捷徑</button>`; break;
                 }
                 this.switchPanel('panel-event');
             },
 
             resolveEvent: function(action) {
-                const log = document.getElementById('event-log'); const btns = document.getElementById('event-buttons');
-                const returnBtn = `<button class="full-width" onclick="Game.returnToCamp()">繼續旅途</button>`; const p = this.state.player;
+                const p = this.state.player;
+                let art = '✨', msg = '';
 
                 if (action === 'plant') {
                     const unowned = Object.keys(DB.traits).filter(t => !p.traitsPool.includes(t));
                     if (unowned.length > 0 && Math.random() < 0.6) {
-                        const tId = unowned[Math.floor(Math.random() * unowned.length)]; p.traitsPool.push(tId); log.innerHTML = `🧬 獲得全新特徵：【${DB.traits[tId].name}】`;
-                    } else { p.maxHp += 10; p.hp += 10; log.innerHTML = `<span style="color:#4CAF50;">最大生命值永久 +10</span>`; }
+                        const tId = unowned[Math.floor(Math.random() * unowned.length)]; p.traitsPool.push(tId); art = '🧬'; msg = `獲得全新特徵：【${DB.traits[tId].name}】`;
+                    } else { p.maxHp += 10; p.hp += 10; art = '💚'; msg = `<span style="color:#4CAF50;">最大生命值永久 +10</span>`; }
                 } else if (action.startsWith('partner_')) {
                     const pType = action.split('_')[1]; this.state.partner = pType; 
                     if (!this.state.discoveredPartners.includes(pType)) this.state.discoveredPartners.push(pType);
-                    log.innerHTML = `你收養了 ${DB.partners[pType].name}！<br><span style="color:#a29bfe;">${DB.partners[pType].desc}</span>`;
+                    art = '🤝'; msg = `你收養了 ${DB.partners[pType].name}！<br><span style="color:#a29bfe;">${DB.partners[pType].desc}</span>`;
                 } else if (action === 'larva_eat') {
-                    let heal = Math.floor(p.maxHp * 0.3); p.hp = Math.min(Math.floor(p.maxHp * 1.5), p.hp + heal); log.innerHTML = `<span style="color:#4CAF50;">過量回復了 ${heal} 點 HP。</span>`;
+                    let heal = Math.floor(p.maxHp * 0.3); p.hp = Math.min(Math.floor(p.maxHp * 1.5), p.hp + heal); art = '💚'; msg = `<span style="color:#4CAF50;">過量回復了 ${heal} 點 HP。</span>`;
                 } else if (action === 'larva_tame') {
-                    if (Math.random() < 0.5) { const tId = 'regen'; if(!p.traitsPool.includes(tId)) p.traitsPool.push(tId); log.innerHTML = `馴養成功！獲得特徵：【再生】。`; } 
-                    else { log.innerHTML = `幼蟲嚇跑了...`; }
+                    if (Math.random() < 0.5) { const tId = 'regen'; if(!p.traitsPool.includes(tId)) p.traitsPool.push(tId); art = '🧬'; msg = `馴養成功！獲得特徵：【再生】。`; } 
+                    else { art = '💨'; msg = `幼蟲嚇跑了...`; }
                 } else if (action === 'larva_release') {
-                    this.state.larvaKarma += 1; log.innerHTML = `你將幼蟲放生，荒野的意志似乎對你感到滿意。<br><span style="color:#a29bfe;">(下一次遭遇的馴養成功率將大幅提升)</span>`;
+                    this.state.larvaKarma += 1; art = '🍀'; msg = `你將幼蟲放生，荒野的意志似乎對你感到滿意。<br><span style="color:#a29bfe;">(下一次遭遇的馴養成功率將大幅提升)</span>`;
                 } else if (action === 'relic') {
                     const r = DB.elementalRelics[Math.floor(Math.random() * DB.elementalRelics.length)];
                     if (!this.state.relics.includes(r)) this.state.relics.push(r);
-                    log.innerHTML = `你取走了神秘的元素遺物：<span style="color:#f1c40f;">【${r}】</span><br>已記錄至圖鑑羈絆與遺物中。`;
+                    art = '🦴'; msg = `你取走了神秘的元素遺物：<span style="color:#f1c40f;">【${r}】</span><br>已記錄至圖鑑羈絆與遺物中。`;
                 } else if (action === 'memory_toad') {
-                    p.maxHp += 15; p.hp += 15; log.innerHTML = `<span style="color:#4CAF50;">基因球融化在體內，最大生命值永久 +15！</span>`;
+                    p.maxHp += 15; p.hp += 15; art = '💚'; msg = `<span style="color:#4CAF50;">基因球融化在體內，最大生命值永久 +15！</span>`;
                 } else if (action === 'memory_iron') {
                     this.state.days += 2; // 跳過天數加速探索
                     p.hp = Math.min(Math.floor(p.maxHp * 1.5), p.hp + 50);
-                    log.innerHTML = `<span style="color:#4CAF50;">捷徑讓你避開了危險，並獲得大量補給（HP +50，探索天數 +2）。</span>`;
+                    art = '🛤️'; msg = `<span style="color:#4CAF50;">捷徑讓你避開了危險，並獲得大量補給（HP +50，探索天數 +2）。</span>`;
                 }
-                btns.innerHTML = returnBtn; this.saveProgress();
+                this.saveProgress();
+                this.showEventReward(art, msg);
+            },
+
+            showEventReward: function(art, msg) {
+                document.getElementById('event-reward-art').innerText = art;
+                document.getElementById('event-reward-text').innerHTML = msg;
+                document.getElementById('event-reward-modal').style.display = 'flex';
+            },
+            closeEventReward: function() {
+                document.getElementById('event-reward-modal').style.display = 'none';
+                this.returnToCamp();
             },
 
             triggerBossEncounter: function() { const b = DB.enemies.filter(e => e.isBoss); this.initEncounter(b[Math.floor(Math.random() * b.length)]); },
@@ -768,7 +788,12 @@
             processEnemyTurnSafe: async function(pDefending=false) {
                 try {
                     await this.processEnemyTurn(pDefending);
-                    if(this.state.combat.inProgress) { await this.processEndTurnEffects(); if(!await this.checkDeath()) this.unlockButtons(); }
+                    if(this.state.combat.inProgress) { 
+                        await this.processEndTurnEffects(); 
+                        // processEndTurnEffects 可能已經透過特殊機制（如女王族群覆滅）自行結算過勝負，
+                        // 若 inProgress 已被設為 false，代表結算已完成，不可再重複呼叫 checkDeath。
+                        if(this.state.combat.inProgress) { if(!await this.checkDeath()) this.unlockButtons(); }
+                    }
                 } catch(err) { console.error(err); this.unlockButtons(); }
             },
 
@@ -1023,9 +1048,13 @@
 
                 if (dmg > 0 && eq.includes('spore')) sporeTriggered = true;
                 if (sporeTriggered) {
-                    this.state.combat.enemyPoison += 2; let infectedAny = false;
+                    let infectedAny = false;
                     this.state.combat.minions.forEach(m => { if(!m.infected) { m.infected = true; infectedAny = true; } });
-                    if(infectedAny) this.log(`🍄 受擊散發孢子反噬！感染了全場幼體！`, "log-skill");
+                    let reflect = Math.floor(dmg * 0.25);
+                    if (reflect > 0) { e.hp -= reflect; this.log(`🍄 [孢子] 受擊噴發粉塵，反彈 ${reflect} 傷害！`, "log-skill"); }
+                    if(infectedAny) this.log(`🍄 孢子粉塵瀰漫戰場，感染了全場幼體！`, "log-skill");
+                    // 劇毒疊加僅在玩家同時裝備【劇毒】時才會發生，避免孢子單獨造成未說明的中毒效果
+                    if (eq.includes('toxic')) { this.state.combat.enemyPoison += 2; this.log(`[劇毒+孢子] 粉塵混合毒素，額外疊加中毒！`, "log-skill"); }
                 }
 
                 if(e.traits && e.traits.includes('toxic') && Math.random()<0.4) this.state.combat.playerPoison += 2;
