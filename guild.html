@@ -18,7 +18,9 @@ button{font-family:inherit;}
 
 /* ---- topbar ---- */
 #topbar{flex-shrink:0;background:linear-gradient(#1c150e,#241b13);border-bottom:2px solid var(--border);padding:6px 10px;}
-.topbar-row1{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--gold);font-weight:bold;}
+.topbar-row1{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--gold);font-weight:bold;gap:8px;}
+.topbar-row1 #guildNameDisplay{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex-shrink:1;}
+.topbar-row1 #dateDisplay{flex-shrink:0;font-size:12px;white-space:nowrap;}
 .topbar-row2{display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:12px;}
 .stat-group{display:flex;gap:10px;}
 .stat{display:flex;align-items:center;gap:3px;color:var(--text);}
@@ -253,6 +255,14 @@ function weightedPick(items){
   return items[items.length-1][0];
 }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function hexToRgb(hex){ const v=parseInt(hex.slice(1),16); return [(v>>16)&255,(v>>8)&255,v&255]; }
+function lerpColor(c1,c2,t){
+  const a=hexToRgb(c1), b=hexToRgb(c2);
+  const r=Math.round(a[0]+(b[0]-a[0])*t);
+  const g=Math.round(a[1]+(b[1]-a[1])*t);
+  const bl=Math.round(a[2]+(b[2]-a[2])*t);
+  return `rgb(${r},${g},${bl})`;
+}
 let _idc=1;
 function uid(){ return 'id'+(_idc++)+'_'+Math.random().toString(36).slice(2,8); }
 function fill(tpl, ctx){
@@ -466,6 +476,17 @@ const FATE_ACTIONS={
 };
 
 const STATUS_LABELS={idle:'待命',onQuest:'任務中',injured:'療傷中',disabled:'殘疾',retired:'已退休',dead:'已故',betrayed:'已叛逃'};
+
+/* ---- 時段系統：一天分為4個時段，每時段約10秒(於1x速度下)，一天約40秒 ---- */
+const PHASE_NAMES=['早上','下午','晚上','深夜'];
+const PHASE_ICONS=['🌅','☀️','🌆','🌙'];
+const PHASE_MS=10000;
+const PHASE_SKY=[
+  {top:'#ffd9a0', bottom:'#ff9d7a', ground:'#5a7a42', glow:'#fff0c0', starAlpha:0},   // 早上：晨曦
+  {top:'#5a9fdc', bottom:'#bfe3f5', ground:'#3f5a32', glow:'#cdeeff', starAlpha:0},   // 下午：晴朗
+  {top:'#4a3a6a', bottom:'#e8825a', ground:'#3a4a30', glow:'#ffd97a', starAlpha:0.35},// 晚上：黃昏
+  {top:'#0c1028', bottom:'#262050', ground:'#1c2417', glow:'#ffd97a', starAlpha:1}    // 深夜
+];
 const WORLD_EVENT_LABEL={war:'⚔️ 戰爭',plague:'🦠 瘟疫',dragon:'🐉 龍災',riot:'🏰 地下城暴動'};
 
 /* =========================================================
@@ -1072,6 +1093,7 @@ let day, gold, reputation, guildName, guildLockdownDays;
 let adventurers, inventory, availableQuests, activeQuests, recruitPool;
 let kingdoms, activeWorldEvents, chronicle, decisionQueue, pendingRise;
 let dungeons, religions, rivalGuild, rumors, worldHistory, fatePoints, fateProtectedId, lastSeenTs, lastFateDay;
+let phaseIndex, phaseMsElapsed, lastTickRealTs;
 let speed=1, currentTab='guild', tickCounter=0, currentDispatchQuestId=null, dispatchSelection=new Set();
 let activeExpeditionView=null;
 
@@ -1089,6 +1111,7 @@ function formatDate(d){
   const dom=(rem%30)+1;
   return `第${year}年${month}月${dom}日`;
 }
+function phaseLabel(){ return `${PHASE_ICONS[phaseIndex]}${PHASE_NAMES[phaseIndex]}`; }
 function formatYear(d){ return Math.floor((d-1)/360)+1; }
 function formatStats(stats){
   return Object.keys(stats).map(k=>`+${stats[k]} ${STAT_LABEL[k]}`).join(' ');
@@ -2063,6 +2086,7 @@ function saveGame(){
       adventurers,inventory,availableQuests,activeQuests,recruitPool,
       kingdoms,activeWorldEvents,chronicle,decisionQueue,pendingRise,
       dungeons,religions,rivalGuild,rumors,worldHistory,fatePoints,lastFateDay,
+      phaseIndex,phaseMsElapsed,
       speed, lastSeenTs: Date.now(), version:2
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -2096,6 +2120,8 @@ function loadGame(){
     fatePoints=(data.fatePoints!==undefined)?data.fatePoints:2;
     lastFateDay=(data.lastFateDay!==undefined)?data.lastFateDay:day;
     lastSeenTs=data.lastSeenTs||Date.now();
+    phaseIndex=(data.phaseIndex!==undefined)?data.phaseIndex:0;
+    phaseMsElapsed=(data.phaseMsElapsed!==undefined)?data.phaseMsElapsed:0;
     // 舊版冒險者資料補齊新欄位
     adventurers.forEach(a=>{
       if(!a.counters) a.counters={combat:0,betrayed:0,cursed:0};
@@ -2122,6 +2148,7 @@ function initNewGame(){
   rivalGuild={name:pick(RIVAL_GUILD_NAMES)};
   rumors=[]; worldHistory=[];
   fatePoints=2; lastFateDay=1; lastSeenTs=Date.now();
+  phaseIndex=0; phaseMsElapsed=0;
   const starterClasses=['戰士','牧師','盜賊'];
   starterClasses.forEach((cls,i)=>{
     const a=genAdventurer(i===2?1:2);
@@ -2151,6 +2178,7 @@ function processOfflineProgress(){
   // 離線期間：先快進所有進行中的遠征到結束，再執行剩餘的每日tick
   activeQuests.forEach(q=>{ if(q.expedition) fastForwardExpedition(q, offlineDays*EXPEDITION_BEAT_MIN_MS*2); });
   for(let i=0;i<offlineDays;i++){ dailyTick(); }
+  phaseIndex=0; phaseMsElapsed=0; lastTickRealTs=Date.now();
   const deathsAfter=adventurers.filter(a=>a.status==='dead').length;
   const newDeaths=adventurers.filter(a=>a.status==='dead' && a.deathDay>startDay);
   return {
@@ -2301,7 +2329,7 @@ function renderTicker(text){
 }
 function renderTopBar(){
   document.getElementById('guildNameDisplay').textContent=guildName;
-  document.getElementById('dateDisplay').textContent=formatDate(day);
+  document.getElementById('dateDisplay').textContent=`${formatDate(day)} ${phaseLabel()}`;
   document.getElementById('goldVal').textContent=Math.round(gold);
   document.getElementById('repVal').textContent=Math.round(reputation);
   document.getElementById('memberVal').textContent=adventurers.filter(a=>['idle','onQuest','injured','disabled'].includes(a.status)).length;
@@ -2649,28 +2677,57 @@ function spawnParticles(){
     particles.push({x:-10, y:ch*0.2+RNG()*ch*0.15, vx:rf(0.8,1.4), vy:rf(-0.05,0.05), life:220, type:'ember', size:rf(3,6)});
   }
 }
+function drawCelestialBody(p){
+  const isSunHalf=p<0.5;
+  const localT=isSunHalf? p/0.5 : (p-0.5)/0.5;
+  const x=cw*0.08 + localT*cw*0.84;
+  const arcHeight=Math.sin(clamp(localT,0,1)*Math.PI);
+  const y=ch*0.62 - arcHeight*ch*0.4;
+  if(arcHeight<0.02) return;
+  ctx.save();
+  if(isSunHalf){
+    const g=ctx.createRadialGradient(x,y,0,x,y,24);
+    g.addColorStop(0,'rgba(255,244,200,0.85)'); g.addColorStop(1,'rgba(255,244,200,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,24,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#fff6d8'; ctx.beginPath(); ctx.arc(x,y,8,0,Math.PI*2); ctx.fill();
+  } else {
+    const g=ctx.createRadialGradient(x,y,0,x,y,18);
+    g.addColorStop(0,'rgba(222,226,255,0.7)'); g.addColorStop(1,'rgba(222,226,255,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,18,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#e8ecff'; ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
 function drawScene(ts){
   if(!cw){ resizeCanvas(); }
   if(!cw||!ch) return;
   ctx.clearRect(0,0,cw,ch);
-  const cyc=(Date.now()/45000)%1;
-  const isNight=cyc>0.5;
-  const skyTop=isNight?'#1a1f3a':'#5a8fc7';
-  const skyBot=isNight?'#3a3050':'#bcd6e8';
+  const curPhase=PHASE_SKY[phaseIndex];
+  const nextPhase=PHASE_SKY[(phaseIndex+1)%4];
+  const extraMs = speed>0 ? Math.min(PHASE_MS,(Date.now()-(lastTickRealTs||Date.now()))*speed) : 0;
+  const t=clamp((phaseMsElapsed+extraMs)/PHASE_MS, 0, 1);
+  const skyTop=lerpColor(curPhase.top, nextPhase.top, t);
+  const skyBot=lerpColor(curPhase.bottom, nextPhase.bottom, t);
+  const groundColor=lerpColor(curPhase.ground, nextPhase.ground, t);
+  const windowGlow=lerpColor(curPhase.glow, nextPhase.glow, t);
+  const starAlpha=curPhase.starAlpha+(nextPhase.starAlpha-curPhase.starAlpha)*t;
+  const dayProgress=((phaseIndex+t)/4)%1;
+
   const grad=ctx.createLinearGradient(0,0,0,ch*0.7);
   grad.addColorStop(0,skyTop); grad.addColorStop(1,skyBot);
   ctx.fillStyle=grad; ctx.fillRect(0,0,cw,ch*0.7);
-  if(isNight){
-    ctx.fillStyle='rgba(255,255,255,0.7)';
+  if(starAlpha>0.02){
+    ctx.fillStyle='rgba(255,255,255,0.8)';
     for(let i=0;i<18;i++){
       const sx=(i*53 + (ts||0)*0.001*10)%cw;
       const sy=(i*29)%(ch*0.45);
-      ctx.globalAlpha=0.3+0.4*Math.abs(Math.sin(i+(ts||0)*0.0005));
+      ctx.globalAlpha=starAlpha*(0.3+0.4*Math.abs(Math.sin(i+(ts||0)*0.0005)));
       ctx.fillRect(sx,sy,2,2);
     }
     ctx.globalAlpha=1;
   }
-  ctx.fillStyle=isNight?'#1c2417':'#3f5a32';
+  drawCelestialBody(dayProgress);
+  ctx.fillStyle=groundColor;
   ctx.fillRect(0,ch*0.68,cw,ch*0.32);
   const bw=cw*0.5, bh=ch*0.4, bx=cw*0.5-bw/2, by=ch*0.68-bh;
   ctx.fillStyle='#4a3526';
@@ -2681,7 +2738,7 @@ function drawScene(ts){
   ctx.fillStyle='#6b3f2a'; ctx.fill();
   ctx.fillStyle='#2a1d12';
   ctx.fillRect(bx+bw*0.4, by+bh*0.45, bw*0.2, bh*0.55);
-  ctx.fillStyle=isNight?'#ffd97a':'#cdeeff';
+  ctx.fillStyle=windowGlow;
   ctx.fillRect(bx+bw*0.12, by+bh*0.18, bw*0.16, bh*0.16);
   ctx.fillRect(bx+bw*0.72, by+bh*0.18, bw*0.16, bh*0.16);
   ctx.fillStyle='#b03030';
@@ -2764,11 +2821,22 @@ function logPersonalOnlyToChronicle(text){
   chronicle.unshift({day, text});
   if(chronicle.length>300) chronicle.length=300;
 }
-function gameLoopStep(){
-  if(speed>0){
-    for(let i=0;i<speed;i++){ dailyTick(); }
-    render();
+function worldClockStep(){
+  const now=Date.now();
+  if(speed<=0){ lastTickRealTs=now; return; }
+  const virtualMs=1000*speed;
+  phaseMsElapsed+=virtualMs;
+  lastTickRealTs=now;
+  let daysPassed=0;
+  let safety=0;
+  while(phaseMsElapsed>=PHASE_MS && safety<400){
+    phaseMsElapsed-=PHASE_MS;
+    phaseIndex=(phaseIndex+1)%4;
+    if(phaseIndex===0){ daysPassed++; }
+    safety++;
   }
+  for(let i=0;i<daysPassed;i++){ dailyTick(); }
+  render();
 }
 
 /* =========================================================
@@ -2840,15 +2908,16 @@ function boot(){
   });
   let offlineReport=null;
   if(loaded){ offlineReport=processOfflineProgress(); }
+  lastTickRealTs=Date.now();
   render();
   requestAnimationFrame(frame);
-  setInterval(gameLoopStep, 1000);
+  setInterval(worldClockStep, 1000);
   setInterval(expeditionStep, 1000);
   window.addEventListener('resize', resizeCanvas);
   window.addEventListener('beforeunload', saveGame);
   document.addEventListener('visibilitychange', function(){
     if(document.hidden){ saveGame(); }
-    else { lastSeenTs=Date.now(); }
+    else { lastSeenTs=Date.now(); lastTickRealTs=Date.now(); }
   });
   if(offlineReport && offlineReport.days>=1){ showOfflineReport(offlineReport); }
 }
