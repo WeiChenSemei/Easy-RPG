@@ -782,7 +782,17 @@
                 else if (e.habit === 'swarm') { this.log(`【領袖】女王呼喚毒蜂護衛湧現！`, 'log-boss'); for(let i=0;i<3;i++) this.state.combat.minions.push({infected:false}); this.renderEcologyUI(); }
                 else if (e.habit === 'ambush') { this.log(`【掠食者】深淵魔蛛搶得先手，吐出厚重的黏網並使你中毒！`, 'log-boss'); this.state.combat.playerPoison += 5; for(let i=0;i<2;i++) this.state.combat.minions.push({infected:false}); this.renderEcologyUI(); enemyFirst = true; }
                 else if (e.habit === 'stealth') { this.log(`【掠食者】獵手遁入環境中，極難被擊中。`, 'log-boss'); }
-                if(enemyFirst) setTimeout(() => this.processEnemyTurnSafe(), 800);
+                if(enemyFirst) setTimeout(() => this.runScheduledEnemyTurn(), 800);
+            },
+
+            // 由 setTimeout 排程觸發的「敵人先攻」回合進入點。這是唯一一個完全不在
+            // combatTurn/usePheromone 既有鎖保護範圍內的呼叫來源，因此必須自己取得/釋放鎖，
+            // 避免跟玩家同時手動觸發的攻擊/信息素並行執行而造成雙重結算。
+            runScheduledEnemyTurn: async function() {
+                if(!this.state.combat.inProgress || this.state.combat.turnLocked) return;
+                this.state.combat.turnLocked = true;
+                try { await this.processEnemyTurnSafe(false); }
+                finally { this.state.combat.turnLocked = false; }
             },
 
             processEnemyTurnSafe: async function(pDefending=false) {
