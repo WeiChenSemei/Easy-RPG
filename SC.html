@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>靈魂與選擇 V25 - 隊伍整備與神威版</title>
+    <title>靈魂與選擇 V26 - 數值平衡與除錯版</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -159,8 +159,8 @@
     <!-- Screen: Main Menu -->
     <div id="screen-menu" class="screen active">
         <div class="center-content">
-            <h1>靈魂與選擇 V25</h1>
-            <div class="subtitle" style="margin-bottom: 5px;">隊伍整備與神威奇蹟版</div>
+            <h1>靈魂與選擇 V26</h1>
+            <div class="subtitle" style="margin-bottom: 5px;">數值平衡與除錯修正版</div>
             
             <div style="font-size:var(--font-md); margin-bottom: 15px; padding: 5px; border: 1px dashed #555; border-radius: 4px; width: 100%; max-width: 340px;">
                 主角姓名：<span id="player-name-display" style="color:var(--success); font-weight:bold; cursor:pointer; text-decoration:underline;" onclick="Meta.editPlayerName()">冒險者</span>
@@ -174,7 +174,7 @@
             <!-- 神廟系統 -->
             <div class="meta-box temple-box" style="margin-top:15px;">
                 <h3>🏛️ 祈願神廟 (Lv.<span id="menu-temple-lv">1</span>)</h3>
-                <div style="font-size: var(--font-md); color: #ddd; margin-bottom: 10px;">投資神廟，戰局危險時，祈求七大神祇降下專屬奇蹟。</div>
+                <div style="font-size: var(--font-md); color: #ddd; margin-bottom: 10px;">投資神廟，當戰鬥陷入危機時高機率引發「神之奇蹟」。</div>
                 <button id="btn-upgrade-temple" class="btn-main btn-warning" onclick="Meta.upgradeTemple()" style="font-size: var(--font-md); padding: 8px;">升級神廟</button>
             </div>
 
@@ -238,7 +238,7 @@
         <div class="action-panel" id="action-panel"></div>
     </div>
 
-    <!-- Screen: Reward -->
+    <!-- Screen: Reward (Level up) -->
     <div id="screen-reward" class="screen">
         <div class="center-content">
             <h2 style="color: var(--warning);">戰鬥勝利！</h2>
@@ -564,7 +564,7 @@ const Meta = {
         customNames: ['', '', ''], questLevel: 1, questsCompleted: 0, maxFloor: 1, bossKills: {}
     },
     load() {
-        let keysToTry = ['sc_meta_v25', 'sc_meta_v24', 'sc_meta_v23', 'sc_meta_v22', 'sc_meta_v21', 'sc_meta_v20', 'sc_meta_v19', 'sc_meta_v18', 'sc_meta_v17'];
+        let keysToTry = ['sc_meta_v26', 'sc_meta_v25', 'sc_meta_v24', 'sc_meta_v23', 'sc_meta_v22', 'sc_meta_v21', 'sc_meta_v20', 'sc_meta_v19', 'sc_meta_v18'];
         let saved = null;
         for (let key of keysToTry) {
             saved = localStorage.getItem(key);
@@ -580,7 +580,7 @@ const Meta = {
         }
         this.updateUI();
     },
-    save() { localStorage.setItem('sc_meta_v25', JSON.stringify(this.data)); this.updateUI(); },
+    save() { localStorage.setItem('sc_meta_v26', JSON.stringify(this.data)); this.updateUI(); },
     addGold(amount) { this.data.gold += amount; this.save(); },
     getStatCost(stat) { return 20 + (this.data.pUpgrades[stat] * 15); },
     upgradeStat(stat) {
@@ -662,15 +662,24 @@ class Entity {
     }
     
     get displayName() { return this.name; } 
+    
+    // 【修改重點：全部改為加法倍率疊加，避免防禦無限接近0造成爆傷，最後統一 Math.floor()】
     get atk() { 
-        let val = this.baseAtk;
-        if (this.hasBuff('weakened')) val *= 0.3; 
-        return Math.floor(this.hasBuff('atk_up') ? val * 1.5 : (this.hasBuff('atk_down') ? val * 0.7 : val)); 
+        let mult = 1.0;
+        if (this.hasBuff('atk_up')) mult += 0.5;
+        if (this.hasBuff('atk_down')) mult -= 0.3;
+        if (this.hasBuff('weakened')) mult -= 0.7; // 魔王崩潰
+        mult = Math.max(0.2, mult); 
+        return Math.floor(this.baseAtk * mult); 
     }
     get def() { 
-        let val = this.baseDef;
-        if (this.hasBuff('weakened')) val *= 0.3; 
-        return Math.floor(this.hasBuff('def_up') ? val * 1.5 : (this.hasBuff('def_down') ? val * 0.6 : val)); 
+        let mult = 1.0;
+        if (this.hasBuff('def_up')) mult += 0.5;
+        if (this.hasBuff('def_down')) mult -= 0.4;
+        if (this.hasBuff('freeze')) mult -= 0.3; // 冰凍降防移至此處統一結算
+        if (this.hasBuff('weakened')) mult -= 0.7; // 魔王崩潰
+        mult = Math.max(0.2, mult); 
+        return Math.floor(this.baseDef * mult); 
     }
     get spd() { return this.baseSpd; }
 
@@ -699,8 +708,9 @@ class Entity {
     }
 
     takeDamage(amount) {
+        amount = Math.floor(amount); // 強制取整
         if (this.shield > 0) { if (this.shield >= amount) { this.shield -= amount; amount = 0; } else { amount -= this.shield; this.shield = 0; } }
-        this.hp = Math.max(0, this.hp - Math.floor(amount));
+        this.hp = Math.max(0, this.hp - amount);
         if (amount > 0 && this.hasBuff('stealth')) {
             this.buffs = this.buffs.filter(b => b.type !== 'stealth');
             Battle.log(`> 👁️ ${this.displayName} 遭到攻擊，隱形狀態被打破了！`);
@@ -726,7 +736,7 @@ const Game = {
     
     init() {
         Meta.load(); 
-        let keysToTry = ['sc_run_v25', 'sc_run_v24', 'sc_run_v23', 'sc_run_v22', 'sc_run_v21', 'sc_run_v20', 'sc_run_v19'];
+        let keysToTry = ['sc_run_v26', 'sc_run_v25', 'sc_run_v24', 'sc_run_v23', 'sc_run_v22', 'sc_run_v21', 'sc_run_v20'];
         let savedRun = null;
         for(let key of keysToTry) {
             savedRun = localStorage.getItem(key);
@@ -738,7 +748,7 @@ const Game = {
     
     checkSave() {
         try {
-            let keysToTry = ['sc_run_v25', 'sc_run_v24', 'sc_run_v23', 'sc_run_v22', 'sc_run_v21', 'sc_run_v20', 'sc_run_v19'];
+            let keysToTry = ['sc_run_v26', 'sc_run_v25', 'sc_run_v24', 'sc_run_v23', 'sc_run_v22', 'sc_run_v21', 'sc_run_v20'];
             let save = null;
             for(let key of keysToTry) {
                 save = localStorage.getItem(key);
@@ -749,7 +759,6 @@ const Game = {
                 this.state = JSON.parse(save);
                 this.state.party = this.state.party.map(p => Object.assign(new Entity({}), p));
                 
-                // 如果存檔時在營地，則讀取後回營地
                 if (this.state.inCamp) {
                     this.enterCamp(true);
                 } else {
@@ -759,9 +768,9 @@ const Game = {
         } catch(e) { console.error(e); this.clearRunSave(); this.showScreen('menu'); }
     },
     
-    saveData() { localStorage.setItem('sc_run_v25', JSON.stringify(this.state)); },
+    saveData() { localStorage.setItem('sc_run_v26', JSON.stringify(this.state)); },
     clearRunSave() { 
-        let keysToRemove = ['sc_run_v25', 'sc_run_v24', 'sc_run_v23', 'sc_run_v22', 'sc_run_v21', 'sc_run_v20', 'sc_run_v19'];
+        let keysToRemove = ['sc_run_v26', 'sc_run_v25', 'sc_run_v24', 'sc_run_v23', 'sc_run_v22', 'sc_run_v21', 'sc_run_v20'];
         keysToRemove.forEach(k => localStorage.removeItem(k));
         document.getElementById('btn-continue').style.display = 'none'; 
     },
@@ -771,7 +780,7 @@ const Game = {
         if (confirm1) {
             let confirm2 = await CustomDialog.show({ type: 'confirm', title: '【最終確認】', isDanger: true, message: '這將會完全清除所有存檔，無法恢復。確定要繼續嗎？' });
             if (confirm2) {
-                const allKeys = ['sc_meta_v25', 'sc_run_v25', 'sc_meta_v24', 'sc_run_v24', 'sc_meta_v23', 'sc_run_v23', 'sc_meta_v22', 'sc_run_v22'];
+                const allKeys = ['sc_meta_v26', 'sc_run_v26', 'sc_meta_v25', 'sc_run_v25', 'sc_meta_v24', 'sc_run_v24'];
                 allKeys.forEach(k => localStorage.removeItem(k));
                 try { localStorage.clear(); } catch(e) {} 
 
@@ -991,7 +1000,7 @@ const Game = {
     generateRewards() {
         if(this.state.mode === 'endless') { Meta.data.maxFloor = Math.max(Meta.data.maxFloor, this.state.floor); Meta.save(); }
         let earnedGold = Math.floor(20 * (1 + this.state.floor * 0.3)); Meta.addGold(earnedGold);
-        document.getElementById('reward-loot').innerText = `獲得 ${earnedGold} 枚金幣！`;
+        document.getElementById('reward-loot').innerText = `獲得 ${earnedGold} 枚金幣！全隊狀態已恢復。`;
 
         let skillPool = [];
         for (let key in SKILLS) {
@@ -1057,28 +1066,20 @@ const Game = {
         this.enterCamp(false); 
     },
 
-    // 【新增：營地整備系統】
     enterCamp(isLoaded = false) {
         this.state.inCamp = true;
-        if (!isLoaded) {
-            this.state.hasTaughtThisFloor = false;
-        }
-        this.saveData();
-        this.renderCamp();
-        this.showScreen('camp');
+        if (!isLoaded) { this.state.hasTaughtThisFloor = false; }
+        this.saveData(); this.renderCamp(); this.showScreen('camp');
     },
 
     renderCamp() {
-        document.getElementById('camp-floor-disp').innerText = this.state.floor - 1; // 顯示剛剛打完的樓層
-        const container = document.getElementById('camp-party-list');
-        container.innerHTML = '';
+        document.getElementById('camp-floor-disp').innerText = this.state.floor - 1; 
+        const container = document.getElementById('camp-party-list'); container.innerHTML = '';
         
         this.state.party.forEach((p, idx) => {
             let isPlayer = (idx === 0);
             let skillHtml = p.skills.filter(sId => sId !== 'attack' && sId !== 'defend').map(sId => {
-                let s = SKILLS[sId];
-                let lv = p.skillLevels[sId] || 1;
-                let mods = p.skillModifiers[sId] || [];
+                let s = SKILLS[sId]; let lv = p.skillLevels[sId] || 1; let mods = p.skillModifiers[sId] || [];
                 let modStr = mods.length > 0 ? ` <span style="color:var(--warning); font-size:11px;">[${mods.map(m=>MODIFIERS[m].name).join(', ')}]</span>` : '';
                 return `<div style="font-size:13px; color:#ccc; margin-bottom:2px;">• ${s.name}(Lv.${lv})${modStr}</div>`;
             }).join('');
@@ -1116,7 +1117,7 @@ const Game = {
         }
     },
 
-    teachSkill() {
+    async teachSkill() {
         let skillId = document.getElementById('teach-skill-sel').value;
         let targetId = document.getElementById('teach-target-sel').value;
         if(!skillId || !targetId) return;
@@ -1125,29 +1126,16 @@ const Game = {
         let player = this.state.party[0];
 
         if(!target.skills.includes(skillId)) {
-            target.skills.push(skillId);
-            target.skillLevels[skillId] = 1; // 隊友從 Lv1 開始學
+            target.skills.push(skillId); target.skillLevels[skillId] = 1; 
         }
-        // 完美複製玩家該技能的被動符文陣列
         target.skillModifiers[skillId] = player.skillModifiers[skillId] ? [...player.skillModifiers[skillId]] : [];
         
-        this.state.hasTaughtThisFloor = true;
-        this.saveData();
-        this.renderCamp();
-        CustomDialog.show({ type: 'alert', title: '傳授成功', message: `已將【${SKILLS[skillId].name}】與其附魔知識傳授給 ${target.name}！`});
+        this.state.hasTaughtThisFloor = true; this.saveData(); this.renderCamp();
+        await CustomDialog.show({ type: 'alert', title: '傳授成功', message: `已將【${SKILLS[skillId].name}】與其附魔知識傳授給 ${target.name}！`});
     },
 
-    leaveCamp() {
-        this.state.inCamp = false;
-        this.startFloor(false);
-    },
-    
-    saveAndQuit() {
-        this.saveData();
-        Meta.updateUI();
-        document.getElementById('header-floor').innerText = `主選單`;
-        this.showScreen('menu');
-    },
+    leaveCamp() { this.state.inCamp = false; this.startFloor(false); },
+    saveAndQuit() { this.saveData(); Meta.updateUI(); document.getElementById('header-floor').innerText = `主選單`; this.showScreen('menu'); },
 
     questComplete() {
         let q = this.state.activeQuest; Meta.addGold(q.reward); Meta.data.questsCompleted++;
@@ -1236,84 +1224,43 @@ const Battle = {
         let templeLv = Meta.data.templeLevel;
         let power = 1 + (templeLv - 1) * 0.2;
 
-        let prayMsg = "";
-        let color = "";
+        let prayMsg = ""; let color = "";
 
         if (type === 0) { 
             let revivePercent = Math.min(0.60, 0.10 + templeLv * 0.05);
             color = "#f1c40f"; prayMsg = `👼 ${prayActor.displayName} 向光之神祈禱，已經倒下的身軀再度充滿生命！`;
             this.log(`<div style="font-size:16px; color:${color}; font-weight:bold; margin-bottom:8px; text-shadow: 1px 1px 2px #000;">${prayMsg}</div>`);
-            Game.state.party.forEach(p => { 
-                if(p.hp <= 0) { 
-                    p.hp = Math.floor(p.maxHp * revivePercent); 
-                    this.floatText(p.id, `復活`, 'var(--success)'); 
-                } 
-            });
+            Game.state.party.forEach(p => { if(p.hp <= 0) { p.hp = Math.floor(p.maxHp * revivePercent); this.floatText(p.id, `復活`, 'var(--success)'); } });
         } else if (type === 1) { 
             color = "#9b59b6"; prayMsg = `🌑 ${prayActor.displayName} 向闇之神祈禱，詛咒在場所有敵人！`;
             this.log(`<div style="font-size:16px; color:${color}; font-weight:bold; margin-bottom:8px; text-shadow: 1px 1px 2px #000;">${prayMsg}</div>`);
-            Game.state.enemies.forEach(e => { 
-                if(e.hp > 0) { 
-                    e.addBuff('atk_down', 3); e.addBuff('def_down', 3); 
-                    this.floatText(e.id, `詛咒`, '#8e44ad'); 
-                } 
-            });
+            Game.state.enemies.forEach(e => { if(e.hp > 0) { e.addBuff('atk_down', 3); e.addBuff('def_down', 3); this.floatText(e.id, `詛咒`, '#8e44ad'); } });
         } else if (type === 2) { 
             let healPercent = Math.min(0.60, 0.10 + templeLv * 0.05);
             color = "#3498db"; prayMsg = `💧 ${prayActor.displayName} 向水之神祈禱，隊伍全體得到狀態淨化與生命恢復！`;
             this.log(`<div style="font-size:16px; color:${color}; font-weight:bold; margin-bottom:8px; text-shadow: 1px 1px 2px #000;">${prayMsg}</div>`);
             let debuffs = ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped'];
-            Game.state.party.forEach(p => { 
-                if(p.hp > 0) { 
-                    p.buffs = p.buffs.filter(b => !debuffs.includes(b.type));
-                    let amt = Math.floor(p.maxHp * healPercent); 
-                    p.heal(amt); 
-                    this.floatText(p.id, `+${amt}`, 'var(--success)'); 
-                } 
-            });
+            Game.state.party.forEach(p => { if(p.hp > 0) { p.buffs = p.buffs.filter(b => !debuffs.includes(b.type)); let amt = Math.floor(p.maxHp * healPercent); p.heal(amt); this.floatText(p.id, `+${amt}`, 'var(--success)'); } });
         } else if (type === 3) { 
             let duration = Math.min(5, 1 + Math.floor(templeLv / 2) + 1);
             color = "#2ecc71"; prayMsg = `🍃 ${prayActor.displayName} 向木之神祈禱，隊伍全體得到了神之祝福！`;
             this.log(`<div style="font-size:16px; color:${color}; font-weight:bold; margin-bottom:8px; text-shadow: 1px 1px 2px #000;">${prayMsg}</div>`);
-            Game.state.party.forEach(p => { 
-                if(p.hp > 0) { 
-                    p.addBuff('atk_up', duration); p.addBuff('def_up', duration); 
-                    this.floatText(p.id, `祝福`, 'var(--warning)');
-                } 
-            });
+            Game.state.party.forEach(p => { if(p.hp > 0) { p.addBuff('atk_up', duration); p.addBuff('def_up', duration); this.floatText(p.id, `祝福`, 'var(--warning)');} });
         } else if (type === 4) { 
             let dmg = Math.floor(60 * power);
             color = "#e74c3c"; prayMsg = `🔥 ${prayActor.displayName} 向火之神祈禱，火神的烈焰，席捲了所有敵人！`;
             this.log(`<div style="font-size:16px; color:${color}; font-weight:bold; margin-bottom:8px; text-shadow: 1px 1px 2px #000;">${prayMsg}</div>`);
-            Game.state.enemies.forEach(e => { 
-                if(e.hp > 0) { 
-                    e.takeDamage(dmg); 
-                    e.addBuff('stun', 1);
-                    this.floatText(e.id, `-${dmg} 暈眩`, 'var(--danger)'); 
-                } 
-            });
+            Game.state.enemies.forEach(e => { if(e.hp > 0) { e.takeDamage(dmg); e.addBuff('stun', 1); this.floatText(e.id, `-${dmg} 暈眩`, 'var(--danger)'); } });
         } else if (type === 5) { 
             let dmg = Math.floor(60 * power);
             color = "#e67e22"; prayMsg = `⚡ ${prayActor.displayName} 向雷之神祈禱，爆雷降臨，轟擊所有敵人！`;
             this.log(`<div style="font-size:16px; color:${color}; font-weight:bold; margin-bottom:8px; text-shadow: 1px 1px 2px #000;">${prayMsg}</div>`);
-            Game.state.enemies.forEach(e => { 
-                if(e.hp > 0) { 
-                    e.takeDamage(dmg); 
-                    e.addBuff('paralyze', 2);
-                    this.floatText(e.id, `-${dmg} 麻痺`, 'var(--warning)'); 
-                } 
-            });
+            Game.state.enemies.forEach(e => { if(e.hp > 0) { e.takeDamage(dmg); e.addBuff('paralyze', 2); this.floatText(e.id, `-${dmg} 麻痺`, 'var(--warning)'); } });
         } else if (type === 6) { 
             let dmg = Math.floor(80 * power);
             color = "#e0e0e0"; prayMsg = `⚔️ ${prayActor.displayName} 向戰神祈禱，戰神之劍從天而降，刺穿所有敵人！`;
             this.log(`<div style="font-size:16px; color:${color}; font-weight:bold; margin-bottom:8px; text-shadow: 1px 1px 2px #000;">${prayMsg}</div>`);
-            Game.state.enemies.forEach(e => { 
-                if(e.hp > 0) { 
-                    e.takeDamage(dmg); 
-                    e.addBuff('bleed', 3);
-                    this.floatText(e.id, `-${dmg} 流血`, 'var(--danger)'); 
-                } 
-            });
+            Game.state.enemies.forEach(e => { if(e.hp > 0) { e.takeDamage(dmg); e.addBuff('bleed', 3); this.floatText(e.id, `-${dmg} 流血`, 'var(--danger)'); } });
         }
 
         this.updateUI(); await new Promise(r => setTimeout(r, 1200)); if (!this.isActive) return; this.nextTurn();
@@ -1542,9 +1489,7 @@ const Battle = {
                 let partyHasFire = allies.some(a => a.skills.some(s => SKILLS[s] && SKILLS[s].element === 'fire'));
                 if (partyHasFire) opt.score += 30;
             }
-            if (skill.special && skill.special.startsWith('gamble')) {
-                opt.score += 20; 
-            }
+            if (skill.special && skill.special.startsWith('gamble')) { opt.score += 20; }
 
             if(opt.costInfo.isHp) opt.score -= (opt.costInfo.amount / entity.maxHp) * 100; else opt.score -= opt.costInfo.amount * 0.5;
         });
@@ -1634,7 +1579,6 @@ const Battle = {
             }
             await new Promise(r => setTimeout(r, 650)); 
             if (!this.isActive) return; 
-            
             await this.processCombo(actor, originalSkillId, comboCount);
             return; 
         }
@@ -1728,8 +1672,14 @@ const Battle = {
                             this.log(`> ⚡ 閃電麻痺！ ${target.displayName} 陷入麻痺狀態！`);
                         }
 
-                        if (Game.state.mode === 'quest' && Game.state.activeQuest && Game.state.activeQuest.type === 'kill' && died && target.isEnemy) {
-                            Game.state.activeQuest.progress++; Game.updateQuestTracker();
+                        if (died) {
+                            if (target.isEnemy && target.isBoss) {
+                                Meta.data.bossKills[target.name] = (Meta.data.bossKills[target.name] || 0) + 1;
+                                Meta.save();
+                            }
+                            if (Game.state.mode === 'quest' && Game.state.activeQuest && Game.state.activeQuest.type === 'kill' && target.isEnemy) {
+                                Game.state.activeQuest.progress++; Game.updateQuestTracker();
+                            }
                         }
 
                         if (skill.applyBuff && !selfBuffApplied && !died) { actor.addBuff(skill.applyBuff, 3); selfBuffApplied = true; }
@@ -1753,10 +1703,6 @@ const Battle = {
                         }
 
                         if (died) { 
-                            if (target.isEnemy && target.isBoss) {
-                                Meta.data.bossKills[target.name] = (Meta.data.bossKills[target.name] || 0) + 1;
-                                Meta.save();
-                            }
                             this.log(`> 💀 <b>${target.displayName} 被徹底擊敗了！</b>`); 
                             let killGrowth = actor.tryGrow('atk', 0.5); if (killGrowth) this.log(killGrowth); 
                         }
