@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>深淵探索者</title>
+    <style>
+        :root {
+            --bg: #121212; --panel: #1e1e1e; --text: #e0e0e0; --accent: #4caf50; --danger: #f44336;
+            --q-normal: #ffffff; --q-good: #4caf50; --q-rare: #2196f3; --q-epic: #9c27b0; --q-legend: #ff9800;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* Layout */
+        #header { padding: 10px; background: var(--panel); border-bottom: 2px solid #333; display: flex; justify-content: space-between; font-size: 0.9em; z-index: 10;}
+        
+        /* Main Area (Log + Map) */
+        #main-area { flex: 1; position: relative; overflow: hidden; background: #0a0a0a; display: flex; flex-direction: column; }
+        
+        /* Log is now above the map inside main-area */
+        #log { flex: 0 0 16vh; min-height: 80px; padding: 5px; overflow-y: auto; font-size: 0.85em; color: #aaa; border-bottom: 2px solid #333; line-height: 1.4; cursor: pointer; background: var(--panel); z-index: 5;}
+        #log:active { background: #222; }
+        .log-new { color: white; }
+        .log-dmg { color: var(--danger); }
+        .log-heal { color: var(--accent); }
+        .log-sys { color: var(--q-legend); }
+
+        /* Map & Scrolling */
+        #map-scroll-area { flex: 1; position: relative; overflow: auto; scroll-behavior: smooth; }
+        #map-center-wrapper { display: flex; min-width: 100%; min-height: 100%; padding: 20px; box-sizing: border-box; }
+        #map-container { display: grid; gap: 1px; background: #333; border: 2px solid #555; margin: auto; flex-shrink: 0; box-shadow: 0 0 15px rgba(0,0,0,0.8);}
+        
+        .cell { width: 11vw; height: 11vw; min-width: 35px; min-height: 35px; max-width: 45px; max-height: 45px; background: #2a2a2a; display: flex; justify-content: center; align-items: center; font-size: 1.2rem; }
+        .cell.wall { background: #444; }
+        
+        /* Footer Controls */
+        #footer { background: #222; border-top: 2px solid #333; display: flex; padding: 8px; gap: 5px; z-index: 10; }
+        #controls { padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+        .btn { padding: 12px 5px; background: #333; color: white; border: 1px solid #555; border-radius: 5px; text-align: center; cursor: pointer; font-weight: bold;}
+        .btn:active { background: #555; }
+        .btn.primary { background: #2e7d32; border-color: #1b5e20; }
+        .btn.danger { background: #c62828; border-color: #b71c1c; }
+        
+        /* D-Pad specific */
+        #d-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 100%; max-width: 180px; margin: 0 auto;}
+        .d-empty { visibility: hidden; }
+        
+        /* Modals (Town, Inv, etc) */
+        .modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: none; flex-direction: column; z-index: 20; padding: 10px; overflow-y: auto;}
+        .modal.active { display: flex; }
+        .overlay { z-index: 30; } 
+        .modal-title { font-size: 1.2em; text-align: center; margin-bottom: 15px; color: var(--q-legend); border-bottom: 1px solid #444; padding-bottom: 5px;}
+        
+        /* Item & Stats Grid */
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85em; margin-bottom: 10px;}
+        .stat-row { display: flex; justify-content: space-between; background: #222; padding: 4px 8px; border-radius: 3px; }
+        
+        .item-list { display: flex; flex-direction: column; gap: 8px; }
+        .item-card { background: #222; border: 1px solid #444; padding: 8px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;}
+        .item-info { flex: 1; }
+        .item-name { font-weight: bold; font-size: 0.9em;}
+        .item-stats { font-size: 0.75em; color: #aaa; margin-top: 3px;}
+        
+        /* Animations */
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-3px); } 50% { transform: translateX(3px); } 75% { transform: translateX(-3px); } 100% { transform: translateX(0); } }
+        .anim-shake { animation: shake 0.3s; }
+
+        /* Bars */
+        .bar-bg { background: #333; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 2px;}
+        .bar-fg { height: 100%; transition: width 0.2s; }
+    </style>
+</head>
+<body>
+
+    <div id="header">
+        <div style="flex: 1;">
+            <div id="p-name">探索者 LV.1</div>
+            <div>HP: <span id="p-hp">100</span>/<span id="p-maxhp">100</span></div>
+            <div class="bar-bg"><div id="p-hp-bar" class="bar-fg" style="background: var(--danger); width: 100%;"></div></div>
+            <div>MP: <span id="p-mp">50</span>/<span id="p-maxmp">50</span></div>
+            <div class="bar-bg"><div id="p-mp-bar" class="bar-fg" style="background: #2196f3; width: 100%;"></div></div>
+            <div style="font-size: 0.8em; margin-top: 5px; color: #aaa;">
+                紅水: <span id="p-pot-hp" style="color:var(--danger)">0</span> | 藍水: <span id="p-pot-mp" style="color:var(--q-rare)">0</span> <small>(<30%自動飲用)</small>
+            </div>
+        </div>
+        <div style="text-align: right; margin-left: 10px;">
+            <div id="floor-display" style="color: var(--q-legend); font-weight: bold;">城鎮</div>
+            <div>金幣: <span id="p-gold">0</span></div>
+            <div>EXP: <span id="p-exp">0</span></div>
+            <div class="bar-bg" style="width: 80px; margin-left: auto;"><div id="p-exp-bar" class="bar-fg" style="background: var(--q-legend); width: 0%;"></div></div>
+        </div>
+    </div>
+
+    <div id="main-area">
+        
+        <!-- Log Area (Moved above Map) -->
+        <div id="log" onclick="openLogHistory()" title="點擊查看完整歷程"></div>
+
+        <!-- Map View (Scrollable) -->
+        <div id="map-scroll-area">
+            <div id="map-center-wrapper">
+                <div id="map-container"></div>
+            </div>
+        </div>
+
+        <!-- Town View -->
+        <div id="view-town" class="modal active">
+            <div class="modal-title">起始城鎮</div>
+            <p style="text-align: center; margin-bottom: 20px; color: #aaa;">這是安全的避風港。</p>
+            <div class="item-list">
+                <div class="btn primary" onclick="openFloorSelect()">出發探險 (選擇樓層)</div>
+                <div class="btn" onclick="openShop()">進入商店 (買藥/裝備)</div>
+                <div class="btn" id="btn-church" onclick="openChurch()">教堂 (目前無遺失屍體)</div>
+            </div>
+        </div>
+
+        <!-- Floor Select View (Overlay) -->
+        <div id="view-floor-select" class="modal overlay">
+            <div class="modal-title">選擇深淵樓層 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
+            <div style="text-align: center; margin: 30px 0;">
+                <p style="color: #aaa; margin-bottom: 15px;">請選擇欲探索的樓層<br><small>(目前歷史最高: B<span id="fs-max">1</span>)</small></p>
+                
+                <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 30px;">
+                    <div class="btn" style="width: 60px; font-size: 1.8em; padding: 5px;" onclick="changeFloorSelect(-1)">-</div>
+                    <div style="font-size: 2.5em; font-weight: bold; width: 80px; color: var(--q-legend);">B<span id="fs-current">1</span></div>
+                    <div class="btn" style="width: 60px; font-size: 1.8em; padding: 5px;" onclick="changeFloorSelect(1)">+</div>
+                </div>
+                
+                <div class="item-list">
+                    <div class="btn primary" onclick="confirmStartGame()" style="padding: 15px;">確認出發</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory / Character View (Overlay) -->
+        <div id="view-char" class="modal overlay">
+            <div class="modal-title">角色狀態與裝備 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
+            <div id="char-stats" class="stat-grid"></div>
+            <div class="modal-title" style="margin-top: 10px;">已裝備</div>
+            <div id="char-eq" class="item-list"></div>
+            <div class="modal-title" style="margin-top: 10px;">背包 (點擊裝備/分解)</div>
+            <div id="char-inv" class="item-list"></div>
+        </div>
+
+        <!-- Shop View (Overlay) -->
+        <div id="view-shop" class="modal overlay">
+            <div class="modal-title">深淵商店 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
+            <p style="text-align:center; font-size:0.8em; color:#aaa; margin-bottom: 10px;">(裝備商品會在每次進入深淵時重新進貨)</p>
+            <div id="shop-list" class="item-list"></div>
+        </div>
+
+        <!-- System & Save View (Overlay) -->
+        <div id="view-sys" class="modal overlay">
+            <div class="modal-title">系統設定 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
+            <div class="item-list" style="margin-top: 20px;">
+                <div class="btn primary" onclick="exportSave()">匯出繼承碼 (備份進度)</div>
+                <div class="btn danger" onclick="importSave()">匯入繼承碼 (覆蓋進度)</div>
+                <hr style="border-color:#444; margin: 10px 0;">
+                <div class="btn" onclick="returnTown(false)">放棄探索，強制回城</div>
+            </div>
+        </div>
+
+        <!-- Log History View (Overlay) -->
+        <div id="view-log-history" class="modal overlay">
+            <div class="modal-title">冒險歷程 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
+            <div id="full-log-content" style="flex:1; overflow-y:auto; font-size:0.9em; line-height:1.6; padding-bottom: 20px;"></div>
+        </div>
+        
+        <!-- Choice View (Exit) -->
+        <div id="view-exit" class="modal overlay" style="justify-content: center; background: rgba(0,0,0,0.9);">
+            <div class="modal-title">發現隱藏出口</div>
+            <div class="item-list" style="max-width: 80%; margin: 0 auto; width: 100%;">
+                <div class="btn" onclick="continueExplore()">繼續探索本地圖</div>
+                <div class="btn primary" onclick="nextFloor()">前往下一層 (自動存檔)</div>
+                <div class="btn danger" onclick="returnTown(false)">返回城鎮 (保留物品)</div>
+            </div>
+        </div>
+
+        <!-- Custom Dialog (To replace alert/prompt/confirm) -->
+        <div id="view-dialog" class="modal overlay" style="justify-content: center; background: rgba(0,0,0,0.85); z-index: 100;">
+            <div style="background: #222; padding: 20px; border: 1px solid #555; border-radius: 8px; max-width: 90%; margin: 0 auto; width: 300px; box-shadow: 0 0 20px rgba(0,0,0,1);">
+                <div id="dialog-title" class="modal-title" style="border-bottom: none; margin-bottom: 10px;">提示</div>
+                <div id="dialog-msg" style="margin-bottom: 20px; font-size: 0.9em; line-height: 1.5; color: #ccc; text-align: center; word-break: break-all;"></div>
+                <input type="text" id="dialog-input" style="display: none; width: 100%; padding: 10px; margin-bottom: 20px; background: #111; border: 1px solid #555; color: white; border-radius: 4px; box-sizing: border-box;">
+                <div id="dialog-btns" style="display: flex; gap: 10px; justify-content: center;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Move controls directly to footer, free from logs -->
+    <div id="footer">
+        <div style="flex:1;">
+            <div id="d-pad">
+                <div class="d-empty"></div><div class="btn" onclick="move(0, -1)">▲</div><div class="d-empty"></div>
+                <div class="btn" onclick="move(-1, 0)">◀</div><div class="btn" onclick="move(0, 0)">休</div><div class="btn" onclick="move(1, 0)">▶</div>
+                <div class="d-empty"></div><div class="btn" onclick="move(0, 1)">▼</div><div class="d-empty"></div>
+            </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 5px; justify-content: center; min-width: 90px;">
+            <div class="btn" onclick="openChar()">角色/背包</div>
+            <div class="btn" onclick="openSys()">系統設定</div>
+        </div>
+    </div>
+
+<script>
+/* ==================== 0. Custom Dialog System ==================== */
+function customAlert(msg, title="提示") {
+    document.getElementById('dialog-title').innerText = title;
+    document.getElementById('dialog-msg').innerHTML = msg.replace(/\n/g, '<br>');
+    document.getElementById('dialog-input').style.display = 'none';
+    
+    let btnHtml = `<div class="btn primary" style="flex:1;" onclick="closeDialog()">確定</div>`;
+    document.getElementById('dialog-btns').innerHTML = btnHtml;
+    document.getElementById('view-dialog').classList.add('active');
+}
+
+function customConfirm(msg, onYes, title="確認") {
+    document.getElementById('dialog-title').innerText = title;
+    document.getElementById('dialog-msg').innerHTML = msg.replace(/\n/g, '<br>');
+    document.getElementById('dialog-input').style.display = 'none';
+    
+    window.currentDialogYes = () => { closeDialog(); if(onYes) onYes(); };
+    
+    let btnHtml = `
+        <div class="btn" style="flex:1;" onclick="closeDialog()">取消</div>
+        <div class="btn primary" style="flex:1;" onclick="window.currentDialogYes()">確定</div>
+    `;
+    document.getElementById('dialog-btns').innerHTML = btnHtml;
+    document.getElementById('view-dialog').classList.add('active');
+}
+
+function customPrompt(msg, onConfirm, defaultVal="", title="輸入") {
+    document.getElementById('dialog-title').innerText = title;
+    document.getElementById('dialog-msg').innerHTML = msg.replace(/\n/g, '<br>');
+    
+    let input = document.getElementById('dialog-input');
+    input.style.display = 'block';
+    input.value = defaultVal;
+    
+    window.currentDialogYes = () => { 
+        let val = input.value;
+        closeDialog(); 
+        if(onConfirm) onConfirm(val); 
+    };
+    
+    let btnHtml = `
+        <div class="btn" style="flex:1;" onclick="closeDialog()">取消</div>
+        <div class="btn primary" style="flex:1;" onclick="window.currentDialogYes()">確定</div>
+    `;
+    document.getElementById('dialog-btns').innerHTML = btnHtml;
+    document.getElementById('view-dialog').classList.add('active');
+    
+    setTimeout(() => { input.focus(); input.select(); }, 100);
+}
+
+function closeDialog() {
+    document.getElementById('view-dialog').classList.remove('active');
+}
+
+/* ==================== 1. Data Definitions ==================== */
+
+const STATS = { hp: '生命', mp: '魔力', atk: '攻擊', def: '防禦', matk: '魔攻', mdef: '魔防', hit: '命中', eva: '閃避', crit: '爆擊', critDmg: '爆傷', speed: '速度' };
+const SLOTS = ['左手', '右手', '護手', '頭部', '身體', '腰部', '褲子', '鞋子'];
+
+const GRADES = [
+    { id: 0, name: '普通', color: 'var(--q-normal)', statMult: 1, affixes: 1, weight: 60, chance: 0.05 },
+    { id: 1, name: '優秀', color: 'var(--q-good)', statMult: 1.5, affixes: 2, weight: 25, chance: 0.15 },
+    { id: 2, name: '稀有', color: 'var(--q-rare)', statMult: 2.2, affixes: 3, weight: 10, chance: 0.3 },
+    { id: 3, name: '史詩', color: 'var(--q-epic)', statMult: 3.5, affixes: 4, weight: 4, chance: 0.6 },
+    { id: 4, name: '傳說', color: 'var(--q-legend)', statMult: 5, affixes: 5, weight: 1, chance: 1.0 }
+];
+
+const EQUIP_BASES = {
+    '左手': [{name:'短劍', stats:{atk:3, speed:2}}, {name:'魔杖', stats:{matk:4, mp:10}}],
+    '右手': [{name:'圓盾', stats:{def:3, eva:2}}, {name:'法典', stats:{mdef:3, mp:10}}],
+    '護手': [{name:'皮手套', stats:{def:1, hit:2}}, {name:'鐵護腕', stats:{def:3}}],
+    '頭部': [{name:'布帽', stats:{def:1, mdef:2}}, {name:'鐵盔', stats:{def:3, hp:10}}],
+    '身體': [{name:'布甲', stats:{def:2, mdef:3}}, {name:'皮甲', stats:{def:4, eva:1}}],
+    '腰部': [{name:'布帶', stats:{hp:15}}, {name:'皮帶', stats:{def:1, hp:10}}],
+    '褲子': [{name:'粗布褲', stats:{def:1, hp:5}}, {name:'皮褲', stats:{def:2, speed:1}}],
+    '鞋子': [{name:'草鞋', stats:{speed:2, eva:1}}, {name:'皮靴', stats:{def:1, speed:3}}]
+};
+
+const PREFIXES = [
+    { name: '力量的', stat: 'atk', val: 2 }, { name: '守護的', stat: 'def', val: 2 },
+    { name: '智慧的', stat: 'matk', val: 2 }, { name: '靈巧的', stat: 'eva', val: 2 },
+    { name: '巨人的', stat: 'hp', val: 20 }, { name: '精準的', stat: 'hit', val: 3 },
+    { name: '致命的', stat: 'crit', val: 3 }, { name: '疾風的', stat: 'speed', val: 3 }
+];
+
+const SKILLS = {
+    'fireball': { name: '火球術', baseChance: 10, power: 1.2, type: 'mdmg', text: '發射了火球', mpCost: 5 },
+    'heal': { name: '治癒術', baseChance: 8, power: 0.15, type: 'heal', text: '閃耀著治癒之光', mpCost: 8 },
+    'heavy': { name: '重擊', baseChance: 12, power: 1.5, type: 'dmg', text: '使出全力重擊', mpCost: 3 }
+};
+
+const MONSTERS = [
+    { id: 'slime', name: '史萊姆', icon: '💧', hostile: false, baseHp: 20, atk: 2, def: 1, spd: 3 },
+    { id: 'goblin', name: '哥布林', icon: '👺', hostile: true, baseHp: 25, atk: 4, def: 2, spd: 6 },
+    { id: 'orc', name: '獸人', icon: '👹', hostile: true, baseHp: 45, atk: 5, def: 4, spd: 4 },
+    { id: 'bat', name: '蝙蝠', icon: '🦇', hostile: true, baseHp: 15, atk: 3, def: 1, spd: 9 },
+    { id: 'skeleton', name: '骷髏', icon: '💀', hostile: true, baseHp: 30, atk: 6, def: 0, spd: 5 }
+];
+
+/* ==================== 2. State & Save Management ==================== */
+
+let p = {
+    lvl: 1, exp: 0, gold: 0, x: 0, y: 0,
+    base: { hp: 100, maxHp: 100, mp: 50, maxMp: 50, atk: 5, def: 3, matk: 2, mdef: 2, hit: 90, eva: 5, crit: 5, critDmg: 150, speed: 10 },
+    stats: {}, eq: { '左手':null, '右手':null, '護手':null, '頭部':null, '身體':null, '腰部':null, '褲子':null, '鞋子':null },
+    inv: [], skills: {}, party: [], pots: { hp: 3, mp: 1 } 
+};
+
+let corpse = null; 
+let map = []; 
+let entities = []; 
+let MAP_W = 10, MAP_H = 12;
+let floor = 0;
+let maxFloor = 1; 
+let inTown = true;
+let shopItems = [];
+let logHistory = [];
+let selectedFloor = 1; 
+
+function autoSave() {
+    let saveData = { p, corpse, floor, maxFloor, inTown, shopItems, map, entities };
+    try { localStorage.setItem('abyss_save', JSON.stringify(saveData)); } catch(e) {}
+}
+
+function loadSave() {
+    let raw = localStorage.getItem('abyss_save');
+    if (raw) {
+        try {
+            let data = JSON.parse(raw);
+            p = data.p; corpse = data.corpse; floor = data.floor; 
+            maxFloor = data.maxFloor || Math.max(1, data.floor || 1);
+            inTown = data.inTown; shopItems = data.shopItems || [];
+            map = data.map || []; entities = data.entities || [];
+            if(!p.pots) p.pots = {hp:0, mp:0}; 
+            updateStats();
+            
+            if(inTown) {
+                returnTown(false, true);
+            } else {
+                document.getElementById('view-town').classList.remove('active');
+                drawMap();
+                setTimeout(scrollToPlayer, 100);
+            }
+            log("已自動讀取本地存檔。", "sys");
+        } catch(e) { console.error("Save load failed", e); }
+    } else {
+        updateStats(); 
+    }
+    updateTownUI();
+}
+
+function exportSave() {
+    let data = JSON.stringify({ p, corpse, floor, maxFloor, inTown, shopItems }); 
+    let b64 = btoa(encodeURIComponent(data));
+    customPrompt("請複製以下繼承碼並妥善保存：", () => {}, b64, "匯出繼承碼");
+}
+
+function importSave() {
+    customPrompt("請貼上您的繼承碼（這將覆蓋目前進度）：", (b64) => {
+        if(b64) {
+            try {
+                let data = JSON.parse(decodeURIComponent(atob(b64)));
+                p = data.p; corpse = data.corpse; floor = data.floor;
+                maxFloor = data.maxFloor || Math.max(1, data.floor || 1);
+                inTown = data.inTown; shopItems = data.shopItems || [];
+                if(!p.pots) p.pots = {hp:0, mp:0};
+                updateStats();
+                returnTown(false, true); 
+                autoSave();
+                closeAllOverlays();
+                log("繼承碼讀取成功！歡迎回來。", "sys");
+                customAlert("繼承碼讀取成功！", "讀取成功");
+            } catch(e) {
+                customAlert("無效的繼承碼，請確認是否複製完整。", "錯誤");
+            }
+        }
+    }, "", "匯入繼承碼");
+}
+
+/* ==================== 3. Core Logic & Math ==================== */
+
+function weightedRandom(items) {
+    let sum = items.reduce((a, b) => a + b.weight, 0);
+    let r = Math.random() * sum;
+    for (let item of items) {
+        if (r < item.weight) return item;
+        r -= item.weight;
+    }
+    return items[0];
+}
+
+function generateItem(targetGrade = null, f = floor) {
+    let slot = SLOTS[Math.floor(Math.random() * SLOTS.length)];
+    let base = EQUIP_BASES[slot][Math.floor(Math.random() * EQUIP_BASES[slot].length)];
+    let grade = targetGrade || weightedRandom(GRADES);
+    let prefix = PREFIXES[Math.floor(Math.random() * PREFIXES.length)];
+    let flMult = 1 + (f * 0.2); 
+    let gMult = grade.statMult * flMult;
+
+    let item = {
+        id: Date.now() + Math.random(), slot: slot, grade: grade, name: `${prefix.name}${base.name}`,
+        stats: {}, skill: null, val: Math.floor(10 * gMult)
+    };
+
+    for (let k in base.stats) item.stats[k] = Math.floor(base.stats[k] * gMult) || 1;
+    item.stats[prefix.stat] = (item.stats[prefix.stat] || 0) + Math.floor(prefix.val * gMult);
+    
+    let availableStats = Object.keys(STATS).filter(k => k !== 'hp' && k !== 'mp');
+    for(let i=0; i<grade.affixes - 1; i++) {
+        let rs = availableStats[Math.floor(Math.random() * availableStats.length)];
+        item.stats[rs] = (item.stats[rs] || 0) + Math.floor((Math.random() * 3 + 1) * gMult);
+    }
+    
+    let skillChance = 0.15 + (grade.id * 0.20); 
+    if (Math.random() < skillChance) {
+        let skKeys = Object.keys(SKILLS);
+        item.skill = skKeys[Math.floor(Math.random() * skKeys.length)];
+    }
+    return item;
+}
+
+function updateStats() {
+    // 【修改】記憶當前的實時 HP/MP，以防止換裝時血魔自動補滿
+    // 若為第一次初始化(undefined)，才將其設為預設最大值
+    let currentHp = p.stats.hp !== undefined ? p.stats.hp : p.base.maxHp;
+    let currentMp = p.stats.mp !== undefined ? p.stats.mp : p.base.maxMp;
+
+    p.stats = { ...p.base };
+    p.skills = {};
+    for (let s in p.eq) {
+        let item = p.eq[s];
+        if (item) {
+            for (let k in item.stats) p.stats[k] = (p.stats[k] || 0) + item.stats[k];
+            if (item.skill) {
+                if (!p.skills[item.skill]) p.skills[item.skill] = 0;
+                p.skills[item.skill]++;
+            }
+        }
+    }
+    
+    // 恢復並校正血量，避免超過新的上限
+    p.stats.hp = currentHp > p.stats.maxHp ? p.stats.maxHp : currentHp;
+    p.stats.mp = currentMp > p.stats.maxMp ? p.stats.maxMp : currentMp;
+    
+    updateHUD();
+}
+
+function updateHUD() {
+    document.getElementById('p-hp').innerText = Math.floor(p.stats.hp);
+    document.getElementById('p-maxhp').innerText = p.stats.maxHp;
+    document.getElementById('p-hp-bar').style.width = `${(p.stats.hp / p.stats.maxHp) * 100}%`;
+    
+    document.getElementById('p-mp').innerText = Math.floor(p.stats.mp);
+    document.getElementById('p-maxmp').innerText = p.stats.maxMp;
+    document.getElementById('p-mp-bar').style.width = `${(p.stats.mp / p.stats.maxMp) * 100}%`;
+    
+    document.getElementById('p-gold').innerText = p.gold;
+    document.getElementById('p-name').innerText = `探索者 LV.${p.lvl}`;
+    document.getElementById('p-pot-hp').innerText = p.pots.hp;
+    document.getElementById('p-pot-mp').innerText = p.pots.mp;
+    
+    let expReq = p.lvl * 100;
+    document.getElementById('p-exp').innerText = `${Math.floor(p.exp)}/${expReq}`;
+    document.getElementById('p-exp-bar').style.width = `${(p.exp / expReq) * 100}%`;
+    document.getElementById('floor-display').innerText = inTown ? '城鎮' : `深淵 B${floor}`;
+}
+
+function updateTownUI() {
+    let btn = document.getElementById('btn-church');
+    if (corpse) {
+        let cost = Math.max(10, corpse.floor * 20);
+        btn.innerHTML = `教堂 (贖回遺失屍體: 需 <span style="color:var(--q-legend);">${cost}G</span>)`;
+        btn.className = "btn danger";
+    } else {
+        btn.innerHTML = `教堂 (目前無遺失屍體)`;
+        btn.className = "btn";
+    }
+}
+
+function log(msg, type = '') {
+    const logEl = document.getElementById('log');
+    const div = document.createElement('div');
+    div.innerHTML = msg;
+    if (type) div.className = `log-${type}`;
+    logEl.appendChild(div);
+    if (logEl.childElementCount > 30) logEl.removeChild(logEl.firstChild);
+    logEl.scrollTop = logEl.scrollHeight;
+
+    let timeStr = new Date().toLocaleTimeString('zh-TW', {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    logHistory.push(`<span style="color:#666">[${timeStr}]</span> <span class="${type?'log-'+type:''}">${msg}</span>`);
+    if(logHistory.length > 200) logHistory.shift();
+}
+
+/* ==================== 4. Map & Movement ==================== */
+
+function openFloorSelect() {
+    closeAllOverlays();
+    selectedFloor = maxFloor;
+    document.getElementById('fs-max').innerText = maxFloor;
+    document.getElementById('fs-current').innerText = selectedFloor;
+    document.getElementById('view-floor-select').classList.add('active');
+}
+
+function changeFloorSelect(delta) {
+    selectedFloor += delta;
+    if (selectedFloor < 1) selectedFloor = 1;
+    if (selectedFloor > maxFloor) selectedFloor = maxFloor;
+    document.getElementById('fs-current').innerText = selectedFloor;
+}
+
+function confirmStartGame() {
+    floor = selectedFloor;
+    inTown = false;
+    closeAllOverlays();
+    document.getElementById('view-town').classList.remove('active');
+    refreshShop(); 
+    log(`進入了深淵 B${floor}...`, 'sys');
+    generateMap();
+}
+
+function generateMap() {
+    map = Array.from({length: MAP_H}, () => Array(MAP_W).fill(0));
+    entities = [];
+    
+    let wallCount = Math.floor(MAP_W * MAP_H * 0.12);
+    for(let i=0; i<wallCount; i++) {
+        let rx = Math.floor(Math.random() * MAP_W);
+        let ry = Math.floor(Math.random() * MAP_H);
+        map[ry][rx] = 1; 
+    }
+    
+    p.x = Math.floor(Math.random() * MAP_W);
+    p.y = Math.floor(Math.random() * MAP_H);
+    
+    let ex, ey;
+    do { ex = Math.floor(Math.random() * MAP_W); ey = Math.floor(Math.random() * MAP_H); } while (ex === p.x && ey === p.y);
+    entities.push({ type: 'exit', x: ex, y: ey, hidden: true });
+
+    let cx = p.x, cy = p.y;
+    map[cy][cx] = 0; map[ey][ex] = 0;
+    while(cx !== ex || cy !== ey) {
+        if (Math.random() < 0.5 && cx !== ex) cx += Math.sign(ex - cx);
+        else if (cy !== ey) cy += Math.sign(ey - cy);
+        else cx += Math.sign(ex - cx);
+        map[cy][cx] = 0;
+    }
+
+    let mCount = 3 + Math.floor(Math.random() * 4);
+    for(let i=0; i<mCount; i++) spawnEntityAtEmpty('monster');
+    if (Math.random() < 0.1) spawnEntityAtEmpty('ally_token');
+
+    drawMap();
+    scrollToPlayer();
+    autoSave();
+}
+
+function spawnEntityAtEmpty(type) {
+    let rx, ry, tries = 50;
+    do {
+        rx = Math.floor(Math.random() * MAP_W);
+        ry = Math.floor(Math.random() * MAP_H);
+        tries--;
+    } while ((map[ry][rx] === 1 || getEntityAt(rx, ry) || (rx===p.x && ry===p.y)) && tries > 0);
+    
+    if (tries > 0) {
+        if (type === 'monster') {
+            let t = MONSTERS[Math.floor(Math.random() * MONSTERS.length)];
+            let mGrade = weightedRandom(GRADES);
+            let mult = (1 + floor * 0.3) * mGrade.statMult;
+            entities.push({
+                type: 'monster', x: rx, y: ry, ref: t, id: Math.random(), name: `${mGrade.name}${t.name}`,
+                grade: mGrade, icon: t.icon, hostile: t.hostile,
+                hp: Math.floor(t.baseHp * mult), maxHp: Math.floor(t.baseHp * mult),
+                atk: Math.floor(t.atk * mult) || 1, def: Math.floor(t.def * mult) || 0, spd: t.spd
+            });
+        } else if (type === 'ally_token') {
+            entities.push({ type: 'ally_token', x: rx, y: ry, icon: '👼' });
+        }
+    }
+}
+
+function getEntityAt(x, y) { return entities.find(e => e.x === x && e.y === y); }
+
+function drawMap() {
+    if (inTown) return;
+    const cont = document.getElementById('map-container');
+    cont.style.gridTemplateColumns = `repeat(${MAP_W}, 1fr)`;
+    let html = '';
+    
+    for(let y=0; y<MAP_H; y++) {
+        for(let x=0; x<MAP_W; x++) {
+            let cls = map[y][x] === 1 ? 'cell wall' : 'cell';
+            let content = map[y][x] === 1 ? '🪨' : ''; 
+            
+            if (map[y][x] === 0) {
+                let ent = getEntityAt(x, y);
+                if (p.x === x && p.y === y) content = `<div id="p-sprite" style="transition:0.1s;">🧍</div>`;
+                else if (ent) content = ent.type === 'exit' ? (ent.hidden ? '' : '🚪') : `<div id="e-${ent.id}">${ent.icon}</div>`;
+            }
+            html += `<div class="${cls}" id="c-${x}-${y}">${content}</div>`;
+        }
+    }
+    cont.innerHTML = html;
+}
+
+function scrollToPlayer() {
+    let pCell = document.getElementById(`c-${p.x}-${p.y}`);
+    if (pCell) pCell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+}
+
+function move(dx, dy) {
+    if (inTown || p.stats.hp <= 0) return;
+    if (document.getElementById('view-exit').classList.contains('active')) return;
+
+    let nx = p.x + dx, ny = p.y + dy;
+    
+    if (dx === 0 && dy === 0) { tickEntities(); return; } 
+
+    if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && map[ny][nx] !== 1) {
+        let ent = getEntityAt(nx, ny);
+        if (ent && ent.type === 'monster') {
+            combatRound(ent);
+            animShake(`e-${ent.id}`);
+            animShake('p-sprite');
+        } else {
+            p.x = nx; p.y = ny;
+            if (ent && ent.type === 'ally_token') {
+                log("遇到迷路的冒險者，加入了隊伍！", 'sys');
+                p.party.push({name: '流浪傭兵', hp: 50*floor, maxHp: 50*floor, duration: 15});
+                entities = entities.filter(e => e !== ent);
+            }
+            if (ent && ent.type === 'exit') {
+                ent.hidden = false;
+                drawMap();
+                scrollToPlayer();
+                closeAllOverlays();
+                document.getElementById('view-exit').classList.add('active');
+                autoSave();
+                return;
+            }
+        }
+    }
+    drawMap(); 
+    scrollToPlayer();
+    if(p.stats.hp > 0) tickEntities();
+}
+
+function tickEntities() {
+    p.party = p.party.filter(ally => {
+        ally.duration--;
+        if (ally.duration <= 0) log(`${ally.name} 覺得累了，離開了隊伍。`, 'sys');
+        return ally.duration > 0 && ally.hp > 0;
+    });
+
+    entities.forEach(ent => {
+        if (ent.type === 'monster') {
+            let dx = 0, dy = 0;
+            if (ent.hostile) {
+                if (Math.abs(p.x - ent.x) > Math.abs(p.y - ent.y)) dx = Math.sign(p.x - ent.x);
+                else dy = Math.sign(p.y - ent.y);
+            } else {
+                if (Math.random() < 0.5) {
+                    let dirs = [[0,1],[1,0],[0,-1],[-1,0]];
+                    let r = dirs[Math.floor(Math.random()*4)];
+                    dx = r[0]; dy = r[1];
+                }
+            }
+
+            let nx = ent.x + dx, ny = ent.y + dy;
+            if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && map[ny][nx] === 0) {
+                if (nx === p.x && ny === p.y) {
+                    if (ent.hostile) {
+                        combatRound(ent, true);
+                        animShake('p-sprite');
+                    }
+                } else if (!getEntityAt(nx, ny)) {
+                    ent.x = nx; ent.y = ny;
+                }
+            }
+        }
+    });
+    drawMap();
+    autoSave();
+}
+
+/* ==================== 5. Combat & Potions ==================== */
+
+function checkAutoPotions() {
+    let used = false;
+    if (p.stats.hp < p.stats.maxHp * 0.3 && p.pots.hp > 0) {
+        p.pots.hp--;
+        let heal = Math.floor(p.stats.maxHp * 0.4);
+        p.stats.hp = Math.min(p.stats.maxHp, p.stats.hp + heal);
+        log(`🩸血量危急！自動喝下紅水，恢復 ${heal} HP。`, 'heal');
+        used = true;
+    }
+    if (p.stats.mp < p.stats.maxMp * 0.3 && p.pots.mp > 0) {
+        p.pots.mp--;
+        let mpHeal = Math.floor(p.stats.maxMp * 0.4);
+        p.stats.mp = Math.min(p.stats.maxMp, p.stats.mp + mpHeal);
+        log(`💧魔力不足！自動喝下藍水，恢復 ${mpHeal} MP。`, 'heal');
+        used = true;
+    }
+    return used;
+}
+
+function combatRound(mon, monInitiated = false) {
+    if (!mon.hostile && !monInitiated) {
+        log(`攻擊了 ${mon.name}，它發怒了！`);
+        mon.hostile = true;
+    }
+
+    checkAutoPotions(); 
+
+    let turnOrder = p.stats.speed >= mon.spd ? ['p', 'm'] : ['m', 'p'];
+
+    for (let actor of turnOrder) {
+        if (p.stats.hp <= 0 || mon.hp <= 0) break;
+
+        if (actor === 'p') {
+            let dmg = doAttack(p.stats.atk, mon.def, p.stats.hit, p.stats.crit, p.stats.critDmg);
+            let skillText = processSkills(mon);
+            
+            if (dmg >= 0) {
+                mon.hp -= dmg;
+                log(`你對 <span style="color:${mon.grade.color}">${mon.name}</span> 造成 ${dmg} 傷害。${skillText}`, 'new');
+            } else {
+                log(`你的攻擊被 <span style="color:${mon.grade.color}">${mon.name}</span> 閃避了。`);
+            }
+        } else {
+            let target = (p.party.length > 0 && Math.random() < 0.3) ? 'ally' : 'p';
+            let dmg = doAttack(mon.atk, target==='p'? p.stats.def : p.stats.def/2, 90, 5, 150); 
+            
+            if (dmg >= 0) {
+                if (target === 'p') {
+                    p.stats.hp -= dmg;
+                    log(`<span style="color:${mon.grade.color}">${mon.name}</span> 對你造成 ${dmg} 傷害。`, 'dmg');
+                    checkAutoPotions(); 
+                } else {
+                    let ally = p.party[0];
+                    ally.hp -= dmg;
+                    log(`<span style="color:${mon.grade.color}">${mon.name}</span> 攻擊了 ${ally.name}，造成 ${dmg} 傷害。`);
+                    if(ally.hp <= 0) log(`${ally.name} 倒下了。`, 'dmg');
+                }
+            } else {
+                log(`<span style="color:${mon.grade.color}">${mon.name}</span> 的攻擊未命中。`);
+            }
+        }
+    }
+    
+    if (mon.hp > 0 && p.stats.hp > 0) {
+        p.party.forEach(ally => {
+            if (ally.hp <= 0) return;
+            let r = Math.random();
+            if (r < 0.3) {
+                let d = Math.floor(floor * 5 + 2);
+                mon.hp -= d; log(`${ally.name} 攻擊，造成 ${d} 傷害。`);
+            } else if (r < 0.5) {
+                let h = Math.floor(p.stats.maxHp * 0.1);
+                p.stats.hp = Math.min(p.stats.maxHp, p.stats.hp + h);
+                log(`${ally.name} 施放治癒，恢復 ${h} HP。`, 'heal');
+            }
+        });
+    }
+
+    updateHUD();
+
+    if (mon.hp <= 0) {
+        log(`擊敗了 <span style="color:${mon.grade.color}">${mon.name}</span>！`);
+        entities = entities.filter(e => e.id !== mon.id);
+        
+        let xp = Math.floor(mon.maxHp * 0.5);
+        let g = Math.floor(mon.maxHp * 0.2);
+        p.exp += xp; p.gold += g;
+        log(`獲得 ${xp} EXP, ${g} 金幣。`);
+        
+        if (Math.random() < mon.grade.chance * 3 || Math.random() < 0.15) {
+            let item = generateItem(mon.grade);
+            p.inv.push(item);
+            log(`掉落物品: <span style="color:${item.grade.color}">${item.name}</span>`, 'sys');
+        }
+
+        checkLevelUp();
+        updateHUD();
+        autoSave();
+    } else if (p.stats.hp <= 0) {
+        handleDeath();
+    }
+}
+
+function doAttack(atk, def, hit, critRate, critDmg) {
+    if (Math.random() * 100 > hit) return -1; 
+    let isCrit = Math.random() * 100 < critRate;
+    let baseDmg = Math.max(1, atk * (atk / (atk + def + 1))); 
+    if (isCrit) baseDmg *= (critDmg / 100);
+    return Math.floor(baseDmg * (0.9 + Math.random() * 0.2));
+}
+
+function processSkills(mon) {
+    let text = "";
+    for (let sk in p.skills) {
+        let count = p.skills[sk];
+        let data = SKILLS[sk];
+        let chance = data.baseChance * count; 
+        
+        let mpCost = data.mpCost || 0;
+        if (p.stats.mp >= mpCost) {
+            if (Math.random() * 100 < chance) {
+                p.stats.mp -= mpCost; 
+                let powerMult = 1 + (count - 1) * 0.1; 
+                
+                if (data.type === 'mdmg') {
+                    let mdmg = Math.max(1, p.stats.matk * powerMult * (p.stats.matk / (p.stats.matk + mon.def/2 + 1)));
+                    mdmg = Math.floor(mdmg); mon.hp -= mdmg;
+                    text += ` <span style="color:var(--q-rare)">[${data.name}: ${mdmg}魔傷 (-${mpCost}MP)]</span>`;
+                } else if (data.type === 'heal') {
+                    let heal = Math.floor(p.stats.maxHp * data.power * powerMult);
+                    p.stats.hp = Math.min(p.stats.maxHp, p.stats.hp + heal);
+                    text += ` <span style="color:var(--accent)">[${data.name}: +${heal}HP (-${mpCost}MP)]</span>`;
+                } else if (data.type === 'dmg') {
+                     let pdmg = Math.floor(p.stats.atk * 1.5 * powerMult);
+                     mon.hp -= pdmg;
+                     text += ` <span style="color:var(--q-legend)">[${data.name}: ${pdmg}物理 (-${mpCost}MP)]</span>`;
+                }
+            }
+        }
+    }
+    return text;
+}
+
+function checkLevelUp() {
+    let req = p.lvl * 100;
+    let leveled = false;
+    while (p.exp >= req) {
+        p.exp -= req; p.lvl++;
+        p.base.maxHp += 10;
+        p.base.atk += 2; p.base.def += 1;
+        log(`升級了！目前等級 LV.${p.lvl}`, 'sys');
+        req = p.lvl * 100;
+        leveled = true;
+    }
+    if (leveled) {
+        updateStats();
+        p.stats.hp = p.stats.maxHp;
+        p.stats.mp = p.stats.maxMp;
+        updateHUD();
+    }
+}
+
+function handleDeath() {
+    log("你倒下了...", 'dmg');
+    corpse = { eq: JSON.parse(JSON.stringify(p.eq)), gold: p.gold, floor: floor, inv: p.inv, pots: p.pots };
+    
+    p.eq = { '左手':null, '右手':null, '護手':null, '頭部':null, '身體':null, '腰部':null, '褲子':null, '鞋子':null };
+    p.inv = []; p.pots = { hp: 0, mp: 0 }; p.gold = 0; p.party = [];
+    
+    updateStats();
+    // 死亡後回歸初始最大值
+    p.stats.hp = p.stats.maxHp;
+    p.stats.mp = p.stats.maxMp;
+    updateHUD();
+    updateTownUI();
+    autoSave();
+    setTimeout(() => { returnTown(true); }, 1500);
+}
+
+/* ==================== 6. Flow & UI Controls ==================== */
+
+function closeAllOverlays() { 
+    document.querySelectorAll('.overlay:not(#view-dialog)').forEach(el => el.classList.remove('active')); 
+}
+
+function openSys() { closeAllOverlays(); document.getElementById('view-sys').classList.add('active'); }
+
+function openLogHistory() {
+    closeAllOverlays();
+    document.getElementById('full-log-content').innerHTML = logHistory.join('<br>');
+    document.getElementById('view-log-history').classList.add('active');
+    setTimeout(() => { let el = document.getElementById('full-log-content'); el.scrollTop = el.scrollHeight; }, 10);
+}
+
+function continueExplore() { closeAllOverlays(); }
+
+function nextFloor() {
+    floor++; 
+    if (floor > maxFloor) maxFloor = floor;
+    closeAllOverlays();
+    log(`深入到了第 ${floor} 層`, 'sys');
+    updateHUD(); generateMap(); 
+}
+
+function returnTown(isDeath = false, skipSave = false) {
+    inTown = true;
+    closeAllOverlays();
+    document.getElementById('view-town').classList.add('active');
+    document.getElementById('map-container').innerHTML = ''; 
+    if (!isDeath) log("平安返回城鎮。");
+    
+    p.stats.hp = p.stats.maxHp; p.stats.mp = p.stats.maxMp; p.party = [];
+    updateHUD();
+    updateTownUI();
+    if(!skipSave) autoSave();
+}
+
+function animShake(id) {
+    let el = document.getElementById(id);
+    if(el) { el.classList.remove('anim-shake'); void el.offsetWidth; el.classList.add('anim-shake'); }
+}
+
+/* ==================== 7. Modals (Char, Shop, Church) ==================== */
+
+function openChar() {
+    closeAllOverlays(); renderCharScreen();
+    document.getElementById('view-char').classList.add('active');
+}
+
+function renderCharScreen() {
+    let stHtml = '';
+    for(let k in STATS) stHtml += `<div class="stat-row"><span>${STATS[k]}</span><span style="color:${p.stats[k]>p.base[k]?'var(--accent)':'white'}">${p.stats[k]}</span></div>`;
+    
+    let skStr = [];
+    for(let sk in p.skills) skStr.push(`${SKILLS[sk].name}x${p.skills[sk]}`);
+    if(skStr.length > 0) stHtml += `<div style="grid-column: span 2; font-size:0.9em; color:var(--q-legend); margin-top:5px;">技能(耗魔): ${skStr.join(', ')}</div>`;
+    document.getElementById('char-stats').innerHTML = stHtml;
+
+    let eqHtml = '';
+    SLOTS.forEach(s => {
+        let item = p.eq[s];
+        if (item) {
+            let stText = Object.entries(item.stats).map(([k,v]) => `${STATS[k]}+${v}`).join(' ');
+            if (item.skill) stText += ` [${SKILLS[item.skill].name}]`;
+            eqHtml += `<div class="item-card" onclick="unequip('${s}')">
+                <div class="item-info">
+                    <div class="item-name" style="color:${item.grade.color}">${s}: ${item.name}</div>
+                    <div class="item-stats">${stText}</div>
+                </div><div class="btn" style="padding: 5px;">卸下</div>
+            </div>`;
+        } else {
+            eqHtml += `<div class="item-card" style="opacity: 0.5;">${s}: 未裝備</div>`;
+        }
+    });
+    document.getElementById('char-eq').innerHTML = eqHtml;
+
+    let invHtml = '';
+    p.inv.forEach((item, idx) => {
+        let stText = Object.entries(item.stats).map(([k,v]) => `${STATS[k]}+${v}`).join(' ');
+        if (item.skill) stText += ` [${SKILLS[item.skill].name}]`;
+        invHtml += `<div class="item-card">
+            <div class="item-info" onclick="equip(${idx})" style="cursor:pointer;">
+                <div class="item-name" style="color:${item.grade.color}">${item.name} (${item.slot})</div>
+                <div class="item-stats">${stText}</div>
+            </div>
+            <div class="btn danger" style="padding: 5px;" onclick="sellItem(${idx}, ${item.val})">分解(+${item.val}G)</div>
+        </div>`;
+    });
+    if (p.inv.length === 0) invHtml = "<div style='text-align:center;color:#666;'>背包是空的</div>";
+    document.getElementById('char-inv').innerHTML = invHtml;
+}
+
+function equip(invIdx) {
+    let item = p.inv[invIdx]; let current = p.eq[item.slot];
+    p.inv.splice(invIdx, 1);
+    if (current) p.inv.push(current);
+    p.eq[item.slot] = item;
+    updateStats(); renderCharScreen(); autoSave();
+}
+
+function unequip(slot) {
+    let item = p.eq[slot];
+    if (item) {
+        p.eq[slot] = null; p.inv.push(item);
+        updateStats(); renderCharScreen(); autoSave();
+    }
+}
+
+function sellItem(invIdx, val) { p.inv.splice(invIdx, 1); p.gold += val; updateHUD(); renderCharScreen(); autoSave(); }
+
+function refreshShop() { let f = Math.max(1, floor); shopItems = [generateItem(null, f), generateItem(null, f), generateItem(GRADES[1], f)]; }
+
+function openShop() {
+    closeAllOverlays();
+    if(shopItems.length === 0) refreshShop(); 
+    renderShop();
+    document.getElementById('view-shop').classList.add('active');
+}
+
+function renderShop() {
+    let html = `
+        <div class="item-card" style="border-color: var(--danger)">
+            <div class="item-info">
+                <div class="item-name" style="color:var(--danger)">紅色藥水 (HP < 30% 自動飲用)</div>
+                <div class="item-stats">恢復 40% 總生命值，目前持有: ${p.pots.hp}</div>
+            </div>
+            <div class="btn ${p.gold >= 15 ? 'primary' : ''}" style="padding: 5px; min-width: 50px;" onclick="buyPotion('hp', 15)">15G</div>
+        </div>
+        <div class="item-card" style="border-color: var(--q-rare); margin-bottom: 10px;">
+            <div class="item-info">
+                <div class="item-name" style="color:var(--q-rare)">藍色藥水 (MP < 30% 自動飲用)</div>
+                <div class="item-stats">恢復 40% 總魔力值，目前持有: ${p.pots.mp}</div>
+            </div>
+            <div class="btn ${p.gold >= 15 ? 'primary' : ''}" style="padding: 5px; min-width: 50px;" onclick="buyPotion('mp', 15)">15G</div>
+        </div>
+        <hr style="border-color:#444; margin: 10px 0;">
+        <div style="font-size:0.9em; color:var(--q-legend); margin-bottom:5px;">隨機裝備 (深淵探索歸來刷新):</div>
+    `;
+
+    shopItems.forEach((item, idx) => {
+        let cost = item.val * 3; 
+        let stText = Object.entries(item.stats).map(([k,v]) => `${STATS[k]}+${v}`).join(' ');
+        if (item.skill) stText += ` [${SKILLS[item.skill].name}]`;
+        
+        html += `<div class="item-card">
+            <div class="item-info">
+                <div class="item-name" style="color:${item.grade.color}">${item.name} (${item.slot})</div>
+                <div class="item-stats">${stText}</div>
+            </div>
+            <div class="btn ${p.gold >= cost ? 'primary' : ''}" style="padding: 5px; min-width: 50px;" onclick="buyItem(${idx}, ${cost})">${cost}G</div>
+        </div>`;
+    });
+    document.getElementById('shop-list').innerHTML = html;
+}
+
+function buyPotion(type, cost) {
+    if (p.gold >= cost) { p.gold -= cost; p.pots[type]++; log(`購買了${type==='hp'?'紅':'藍'}色藥水。`, 'sys'); updateHUD(); renderShop(); autoSave(); }
+    else { customAlert("金幣不足", "錯誤"); }
+}
+
+function buyItem(idx, cost) {
+    if (p.gold >= cost) { p.gold -= cost; p.inv.push(shopItems[idx]); shopItems.splice(idx, 1); log("購買裝備成功。", "sys"); updateHUD(); renderShop(); autoSave(); }
+    else { customAlert("金幣不足。", "錯誤"); }
+}
+
+function openChurch() {
+    if (!corpse) {
+        log("神父：迷途的羔羊啊，你並沒有遺失的軀殼。", "sys");
+        customAlert("沒有遺失的屍體。");
+        return;
+    }
+    
+    let cost = Math.max(10, corpse.floor * 20);
+    
+    if (p.gold < cost) {
+        let lack = cost - p.gold;
+        log(`神父：香油錢不足。贖回屍體需要 ${cost} 金幣，你還差 ${lack} 金幣。`, "dmg");
+        customAlert(`金幣不足！\n你需要 ${cost}G 來贖回屍體\n(請先光著身子去深淵打史萊姆賺錢)`, "警告");
+        return;
+    }
+
+    customConfirm(`找回遺失的裝備、物品和金幣需要香油錢 ${cost}G。\n(你目前有 ${p.gold}G)\n\n你要支付嗎？`, () => {
+        p.gold -= cost;
+        for (let s in corpse.eq) if (corpse.eq[s]) { if (p.eq[s]) p.inv.push(p.eq[s]); p.eq[s] = corpse.eq[s]; }
+        p.gold += corpse.gold;
+        if(corpse.inv) p.inv = p.inv.concat(corpse.inv);
+        if(corpse.pots) { p.pots.hp += corpse.pots.hp; p.pots.mp += corpse.pots.mp; }
+        
+        corpse = null;
+        updateStats();
+        updateTownUI();
+        autoSave();
+        log("神父為你找回了一切遺物。", "heal");
+        customAlert("已成功找回所有遺失物！", "贖回成功");
+    }, "贖回確認");
+}
+
+// Init
+loadSave();
+
+</script>
+</body>
+</html>
