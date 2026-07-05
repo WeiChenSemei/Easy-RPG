@@ -201,7 +201,7 @@ h2 { font-size: 20px; margin: 4px 0; color: var(--primary); font-weight: 700; }
 .status-icons { display: flex; gap: 2px; justify-content: center; min-height: 14px; margin-top: 2px; flex-wrap: wrap; }
 .s-icon { width: 14px; height: 14px; border-radius: 3px; display: inline-block; font-size: 10px; line-height: 14px; font-weight: bold; text-align: center; color: #fff; }
 .s-atk { background: var(--danger); } .s-def { background: var(--primary); } .s-poi { background: #9b59b6; } .s-reg { background: var(--success); } .s-shd { background: #e0a13a; } .s-shk { background: var(--warning-2); color:#000; } .s-frz { background: #3498db; } .s-bld { background: #c0392b; } .s-brk { background: #8e44ad; }
-.s-vin { background: #16a085; } .s-sth { background: #454b5e; color: #fff; }
+.s-vin { background: #16a085; } .s-sth { background: #454b5e; color: #fff; } .s-bli { background: #5d6b73; }
 
 .log-area { background: #07080b; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); height: 140px; overflow-y: auto; padding: 8px; font-size: var(--font-md); display: flex; flex-direction: column; gap: 4px; cursor: pointer; flex-shrink: 0; }
 .log-area:active { background: #0d0f14; }
@@ -244,22 +244,22 @@ h2 { font-size: 20px; margin: 4px 0; color: var(--primary); font-weight: 700; }
 .float-text {
     position: absolute; font-weight: 900; font-size: calc(var(--font-xl) + 5px); letter-spacing: 0.3px;
     text-shadow: -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 0 10px rgba(0,0,0,0.9), 0px 3px 6px rgba(0,0,0,0.85);
-    pointer-events: none; animation: floatAnim 2.8s ease-out forwards; z-index: 100;
+    pointer-events: none; animation: floatAnim 3.8s ease-out forwards; z-index: 100;
 }
-.float-text-crit { font-size: calc(var(--font-xl) + 11px); animation: floatAnimCrit 2.8s ease-out forwards; }
+.float-text-crit { font-size: calc(var(--font-xl) + 11px); animation: floatAnimCrit 3.8s ease-out forwards; }
 @keyframes floatAnim {
     0% { transform: translate(-50%, 0) scale(0.8); opacity: 1; }
-    10% { transform: translate(-50%, -20px) scale(1.3); opacity: 1; }
-    22% { transform: translate(-50%, -30px) scale(1.05); opacity: 1; }
-    88% { transform: translate(-50%, -58px) scale(1.05); opacity: 1; }
-    100% { transform: translate(-50%, -72px) scale(1.05); opacity: 0; }
+    8% { transform: translate(-50%, -18px) scale(1.3); opacity: 1; }
+    18% { transform: translate(-50%, -26px) scale(1.05); opacity: 1; }
+    90% { transform: translate(-50%, -42px) scale(1.05); opacity: 1; }
+    100% { transform: translate(-50%, -60px) scale(1.05); opacity: 0; }
 }
 @keyframes floatAnimCrit {
     0% { transform: translate(-50%, 0) scale(0.6) rotate(-4deg); opacity: 1; }
-    12% { transform: translate(-50%, -24px) scale(1.55) rotate(3deg); opacity: 1; }
-    26% { transform: translate(-50%, -34px) scale(1.2) rotate(0deg); opacity: 1; }
-    88% { transform: translate(-50%, -60px) scale(1.2); opacity: 1; }
-    100% { transform: translate(-50%, -80px) scale(1.2); opacity: 0; }
+    10% { transform: translate(-50%, -20px) scale(1.55) rotate(3deg); opacity: 1; }
+    20% { transform: translate(-50%, -28px) scale(1.2) rotate(0deg); opacity: 1; }
+    90% { transform: translate(-50%, -46px) scale(1.2); opacity: 1; }
+    100% { transform: translate(-50%, -66px) scale(1.2); opacity: 0; }
 }
 
 /* 神威奇蹟降臨：全螢幕柔光特效（用 CSS 變數帶入該神祇的顏色） */
@@ -472,7 +472,7 @@ h2 { font-size: 20px; margin: 4px 0; color: var(--primary); font-weight: 700; }
    不需要去動下面的戰鬥引擎程式碼。
    ============================================================ */
 
-const ELEMENTS = { none: '無', fire: '火', water: '水', wood: '木', lightning: '雷' };
+const ELEMENTS = { none: '無', fire: '火', water: '水', wood: '木', lightning: '雷', light: '光', dark: '闇' };
 
 // 元素顏色（用於介面上的屬性標示，例如技能標籤、屬性圖示）
 const ELEMENT_COLORS = {
@@ -480,19 +480,25 @@ const ELEMENT_COLORS = {
     fire: '#ff6b4a',
     water: '#45c4ea',
     wood: '#6bcf7f',
-    lightning: '#b98aff'
+    lightning: '#b98aff',
+    light: '#f4e6a8',
+    dark: '#9b6fd6'
 };
 
 /**
  * 元素剋制表（資料驅動版本，取代原本一長串 if/else）。
  * 新增新元素時，只需要在這裡新增一筆 strongVs / weakVs，
  * 完全不用改 getElementMultiplier() 的邏輯本身。
+ *
+ * 光／闇是「互剋」關係（雙方對彼此都是強勢），跟火/水/木的三角循環剋制不同。
  */
 const ELEMENT_CHART = {
     fire:      { strongVs: ['wood'],           weakVs: ['water'] },
     wood:      { strongVs: ['water'],          weakVs: ['fire'] },
     water:     { strongVs: ['fire'],           weakVs: ['wood', 'lightning'] },
     lightning: { strongVs: ['water'],          weakVs: [] },
+    light:     { strongVs: ['dark'],           weakVs: [] },
+    dark:      { strongVs: ['light'],          weakVs: [] },
     none:      { strongVs: [],                 weakVs: [] }
 };
 const ELEMENT_MULT = { STRONG: 1.5, WEAK: 0.7, NEUTRAL: 1.0 };
@@ -533,7 +539,9 @@ const MODIFIERS = {
     'life_steal': { id: 'life_steal', name: '吸血', type: 'offensive', desc: '將造成傷害的 30% 轉化為自身 HP' },
     'steal_gold': { id: 'steal_gold', name: '偷竊', type: 'offensive', desc: '命中時有 40% 機率偷取額外金幣' },
     'bless_infuse': { id: 'bless_infuse', name: '祝福', type: 'friendly', desc: '附加祝福（強化攻擊與防禦）3回合' },
-    'curse_infuse': { id: 'curse_infuse', name: '詛咒', type: 'offensive', desc: '附加詛咒（弱化攻擊與防禦）3回合' }
+    'curse_infuse': { id: 'curse_infuse', name: '詛咒', type: 'offensive', desc: '附加詛咒（弱化攻擊與防禦）3回合' },
+    'blind_chance': { id: 'blind_chance', name: '附加盲目', type: 'offensive', desc: '30% 機率使目標陷入盲目狀態，命中率減半，持續3回合' },
+    'mp_drain': { id: 'mp_drain', name: '吸魔', type: 'offensive', desc: '命中時吸收目標最大魔力 10% 轉化為自身 MP' }
 };
 
 const SKILLS = {
@@ -549,17 +557,19 @@ const SKILLS = {
     'firestorm': { id: 'firestorm', name: '烈焰風暴', type: 'attack', power: 1.1, mpCost: 18, target: 'all_enemies', tags: ['magic', 'fire'], req: ['fire'], element: 'fire', desc: '全體 110% 烈焰傷害。' },
     'frost': { id: 'frost', name: '冰霜打擊', type: 'attack', power: 1.2, mpCost: 10, target: 'enemy', tags: ['magic', 'water'], req: ['magic'], element: 'water', desc: '120% 水傷害，並降低目標防禦力。', applyDebuff: 'def_down' },
     'lightning_strike': { id: 'lightning_strike', name: '閃電術', type: 'attack', power: 1.4, mpCost: 10, target: 'enemy', tags: ['magic', 'lightning'], element: 'lightning', desc: '造成 140% 雷傷害(剋水屬)，25%機率麻痺目標。' },
-    'vine_spell': { id: 'vine_spell', name: '藤蔓術', type: 'attack', power: 1.1, mpCost: 10, target: 'enemy', tags: ['magic', 'wood'], req: ['magic'], element: 'wood', desc: '造成 110% 木傷害，並纏繞目標。被藤蔓纏繞的目標若受到火屬攻擊，將引發猛烈燃燒。', special: 'vine' },
+    'vine_spell': { id: 'vine_spell', name: '藤蔓術', type: 'attack', power: 1.1, mpCost: 10, target: 'enemy', tags: ['magic', 'wood'], req: ['magic'], element: 'wood', desc: '造成 110% 木傷害並纏繞目標，30% 機率使目標中毒或麻痺。被藤蔓纏繞的目標若受到火屬攻擊，將引發猛烈燃燒。', special: 'vine' },
     'blood_blade': { id: 'blood_blade', name: '血刃', type: 'attack', power: 1.1, mpCost: 8, target: 'enemy', tags: ['melee', 'blood'], element: 'none', desc: '造成 110% 物理傷害，並附加 3 回合流血。', applyDebuff: 'bleed' },
     'heal': { id: 'heal', name: '治癒之光', type: 'heal', power: 1.5, mpCost: 12, target: 'ally', tags: ['magic', 'heal', 'team'], req: ['magic'], element: 'none', desc: '恢復單體友軍 HP。' },
     'group_heal': { id: 'group_heal', name: '聖靈讚歌', type: 'heal', power: 1.0, mpCost: 25, target: 'all_allies', tags: ['heal', 'team'], req: ['heal'], element: 'none', desc: '恢復全體友軍 HP。' },
     'purify': { id: 'purify', name: '淨化術', type: 'buff', power: 0, mpCost: 10, target: 'any', tags: ['magic', 'heal', 'team'], req: ['magic'], element: 'none', desc: '消除單體友軍的異常狀態，或驅散單體敵人的增益狀態。', special: 'purify' },
     'meditate': { id: 'meditate', name: '冥想', type: 'buff', power: 0, mpCost: 0, target: 'self', tags: ['magic', 'mana'], req: ['magic'], element: 'none', desc: '放棄攻擊，大量回復自身的魔力。', special: 'meditate' },
-    'stealth': { id: 'stealth', name: '隱形術', type: 'buff', power: 0, mpCost: 10, target: 'self', tags: ['speed', 'stealth'], req: ['speed'], element: 'none', desc: '隱形2回合(降仇恨，被擊中解除)。隱身攻擊有50%機率發動1.5倍奇襲。', applyBuff: 'stealth', buffDuration: 2 },
+    'stealth': { id: 'stealth', name: '隱形術', type: 'buff', power: 0, mpCost: 10, target: 'self', tags: ['speed', 'stealth'], element: 'none', desc: '隱形2回合(降仇恨，被擊中解除)。隱身攻擊有50%機率發動1.5倍奇襲。', applyBuff: 'stealth', buffDuration: 2 },
     'gamble_atk': { id: 'gamble_atk', name: '賭博(攻)', type: 'attack', power: 1.0, mpCost: 8, target: 'enemy', tags: ['magic', 'luck'], req: [], element: 'none', desc: '隨機對敵人使用攻擊技能。技能與被動將繼承賭博本身的強化。', special: 'gamble_atk' },
     'gamble_def': { id: 'gamble_def', name: '賭博(守)', type: 'heal', power: 1.0, mpCost: 8, target: 'ally', tags: ['magic', 'luck'], req: [], element: 'none', desc: '隨機對隊友使用治療或輔助技能。技能與被動將繼承賭博本身的強化。', special: 'gamble_def' },
     'poison_dagger': { id: 'poison_dagger', name: '毒刃', type: 'attack', power: 0.8, mpCost: 6, target: 'enemy', tags: ['melee', 'poison'], element: 'wood', desc: '造成 80% 傷害並附加 3 回合中毒。', applyDebuff: 'poison' },
     'venom_blast': { id: 'venom_blast', name: '猛毒爆發', type: 'attack', power: 1.6, mpCost: 15, target: 'enemy', tags: ['poison', 'magic'], req: ['poison'], element: 'wood', desc: '引爆目標身上的中毒狀態，造成高倍率爆發傷害。' },
+    'holy_bolt': { id: 'holy_bolt', name: '聖光彈', type: 'attack', power: 1.4, mpCost: 9, target: 'enemy', tags: ['magic', 'light'], element: 'light', desc: '造成 140% 光屬性魔法傷害。' },
+    'soul_drain': { id: 'soul_drain', name: '吸魂術', type: 'attack', power: 1.1, mpCost: 10, target: 'enemy', tags: ['magic', 'dark'], element: 'dark', desc: '造成 110% 闇屬性傷害，並吸取目標少量魔力轉化為自身 MP。', special: 'soul_drain' },
     'adrenaline': { id: 'adrenaline', name: '激發潛能', type: 'buff', power: 0, mpCost: 12, target: 'self', tags: ['speed', 'buff'], req: ['melee'], element: 'none', desc: '提升自身攻擊力 3 回合。', applyBuff: 'atk_up', buffDuration: 3 },
     'drain_strike': { id: 'drain_strike', name: '吸血暗蝕', type: 'attack', power: 1.1, mpCost: 12, target: 'enemy', tags: ['melee'], req: ['melee'], element: 'none', desc: '造成傷害，吸收 40% 轉為生命並獲得自身再生。', applyBuff: 'regen', buffDuration: 3 },
     'summon_minion': { id: 'summon_minion', name: '魔王召喚', type: 'buff', power: 0, mpCost: 10, target: 'self', tags: ['magic', 'boss'], element: 'none', desc: '召喚該地下城的怪物前來支援。<span style="color:var(--warning-2);">(魔王專用)</span>', special: 'summon' }
@@ -635,6 +645,22 @@ const DUNGEONS = [
         { name: '毀滅巨獸', hp: 200, mp: 30, atk: 22, def: 12, spd: 6, element: 'none', skills: ['attack', 'cleave'], isLarge: true },
         { name: '厄運使者', hp: 90, mp: 80, atk: 12, def: 7, spd: 10, element: 'none', skills: ['attack', 'group_heal', 'meditate'], isSupport: true },
         { name: '👑 絕望魔王', hp: 500, mp: 150, atk: 28, def: 16, spd: 11, element: 'none', skills: ['attack', 'heavy_strike', 'firestorm', 'summon_minion'], isBoss: true, weak: { element: 'water', skill: 'purify' } }
+    ]},
+    { id: 'nightrealm', name: '永夜墓域', monsters: [
+        { name: '闇影爬行者', hp: 50, mp: 15, atk: 10, def: 4, spd: 9, element: 'dark', skills: ['attack', 'soul_drain'], isLarge: false },
+        { name: '噬光蝠', hp: 38, mp: 20, atk: 12, def: 3, spd: 12, element: 'dark', skills: ['attack', 'soul_drain'], isLarge: false },
+        { name: '墓穴遊魂', hp: 45, mp: 20, atk: 11, def: 3, spd: 8, element: 'dark', skills: ['attack', 'poison_dagger'], isLarge: false },
+        { name: '闇噬巨蟲', hp: 155, mp: 20, atk: 17, def: 9, spd: 4, element: 'dark', skills: ['attack', 'soul_drain'], isLarge: true },
+        { name: '墓園女巫', hp: 60, mp: 55, atk: 9, def: 4, spd: 7, element: 'dark', skills: ['attack', 'heal', 'adrenaline'], isSupport: true },
+        { name: '👑 噬光魔后', hp: 330, mp: 60, atk: 24, def: 13, spd: 9, element: 'dark', skills: ['attack', 'soul_drain', 'summon_minion'], isBoss: true, weak: { element: 'light', skill: 'holy_bolt' } }
+    ]},
+    { id: 'dayrealm', name: '永晝聖殿', monsters: [
+        { name: '光靈', hp: 40, mp: 30, atk: 11, def: 3, spd: 11, element: 'light', skills: ['attack', 'holy_bolt'], isLarge: false },
+        { name: '聖翼隼', hp: 48, mp: 15, atk: 13, def: 4, spd: 12, element: 'light', skills: ['attack', 'slash'], isLarge: false },
+        { name: '苦行修士', hp: 62, mp: 20, atk: 12, def: 6, spd: 7, element: 'light', skills: ['attack', 'holy_bolt'], isLarge: false },
+        { name: '聖光巨像', hp: 165, mp: 15, atk: 16, def: 13, spd: 3, element: 'light', skills: ['attack', 'shield_bash'], isLarge: true },
+        { name: '神殿聖女', hp: 65, mp: 60, atk: 9, def: 5, spd: 8, element: 'light', skills: ['attack', 'heal', 'adrenaline'], isSupport: true },
+        { name: '👑 聖光審判者', hp: 330, mp: 60, atk: 23, def: 15, spd: 8, element: 'light', skills: ['attack', 'holy_bolt', 'summon_minion'], isBoss: true, weak: { element: 'dark', skill: 'soul_drain' } }
     ]}
 ];
 
@@ -673,10 +699,20 @@ const SKILL_EFFECTS = {
     vine_spell: {
         // 修正：原本 special:'vine' 只影響 AI 評分，卻從未真的把「藤蔓纏繞」狀態
         // 套用到目標身上，導致技能說明裡「火屬性引燃」的連動效果永遠不會發生。
+        // 另外補回說明文字提到、但先前沒有實裝的「30% 機率中毒或麻痺」。
         onHit: (ctx) => {
             if (ctx.died) return;
             ctx.target.addBuff('vine_wrapped', 1);
             ctx.log(`> 🌿 ${ctx.target.displayName} 被藤蔓纏繞了！`);
+            if (Math.random() < 0.3) {
+                if (Math.random() < 0.5) {
+                    ctx.target.addBuff('poison', 3);
+                    ctx.log(`> ☠️ 藤蔓的毒液滲入！${ctx.target.displayName} 中毒了！`);
+                } else {
+                    ctx.target.addBuff('paralyze', 2);
+                    ctx.log(`> ⚡ 藤蔓纏住四肢！${ctx.target.displayName} 陷入麻痺！`);
+                }
+            }
         }
     },
     venom_blast: {
@@ -703,6 +739,19 @@ const SKILL_EFFECTS = {
             if (amt > 0) {
                 ctx.actor.heal(amt);
                 ctx.floatText(ctx.actor.id, `+${amt}`, 'var(--success)');
+            }
+        }
+    },
+    soul_drain: {
+        onHit: (ctx) => {
+            if (ctx.died) return;
+            let amt = Math.min(ctx.target.mp, Math.floor(ctx.target.maxMp * 0.15) + 3);
+            if (amt > 0) {
+                ctx.target.mp -= amt;
+                ctx.actor.mp = Math.min(ctx.actor.maxMp, ctx.actor.mp + amt);
+                ctx.log(`> 🌑 ${ctx.actor.displayName} 吸取了 ${ctx.target.displayName} 的 ${amt} 點魔力！`);
+                ctx.floatText(ctx.target.id, `-${amt}MP`, 'var(--mp-fill)');
+                ctx.floatText(ctx.actor.id, `+${amt}MP`, 'var(--mp-fill)');
             }
         }
     }
@@ -796,6 +845,22 @@ const MODIFIER_HANDLERS = {
             ctx.target.addBuff('atk_up', 3);
             ctx.target.addBuff('def_up', 3);
             ctx.log(`> ✨ 神聖祝福：${ctx.target.displayName} 的攻防被大幅激發！`);
+        }
+    },
+    blind_chance: {
+        phase: 'onHit', chance: 0.3,
+        apply: (ctx) => { ctx.target.addBuff('blind', 3); ctx.log(`> 😵 附加盲目：${ctx.target.displayName} 陷入盲目狀態，命中率大幅下降！`); }
+    },
+    mp_drain: {
+        phase: 'onHit', chance: 1.0,
+        apply: (ctx) => {
+            let amt = Math.min(ctx.target.mp, Math.floor(ctx.target.maxMp * 0.10) + 2);
+            if (amt > 0) {
+                ctx.target.mp -= amt;
+                ctx.actor.mp = Math.min(ctx.actor.maxMp, ctx.actor.mp + amt);
+                ctx.floatText(ctx.target.id, `-${amt}MP`, 'var(--mp-fill)');
+                ctx.floatText(ctx.actor.id, `+${amt}MP`, 'var(--mp-fill)');
+            }
         }
     }
 };
@@ -1227,19 +1292,21 @@ const Battle = {
                 }
             });
         } else if (type === 1) {
-            color = "#9b59b6"; prayMsg = `🌑 ${prayActor.displayName} 向闇之神祈禱，詛咒在場所有敵人！`;
+            let dmg = Math.floor(60 * power);
+            color = "#9b59b6"; prayMsg = `🌑 ${prayActor.displayName} 向闇之神祈禱，闇影吞噬並詛咒了所有敵人！`;
             this.log(`<div style="font-size:16px; color:${color}; font-weight:bold; margin-bottom:8px; text-shadow: 1px 1px 2px #000;">${prayMsg}</div>`);
             Game.state.enemies.forEach(e => {
                 if (e.hp > 0) {
+                    e.takeDamage(dmg);
                     e.addBuff('atk_down', 3); e.addBuff('def_down', 3);
-                    this.floatText(e.id, `詛咒`, '#8e44ad');
+                    this.floatText(e.id, `-${dmg} 詛咒`, '#8e44ad');
                 }
             });
         } else if (type === 2) {
             let healPercent = Math.min(0.60, 0.10 + templeLv * 0.05);
             color = "#3498db"; prayMsg = `💧 ${prayActor.displayName} 向水之神祈禱，隊伍全體得到狀態淨化與生命恢復！`;
             this.log(`<div style="font-size:16px; color:${color}; font-weight:bold; margin-bottom:8px; text-shadow: 1px 1px 2px #000;">${prayMsg}</div>`);
-            let debuffs = ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped'];
+            let debuffs = ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped', 'blind'];
             Game.state.party.forEach(p => {
                 if (p.hp > 0) {
                     p.buffs = p.buffs.filter(b => !debuffs.includes(b.type));
@@ -1250,11 +1317,11 @@ const Battle = {
             });
         } else if (type === 3) {
             let duration = Math.min(5, 1 + Math.floor(templeLv / 2) + 1);
-            color = "#2ecc71"; prayMsg = `🍃 ${prayActor.displayName} 向木之神祈禱，隊伍全體得到了神之祝福！`;
+            color = "#2ecc71"; prayMsg = `🍃 ${prayActor.displayName} 向木之神祈禱，隊伍全體得到了神之祝福與生機！`;
             this.log(`<div style="font-size:16px; color:${color}; font-weight:bold; margin-bottom:8px; text-shadow: 1px 1px 2px #000;">${prayMsg}</div>`);
             Game.state.party.forEach(p => {
                 if (p.hp > 0) {
-                    p.addBuff('atk_up', duration); p.addBuff('def_up', duration);
+                    p.addBuff('atk_up', duration); p.addBuff('def_up', duration); p.addBuff('regen', duration);
                     this.floatText(p.id, `祝福`, 'var(--warning)');
                 }
             });
@@ -1399,6 +1466,7 @@ const Battle = {
             if (b.type === 'freeze') { cls = 's-frz'; txt = '凍'; } if (b.type === 'bleed') { cls = 's-bld'; txt = '血'; }
             if (b.type === 'weakened') { cls = 's-brk'; txt = '崩'; } if (b.type === 'vine_wrapped') { cls = 's-vin'; txt = '藤'; }
             if (b.type === 'stealth') { cls = 's-sth'; txt = '隱'; }
+            if (b.type === 'blind') { cls = 's-bli'; txt = '盲'; }
             if (cls) buffsHtml.push(`<span class="s-icon ${cls}">${txt}</span>`);
         });
         r.icons.innerHTML = buffsHtml.join('');
@@ -1418,7 +1486,7 @@ const Battle = {
         floatDiv.style.color = color; floatDiv.innerHTML = text;
         floatDiv.style.top = (rect.top - container.getBoundingClientRect().top) + 'px'; floatDiv.style.left = (rect.left + rect.width / 2) + 'px';
         container.appendChild(floatDiv);
-        setTimeout(() => floatDiv.remove(), 2900);
+        setTimeout(() => floatDiv.remove(), 3900);
     },
 
     hitFlash(targetId) {
@@ -1554,7 +1622,7 @@ const Battle = {
             if (skill.special === 'purify') {
                 let isTargetAlly = (target.isEnemy === entity.isEnemy);
                 if (isTargetAlly) {
-                    let hasDebuff = target.buffs.some(b => ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped'].includes(b.type));
+                    let hasDebuff = target.buffs.some(b => ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped', 'blind'].includes(b.type));
                     if (hasDebuff) opt.score += 80; else opt.score -= 50;
                 } else {
                     let hasBuff = target.buffs.some(b => ['atk_up', 'def_up', 'regen'].includes(b.type));
@@ -1696,6 +1764,12 @@ const Battle = {
                     let isAoeSpread = mods.includes('aoe_spread') && targets.length > 1; let scaleFactor = isAoeSpread ? 0.7 : 1.0;
 
                     if (skill.type === 'attack') {
+                        if (actor.hasBuff('blind') && Math.random() < 0.5) {
+                            this.log(`> 😵 ${actor.displayName} 因為盲目而失去準頭，攻擊沒有命中 ${target.displayName}！`);
+                            this.floatText(target.id, `MISS`, 'var(--text-muted)');
+                            continue;
+                        }
+
                         if (target.isEnemy && target.isBoss && !target.hasBuff('weakened')) {
                             let hitWeakness = false;
                             if (target.weakness) {
@@ -1803,7 +1877,7 @@ const Battle = {
                                     this.log(`> ✨ ${target.displayName} 身上沒有增益狀態。`);
                                 }
                             } else {
-                                let debuffs = ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped'];
+                                let debuffs = ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped', 'blind'];
                                 let removed = false;
                                 target.buffs = target.buffs.filter(b => { if (debuffs.includes(b.type)) { removed = true; return false; } return true; });
                                 if (removed) {
@@ -2158,7 +2232,7 @@ const Game = {
         for (let key in SKILLS) {
             let skill = SKILLS[key]; if (['attack', 'defend', 'summon_minion'].includes(key)) continue; if (this.state.party[0].skills.includes(key)) continue;
             let weight = 1; let matchReq = true;
-            if (skill.req) matchReq = skill.req.some(reqTag => this.state.playerTags.includes(reqTag));
+            if (skill.req && skill.req.length > 0) matchReq = skill.req.some(reqTag => this.state.playerTags.includes(reqTag));
             if (matchReq) { if (skill.tags) skill.tags.forEach(t => { if (this.state.playerTags.includes(t)) weight += 4; }); for (let i = 0; i < weight; i++) skillPool.push({ type: 'skill', data: skill }); }
         }
 
