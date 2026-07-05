@@ -1,0 +1,3245 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>晶石異聞錄 ‧ Gemstone Chronicle</title>
+<style>
+/* ============================================================
+   晶石異聞錄 - GLOBAL STYLE SHEET
+   Retro 16-bit JRPG aesthetic, hard pixel borders, portrait-first.
+   ============================================================ */
+:root{
+  /* --- Palette (named tokens) --- */
+  --ink-navy:#11142b;        /* base background, deep night-sky indigo */
+  --ink-navy-deep:#070818;   /* deepest background / outer frame */
+  --panel-blue:#1c2350;      /* window panel fill */
+  --panel-blue-light:#2c3470;
+  --border-gold:#d8a23a;     /* classic SNES gold-bronze border */
+  --border-gold-dim:#8a662a;
+  --parchment:#f4e8c9;       /* text on dark panels */
+  --parchment-dim:#c9bb96;
+  --ember:#e8662b;           /* fire */
+  --frost:#5ec9e8;           /* ice */
+  --volt:#b07bff;            /* thunder */
+  --gale:#6fe3a8;            /* wind */
+  --terra:#c79a4b;           /* earth */
+  --radiant:#ffe9a8;         /* light */
+  --umbral:#9d4fb0;          /* dark */
+  --hp-red:#d8453f;
+  --mp-blue:#3f7fd8;
+  --limit-gold:#ffcb47;
+  --danger-red:#ff4d4d;
+  --good-green:#6fe3a8;
+  --rarity-common:#aab3c5;
+  --rarity-fine:#6fe3a8;
+  --rarity-rare:#5ec9e8;
+  --rarity-epic:#b07bff;
+  --rarity-legend:#ffcb47;
+  --rarity-myth:#ff6fb0;
+  --rarity-genesis:#ffffff;
+  --font-display:'Trebuchet MS','Hiragino Sans','Noto Sans TC',sans-serif;
+  --font-body:'Verdana','PingFang TC','Noto Sans TC',sans-serif;
+}
+
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{
+  margin:0; padding:0; width:100%; height:100%;
+  background:var(--ink-navy-deep);
+  font-family:var(--font-body);
+  color:var(--parchment);
+  overflow:hidden;
+  user-select:none;
+  -webkit-user-select:none;
+}
+img{image-rendering:pixelated;}
+
+/* ---------- Root game frame: portrait viewport, scales on desktop ---------- */
+#game-root{
+  position:fixed; top:0; left:0;
+  width:100%; height:100%;
+  display:flex; align-items:center; justify-content:center;
+  background:
+    radial-gradient(circle at 50% -10%, #1d2354 0%, var(--ink-navy-deep) 70%);
+}
+#game-frame{
+  position:relative;
+  width:100%; height:100%;
+  max-width:480px;
+  max-height:960px;
+  background:var(--ink-navy);
+  box-shadow:0 0 0 4px var(--border-gold-dim), 0 0 0 8px var(--ink-navy-deep), 0 0 40px rgba(0,0,0,0.8);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+}
+@media (min-aspect-ratio: 9/16){
+  #game-frame{ height:96vh; max-height:960px; width:calc(96vh * 0.5); }
+}
+
+/* ---------- Pixel window: the core recurring chrome element ---------- */
+.pixel-window{
+  background:var(--panel-blue);
+  border:3px solid var(--border-gold);
+  box-shadow:
+    inset 0 0 0 2px var(--ink-navy-deep),
+    inset 0 0 0 4px var(--border-gold-dim),
+    0 2px 0 rgba(0,0,0,0.5);
+  border-radius:0;
+  position:relative;
+}
+.pixel-window::before{
+  /* corner pips for that 16-bit window-chrome feel */
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background-image:
+    radial-gradient(circle, var(--border-gold) 1.5px, transparent 1.6px);
+  background-size:8px 8px;
+  background-position:-2px -2px, calc(100% - 6px) -2px;
+  opacity:0.0;
+}
+
+/* ---------- Screens ---------- */
+.screen{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  opacity:0; pointer-events:none;
+  transition:opacity 0.25s ease;
+}
+.screen.active{ opacity:1; pointer-events:auto; z-index:5;}
+.screen.transitioning-out{ opacity:0; }
+
+#screen-stack{ position:relative; flex:1; width:100%; height:100%; }
+
+/* ---------- Top status bar (shown across most screens) ---------- */
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 10px;
+  background:var(--ink-navy-deep);
+  border-bottom:3px solid var(--border-gold-dim);
+  font-size:11px;
+  flex-shrink:0;
+}
+.topbar .gold-display{ color:var(--limit-gold); font-weight:bold; }
+.topbar .danger-display{ color:var(--danger-red); font-weight:bold; }
+.topbar .topbar-title{
+  font-family:var(--font-display);
+  letter-spacing:2px;
+  color:var(--parchment);
+  text-shadow:1px 1px 0 #000;
+}
+
+/* ---------- Generic scroll area ---------- */
+.scroll-area{ flex:1; overflow-y:auto; padding:10px; }
+.scroll-area::-webkit-scrollbar{ width:4px; }
+.scroll-area::-webkit-scrollbar-thumb{ background:var(--border-gold-dim); }
+
+/* ---------- Buttons ---------- */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  background:var(--panel-blue-light);
+  border:2px solid var(--border-gold);
+  color:var(--parchment);
+  font-family:var(--font-body);
+  font-size:13px;
+  padding:10px 12px;
+  cursor:pointer;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06), 0 2px 0 rgba(0,0,0,0.5);
+  transition:transform 0.06s, background 0.15s;
+  text-align:center;
+  position:relative;
+}
+.btn:active{ transform:translateY(2px); box-shadow:none; }
+.btn.disabled{ opacity:0.35; pointer-events:none; }
+.btn.primary{ background:linear-gradient(180deg,#3a4590,#222a63); border-color:var(--border-gold); }
+.btn.danger{ border-color:var(--hp-red); }
+.btn.small{ padding:6px 8px; font-size:11px; }
+.btn.ghost{ background:transparent; border-color:var(--border-gold-dim); }
+
+.icon-btn{
+  width:64px; height:72px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:4px;
+  background:var(--panel-blue);
+  border:2px solid var(--border-gold-dim);
+  cursor:pointer;
+  font-size:10px;
+  color:var(--parchment);
+}
+.icon-btn .icon-glyph{ font-size:24px; line-height:1; }
+.icon-btn:active{ background:var(--panel-blue-light); }
+
+/* ---------- Town hub grid ---------- */
+.town-bg{
+  flex:1; position:relative; overflow:hidden;
+  background:
+    linear-gradient(180deg, #1a2050 0%, #11142b 55%, #0c0e22 100%);
+}
+.town-skyline{
+  position:absolute; left:0; right:0; bottom:0; height:55%;
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.15) 100%);
+}
+.town-grid{
+  position:relative; z-index:2;
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:10px; padding:14px;
+}
+.town-tile{
+  background:var(--panel-blue);
+  border:2px solid var(--border-gold-dim);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:14px 4px; gap:6px;
+  cursor:pointer;
+  transition:background 0.15s, border-color 0.15s;
+}
+.town-tile:active{ background:var(--panel-blue-light); border-color:var(--border-gold); }
+.town-tile .glyph{ font-size:26px; }
+.town-tile .label{ font-size:11px; letter-spacing:1px; text-align:center; }
+
+.town-banner{
+  text-align:center; padding:16px 10px 6px;
+  font-family:var(--font-display);
+}
+.town-banner .title{ font-size:18px; letter-spacing:3px; color:var(--parchment); text-shadow:2px 2px 0 #000; }
+.town-banner .subtitle{ font-size:10px; color:var(--parchment-dim); margin-top:4px; }
+
+/* ---------- Party strip ---------- */
+.party-strip{ display:flex; gap:6px; padding:8px 10px; flex-shrink:0; overflow-x:auto; }
+.party-card{
+  flex:1 0 auto; min-width:78px;
+  background:var(--panel-blue); border:2px solid var(--border-gold-dim);
+  padding:6px; font-size:9px;
+}
+.party-card .pname{ font-size:10px; font-weight:bold; color:var(--parchment); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.party-card .pjob{ color:var(--parchment-dim); font-size:8px; margin-bottom:3px;}
+.party-card.fallen{ border-color:var(--hp-red); opacity:0.6; }
+.party-card.fallen .pname{ color:var(--hp-red); }
+.bar-track{ width:100%; height:6px; background:#05060f; border:1px solid #000; margin-top:2px; position:relative; }
+.bar-fill{ height:100%; transition:width 0.3s ease; }
+.bar-fill.hp{ background:linear-gradient(90deg,#a82a2a,var(--hp-red)); }
+.bar-fill.mp{ background:linear-gradient(90deg,#28599c,var(--mp-blue)); }
+.bar-fill.limit{ background:linear-gradient(90deg,#c79a1c,var(--limit-gold)); }
+.bar-fill.xp{ background:linear-gradient(90deg,#3a8a5a,var(--good-green)); }
+
+/* ---------- Stage select ---------- */
+.stage-list{ display:flex; flex-direction:column; gap:10px; padding:10px; }
+.stage-card{
+  background:var(--panel-blue); border:2px solid var(--border-gold-dim);
+  padding:10px; display:flex; gap:10px; align-items:center; cursor:pointer;
+}
+.stage-card:active{ border-color:var(--border-gold); }
+.stage-card .stage-glyph{ font-size:30px; width:42px; text-align:center; flex-shrink:0;}
+.stage-card .stage-info{ flex:1; }
+.stage-card .stage-name{ font-size:13px; font-weight:bold; color:var(--parchment); }
+.stage-card .stage-desc{ font-size:10px; color:var(--parchment-dim); margin-top:2px; }
+.stage-card .stage-meta{ font-size:9px; color:var(--limit-gold); margin-top:3px; }
+
+/* ---------- Battle screen ---------- */
+#screen-battle{ background:linear-gradient(180deg,#1a1f4a 0%, #0c0e22 70%); }
+.battle-stage{ flex:1; position:relative; overflow:hidden; min-height:0; }
+.enemy-field{
+  position:absolute; top:6%; left:0; right:0; height:46%;
+  display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(2,1fr);
+  gap:4px; padding:6px 10px;
+}
+.enemy-unit{
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+  cursor:pointer; position:relative; transition:transform 0.12s;
+}
+.enemy-unit .sprite{
+  font-size:30px; filter:drop-shadow(0 4px 4px rgba(0,0,0,0.6));
+  transition:transform 0.15s, opacity 0.3s;
+}
+.enemy-unit.targetable .sprite{ animation:targetPulse 0.9s infinite; }
+.enemy-unit.dead .sprite{ opacity:0; transform:scale(0.3) translateY(20px); }
+.enemy-unit .ehp-track{ width:80%; height:4px; background:#000; border:1px solid #000; margin-top:3px;}
+.enemy-unit .ehp-fill{ height:100%; background:var(--hp-red); transition:width 0.3s; }
+.enemy-unit .enemy-tag{ font-size:8px; color:var(--parchment-dim); margin-top:2px; }
+@keyframes targetPulse{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-4px);} }
+
+.ally-field{
+  position:absolute; bottom:0; left:0; right:0; height:30%;
+  display:flex; gap:6px; padding:6px 10px; align-items:flex-end;
+}
+.ally-unit{
+  flex:1; background:rgba(10,12,30,0.7); border:2px solid var(--border-gold-dim);
+  padding:5px 4px; font-size:9px; position:relative; cursor:pointer;
+  transition:border-color 0.15s, transform 0.12s;
+}
+.ally-unit.active-turn{ border-color:var(--limit-gold); box-shadow:0 0 6px var(--limit-gold); }
+.ally-unit.selected-target{ border-color:var(--good-green); }
+.ally-unit.dead{ opacity:0.35; }
+.ally-unit .aname{ font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ally-unit .gauge-row{ display:flex; flex-direction:column; gap:1px; margin-top:2px;}
+
+.status-icon-row{ display:flex; gap:2px; flex-wrap:wrap; margin-top:2px; min-height:10px;}
+.status-icon{ font-size:9px; background:rgba(0,0,0,0.5); border:1px solid var(--border-gold-dim); padding:0 2px; }
+.status-icon.buff{ color:var(--good-green); }
+.status-icon.debuff{ color:var(--danger-red); }
+
+.dmg-popup-layer{ position:absolute; inset:0; pointer-events:none; z-index:20; }
+.dmg-popup{
+  position:absolute; font-family:var(--font-display); font-weight:bold; font-size:16px;
+  color:var(--parchment); text-shadow:2px 2px 0 #000, -1px -1px 0 #000;
+  animation:popUp 0.9s ease-out forwards;
+  white-space:nowrap;
+}
+.dmg-popup.crit{ font-size:22px; color:var(--limit-gold); }
+.dmg-popup.heal{ color:var(--good-green); }
+.dmg-popup.miss{ color:var(--parchment-dim); font-size:13px; }
+.dmg-popup.element-fire{ color:var(--ember); }
+.dmg-popup.element-ice{ color:var(--frost); }
+.dmg-popup.element-thunder{ color:var(--volt); }
+.dmg-popup.element-wind{ color:var(--gale); }
+.dmg-popup.element-earth{ color:var(--terra); }
+.dmg-popup.element-light{ color:var(--radiant); }
+.dmg-popup.element-dark{ color:var(--umbral); }
+@keyframes popUp{
+  0%{ transform:translateY(0) scale(0.6); opacity:0; }
+  15%{ transform:translateY(-6px) scale(1.15); opacity:1; }
+  30%{ transform:translateY(-14px) scale(1); opacity:1; }
+  100%{ transform:translateY(-46px) scale(1); opacity:0; }
+}
+
+.fx-layer{ position:absolute; inset:0; pointer-events:none; z-index:15; }
+.fx-burst{
+  position:absolute; width:70px; height:70px; border-radius:50%;
+  transform:translate(-50%,-50%) scale(0.2);
+  opacity:0.9;
+  animation:fxBurst 0.45s ease-out forwards;
+}
+@keyframes fxBurst{ 0%{transform:translate(-50%,-50%) scale(0.1); opacity:0.9;} 60%{transform:translate(-50%,-50%) scale(1.3); opacity:0.7;} 100%{transform:translate(-50%,-50%) scale(1.8); opacity:0;} }
+.fx-element-fire{ background:radial-gradient(circle, var(--ember), transparent 70%); }
+.fx-element-ice{ background:radial-gradient(circle, var(--frost), transparent 70%); }
+.fx-element-thunder{ background:radial-gradient(circle, var(--volt), transparent 70%); }
+.fx-element-wind{ background:radial-gradient(circle, var(--gale), transparent 70%); }
+.fx-element-earth{ background:radial-gradient(circle, var(--terra), transparent 70%); }
+.fx-element-light{ background:radial-gradient(circle, var(--radiant), transparent 70%); }
+.fx-element-dark{ background:radial-gradient(circle, var(--umbral), transparent 70%); }
+.fx-element-physical{ background:radial-gradient(circle, #ffffff, transparent 70%); }
+
+.shake{ animation:shakeAnim 0.3s; }
+@keyframes shakeAnim{ 0%,100%{transform:translateX(0);} 20%{transform:translateX(-6px);} 40%{transform:translateX(5px);} 60%{transform:translateX(-4px);} 80%{transform:translateX(3px);} }
+.flash-hit{ animation:flashAnim 0.25s; }
+@keyframes flashAnim{ 0%{filter:brightness(2.4) saturate(0.3);} 100%{filter:brightness(1);} }
+.attack-lunge{ animation:lungeAnim 0.35s ease-in-out; }
+@keyframes lungeAnim{ 0%{transform:translateY(0);} 40%{transform:translateY(-10px) scale(1.08);} 100%{transform:translateY(0);} }
+
+.limit-flash{ animation:limitFlashAnim 1.1s; }
+@keyframes limitFlashAnim{ 0%,100%{box-shadow:none;} 50%{box-shadow:0 0 22px 6px var(--limit-gold);} }
+
+/* ---------- Battle log ---------- */
+.battle-log{
+  flex-shrink:0; height:82px; overflow-y:auto;
+  background:var(--ink-navy-deep); border-top:3px solid var(--border-gold-dim);
+  padding:5px 10px; font-size:12px; color:var(--parchment-dim);
+  cursor:pointer; position:relative;
+}
+.battle-log::after{
+  content:'📜'; position:absolute; right:6px; top:4px;
+  font-size:12px; opacity:0.45; pointer-events:none;
+}
+.battle-log .log-line{ padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.03); }
+.battle-log .log-line.highlight{ color:var(--limit-gold); font-weight:bold; }
+.log-history-modal{ max-height:70vh; overflow-y:auto; }
+.log-history-modal .log-line{ padding:3px 0; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.05); color:var(--parchment-dim); }
+.log-history-modal .log-line.highlight{ color:var(--limit-gold); font-weight:bold; }
+
+/* ---------- Command window ---------- */
+.command-window{
+  flex-shrink:0; border-top:3px solid var(--border-gold);
+  background:var(--ink-navy-deep);
+  padding:8px;
+}
+.command-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.command-grid .btn{ font-size:11px; padding:10px 4px; flex-direction:column; gap:2px; }
+.skill-list{ display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto; }
+.skill-row{
+  display:flex; justify-content:space-between; align-items:center;
+  background:var(--panel-blue); border:2px solid var(--border-gold-dim);
+  padding:8px; cursor:pointer; font-size:11px;
+}
+.skill-row:active{ border-color:var(--border-gold); }
+.skill-row .skill-name{ font-weight:bold; }
+.skill-row .skill-cost{ color:var(--mp-blue); font-size:10px; }
+.skill-row .skill-desc{ color:var(--parchment-dim); font-size:9px; flex-basis:100%; margin-top:2px; }
+.skill-row.disabled{ opacity:0.4; pointer-events:none; }
+
+/* ---------- Modal / overlay ---------- */
+.overlay{
+  position:absolute; inset:0; background:rgba(4,5,14,0.78);
+  display:flex; align-items:center; justify-content:center;
+  z-index:50; opacity:0; pointer-events:none; transition:opacity 0.2s;
+  padding:20px;
+}
+.overlay.show{ opacity:1; pointer-events:auto; }
+.modal-box{ width:100%; max-width:380px; padding:14px; max-height:85%; display:flex; flex-direction:column; }
+.modal-title{ font-family:var(--font-display); letter-spacing:2px; font-size:14px; text-align:center; margin-bottom:8px; color:var(--limit-gold);}
+.modal-body{ flex:1; overflow-y:auto; }
+.modal-actions{ display:flex; gap:8px; margin-top:10px; }
+.modal-actions .btn{ flex:1; }
+
+/* ---------- Item / gem cards (shared across shops, inventory, forge) ---------- */
+.item-card{
+  display:flex; gap:8px; align-items:center;
+  background:var(--panel-blue); border:2px solid var(--border-gold-dim);
+  padding:8px; margin-bottom:6px; cursor:pointer;
+}
+.item-card.selected{ border-color:var(--limit-gold); box-shadow:inset 0 0 0 1px var(--limit-gold); }
+.item-card .item-glyph{ font-size:22px; width:30px; text-align:center; flex-shrink:0; }
+.item-card .item-info{ flex:1; min-width:0; }
+.item-card .item-name{ font-size:12px; font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.item-card .item-sub{ font-size:9px; color:var(--parchment-dim); }
+.item-card .item-price{ font-size:11px; color:var(--limit-gold); flex-shrink:0; }
+
+.rarity-common{ color:var(--rarity-common); }
+.rarity-fine{ color:var(--rarity-fine); }
+.rarity-rare{ color:var(--rarity-rare); }
+.rarity-epic{ color:var(--rarity-epic); }
+.rarity-legend{ color:var(--rarity-legend); }
+.rarity-myth{ color:var(--rarity-myth); }
+.rarity-genesis{ color:var(--rarity-genesis); text-shadow:0 0 6px #fff; }
+
+.border-rarity-common{ border-color:var(--rarity-common) !important; }
+.border-rarity-fine{ border-color:var(--rarity-fine) !important; }
+.border-rarity-rare{ border-color:var(--rarity-rare) !important; }
+.border-rarity-epic{ border-color:var(--rarity-epic) !important; }
+.border-rarity-legend{ border-color:var(--rarity-legend) !important; }
+.border-rarity-myth{ border-color:var(--rarity-myth) !important; }
+.border-rarity-genesis{ border-color:var(--rarity-genesis) !important; }
+
+/* ---------- Socket grid (equipment gem sockets, up to 6) ---------- */
+.socket-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:8px; }
+.socket-slot{
+  aspect-ratio:1; background:#05060f; border:2px dashed var(--border-gold-dim);
+  display:flex; align-items:center; justify-content:center; font-size:18px;
+  cursor:pointer; position:relative;
+}
+.socket-slot.filled{ border-style:solid; }
+.socket-slot.locked{ opacity:0.3; pointer-events:none; }
+.socket-slot.locked::after{ content:'🔒'; font-size:14px; }
+
+/* ---------- Equip slot rows ---------- */
+.equip-slot-row-wrap{ margin-bottom:6px; }
+.equip-slot-row{
+  display:flex; align-items:center; gap:8px; padding:8px;
+  background:var(--panel-blue); border:2px solid var(--border-gold-dim); cursor:pointer;
+}
+.equip-slot-row-wrap .equip-slot-row{ margin-bottom:0; border-bottom:none; }
+.equip-slot-row .slot-label{ font-size:9px; color:var(--parchment-dim); width:38px; flex-shrink:0; }
+.equip-slot-row .slot-content{ flex:1; font-size:11px; }
+.equip-slot-row .slot-content.empty{ color:var(--parchment-dim); font-style:italic; }
+.socket-pip-row{ display:flex; gap:4px; padding:5px 8px; background:var(--ink-navy-deep); border:2px solid var(--border-gold-dim); border-top:none; flex-wrap:wrap; }
+.socket-pip{
+  width:24px; height:24px; flex-shrink:0;
+  background:#05060f; border:2px dashed var(--border-gold-dim);
+  display:flex; align-items:center; justify-content:center; font-size:13px;
+  cursor:pointer;
+}
+.socket-pip.filled{ border-style:solid; }
+.socket-pip.locked{ opacity:0.3; pointer-events:none; border-style:dotted; }
+
+/* ---------- Tabs ---------- */
+.tab-bar{ display:flex; border-bottom:2px solid var(--border-gold-dim); flex-shrink:0; }
+.tab-btn{ flex:1; text-align:center; padding:9px 4px; font-size:11px; cursor:pointer; color:var(--parchment-dim); border-bottom:3px solid transparent; }
+.tab-btn.active{ color:var(--limit-gold); border-bottom-color:var(--limit-gold); }
+
+/* ---------- Bottom nav (in-screen secondary nav, e.g. battle result actions) ---------- */
+.footer-actions{ display:flex; gap:8px; padding:10px; flex-shrink:0; border-top:3px solid var(--border-gold-dim); }
+.footer-actions .btn{ flex:1; }
+
+/* ---------- Toast ---------- */
+#toast-layer{ position:absolute; top:40px; left:0; right:0; display:flex; flex-direction:column; align-items:center; gap:6px; z-index:90; pointer-events:none; }
+.toast{
+  background:var(--ink-navy-deep); border:2px solid var(--border-gold);
+  padding:6px 14px; font-size:11px; color:var(--parchment);
+  animation:toastAnim 2.4s forwards;
+  box-shadow:0 2px 8px rgba(0,0,0,0.6);
+}
+@keyframes toastAnim{ 0%{opacity:0; transform:translateY(-8px);} 10%{opacity:1; transform:translateY(0);} 85%{opacity:1;} 100%{opacity:0;} }
+
+/* ---------- Title screen ---------- */
+#screen-title{ align-items:center; justify-content:center; background:radial-gradient(circle at 50% 30%, #232b66 0%, #0c0e22 75%); }
+.title-emblem{ font-size:64px; text-align:center; margin-bottom:6px; filter:drop-shadow(0 0 16px rgba(216,162,58,0.6)); }
+.title-logo{ text-align:center; font-family:var(--font-display); }
+.title-logo .t1{ font-size:26px; letter-spacing:6px; color:var(--parchment); text-shadow:3px 3px 0 #000;}
+.title-logo .t2{ font-size:11px; letter-spacing:3px; color:var(--limit-gold); margin-top:4px;}
+.title-menu{ margin-top:40px; display:flex; flex-direction:column; gap:10px; width:200px; }
+
+/* ---------- Loading / empty states ---------- */
+.empty-state{ text-align:center; padding:30px 10px; color:var(--parchment-dim); font-size:12px; }
+
+/* ---------- Misc utility ---------- */
+.row{ display:flex; align-items:center; }
+.row.between{ justify-content:space-between; }
+.row.gap6{ gap:6px; }
+.row.gap8{ gap:8px; }
+.mt6{ margin-top:6px; } .mt10{ margin-top:10px; } .mb6{margin-bottom:6px;}
+.txt-dim{ color:var(--parchment-dim); }
+.txt-gold{ color:var(--limit-gold); }
+.txt-small{ font-size:10px; }
+.center-text{ text-align:center; }
+.flex1{ flex:1; }
+.hidden{ display:none !important; }
+
+.stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:4px 10px; font-size:11px; }
+.stat-grid .stat-name{ color:var(--parchment-dim); }
+
+.section-divider{ border-top:1px dashed var(--border-gold-dim); margin:10px 0; }
+.section-label{ font-size:10px; letter-spacing:2px; color:var(--limit-gold); margin-bottom:6px; }
+</style>
+</head>
+<body>
+<div id="game-root">
+  <div id="game-frame">
+    <div id="screen-stack"><!-- screens injected by UIManager --></div>
+    <div id="toast-layer"></div>
+  </div>
+</div>
+<script>
+'use strict';
+/* ============================================================
+   晶石異聞錄 (GEMSTONE CHRONICLE) — single-file JRPG framework
+   ------------------------------------------------------------
+   Architecture: Game owns a set of Manager singletons that
+   communicate through a shared EventBus and the Game instance
+   itself (passed in at construction). All game content (skills,
+   gems, equipment, monsters, jobs, stages, events) lives in the
+   Database object as data tables — new content is added by
+   appending entries, never by writing new branching logic.
+   ============================================================ */
+
+/* ============================================================
+   SECTION 0: CORE UTILITIES — RNG, EventBus, helpers
+   ============================================================ */
+
+// Seedable RNG (mulberry32) so future "seeded run" features are possible.
+class RNG{
+  constructor(seed){ this.seed = seed >>> 0 || (Date.now() >>> 0); }
+  next(){
+    let t = this.seed += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  int(min,max){ return Math.floor(this.next()*(max-min+1))+min; }
+  pick(arr){ return arr[this.int(0,arr.length-1)]; }
+  chance(p){ return this.next() < p; }
+  weighted(entries){ // entries: [{item, weight}]
+    const total = entries.reduce((s,e)=>s+e.weight,0);
+    let r = this.next()*total;
+    for(const e of entries){ if(r < e.weight) return e.item; r -= e.weight; }
+    return entries[entries.length-1].item;
+  }
+}
+const RNG_GLOBAL = new RNG(Date.now());
+
+// Minimal pub/sub so managers stay decoupled from each other.
+class EventBus{
+  constructor(){ this.handlers = {}; }
+  on(evt, fn){ (this.handlers[evt] = this.handlers[evt]||[]).push(fn); return ()=>this.off(evt,fn); }
+  off(evt, fn){ if(!this.handlers[evt]) return; this.handlers[evt] = this.handlers[evt].filter(h=>h!==fn); }
+  emit(evt, payload){ (this.handlers[evt]||[]).slice().forEach(fn=>{ try{ fn(payload); }catch(e){ console.error('[EventBus]', evt, e); } }); }
+}
+
+const Util = {
+  clamp(v,min,max){ return Math.max(min, Math.min(max, v)); },
+  uid(prefix){ return prefix + '_' + Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-4); },
+  deepClone(o){ return JSON.parse(JSON.stringify(o)); },
+  fmt(n){ n = Math.round(n); return n.toLocaleString('en-US'); },
+  escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+  lerp(a,b,t){ return a + (b-a)*t; },
+};
+
+// Element ids the whole game references — adding a new element means
+// touching this list plus a Database.elements entry, nothing else.
+const ELEMENTS = ['physical','fire','ice','thunder','wind','earth','light','dark'];
+const ELEMENT_GLYPH = { physical:'⚔️', fire:'🔥', ice:'❄️', thunder:'⚡', wind:'🌪️', earth:'🪨', light:'✨', dark:'🌑' };
+const ELEMENT_NAME = { physical:'物理', fire:'火', ice:'冰', thunder:'雷', wind:'風', earth:'土', light:'光', dark:'暗' };
+
+const RARITY_ORDER = ['common','fine','rare','epic','legend','myth','genesis'];
+const RARITY_NAME  = { common:'普通', fine:'精良', rare:'稀有', epic:'史詩', legend:'傳說', myth:'神話', genesis:'創世' };
+// Each rarity tier: how many random affixes it rolls, and a power multiplier
+// applied to whatever base effect a gem/equipment provides.
+const RARITY_TABLE = {
+  common:  { affixCount:0, power:1.00, dropWeight:55, sellValue:8   },
+  fine:    { affixCount:1, power:1.15, dropWeight:25, sellValue:20  },
+  rare:    { affixCount:2, power:1.35, dropWeight:12, sellValue:55  },
+  epic:    { affixCount:3, power:1.60, dropWeight:5,  sellValue:140 },
+  legend:  { affixCount:4, power:1.95, dropWeight:2,  sellValue:380 },
+  myth:    { affixCount:5, power:2.40, dropWeight:0.7,sellValue:900 },
+  genesis: { affixCount:6, power:3.00, dropWeight:0.15,sellValue:2400 },
+};
+function rollRarity(rng, danger){
+  // Danger level biases the roll table upward over time, with no cap —
+  // we do this by virtually duplicating high-tier weight per danger tier
+  // rather than ever removing tiers, so genesis stays rare-but-possible early.
+  const bonus = Math.min(danger * 0.6, 40); // soft, unbounded but diminishing via clamp on call site
+  const entries = RARITY_ORDER.map((r,i)=>({ item:r, weight: Math.max(0.05, RARITY_TABLE[r].dropWeight + (i>=3? bonus*(i-2) : 0)) }));
+  return rng.weighted(entries);
+}
+
+/* ============================================================
+   SECTION 1: DATABASE — all game content as data tables.
+   Add new monsters/skills/gems/equipment/events by appending
+   entries here. No manager should ever switch() on an id; they
+   look up behavior in these tables instead.
+   ============================================================ */
+const Database = {
+
+  // ---- Stat keys used everywhere (party, enemies, equipment, gems) ----
+  baseStatKeys: ['hp','mp','atk','matk','def','mdef','spd','luck','hit','eva','crit','critDmg'],
+
+  // ---- Skill gems: the "verb" of a build. kind: 'attack'|'heal'|'buff'|'debuff'|'limit'
+  // target: 'singleEnemy'|'allEnemies'|'singleAlly'|'allAllies'|'self'
+  skillGems: {
+    fire:      { id:'fire', name:'Fire', kind:'attack', element:'fire', target:'singleEnemy', power:1.0, mpCost:6, glyph:'🔥', desc:'單體火焰傷害。' },
+    blizzard:  { id:'blizzard', name:'Blizzard', kind:'attack', element:'ice', target:'singleEnemy', power:1.0, mpCost:6, glyph:'❄️', desc:'單體冰霜傷害。' },
+    thunder:   { id:'thunder', name:'Thunder', kind:'attack', element:'thunder', target:'singleEnemy', power:1.0, mpCost:6, glyph:'⚡', desc:'單體雷電傷害。' },
+    aero:      { id:'aero', name:'Aero', kind:'attack', element:'wind', target:'singleEnemy', power:0.95, mpCost:5, glyph:'🌪️', desc:'單體風刃傷害。' },
+    stone:     { id:'stone', name:'Stone', kind:'attack', element:'earth', target:'singleEnemy', power:1.05, mpCost:6, glyph:'🪨', desc:'單體大地傷害。' },
+    holy:      { id:'holy', name:'Holy', kind:'attack', element:'light', target:'singleEnemy', power:1.2, mpCost:10, glyph:'✨', desc:'單體光屬傷害，對暗系敵人加成。' },
+    meteor:    { id:'meteor', name:'Meteor', kind:'attack', element:'fire', target:'allEnemies', power:0.9, mpCost:20, glyph:'☄️', desc:'全體火焰傷害。' },
+    flare:     { id:'flare', name:'Flare', kind:'attack', element:'fire', target:'singleEnemy', power:2.2, mpCost:24, glyph:'🌟', desc:'極強單體無屬性火焰傷害。' },
+    ultima:    { id:'ultima', name:'Ultima', kind:'attack', element:'dark', target:'allEnemies', power:1.6, mpCost:34, glyph:'🌀', desc:'全體禁忌魔法傷害。' },
+    cure:      { id:'cure', name:'Cure', kind:'heal', element:'light', target:'singleAlly', power:1.0, mpCost:8, glyph:'💚', desc:'恢復單體HP。' },
+    cura:      { id:'cura', name:'Cura', kind:'heal', element:'light', target:'allAllies', power:0.8, mpCost:22, glyph:'💖', desc:'恢復全體HP。' },
+    protect:   { id:'protect', name:'Protect', kind:'buff', element:'light', target:'singleAlly', power:0, mpCost:7, glyph:'🛡️', desc:'提升單體DEF。', statusId:'buff_def' },
+    haste:     { id:'haste', name:'Haste', kind:'buff', element:'wind', target:'singleAlly', power:0, mpCost:9, glyph:'💨', desc:'提升單體SPD。', statusId:'buff_spd' },
+    bravery:   { id:'bravery', name:'Bravery', kind:'buff', element:'fire', target:'singleAlly', power:0, mpCost:9, glyph:'🔆', desc:'提升單體ATK。', statusId:'buff_atk' },
+    silence_sk:{ id:'silence_sk', name:'Silence', kind:'debuff', element:'dark', target:'singleEnemy', power:0, mpCost:8, glyph:'🔇', desc:'使敵人無法使用技能。', statusId:'debuff_silence' },
+    slow:      { id:'slow', name:'Slow', kind:'debuff', element:'dark', target:'singleEnemy', power:0, mpCost:8, glyph:'🐌', desc:'降低敵人SPD。', statusId:'debuff_spd' },
+    iaigiri:   { id:'iaigiri', name:'居合斬', kind:'attack', element:'physical', target:'singleEnemy', power:1.4, mpCost:7, glyph:'🗡️', desc:'高爆擊率的拔刀斬擊。', critBonus:0.25 },
+    cyclone_slash:{ id:'cyclone_slash', name:'旋風斬', kind:'attack', element:'physical', target:'allEnemies', power:0.85, mpCost:14, glyph:'🌀', desc:'迴旋揮砍全體敵人。' },
+    dragon_fang:{ id:'dragon_fang', name:'龍牙突', kind:'attack', element:'physical', target:'singleEnemy', power:1.7, mpCost:11, glyph:'🐉', desc:'貫穿突刺，無視部分防禦。', defPierce:0.3 },
+    rapid_shot:{ id:'rapid_shot', name:'連射', kind:'attack', element:'physical', target:'singleEnemy', power:0.55, mpCost:6, glyph:'🏹', hits:3, desc:'三連弓箭攻擊。' },
+    assassinate:{ id:'assassinate', name:'暗殺', kind:'attack', element:'physical', target:'singleEnemy', power:1.1, mpCost:9, glyph:'🔪', desc:'低生命敵人必定爆擊。', execBelow:0.25 },
+    provoke:   { id:'provoke', name:'挑釁', kind:'debuff', element:'physical', target:'self', power:0, mpCost:4, glyph:'📢', desc:'吸引敵人攻擊自己。', statusId:'buff_taunt' },
+  },
+
+  // ---- Ability gems: flat/percent stat modifiers, no "verb". ----
+  abilityGems: {
+    ag_hp:    { id:'ag_hp', name:'生命之心', stat:'hp', mode:'percent', value:0.08, glyph:'❤️', desc:'最大HP +8%' },
+    ag_mp:    { id:'ag_mp', name:'魔力之心', stat:'mp', mode:'percent', value:0.10, glyph:'💧', desc:'最大MP +10%' },
+    ag_atk:   { id:'ag_atk', name:'力量石', stat:'atk', mode:'percent', value:0.10, glyph:'💪', desc:'ATK +10%' },
+    ag_matk:  { id:'ag_matk', name:'魔晶石片', stat:'matk', mode:'percent', value:0.10, glyph:'🔮', desc:'MATK +10%' },
+    ag_def:   { id:'ag_def', name:'守護石', stat:'def', mode:'percent', value:0.10, glyph:'🛡️', desc:'DEF +10%' },
+    ag_spd:   { id:'ag_spd', name:'疾風石', stat:'spd', mode:'percent', value:0.08, glyph:'🪶', desc:'SPD +8%' },
+    ag_crit:  { id:'ag_crit', name:'死亡之眼', stat:'crit', mode:'flat', value:0.06, glyph:'🎯', desc:'爆擊率 +6%' },
+    ag_hit:   { id:'ag_hit', name:'鷹眼石', stat:'hit', mode:'flat', value:0.08, glyph:'👁️', desc:'命中率 +8%' },
+    ag_eva:   { id:'ag_eva', name:'殘影石', stat:'eva', mode:'flat', value:0.06, glyph:'💫', desc:'閃避率 +6%' },
+    ag_res_fire:{ id:'ag_res_fire', name:'抗火石', stat:'res_fire', mode:'flat', value:0.20, glyph:'🔥', desc:'火抗性 +20%' },
+    ag_res_ice:{ id:'ag_res_ice', name:'抗冰石', stat:'res_ice', mode:'flat', value:0.20, glyph:'❄️', desc:'冰抗性 +20%' },
+    ag_res_dark:{ id:'ag_res_dark', name:'抗暗石', stat:'res_dark', mode:'flat', value:0.20, glyph:'🌑', desc:'暗抗性 +20%' },
+  },
+
+  // ---- Special gems: combine with a skill gem to transform it.
+  // The combination engine (GemManager.combineSkill) reads `tags` and
+  // applies `apply()` generically — new special gems need no new code
+  // elsewhere, and stacking multiple specials composes automatically.
+  specialGems: {
+    sp_all:     { id:'sp_all', name:'全體化', glyph:'🌐', namePrefix:'', namePattern:'{name} All', desc:'使單體技能變為全體技能（威力略降）。',
+                  apply(built){ if(built.target==='singleEnemy') built.target='allEnemies'; else if(built.target==='singleAlly') built.target='allAllies'; built.power *= 0.6; built.mpCost = Math.round(built.mpCost*2.2); } },
+    sp_poison:  { id:'sp_poison', name:'毒化', glyph:'☠️', namePattern:'Poison {name}', desc:'攻擊附加中毒狀態。',
+                  apply(built){ built.appliesStatus = built.appliesStatus||[]; built.appliesStatus.push({ id:'debuff_poison', chance:0.6 }); } },
+    sp_paralyze:{ id:'sp_paralyze', name:'麻痺', glyph:'🟡', namePattern:'Paralyze {name}', desc:'攻擊附加麻痺狀態（機率無法行動）。',
+                  apply(built){ built.appliesStatus = built.appliesStatus||[]; built.appliesStatus.push({ id:'debuff_paralyze', chance:0.35 }); } },
+    sp_pierce:  { id:'sp_pierce', name:'穿透', glyph:'🎯', namePattern:'Piercing {name}', desc:'無視 30% 防禦力。',
+                  apply(built){ built.defPierce = (built.defPierce||0) + 0.3; } },
+    sp_drain:   { id:'sp_drain', name:'吸血', glyph:'🩸', namePattern:'Drain {name}', desc:'造成傷害的 30% 轉化為HP。',
+                  apply(built){ built.drainPct = (built.drainPct||0) + 0.3; } },
+    sp_explosion:{ id:'sp_explosion', name:'爆裂', glyph:'💥', namePattern:'{name} Explosion', desc:'威力大幅提升，MP消耗增加。',
+                  apply(built){ built.power *= 1.6; built.mpCost = Math.round(built.mpCost*1.5); } },
+    sp_haste:   { id:'sp_haste', name:'加速', glyph:'⏱️', namePattern:'Quick {name}', desc:'技能不消耗本回合速度排序加成（降低MP消耗）。',
+                  apply(built){ built.mpCost = Math.max(1, Math.round(built.mpCost*0.7)); } },
+    sp_double:  { id:'sp_double', name:'連發', glyph:'🔁', namePattern:'{name} x2', desc:'技能發動兩次判定。',
+                  apply(built){ built.hits = (built.hits||1) + 1; built.power *= 0.7; } },
+    sp_crit:    { id:'sp_crit', name:'會心', glyph:'🎯', namePattern:'Critical {name}', desc:'爆擊率大幅提升。',
+                  apply(built){ built.critBonus = (built.critBonus||0) + 0.3; } },
+    sp_curse:   { id:'sp_curse', name:'詛咒', glyph:'🪦', namePattern:'Cursed {name}', desc:'攻擊附加全屬性抗性降低。',
+                  apply(built){ built.appliesStatus = built.appliesStatus||[]; built.appliesStatus.push({ id:'debuff_curse', chance:0.5 }); } },
+  },
+
+  // ---- Limit gems: standalone ultimate skills, unaffected by specials. ----
+  limitGems: {
+    lim_apocalypse: { id:'lim_apocalypse', kind:'attack', name:'Inferno Apocalypse', element:'fire', target:'allEnemies', power:4.2, glyph:'🌋', desc:'全體毀滅性火焰爆裂，附加燃燒。', appliesStatus:[{id:'debuff_burn',chance:1}] },
+    lim_genesis_judgement:{ id:'lim_genesis_judgement', kind:'attack', name:'創世審判', element:'light', target:'allEnemies', power:4.0, glyph:'⚜️', desc:'神聖審判降臨全體敵人。' },
+    lim_abyss_requiem:{ id:'lim_abyss_requiem', kind:'attack', name:'深淵安息曲', element:'dark', target:'allEnemies', power:3.6, glyph:'🌑', desc:'深淵之力侵蝕全體敵人，並降低其抗性。', appliesStatus:[{id:'debuff_curse',chance:1}] },
+    lim_thousand_blades:{ id:'lim_thousand_blades', kind:'attack', name:'千刃絕舞', element:'physical', target:'allEnemies', power:3.8, glyph:'⚔️', desc:'無數劍光斬向全體敵人。', hits:1, critBonus:0.5 },
+    lim_sanctuary:{ id:'lim_sanctuary', kind:'heal', name:'聖域結界', element:'light', target:'allAllies', power:2.4, desc:'全體大幅回復並暫時無敵。', glyph:'🕊️', appliesStatus:[{id:'buff_barrier', chance:1, allies:true}] },
+  },
+
+  // ---- Status effects: buffs/debuffs applied by skills/specials. ----
+  statusEffects: {
+    buff_atk:    { id:'buff_atk', name:'勇氣', kind:'buff', stat:'atk', mode:'percent', value:0.3, duration:3, icon:'🔆' },
+    buff_def:    { id:'buff_def', name:'防護', kind:'buff', stat:'def', mode:'percent', value:0.4, duration:3, icon:'🛡️' },
+    buff_spd:    { id:'buff_spd', name:'疾速', kind:'buff', stat:'spd', mode:'percent', value:0.35, duration:3, icon:'💨' },
+    buff_taunt:  { id:'buff_taunt', name:'挑釁', kind:'buff', stat:'taunt', mode:'flag', value:1, duration:2, icon:'📢' },
+    buff_barrier:{ id:'buff_barrier', name:'結界', kind:'buff', stat:'barrier', mode:'flag', value:1, duration:1, icon:'🕊️' },
+    debuff_poison:{ id:'debuff_poison', name:'中毒', kind:'debuff', dot:true, dotPct:0.06, duration:4, icon:'☠️' },
+    debuff_burn: { id:'debuff_burn', name:'燃燒', kind:'debuff', dot:true, dotPct:0.08, duration:3, icon:'🔥' },
+    debuff_paralyze:{ id:'debuff_paralyze', name:'麻痺', kind:'debuff', stat:'paralyze', mode:'flag', value:1, duration:2, icon:'🟡' },
+    debuff_silence:{ id:'debuff_silence', name:'沉默', kind:'debuff', stat:'silence', mode:'flag', value:1, duration:3, icon:'🔇' },
+    debuff_spd:  { id:'debuff_spd', name:'遲緩', kind:'debuff', stat:'spd', mode:'percent', value:-0.35, duration:3, icon:'🐌' },
+    debuff_curse:{ id:'debuff_curse', name:'詛咒', kind:'debuff', stat:'allRes', mode:'flat', value:-0.15, duration:3, icon:'🪦' },
+  },
+
+  // ---- Gem random affixes (rolled on drop, count by rarity tier) ----
+  gemAffixPool: [
+    { id:'aff_elem_dmg_fire', text:'火屬傷害 +{v}%', stat:'elemDmg_fire', mode:'percent', range:[10,30] },
+    { id:'aff_elem_dmg_ice', text:'冰屬傷害 +{v}%', stat:'elemDmg_ice', mode:'percent', range:[10,30] },
+    { id:'aff_elem_dmg_thunder', text:'雷屬傷害 +{v}%', stat:'elemDmg_thunder', mode:'percent', range:[10,30] },
+    { id:'aff_elem_dmg_physical', text:'物理傷害 +{v}%', stat:'elemDmg_physical', mode:'percent', range:[8,22] },
+    { id:'aff_mp_cost', text:'MP消耗 -{v}%', stat:'mpCostReduce', mode:'percent', range:[8,20] },
+    { id:'aff_kill_mp', text:'擊殺回復MP +{v}', stat:'killMpRestore', mode:'flat', range:[2,8] },
+    { id:'aff_recast', text:'技能有 {v}% 機率再發動一次', stat:'recastChance', mode:'percent', range:[5,15] },
+    { id:'aff_burn_proc', text:'有 {v}% 機率附加燃燒', stat:'procBurn', mode:'percent', range:[8,20] },
+    { id:'aff_crit_extra', text:'爆擊時追加 {v}% 火焰傷害', stat:'critExtraFire', mode:'percent', range:[10,25] },
+    { id:'aff_crit_rate', text:'爆擊率 +{v}%', stat:'crit', mode:'flat', range:[3,9] },
+    { id:'aff_lifesteal', text:'吸血 +{v}%', stat:'lifesteal', mode:'percent', range:[3,10] },
+    { id:'aff_hit', text:'命中率 +{v}%', stat:'hit', mode:'flat', range:[3,9] },
+  ],
+
+  // ---- Jobs: fixed classes for recruitable tavern allies. ----
+  // levelSkills: {level: skillGemId} — automatically learned on reaching
+  // that level (see Unit.gainXp / PartyManager). These stack with any
+  // skills granted by equipped gear (see SkillManager.getUsableSkills).
+  // limitSkill: a job-exclusive limit ultimate, always available to any
+  // unit of that job regardless of what's equipped — this is what makes
+  // every job feel distinct even before the player finds limit gems for
+  // them. Units can ALSO equip limit gems on gear for additional limits.
+  jobs: {
+    warrior:  { id:'warrior', name:'戰士', growth:{hp:1.25,mp:0.7,atk:1.3,matk:0.6,def:1.15,mdef:0.7,spd:0.9,luck:0.9}, levelSkills:{1:'cyclone_slash',4:'provoke',8:'dragon_fang'}, limitSkill:'lim_thousand_blades', glyph:'🗡️' },
+    knight:   { id:'knight', name:'騎士', growth:{hp:1.4,mp:0.6,atk:1.1,matk:0.5,def:1.4,mdef:0.9,spd:0.75,luck:0.85}, levelSkills:{1:'provoke',4:'protect',8:'cyclone_slash'}, limitSkill:'lim_sanctuary', glyph:'🛡️' },
+    monk:     { id:'monk', name:'武僧', growth:{hp:1.3,mp:0.5,atk:1.25,matk:0.4,def:1.1,mdef:0.8,spd:1.1,luck:0.9}, levelSkills:{1:'dragon_fang',4:'iaigiri',8:'assassinate'}, limitSkill:'lim_thousand_blades', glyph:'👊' },
+    samurai:  { id:'samurai', name:'武士', growth:{hp:1.1,mp:0.7,atk:1.35,matk:0.5,def:0.95,mdef:0.7,spd:1.05,luck:1.0}, levelSkills:{1:'iaigiri',4:'dragon_fang',8:'assassinate'}, limitSkill:'lim_thousand_blades', glyph:'⚔️' },
+    ninja:    { id:'ninja', name:'忍者', growth:{hp:0.9,mp:0.9,atk:1.15,matk:0.7,def:0.7,mdef:0.8,spd:1.4,luck:1.1}, levelSkills:{1:'assassinate',4:'slow',8:'iaigiri'}, limitSkill:'lim_thousand_blades', glyph:'🥷' },
+    thief:    { id:'thief', name:'盜賊', growth:{hp:0.95,mp:0.8,atk:1.05,matk:0.6,def:0.75,mdef:0.75,spd:1.35,luck:1.3}, levelSkills:{1:'slow',4:'assassinate',8:'rapid_shot'}, limitSkill:'lim_thousand_blades', glyph:'🗝️' },
+    hunter:   { id:'hunter', name:'獵人', growth:{hp:1.0,mp:0.75,atk:1.2,matk:0.55,def:0.85,mdef:0.75,spd:1.15,luck:1.05}, levelSkills:{1:'rapid_shot',4:'slow',8:'assassinate'}, limitSkill:'lim_thousand_blades', glyph:'🏹' },
+    white_mage:{ id:'white_mage', name:'白魔導士', growth:{hp:0.85,mp:1.4,atk:0.55,matk:1.2,def:0.7,mdef:1.3,spd:0.95,luck:1.0}, levelSkills:{1:'cure',4:'cura',8:'protect'}, limitSkill:'lim_sanctuary', glyph:'⚕️' },
+    black_mage:{ id:'black_mage', name:'黑魔導士', growth:{hp:0.8,mp:1.45,atk:0.5,matk:1.4,def:0.65,mdef:1.1,spd:0.95,luck:0.95}, levelSkills:{1:'fire',4:'meteor',8:'flare'}, limitSkill:'lim_apocalypse', glyph:'🔮' },
+    paladin:  { id:'paladin', name:'聖騎士', growth:{hp:1.35,mp:0.95,atk:1.1,matk:0.85,def:1.3,mdef:1.1,spd:0.8,luck:1.0}, levelSkills:{1:'protect',4:'cure',8:'holy'}, limitSkill:'lim_sanctuary', glyph:'✝️' },
+    spellblade:{ id:'spellblade', name:'魔劍士', growth:{hp:1.05,mp:1.1,atk:1.15,matk:1.15,def:0.95,mdef:0.95,spd:1.0,luck:1.0}, levelSkills:{1:'dragon_fang',4:'fire',8:'thunder'}, limitSkill:'lim_thousand_blades', glyph:'🗡️' },
+    sage:     { id:'sage', name:'賢者', growth:{hp:0.95,mp:1.5,atk:0.6,matk:1.35,def:0.8,mdef:1.25,spd:1.0,luck:1.1}, levelSkills:{1:'cure',4:'ultima',8:'cura'}, limitSkill:'lim_genesis_judgement', glyph:'📖' },
+    bard:     { id:'bard', name:'吟遊詩人', growth:{hp:0.9,mp:1.1,atk:0.75,matk:0.95,def:0.75,mdef:0.95,spd:1.1,luck:1.2}, levelSkills:{1:'haste',4:'bravery',8:'cura'}, limitSkill:'lim_sanctuary', glyph:'🎵' },
+    dancer:   { id:'dancer', name:'舞者', growth:{hp:0.95,mp:1.0,atk:0.95,matk:0.85,def:0.75,mdef:0.85,spd:1.3,luck:1.15}, levelSkills:{1:'bravery',4:'haste',8:'iaigiri'}, limitSkill:'lim_thousand_blades', glyph:'💃' },
+    summoner: { id:'summoner', name:'召喚師', growth:{hp:0.85,mp:1.4,atk:0.55,matk:1.3,def:0.7,mdef:1.15,spd:0.9,luck:1.0}, levelSkills:{1:'stone',4:'thunder',8:'ultima'}, limitSkill:'lim_abyss_requiem', glyph:'👹' },
+  },
+
+  // ---- AI personalities: how AIManager picks ally actions. ----
+  aiPersonalities: {
+    brave:       { id:'brave', name:'勇敢', desc:'優先攻擊最強敵人。' },
+    conservative:{ id:'conservative', name:'保守', desc:'HP過低時優先防禦或撤退性行動。' },
+    mp_saver:    { id:'mp_saver', name:'節省MP', desc:'盡量使用普通攻擊，MP技能留到關鍵時刻。' },
+    healer:      { id:'healer', name:'優先補血', desc:'隊伍有人受傷時優先治療。' },
+    buffer:      { id:'buffer', name:'優先Buff', desc:'戰鬥前期優先施放增益狀態。' },
+    boss_focus:  { id:'boss_focus', name:'優先攻擊Boss', desc:'場上有Boss時集中火力攻擊。' },
+    backline:    { id:'backline', name:'優先攻擊後排', desc:'優先攻擊敵方法系/後排單位。' },
+  },
+
+  // ---- Base equipment templates. slot: weapon|offhand|armor|accessory ----
+  equipment: {
+    eq_short_sword:  { id:'eq_short_sword', name:'初心者短劍', slot:'weapon', glyph:'🗡️', baseStats:{atk:6}, sockets:2, tier:1, baseCost:60 },
+    eq_long_sword:   { id:'eq_long_sword', name:'騎士長劍', slot:'weapon', glyph:'⚔️', baseStats:{atk:14}, sockets:3, tier:2, baseCost:220 },
+    eq_oak_staff:    { id:'eq_oak_staff', name:'橡木法杖', slot:'weapon', glyph:'🪄', baseStats:{matk:13,mp:8}, sockets:3, tier:2, baseCost:210 },
+    eq_hunting_bow:  { id:'eq_hunting_bow', name:'狩獵之弓', slot:'weapon', glyph:'🏹', baseStats:{atk:10,spd:3}, sockets:3, tier:2, baseCost:230 },
+    eq_war_axe:      { id:'eq_war_axe', name:'戰斧', slot:'weapon', glyph:'🪓', baseStats:{atk:20,hit:-0.04}, sockets:4, tier:3, baseCost:520 },
+    eq_buckler:      { id:'eq_buckler', name:'圓盤小盾', slot:'offhand', glyph:'🛡️', baseStats:{def:8}, sockets:2, tier:1, baseCost:70 },
+    eq_grimoire:     { id:'eq_grimoire', name:'魔導書', slot:'offhand', glyph:'📕', baseStats:{matk:9,mp:6}, sockets:2, tier:2, baseCost:180 },
+    eq_quiver:       { id:'eq_quiver', name:'箭袋', slot:'offhand', glyph:'🎯', baseStats:{atk:5,crit:0.03}, sockets:2, tier:2, baseCost:170 },
+    eq_leather_armor:{ id:'eq_leather_armor', name:'皮甲', slot:'armor', glyph:'🥋', baseStats:{def:10,hp:20}, sockets:3, tier:1, baseCost:90 },
+    eq_chain_mail:   { id:'eq_chain_mail', name:'鎖鏈鎧', slot:'armor', glyph:'🦺', baseStats:{def:20,hp:45,spd:-1}, sockets:4, tier:2, baseCost:300 },
+    eq_mage_robe:    { id:'eq_mage_robe', name:'賢者長袍', slot:'armor', glyph:'👘', baseStats:{mdef:18,mp:25}, sockets:4, tier:2, baseCost:290 },
+    eq_plate_armor:  { id:'eq_plate_armor', name:'重裝鎧甲', slot:'armor', glyph:'🛡️', baseStats:{def:38,hp:80,spd:-3}, sockets:5, tier:3, baseCost:650 },
+    eq_ring_power:   { id:'eq_ring_power', name:'力量指環', slot:'accessory', glyph:'💍', baseStats:{atk:8,crit:0.03}, sockets:2, tier:2, baseCost:200 },
+    eq_amulet_wisdom:{ id:'eq_amulet_wisdom', name:'智慧護符', slot:'accessory', glyph:'📿', baseStats:{matk:8,mp:15}, sockets:2, tier:2, baseCost:200 },
+    eq_boots_wind:   { id:'eq_boots_wind', name:'疾風之靴', slot:'accessory', glyph:'👢', baseStats:{spd:5,eva:0.04}, sockets:2, tier:2, baseCost:210 },
+    eq_pendant_void: { id:'eq_pendant_void', name:'虛無墜飾', slot:'accessory', glyph:'🔯', baseStats:{matk:14,res_dark:0.15}, sockets:3, tier:3, baseCost:480 },
+  },
+
+  // ---- Monsters: per-stage theme pools + boss entries. Scaled at runtime
+  // by EnemyManager using floor depth and the permanent Danger Level. ----
+  monsters: {
+    slime:        { id:'slime', name:'史萊姆', glyph:'🟢', tier:1, base:{hp:18,mp:0,atk:5,matk:0,def:2,mdef:1,spd:4,luck:3}, element:'physical', resist:{}, skills:[], gold:[3,6] },
+    bat:          { id:'bat', name:'吸血蝙蝠', glyph:'🦇', tier:1, base:{hp:14,mp:4,atk:6,matk:3,def:1,mdef:1,spd:9,luck:5}, element:'dark', resist:{dark:0.3}, skills:[], gold:[3,7] },
+    cave_spider:  { id:'cave_spider', name:'洞窟巨蜘蛛', glyph:'🕷️', tier:1, base:{hp:20,mp:0,atk:7,matk:0,def:2,mdef:1,spd:7,luck:4}, element:'physical', resist:{}, skills:[], gold:[4,8], onHitStatus:[{id:'debuff_poison',chance:0.3}] },
+    goblin:       { id:'goblin', name:'哥布林', glyph:'👺', tier:2, base:{hp:26,mp:2,atk:8,matk:1,def:4,mdef:2,spd:6,luck:5}, element:'physical', resist:{}, skills:[], gold:[5,10] },
+    goblin_mage:  { id:'goblin_mage', name:'哥布林術士', glyph:'🧙', tier:2, base:{hp:18,mp:14,atk:3,matk:9,def:2,mdef:4,spd:5,luck:4}, element:'fire', resist:{fire:0.4}, skills:['fire'], gold:[6,11] },
+    wolf:         { id:'wolf', name:'森狼', glyph:'🐺', tier:2, base:{hp:24,mp:0,atk:10,matk:0,def:3,mdef:2,spd:11,luck:5}, element:'physical', resist:{}, skills:[], gold:[5,9] },
+    fire_imp:     { id:'fire_imp', name:'火焰小鬼', glyph:'👹', tier:3, base:{hp:30,mp:10,atk:9,matk:11,def:5,mdef:5,spd:8,luck:5}, element:'fire', resist:{fire:0.6,ice:-0.3}, skills:['fire'], gold:[8,14] },
+    lava_golem:   { id:'lava_golem', name:'熔岩巨像', glyph:'🗿', tier:3, base:{hp:55,mp:0,atk:13,matk:0,def:12,mdef:6,spd:3,luck:2}, element:'fire', resist:{fire:0.8,physical:0.1}, skills:[], gold:[10,18] },
+    ancient_guardian:{ id:'ancient_guardian', name:'遺跡守衛者', glyph:'🗽', tier:4, base:{hp:48,mp:6,atk:14,matk:6,def:14,mdef:10,spd:6,luck:5}, element:'earth', resist:{earth:0.5}, skills:['stone'], gold:[12,20] },
+    sky_serpent:  { id:'sky_serpent', name:'天空蛇', glyph:'🐍', tier:4, base:{hp:42,mp:12,atk:12,matk:10,def:8,mdef:9,spd:13,luck:6}, element:'wind', resist:{wind:0.5}, skills:['aero'], gold:[12,22] },
+    fallen_angel: { id:'fallen_angel', name:'墮落天使', glyph:'😈', tier:5, base:{hp:60,mp:20,atk:16,matk:16,def:10,mdef:12,spd:10,luck:6}, element:'dark', resist:{dark:0.5,light:-0.3}, skills:['holy'], gold:[16,26] },
+  },
+  bosses: {
+    boss_slime_king:  { id:'boss_slime_king', name:'史萊姆王', glyph:'🫧', stage:'slime_plains', base:{hp:140,mp:10,atk:11,matk:4,def:6,mdef:4,spd:5,luck:6}, element:'physical', resist:{}, skills:['cyclone_slash'], gold:[40,60], bossPhaseSkills:['rapid_shot'] },
+    boss_bat_matriarch:{ id:'boss_bat_matriarch', name:'蝙蝠魔母', glyph:'🦇', stage:'bat_cavern', base:{hp:160,mp:24,atk:13,matk:10,def:6,mdef:8,spd:13,luck:6}, element:'dark', resist:{dark:0.4}, skills:['silence_sk'], gold:[45,65], bossPhaseSkills:['assassinate'] },
+    boss_goblin_chief:{ id:'boss_goblin_chief', name:'哥布林酋長', glyph:'👹', stage:'goblin_forest', base:{hp:200,mp:14,atk:16,matk:5,def:10,mdef:6,spd:7,luck:6}, element:'physical', resist:{}, skills:['provoke'], gold:[55,80], bossPhaseSkills:['dragon_fang'] },
+    boss_magma_lord:  { id:'boss_magma_lord', name:'熾焰魔王', glyph:'🔥', stage:'volcano_cave', base:{hp:260,mp:30,atk:19,matk:18,def:14,mdef:10,spd:8,luck:6}, element:'fire', resist:{fire:0.7,ice:-0.4}, skills:['meteor'], gold:[70,100], bossPhaseSkills:['flare'] },
+    boss_relic_sentinel:{ id:'boss_relic_sentinel', name:'遺跡哨兵', glyph:'⚙️', stage:'ancient_ruins', base:{hp:300,mp:20,atk:20,matk:14,def:20,mdef:14,spd:9,luck:6}, element:'earth', resist:{earth:0.6}, skills:['stone'], gold:[85,120], bossPhaseSkills:['cyclone_slash'] },
+    boss_sky_empress: { id:'boss_sky_empress', name:'天空女皇', glyph:'👑', stage:'sky_temple', base:{hp:340,mp:40,atk:18,matk:24,def:14,mdef:18,spd:14,luck:7}, element:'wind', resist:{wind:0.6}, skills:['aero','cura'], gold:[100,140], bossPhaseSkills:['ultima'] },
+    boss_demon_overlord:{ id:'boss_demon_overlord', name:'魔王', glyph:'😈', stage:'demon_castle', base:{hp:420,mp:50,atk:24,matk:26,def:18,mdef:18,spd:11,luck:8}, element:'dark', resist:{dark:0.7,light:-0.5}, skills:['ultima','silence_sk'], gold:[140,200], bossPhaseSkills:['lim_abyss_requiem'] },
+  },
+
+  // ---- Stages (chapters). No world map: pick from this list in town. ----
+  stages: {
+    slime_plains: { id:'slime_plains', name:'史萊姆草原', glyph:'🌾', desc:'新手冒險者的起點，遍布軟綿綿的史萊姆。', minDanger:0, floors:5, pool:['slime','bat','cave_spider'], boss:'boss_slime_king' },
+    bat_cavern:   { id:'bat_cavern', name:'蝙蝠洞窟', glyph:'🦇', desc:'終年不見光的地底洞窟，蝙蝠群盤踞於此。', minDanger:0, floors:6, pool:['bat','cave_spider','goblin'], boss:'boss_bat_matriarch' },
+    goblin_forest:{ id:'goblin_forest', name:'哥布林森林', glyph:'🌲', desc:'哥布林部族盤據的茂密森林。', minDanger:1, floors:7, pool:['goblin','goblin_mage','wolf'], boss:'boss_goblin_chief' },
+    volcano_cave: { id:'volcano_cave', name:'火山熔岩洞', glyph:'🌋', desc:'灼熱的地底火山，火焰生物橫行。', minDanger:2, floors:8, pool:['fire_imp','lava_golem','wolf'], boss:'boss_magma_lord' },
+    ancient_ruins:{ id:'ancient_ruins', name:'古代遺跡', glyph:'🏛️', desc:'失落文明遺留的石造遺跡，守衛仍未停歇。', minDanger:3, floors:9, pool:['ancient_guardian','goblin_mage','sky_serpent'], boss:'boss_relic_sentinel' },
+    sky_temple:   { id:'sky_temple', name:'天空神殿', glyph:'⛅', desc:'雲海之上的浮空神殿。', minDanger:4, floors:10, pool:['sky_serpent','fallen_angel','ancient_guardian'], boss:'boss_sky_empress' },
+    demon_castle: { id:'demon_castle', name:'魔王城', glyph:'🏰', desc:'盤踞於世界邊境的最終試煉之地。', minDanger:5, floors:12, pool:['fallen_angel','sky_serpent','lava_golem'], boss:'boss_demon_overlord' },
+  },
+
+  // ---- Random events: triggered between battles while traversing a stage.
+  // Each entry is data + an effect function; EventManager just rolls weight
+  // and calls .effect — no per-event branching lives in the manager. ----
+  events: {
+    ev_treasure: { id:'ev_treasure', name:'寶藏箱', glyph:'🎁', weight:20, desc:'你發現了一個閃爍的寶箱！',
+      effect(game){ const gold = RNG_GLOBAL.int(15,40) * (1+game.party.dangerLevel*0.1); game.party.addGold(Math.round(gold)); return `獲得 ${Math.round(gold)} 金幣！`; } },
+    ev_gem_cache:{ id:'ev_gem_cache', name:'晶石礦脈', glyph:'💎', weight:16, desc:'牆壁上嵌著未開採的晶石。',
+      effect(game){ const gem = game.loot.rollRandomGem(game.party.dangerLevel); game.party.inventory.gems.push(gem); return `獲得晶石：${game.loot.describeGem(gem)}`; } },
+    ev_fountain: { id:'ev_fountain', name:'回復之泉', glyph:'⛲', weight:14, desc:'清澈的泉水散發淡淡的光芒。',
+      effect(game){ game.party.members.forEach(m=>{ m.hp = m.maxHp(); m.mp = m.maxMp(); }); return '全隊HP/MP完全恢復！'; } },
+    ev_ambush:   { id:'ev_ambush', name:'伏擊', glyph:'⚠️', weight:14, desc:'埋伏已久的怪物突襲而來！',
+      effect(game){ game.flags.pendingAmbush = true; return '遭到伏擊，即將進入戰鬥！'; } },
+    ev_trap:     { id:'ev_trap', name:'陷阱', glyph:'🕳️', weight:10, desc:'地面突然塌陷！',
+      effect(game){ const dmg = Math.round(game.party.members[0].maxHp()*0.08); game.party.members.forEach(m=>{ m.hp = Math.max(1, m.hp-dmg); }); return `全隊受到 ${dmg} 點傷害。`; } },
+    ev_merchant: { id:'ev_merchant', name:'流浪商人', glyph:'🧳', weight:10, desc:'一位神秘商人提供以物易物。',
+      effect(game){ const gold = RNG_GLOBAL.int(10,25); game.party.addGold(gold); return `商人贈送 ${gold} 金幣作為過路費。`; } },
+    ev_shrine:   { id:'ev_shrine', name:'遺忘的祭壇', glyph:'⛩️', weight:8, desc:'古老的祭壇似乎能賜予祝福。',
+      effect(game){ const member = RNG_GLOBAL.pick(game.party.members); member.addStatus('buff_atk', 5); return `${member.name} 獲得祭壇的祝福（攻擊力提升）！`; } },
+  },
+
+  // Returns the array of skillGem ids a given job knows once it has
+  // reached `level` (inclusive) — i.e. every levelSkills entry whose key
+  // is <= level. Used both when recruiting (to seed starting skills) and
+  // on level-up (to detect newly-learned skills).
+  jobSkillsAtLevel(jobId, level){
+    const job = this.jobs[jobId]; if(!job || !job.levelSkills) return [];
+    return Object.entries(job.levelSkills)
+      .filter(([lv]) => Number(lv) <= level)
+      .sort((a,b)=> Number(a[0]) - Number(b[0]))
+      .map(([,skillId]) => skillId);
+  },
+
+  // Convenience indices built once at load time.
+  init(){
+    this.allSkillGemList = Object.values(this.skillGems);
+    this.allEventList = Object.values(this.events);
+  }
+};
+Database.init();
+
+/* ============================================================
+   SECTION 2: UNIT MODEL — shared by party members and enemies.
+   Equipment/gems/buffs all resolve through getStat(), so battle
+   math never reads raw base stats directly.
+   ============================================================ */
+class Unit{
+  constructor(opts){
+    this.uid = Util.uid('unit');
+    this.name = opts.name || '???';
+    this.isEnemy = !!opts.isEnemy;
+    this.base = Object.assign({hp:10,mp:0,atk:1,matk:1,def:1,mdef:1,spd:1,luck:1,hit:0.95,eva:0.03,crit:0.05,critDmg:0.5}, opts.base||{});
+    this.level = opts.level || 1;
+    this.xp = 0;
+    this.xpToNext = this._calcXpToNext(this.level);
+    this.element = opts.element || 'physical';
+    this.resist = Object.assign({}, opts.resist||{});
+    this.statuses = []; // {id, remaining, sourceTurn} — must exist before maxHp()/getStat() are called below
+    this.equipment = opts.equipment || null; // null for enemies
+    this.gemLoadout = opts.gemLoadout || null; // LEGACY field, unused — skills now come from equipment sockets (see SkillManager)
+    this.hp = this.maxHp();
+    this.mp = this.maxMp();
+    this.limitGauge = 0; this.limitMax = 100;
+    this.skills = (opts.skills||[]).slice();
+    this.alive = true;
+    this.glyph = opts.glyph || '🙂';
+    this.onHitStatus = opts.onHitStatus || [];
+    this.aiPersonality = opts.aiPersonality || null;
+    this.job = opts.job || null;
+    this.isPlayerControlled = !!opts.isPlayerControlled;
+    this.isMainCharacter = !!opts.isMainCharacter;
+  }
+
+  // ---- derived stat pipeline: base -> equipment -> gems -> status mods ----
+  statMods(){
+    // Aggregate flat/percent modifiers from equipment+gems (party only) and
+    // active statuses (everyone). Returns {statKey: {flat, percent}}.
+    const mods = {};
+    const add = (stat, mode, value)=>{
+      if(!mods[stat]) mods[stat] = {flat:0, percent:0};
+      if(mode==='percent') mods[stat].percent += value; else mods[stat].flat += value;
+    };
+    if(this.equipment){
+      for(const slot in this.equipment){
+        const inst = this.equipment[slot];
+        if(!inst) continue;
+        const def = Database.equipment[inst.baseId];
+        if(def) for(const k in def.baseStats) add(k,'flat', def.baseStats[k] * (1 + (inst.enhanceLevel||0)*0.12));
+        (inst.sockets||[]).forEach(g=>{ if(g) this._applyGemStat(g, add); });
+      }
+    }
+    this.statuses.forEach(st=>{
+      const def = Database.statusEffects[st.id];
+      if(def && def.stat && def.mode!=='flag') add(def.stat, def.mode, def.value);
+    });
+    return mods;
+  }
+  _applyGemStat(gemInst, add){
+    const ag = Database.abilityGems[gemInst.baseId];
+    if(!ag) return;
+    const rarity = RARITY_TABLE[gemInst.rarity]||RARITY_TABLE.common;
+    add(ag.stat, ag.mode, ag.value * rarity.power);
+    (gemInst.affixes||[]).forEach(af=>{ if(af.stat && Database.baseStatKeys.includes(af.stat)) add(af.stat, af.mode, af.value); });
+  }
+  getStat(key){
+    const mods = this.statMods();
+    let v = this.base[key] !== undefined ? this.base[key] : 0;
+    const m = mods[key];
+    if(m){ v = (v + m.flat) * (1 + m.percent); }
+    return v;
+  }
+  maxHp(){ return Math.round(this.getStat('hp') + this.level*2); }
+  maxMp(){ return Math.round(this.getStat('mp') + this.level*1); }
+  getResist(elem){
+    let r = this.resist[elem] || 0;
+    const mods = this.statMods();
+    const key = 'res_'+elem;
+    if(mods[key]) r += mods[key].flat + mods[key].percent;
+    if(mods.allRes) r += mods.allRes.flat + mods.allRes.percent;
+    return Util.clamp(r, -1, 0.9);
+  }
+  hasStatus(id){ return this.statuses.some(s=>s.id===id); }
+  isParalyzed(){ return this.hasStatus('debuff_paralyze'); }
+  isSilenced(){ return this.hasStatus('debuff_silence'); }
+  hasBarrier(){ return this.hasStatus('buff_barrier'); }
+  addStatus(id, duration){
+    const def = Database.statusEffects[id]; if(!def) return;
+    const existing = this.statuses.find(s=>s.id===id);
+    if(existing) existing.remaining = Math.max(existing.remaining, duration!==undefined?duration:def.duration);
+    else this.statuses.push({ id, remaining: duration!==undefined?duration:def.duration });
+  }
+  tickStatuses(onDot){
+    this.statuses.forEach(s=>{
+      const def = Database.statusEffects[s.id];
+      if(def && def.dot && onDot) onDot(this, def);
+      s.remaining--;
+    });
+    this.statuses = this.statuses.filter(s=>s.remaining>0);
+  }
+  takeDamage(amount){
+    amount = Math.max(0, Math.round(amount));
+    this.hp = Util.clamp(this.hp - amount, 0, this.maxHp());
+    if(this.hp<=0) this.alive = false;
+    return amount;
+  }
+  heal(amount){
+    amount = Math.max(0, Math.round(amount));
+    const before = this.hp;
+    this.hp = Util.clamp(this.hp + amount, 0, this.maxHp());
+    return this.hp - before;
+  }
+  gainLimit(amount){ this.limitGauge = Util.clamp(this.limitGauge + amount, 0, this.limitMax); }
+  limitReady(){ return this.limitGauge >= this.limitMax; }
+
+  _calcXpToNext(level){ return Math.round(20 * Math.pow(1.35, level - 1)); }
+  gainXp(amount){
+    if(this.isEnemy) return null; // enemies don't level up
+    this.xp = (this.xp||0) + amount;
+    const results = []; // array of {level, learnedSkillIds:[...]}
+    while(this.xp >= this.xpToNext){
+      this.xp -= this.xpToNext;
+      this.level++;
+      this.xpToNext = this._calcXpToNext(this.level);
+      // on level-up, grow base stats gently (about +3% per level)
+      const growKeys = ['hp','mp','atk','matk','def','mdef'];
+      growKeys.forEach(k=>{ if(this.base[k]) this.base[k] = Math.round(this.base[k] * 1.03); });
+      const prevMaxHp = this.maxHp(); // before recalculation — refill difference
+      this.hp = Math.min(this.hp + Math.round(prevMaxHp * 0.15), this.maxHp());
+      this.mp = Math.min(this.mp + Math.round(this.maxMp() * 0.15), this.maxMp());
+      // Job-based allies automatically learn any skill gated at this level.
+      // The MC has no job, so this is a no-op for the player character —
+      // their skill set comes entirely from equipped gear instead.
+      const learnedSkillIds = [];
+      if(this.job && Database.jobs[this.job] && Database.jobs[this.job].levelSkills){
+        const newlyAvailable = Database.jobs[this.job].levelSkills[this.level];
+        if(newlyAvailable && !this.skills.includes(newlyAvailable)){
+          this.skills.push(newlyAvailable);
+          learnedSkillIds.push(newlyAvailable);
+        }
+      }
+      results.push({ level: this.level, learnedSkillIds });
+    }
+    return results; // array of {level, learnedSkillIds}, empty if no level-up
+  }
+}
+
+/* ============================================================
+   SECTION 3: PARTY MANAGER
+   ============================================================ */
+class PartyManager{
+  constructor(game){
+    this.game = game;
+    this.gold = 200;
+    this.dangerLevel = 0;
+    this.members = []; // Unit[] — index 0 is always the main character
+    this.recruitable = []; // ally template pool not yet hired
+    this.inventory = { gems:[], equipment:[] };
+    this.codex = { monsters:{}, equipment:{}, gems:{} };
+    this._initMainCharacter();
+    this._initRecruitPool();
+    // NOTE: _giveStarterGear() is intentionally NOT called here — it reaches
+    // through this.game.party, which is only assigned by Game's constructor
+    // *after* `new PartyManager(this)` returns. Game.constructor calls it
+    // explicitly once `this.party` exists.
+  }
+  _initMainCharacter(){
+    const mc = new Unit({
+      name:'旅人', isMainCharacter:true, isPlayerControlled:true,
+      base:{hp:60,mp:30,atk:10,matk:10,def:6,mdef:6,spd:8,luck:6,hit:0.95,eva:0.04,crit:0.06,critDmg:0.5},
+      level:1, glyph:'🧑',
+    });
+    mc.equipment = { weapon:null, offhand:null, armor:null, accessory:null };
+    mc.limitGemIds = []; // legacy single-slot field removed — MC's limits come purely from equipped limit gems (no job, so no job.limitSkill)
+    this.members.push(mc);
+  }
+  _initRecruitPool(){
+    // One template ally per job, so the tavern always has the full roster
+    // available to recruit (cost scales with how many are already hired).
+    Object.values(Database.jobs).forEach(job=>{
+      this.recruitable.push({ jobId: job.id, name: this._randomAllyName(job), hired:false, cost: 80 });
+    });
+  }
+  _randomAllyName(job){
+    const pool = { warrior:['加倫','布魯克'], knight:['雷昂','艾莉莎'], monk:['坦','悟'], samurai:['宗次郎','千鶴'],
+      ninja:['影丸','小夜'], thief:['里克','妮娜'], hunter:['凱爾','艾米'], white_mage:['希爾達','瑪麗'],
+      black_mage:['薇拉','奧斯卡'], paladin:['加文','賽蕾娜'], spellblade:['萊恩','緹娜'], sage:['歐丁','米拉'],
+      bard:['芬恩','蘿莎'], dancer:['莉莉','賈思敏'], summoner:['澤夫','可可'] };
+    const names = pool[job.id] || ['無名'];
+    return RNG_GLOBAL.pick(names);
+  }
+  _giveStarterGear(){
+    const mc = this.members[0];
+    const wpn = this.game.equipmentManager.createInstance('eq_short_sword','common');
+    // Pre-socket a Fire skill gem into slot 0 of the starter weapon
+    const fireGem = this.game.gems.createSkillGemInstance('fire', 'common', 1);
+    wpn.sockets[0] = fireGem; // directly socket — not in inventory
+    this.game.equipmentManager.equip(mc, wpn);
+  }
+  addGold(n){
+    this.gold = Math.max(0, this.gold + Math.round(n));
+    if(this.game.ui) this.game.ui.refreshTopbar();
+  }
+  spendGold(n){
+    if(this.gold < n) return false;
+    this.gold -= n;
+    if(this.game.ui) this.game.ui.refreshTopbar();
+    return true;
+  }
+  hireAlly(jobId){
+    const entry = this.recruitable.find(r=>r.jobId===jobId && !r.hired);
+    if(!entry) return {ok:false, msg:'已招募過此職業'};
+    if(this.members.length >= 4) return {ok:false, msg:'隊伍已滿（最多4人）'};
+    if(!this.spendGold(entry.cost)) return {ok:false, msg:'金幣不足'};
+    const job = Database.jobs[jobId];
+    const unit = new Unit({
+      name: entry.name, isPlayerControlled:false, glyph: job.glyph,
+      base:{ hp:40*job.growth.hp, mp:20*job.growth.mp, atk:8*job.growth.atk, matk:8*job.growth.matk,
+             def:5*job.growth.def, mdef:5*job.growth.mdef, spd:7*job.growth.spd, luck:5*job.growth.luck,
+             hit:0.92, eva:0.03, crit:0.05, critDmg:0.5 },
+      level:1, skills: Database.jobSkillsAtLevel(jobId, 1), job: job.id,
+      aiPersonality: this._defaultPersonalityFor(job.id),
+    });
+    unit.equipment = { weapon:null, offhand:null, armor:null, accessory:null };
+    unit.limitGemIds = []; // legacy single-slot limitGemId removed — limits now come from equipped limit gems + the job's own limitSkill
+    entry.hired = true; entry.cost = Math.round(entry.cost*1.6);
+    this.members.push(unit);
+    return {ok:true, unit};
+  }
+  _defaultPersonalityFor(jobId){
+    const map = { white_mage:'healer', sage:'healer', bard:'buffer', paladin:'buffer', knight:'conservative',
+      ninja:'boss_focus', thief:'backline', black_mage:'backline' };
+    return map[jobId] || 'brave';
+  }
+  setPersonality(unit, personalityId){ unit.aiPersonality = personalityId; }
+  // Revive every fallen member AND restore everyone to full HP/MP — this is
+  // the church's full service. Used by Church (and internally on roguelite
+  // death, since the run's failure already resets enemies/floor/loot).
+  reviveAll(){ this.members.forEach(m=>{ m.alive = true; m.hp = m.maxHp(); m.mp = m.maxMp(); m.statuses = []; m.limitGauge = 0; }); }
+  // Revive a single fallen member by reference (church per-member revival).
+  reviveOne(unit){ unit.alive = true; unit.hp = unit.maxHp(); unit.mp = unit.maxMp(); unit.statuses = []; unit.limitGauge = 0; }
+  // Inn's service: restore HP/MP for members who are still standing. This
+  // intentionally does NOT revive the fallen — that's the church's job —
+  // so a member who died mid-battle stays down until properly revived,
+  // instead of silently vanishing from future battles forever.
+  fullRestore(){ this.members.forEach(m=>{ if(m.alive){ m.hp = m.maxHp(); m.mp = m.maxMp(); } }); }
+  livingMembers(){ return this.members.filter(m=>m.alive); }
+  recordMonsterSeen(id){ this.codex.monsters[id] = true; }
+  recordEquipmentSeen(id){ this.codex.equipment[id] = true; }
+  recordGemSeen(id){ this.codex.gems[id] = true; }
+}
+
+/* ============================================================
+   SECTION 4: ENEMY MANAGER — spawns scaled monster instances.
+   ============================================================ */
+class EnemyManager{
+  constructor(game){ this.game = game; }
+  // Scale factor grows with floor depth and the permanent danger level,
+  // with no ceiling — purely additive/multiplicative, never clamped high.
+  scaleFactor(floor, danger){ return 1 + floor*0.12 + danger*0.22; }
+  spawnFromTemplate(templateId, isBoss, floor, danger){
+    const tpl = isBoss ? Database.bosses[templateId] : Database.monsters[templateId];
+    if(!tpl) return null;
+    const scale = this.scaleFactor(floor, danger) * (isBoss?1.6:1);
+    const base = {};
+    for(const k of Database.baseStatKeys){
+      const raw = tpl.base[k];
+      base[k] = (raw===undefined) ? (k==='hit'?0.9:k==='eva'?0.02:k==='crit'?0.04:k==='critDmg'?0.5:0) : (typeof raw==='number' && raw<1.5 && (k==='hit'||k==='eva'||k==='crit'||k==='critDmg') ? raw : raw*scale);
+    }
+    const unit = new Unit({
+      name: tpl.name, isEnemy:true, base, element: tpl.element, resist: tpl.resist||{},
+      level: Math.max(1, Math.round(floor + danger*2)), glyph: tpl.glyph, skills: (tpl.skills||[]).slice(),
+      onHitStatus: tpl.onHitStatus||[],
+    });
+    unit.templateId = templateId;
+    unit.isBoss = isBoss;
+    unit.goldRange = tpl.gold || [1,3];
+    unit.bossPhaseSkills = tpl.bossPhaseSkills || [];
+    this.game.party.recordMonsterSeen(templateId);
+    return unit;
+  }
+  spawnWave(stageDef, floor, danger, isFinalFloor, isElite){
+    const count = isFinalFloor ? 1 : Util.clamp(1 + Math.floor(floor/2) + (isElite?1:0), 1, 8);
+    const enemies = [];
+    if(isFinalFloor){
+      enemies.push(this.spawnFromTemplate(stageDef.boss, true, floor, danger));
+    } else {
+      for(let i=0;i<count;i++){
+        const id = RNG_GLOBAL.pick(stageDef.pool);
+        const u = this.spawnFromTemplate(id, false, floor, danger);
+        if(isElite){ u.name = '菁英 ' + u.name; for(const k of ['hp','atk','matk','def','mdef']) u.base[k] = Math.round(u.base[k]*1.5); u.hp = u.maxHp(); u.isElite = true; }
+        enemies.push(u);
+      }
+    }
+    return enemies;
+  }
+}
+
+/* ============================================================
+   SECTION 5: GEM MANAGER — generic combination engine.
+   A "skill gem instance" = { baseId, specials:[specialId,...], rarity, level, instanceId, affixes }
+   combineSkill() builds the *actual* runtime skill object by starting
+   from the Database.skillGems[baseId] template, then letting each
+   equipped special gem's apply() mutate it in sequence, and finally
+   composing a display name from each special's namePattern. This is
+   the "automatic combination system" — adding a new special gem to
+   the Database is the only step needed to make it combine with every
+   existing skill gem.
+   ============================================================ */
+class GemManager{
+  constructor(game){ this.game = game; }
+
+  combineSkill(gemInstance){
+    const tpl = Database.skillGems[gemInstance.baseId];
+    if(!tpl) return null;
+    const built = Util.deepClone(tpl);
+    built.sourceInstanceId = gemInstance.instanceId;
+    let displayName = built.name;
+    (gemInstance.specials||[]).forEach(specId=>{
+      const sp = Database.specialGems[specId];
+      if(!sp) return;
+      sp.apply(built);
+      displayName = sp.namePattern.replace('{name}', displayName);
+    });
+    // Rarity of the *skill gem itself* scales raw power, independent of specials.
+    const rarity = RARITY_TABLE[gemInstance.rarity] || RARITY_TABLE.common;
+    built.power *= rarity.power;
+    // Affixes rolled onto this specific gem instance (see rollAffixes) add
+    // situational combat modifiers consumed by BattleManager.
+    built.affixes = gemInstance.affixes || [];
+    built.displayName = displayName;
+    built.rarity = gemInstance.rarity;
+    built.glyph = tpl.glyph;
+    return built;
+  }
+
+  // ---- Drop / generation ----
+  rollAffixes(rarity){
+    const count = (RARITY_TABLE[rarity]||RARITY_TABLE.common).affixCount;
+    const pool = Database.gemAffixPool.slice();
+    const chosen = [];
+    for(let i=0;i<count && pool.length;i++){
+      const idx = RNG_GLOBAL.int(0,pool.length-1);
+      const def = pool.splice(idx,1)[0];
+      const v = RNG_GLOBAL.int(def.range[0], def.range[1]);
+      chosen.push({ id:def.id, text:def.text.replace('{v}', v), stat:def.stat, mode:def.mode, value: def.mode==='percent'? v/100 : v });
+    }
+    return chosen;
+  }
+  createSkillGemInstance(baseId, rarity, level){
+    rarity = rarity || rollRarity(RNG_GLOBAL, this.game.party.dangerLevel);
+    return { kind:'skill', baseId, specials:[], rarity, level: level||1, instanceId: Util.uid('gem'), affixes: this.rollAffixes(rarity) };
+  }
+  createSpecialGemInstance(specialId, rarity){
+    rarity = rarity || rollRarity(RNG_GLOBAL, this.game.party.dangerLevel);
+    return { kind:'special', baseId: specialId, rarity, instanceId: Util.uid('gem') };
+  }
+  createAbilityGemInstance(baseId, rarity){
+    rarity = rarity || rollRarity(RNG_GLOBAL, this.game.party.dangerLevel);
+    return { kind:'ability', baseId, rarity, instanceId: Util.uid('gem'), affixes: this.rollAffixes(rarity) };
+  }
+  createLimitGemInstance(baseId){
+    return { kind:'limit', baseId, rarity:'epic', instanceId: Util.uid('gem') };
+  }
+  rollRandomGemForFloor(danger){
+    const kindRoll = RNG_GLOBAL.next();
+    const rarity = rollRarity(RNG_GLOBAL, danger);
+    if(kindRoll < 0.5) return this.createSkillGemInstance(RNG_GLOBAL.pick(Object.keys(Database.skillGems)), rarity);
+    if(kindRoll < 0.8) return this.createAbilityGemInstance(RNG_GLOBAL.pick(Object.keys(Database.abilityGems)), rarity);
+    return this.createSpecialGemInstance(RNG_GLOBAL.pick(Object.keys(Database.specialGems)), rarity);
+  }
+  // Limit gems are intentionally rare and powerful — they're not part of
+  // the normal floor drop roll above. Instead they drop specifically from
+  // boss kills (see LootManager.rollEnemyDrop) or can be purchased at the
+  // gem shop's 極限 tab, both at a meaningfully higher cost than other gems.
+  rollRandomLimitGem(){
+    return this.createLimitGemInstance(RNG_GLOBAL.pick(Object.keys(Database.limitGems)));
+  }
+
+  describe(gemInst){
+    if(gemInst.kind==='skill'){ const built=this.combineSkill(gemInst); return `${built.displayName} ‧ ${RARITY_NAME[gemInst.rarity]}`; }
+    if(gemInst.kind==='special'){ return `${Database.specialGems[gemInst.baseId].name}晶石 ‧ ${RARITY_NAME[gemInst.rarity]}`; }
+    if(gemInst.kind==='ability'){ return `${Database.abilityGems[gemInst.baseId].name} ‧ ${RARITY_NAME[gemInst.rarity]}`; }
+    if(gemInst.kind==='limit'){ return `${Database.limitGems[gemInst.baseId].name}（極限技）`; }
+    return '未知晶石';
+  }
+
+  // NOTE: specials no longer attach via an explicit "attachSpecial" call.
+  // Instead, any special gem socketed on the SAME equipment piece as a
+  // skill gem combines with it automatically (see SkillManager._gemsFromEquipment).
+  // This keeps the "combination system" purely data-driven through socket
+  // co-location rather than a separate bookkeeping step.
+
+  // Synthesis: 3 identical gems (same kind+baseId+rarity) -> 1 gem, one rarity tier higher.
+  trySynthesize(threeInstances){
+    if(threeInstances.length !== 3) return {ok:false, msg:'需要恰好三顆相同晶石'};
+    const [a,b,c] = threeInstances;
+    if(a.kind==='limit') return {ok:false, msg:'極限技晶石無法合成'};
+    if(![b,c].every(g=> g.kind===a.kind && g.baseId===a.baseId && g.rarity===a.rarity)) return {ok:false, msg:'三顆晶石種類與品質須相同'};
+    const idx = RARITY_ORDER.indexOf(a.rarity);
+    if(idx >= RARITY_ORDER.length-1) return {ok:false, msg:'已是最高品質'};
+    const nextRarity = RARITY_ORDER[idx+1];
+    let result;
+    if(a.kind==='skill') result = this.createSkillGemInstance(a.baseId, nextRarity);
+    else if(a.kind==='ability') result = this.createAbilityGemInstance(a.baseId, nextRarity);
+    else result = this.createSpecialGemInstance(a.baseId, nextRarity);
+    return {ok:true, result};
+  }
+}
+
+/* ============================================================
+   SECTION 6: EQUIPMENT MANAGER
+   ============================================================ */
+class EquipmentManager{
+  constructor(game){ this.game = game; }
+  createInstance(baseId, rarity){
+    const def = Database.equipment[baseId]; if(!def) return null;
+    rarity = rarity || rollRarity(RNG_GLOBAL, this.game.party.dangerLevel);
+    return { instanceId: Util.uid('eq'), baseId, rarity, enhanceLevel:0, sockets: new Array(Math.min(def.sockets,6)).fill(null), unlockedSockets: Math.min(def.sockets,6) };
+  }
+  equip(unit, eqInstance){
+    const def = Database.equipment[eqInstance.baseId]; if(!def) return false;
+    const prev = unit.equipment[def.slot];
+    unit.equipment[def.slot] = eqInstance;
+    this.game.party.recordEquipmentSeen(eqInstance.baseId);
+    if(prev) this.game.party.inventory.equipment.push(prev);
+    const idx = this.game.party.inventory.equipment.indexOf(eqInstance);
+    if(idx>=0) this.game.party.inventory.equipment.splice(idx,1);
+    unit.hp = Math.min(unit.hp, unit.maxHp());
+    unit.mp = Math.min(unit.mp, unit.maxMp());
+    return true;
+  }
+  unequip(unit, slot){
+    const cur = unit.equipment[slot];
+    if(!cur) return null;
+    unit.equipment[slot] = null;
+    this.game.party.inventory.equipment.push(cur);
+    return cur;
+  }
+  socketGem(eqInstance, gemInstance, slotIndex){
+    if(slotIndex >= eqInstance.unlockedSockets) return {ok:false, msg:'插槽尚未解鎖'};
+    if(eqInstance.sockets[slotIndex]) return {ok:false, msg:'插槽已被佔用'};
+    eqInstance.sockets[slotIndex] = gemInstance;
+    const idx = this.game.party.inventory.gems.indexOf(gemInstance);
+    if(idx>=0) this.game.party.inventory.gems.splice(idx,1);
+    return {ok:true};
+  }
+  unsocketGem(eqInstance, slotIndex){
+    const g = eqInstance.sockets[slotIndex];
+    if(!g) return null;
+    eqInstance.sockets[slotIndex] = null;
+    this.game.party.inventory.gems.push(g);
+    return g;
+  }
+  sellValue(eqInstance){
+    const def = Database.equipment[eqInstance.baseId];
+    const rarity = RARITY_TABLE[eqInstance.rarity]||RARITY_TABLE.common;
+    return Math.round((def.baseCost*0.35 + eqInstance.enhanceLevel*15) * rarity.power);
+  }
+}
+
+/* ============================================================
+   SECTION 7: FORGE MANAGER — enhancement & rarity upgrade.
+   ============================================================ */
+class ForgeManager{
+  constructor(game){ this.game = game; }
+  enhanceCost(eqInstance){ return Math.round(40 * Math.pow(1.35, eqInstance.enhanceLevel)); }
+  enhanceMageGemCost(eqInstance){ return 1 + Math.floor(eqInstance.enhanceLevel/3); }
+  enhance(eqInstance){
+    const gold = this.enhanceCost(eqInstance);
+    const gemsNeeded = this.enhanceMageGemCost(eqInstance);
+    const mageGems = this.game.party.inventory.gems.filter(g=>g.kind==='ability');
+    if(this.game.party.gold < gold) return {ok:false, msg:'金幣不足'};
+    if(mageGems.length < gemsNeeded) return {ok:false, msg:`需要 ${gemsNeeded} 顆魔晶石（能力晶石）`};
+    this.game.party.spendGold(gold);
+    for(let i=0;i<gemsNeeded;i++){
+      const idx = this.game.party.inventory.gems.indexOf(mageGems[i]);
+      this.game.party.inventory.gems.splice(idx,1);
+    }
+    eqInstance.enhanceLevel++;
+    if(eqInstance.enhanceLevel % 5 === 0 && eqInstance.unlockedSockets < eqInstance.sockets.length){
+      eqInstance.unlockedSockets++;
+    }
+    return {ok:true};
+  }
+  upgradeRarityCost(eqInstance){ const idx = RARITY_ORDER.indexOf(eqInstance.rarity); return Math.round(150 * Math.pow(2.1, idx)); }
+  upgradeRarity(eqInstance){
+    const idx = RARITY_ORDER.indexOf(eqInstance.rarity);
+    if(idx >= RARITY_ORDER.length-1) return {ok:false, msg:'已是最高品質'};
+    const cost = this.upgradeRarityCost(eqInstance);
+    if(!this.game.party.spendGold(cost)) return {ok:false, msg:'金幣不足'};
+    eqInstance.rarity = RARITY_ORDER[idx+1];
+    return {ok:true};
+  }
+}
+
+/* ============================================================
+   SECTION 8: SKILL MANAGER — resolves a unit's currently usable
+   active skills (job-fixed for allies, gem-driven for the MC).
+   ============================================================ */
+class SkillManager{
+  constructor(game){ this.game = game; }
+
+  // Collect all skill gems socketed across a unit's equipped items.
+  // Enemies and job-based allies still use their fixed `skills` array.
+  // Any special gem(s) socketed on the SAME piece of equipment as a skill
+  // gem are automatically merged into that skill gem's `.specials` before
+  // building — this is what makes "equip gear with Fire + 全體化 in its
+  // sockets" produce "Fire All" with no per-combination code.
+  _gemsFromEquipment(unit){
+    if(!unit.equipment) return [];
+    const skillGemsOut = [];
+    for(const slot of ['weapon','offhand','armor','accessory']){
+      const eq = unit.equipment[slot]; if(!eq) continue;
+      const sockets = eq.sockets || [];
+      const specialsOnThisPiece = sockets.filter(g=>g && g.kind==='special').map(g=>g.baseId);
+      sockets.forEach(g=>{
+        if(!g || g.kind!=='skill') return;
+        // Build a shallow copy so we don't mutate the stored instance's
+        // specials array with sockets that could change next render.
+        const effectiveGem = Object.assign({}, g, { specials: specialsOnThisPiece });
+        skillGemsOut.push(effectiveGem);
+      });
+    }
+    return skillGemsOut;
+  }
+
+  // Collect all LIMIT gems socketed across a unit's equipped items. Unlike
+  // skill gems, limit gems are never combined with specials — they're
+  // standalone ultimates (per the original design: "極限技不受特殊晶石影響").
+  _limitGemsFromEquipment(unit){
+    if(!unit.equipment) return [];
+    const out = [];
+    for(const slot of ['weapon','offhand','armor','accessory']){
+      const eq = unit.equipment[slot]; if(!eq) continue;
+      (eq.sockets||[]).forEach(g=>{ if(g && g.kind==='limit') out.push(g); });
+    }
+    return out;
+  }
+
+  // Returns array of {key, built, gemInstance|null, mpCost, source:'gem'|'job'}
+  getUsableSkills(unit){
+    const out = [];
+    if(unit.isEnemy){
+      (unit.skills||[]).forEach(skillId=>{
+        const tpl = Database.skillGems[skillId]; if(!tpl) return;
+        const built = Util.deepClone(tpl); built.displayName = tpl.name; built.glyph = tpl.glyph;
+        out.push({ key:'enemy_'+skillId, built, gemInstance:null, mpCost: built.mpCost, source:'enemy' });
+      });
+      return out;
+    }
+    // Party members: skills come from equipment-socketed skill gems
+    const socketedGems = this._gemsFromEquipment(unit);
+    if(socketedGems.length > 0){
+      socketedGems.forEach((g,i)=>{
+        const built = this.game.gems.combineSkill(g);
+        out.push({ key:'gem_eq_'+i, built, gemInstance:g, mpCost: built.mpCost, source:'gem' });
+      });
+    }
+    // Job-fixed skills: for allies, include these regardless of socketed gems.
+    // This now includes skills LEARNED via level-up (see Unit.gainXp), not
+    // just a single starting skill — unit.skills grows over time.
+    if(!unit.isMainCharacter){
+      (unit.skills||[]).forEach(skillId=>{
+        const tpl = Database.skillGems[skillId]; if(!tpl) return;
+        const built = Util.deepClone(tpl); built.displayName = tpl.name; built.glyph = tpl.glyph;
+        out.push({ key:'job_'+skillId, built, gemInstance:null, mpCost: built.mpCost, source:'job' });
+      });
+    }
+    return out;
+  }
+
+  // Returns ALL limit skills currently available to `unit`, as an array of
+  // {key, built, gemInstance|null, source:'gem'|'job'}. A unit can have
+  // multiple limits at once: one per limit gem socketed in their equipped
+  // gear, PLUS their job's signature limit (always available to job-based
+  // allies regardless of equipment). The MC has no job, so their limits
+  // come entirely from equipped limit gems — encouraging exactly the kind
+  // of "build your own multi-limit loadout" play the equipment-socket
+  // system is meant for.
+  getLimitSkills(unit){
+    if(unit.isEnemy) return [];
+    const out = [];
+    const seenIds = new Set(); // de-dupe if the same limit gem type is socketed twice
+    this._limitGemsFromEquipment(unit).forEach((g,i)=>{
+      const tpl = Database.limitGems[g.baseId]; if(!tpl) return;
+      const built = Util.deepClone(tpl); built.displayName = tpl.name; built.glyph = tpl.glyph; built.isLimit = true;
+      out.push({ key:'limgem_'+i, built, gemInstance:g, source:'gem' });
+      seenIds.add(g.baseId);
+    });
+    if(unit.job){
+      const job = Database.jobs[unit.job];
+      if(job && job.limitSkill && !seenIds.has(job.limitSkill)){
+        const tpl = Database.limitGems[job.limitSkill];
+        if(tpl){
+          const built = Util.deepClone(tpl); built.displayName = tpl.name; built.glyph = tpl.glyph; built.isLimit = true;
+          out.push({ key:'job_limit_'+job.limitSkill, built, gemInstance:null, source:'job' });
+        }
+      }
+    }
+    return out;
+  }
+}
+
+/* ============================================================
+   SECTION 9: LOOT MANAGER
+   ============================================================ */
+class LootManager{
+  constructor(game){ this.game = game; }
+  rollRandomGem(danger){ return this.game.gems.rollRandomGemForFloor(danger); }
+  describeGem(g){ return this.game.gems.describe(g); }
+  rollEnemyDrop(enemy, danger){
+    const drops = { gold: RNG_GLOBAL.int(enemy.goldRange[0], enemy.goldRange[1]) * (1+danger*0.15), gems:[], equipment:null };
+    const gemChance = enemy.isBoss ? 1.0 : (enemy.isElite ? 0.65 : 0.35);
+    if(RNG_GLOBAL.chance(gemChance)) drops.gems.push(this.rollRandomGem(danger));
+    if(enemy.isBoss && RNG_GLOBAL.chance(0.7)) drops.gems.push(this.rollRandomGem(danger));
+    // Limit gems are boss-exclusive drops, and even then not guaranteed —
+    // they're meant to feel like a special find, not routine loot.
+    if(enemy.isBoss && RNG_GLOBAL.chance(0.35)) drops.gems.push(this.game.gems.rollRandomLimitGem());
+    const eqChance = enemy.isBoss ? 0.55 : (enemy.isElite ? 0.12 : 0.03);
+    if(RNG_GLOBAL.chance(eqChance)){
+      const baseId = RNG_GLOBAL.pick(Object.keys(Database.equipment));
+      drops.equipment = this.game.equipmentManager.createInstance(baseId, rollRarity(RNG_GLOBAL, danger));
+    }
+    return drops;
+  }
+  applyDropsToRun(runLoot, drops){
+    runLoot.gold += drops.gold;
+    runLoot.gems.push(...drops.gems);
+    if(drops.equipment) runLoot.equipment.push(drops.equipment);
+  }
+  commitRunLoot(runLoot){
+    this.game.party.addGold(runLoot.gold);
+    runLoot.gems.forEach(g=>this.game.party.inventory.gems.push(g));
+    runLoot.equipment.forEach(e=>{ this.game.party.inventory.equipment.push(e); this.game.party.recordEquipmentSeen(e.baseId); });
+    runLoot.gems.forEach(g=>this.game.party.recordGemSeen(g.baseId));
+  }
+}
+
+/* ============================================================
+   SECTION 10: ANIMATION MANAGER — DOM-driven battle performance.
+   All effects are short CSS-class toggles + floating popups so the
+   engine stays framework-free; BattleManager awaits these via
+   Promises to keep the turn sequence readable.
+   ============================================================ */
+class AnimationManager{
+  constructor(game){ this.game = game; }
+  wait(ms){ return new Promise(res=>setTimeout(res, ms)); }
+  popupLayerEl(){ return document.querySelector('#screen-battle .dmg-popup-layer'); }
+  fxLayerEl(){ return document.querySelector('#screen-battle .fx-layer'); }
+  unitEl(unit){ return document.querySelector(`[data-unit-id="${unit.uid}"]`); }
+
+  async floatNumber(unit, text, cls){
+    const layer = this.popupLayerEl(); const anchor = this.unitEl(unit);
+    if(!layer || !anchor) return;
+    const r = anchor.getBoundingClientRect(); const lr = layer.getBoundingClientRect();
+    const el = document.createElement('div');
+    el.className = 'dmg-popup ' + (cls||'');
+    el.textContent = text;
+    el.style.left = (r.left - lr.left + r.width/2 + RNG_GLOBAL.int(-10,10)) + 'px';
+    el.style.top = (r.top - lr.top + r.height*0.2) + 'px';
+    layer.appendChild(el);
+    setTimeout(()=>el.remove(), 950);
+    await this.wait(60);
+  }
+  async burst(unit, element){
+    const layer = this.fxLayerEl(); const anchor = this.unitEl(unit);
+    if(!layer || !anchor) return;
+    const r = anchor.getBoundingClientRect(); const lr = layer.getBoundingClientRect();
+    const el = document.createElement('div');
+    el.className = 'fx-burst fx-element-'+(element||'physical');
+    el.style.left = (r.left - lr.left + r.width/2) + 'px';
+    el.style.top = (r.top - lr.top + r.height/2) + 'px';
+    layer.appendChild(el);
+    setTimeout(()=>el.remove(), 500);
+    await this.wait(180);
+  }
+  async lunge(unit){ const el = this.unitEl(unit); if(!el) return; el.classList.add('attack-lunge'); await this.wait(350); el.classList.remove('attack-lunge'); }
+  async hitFlash(unit){ const el = this.unitEl(unit); if(!el) return; el.classList.add('flash-hit','shake'); await this.wait(280); el.classList.remove('flash-hit','shake'); }
+  async limitFlash(unit){ const el = this.unitEl(unit); if(!el) return; el.classList.add('limit-flash'); await this.wait(900); el.classList.remove('limit-flash'); }
+  async deathFade(unit){ const el = this.unitEl(unit); if(!el) return; el.classList.add('dead'); await this.wait(300); }
+}
+
+/* ============================================================
+   SECTION 11: AI MANAGER — personality-driven ally/enemy decisions.
+   Each personality is a scoring function over candidate actions
+   rather than an if/else chain, so new personalities are added by
+   appending to Database.aiPersonalities + a scorer entry here.
+   ============================================================ */
+class AIManager{
+  constructor(game){ this.game = game; }
+
+  scorers(){
+    return {
+      brave:        (ctx)=> ctx.isAttack ? (ctx.targetIsStrongest?3:1) : 0.4,
+      conservative: (ctx)=> ctx.selfHpPct < 0.4 ? (ctx.isDefensive?3:0.3) : (ctx.isAttack?1.2:0.6),
+      mp_saver:     (ctx)=> ctx.mpCost===0 ? 2.2 : (ctx.selfHpPct<0.3 ? 1.5 : 0.5),
+      healer:       (ctx)=> ctx.isHeal ? (ctx.anyAllyLowHp?4:1.5) : (ctx.isAttack?0.5:0.8),
+      buffer:       (ctx)=> ctx.isBuff ? (ctx.turnNumber<=3?3:1) : (ctx.isAttack?1:0.7),
+      boss_focus:   (ctx)=> ctx.isAttack ? (ctx.targetIsBoss?3.5:0.8) : 0.5,
+      backline:     (ctx)=> ctx.isAttack ? (ctx.targetIsBackline?3:0.9) : 0.5,
+    };
+  }
+
+  // Decide one action for `unit` given the live battle state.
+  decideAction(unit, battle){
+    const personalityId = unit.aiPersonality || 'brave';
+    const scorer = this.scorers()[personalityId] || this.scorers().brave;
+    const skills = this.game.skills.getUsableSkills(unit).filter(s=> s.mpCost <= unit.mp);
+    const basicAttack = { key:'basic', built:{ kind:'attack', element:'physical', target:'singleEnemy', power:0.85, mpCost:0, displayName:'攻擊' }, mpCost:0 };
+    // Limit skills join the candidate pool whenever the gauge is full —
+    // tagged isLimitCandidate so takeAllyAiTurn knows to route execution
+    // through battle.useLimit() (which handles the gauge reset + flash
+    // animation) instead of the plain executeAction() path.
+    const limitCandidates = unit.limitReady() ? this.game.skills.getLimitSkills(unit).map(ls=>({
+      key: ls.key, built: ls.built, mpCost: 0, isLimitCandidate: true, limitChoice: ls,
+    })) : [];
+    const candidates = [basicAttack, ...skills, ...limitCandidates];
+    const enemies = battle.aliveEnemies();
+    const allies = battle.aliveAlliesOf(unit);
+    const anyAllyLowHp = allies.some(a=> a.hp/a.maxHp() < 0.45);
+    const bossPresent = enemies.some(e=>e.isBoss);
+    let best = null, bestScore = -1, bestTarget = null;
+    candidates.forEach(cand=>{
+      const isAttack = cand.built.kind==='attack';
+      const isHeal = cand.built.kind==='heal';
+      const isBuff = cand.built.kind==='buff';
+      const isDefensive = isHeal || isBuff;
+      let targets;
+      if(cand.built.target==='singleEnemy' || cand.built.target==='allEnemies') targets = enemies;
+      else targets = allies;
+      if(targets.length===0) return;
+      targets.forEach(t=>{
+        const ctx = {
+          isAttack, isHeal, isBuff, isDefensive, mpCost:cand.mpCost,
+          selfHpPct: unit.hp/unit.maxHp(), anyAllyLowHp,
+          targetIsStrongest: isAttack && t===enemies.reduce((a,b)=> (b.getStat('atk')+b.getStat('matk'))>(a.getStat('atk')+a.getStat('matk'))?b:a, enemies[0]),
+          targetIsBoss: t.isBoss, targetIsBackline: isAttack && enemies.indexOf(t) >= Math.ceil(enemies.length/2),
+          turnNumber: battle.turnNumber,
+        };
+        let score = scorer(ctx) + RNG_GLOBAL.next()*0.15;
+        if(isHeal) score *= (1.4 - (t.hp/t.maxHp())); // prefer lowest-hp ally
+        // Limits are a big commitment (consume the whole gauge), so weight
+        // them up substantially when ready — a full gauge sitting unused
+        // is a wasted resource, and this is what makes recruited allies
+        // actually use their ultimates instead of hoarding them forever.
+        if(cand.isLimitCandidate) score *= 2.2;
+        if(score > bestScore){ bestScore = score; best = cand; bestTarget = t; }
+      });
+    });
+    if(!best){ best = basicAttack; bestTarget = enemies[0]; }
+    return { action: best, target: bestTarget };
+  }
+}
+
+/* ============================================================
+   SECTION 12: BATTLE MANAGER — turn-based combat core.
+   ============================================================ */
+class BattleManager{
+  constructor(game){
+    this.game = game;
+    this.active = false;
+    this.allies = []; this.enemies = [];
+    this.turnNumber = 0;
+    this.log = [];
+    this.runLoot = { gold:0, gems:[], equipment:[] };
+    this.onEnd = null; // callback(result) result: {won:bool}
+    this.pendingPlayerAction = null; // resolved by UI
+    this._resolvePlayerInput = null;
+  }
+
+  start(enemies, opts){
+    this.active = true;
+    this.allies = this.game.party.livingMembers();
+    this.enemies = enemies;
+    this.turnNumber = 0;
+    this.log = [];
+    this.runLoot = { gold:0, gems:[], equipment:[] };
+    this.onEnd = opts && opts.onEnd;
+    this.allies.forEach(a=>{ a.statuses = a.statuses.filter(s=>false); }); // clear stale buffs entering battle (limit/HP/MP persist)
+    this.addLog(`戰鬥開始！遭遇 ${enemies.map(e=>e.name).join('、')}`, true);
+    this.game.ui.renderBattleScreen();
+    this.runLoop();
+  }
+
+  addLog(text, highlight){ this.log.push({text, highlight:!!highlight}); if(this.log.length>60) this.log.shift(); this.game.ui.appendLog(text, highlight); }
+
+  aliveEnemies(){ return this.enemies.filter(e=>e.alive); }
+  aliveAlliesOf(unit){ return this.allies.filter(a=>a.alive); }
+  isVictory(){ return this.aliveEnemies().length===0; }
+  isDefeat(){ return this.allies.filter(a=>a.alive).length===0; }
+
+  turnOrder(){
+    return [...this.allies, ...this.enemies].filter(u=>u.alive).sort((a,b)=> b.getStat('spd') - a.getStat('spd') + (RNG_GLOBAL.next()-0.5));
+  }
+
+  async runLoop(){
+    while(this.active){
+      this.turnNumber++;
+      const order = this.turnOrder();
+      for(const unit of order){
+        if(!this.active) return;
+        if(!unit.alive) continue;
+        if(this.isVictory() || this.isDefeat()) break;
+        await this.processStatusTick(unit);
+        if(!unit.alive) continue;
+        if(unit.isParalyzed() && RNG_GLOBAL.chance(0.5)){ this.addLog(`${unit.name} 因麻痺而無法行動！`); continue; }
+        if(unit.isEnemy) await this.takeEnemyTurn(unit);
+        else if(unit.isPlayerControlled) await this.takePlayerTurn(unit);
+        else await this.takeAllyAiTurn(unit);
+        if(this.isVictory() || this.isDefeat()) break;
+      }
+      if(this.isVictory()){ await this.endBattle(true); return; }
+      if(this.isDefeat()){ await this.endBattle(false); return; }
+    }
+  }
+
+  async processStatusTick(unit){
+    let died = false;
+    unit.tickStatuses((u, def)=>{
+      const dmg = Math.round(u.maxHp() * def.dotPct);
+      u.takeDamage(dmg);
+      this.addLog(`${u.name} 因${def.name}受到 ${dmg} 點傷害。`);
+      if(!u.alive) died = true;
+    });
+    this.game.ui.refreshUnitBars();
+    if(died) await this.game.anim.deathFade(unit);
+  }
+
+  // ---------- Player turn: wait for UI to resolve pendingPlayerAction ----------
+  takePlayerTurn(unit){
+    return new Promise(resolve=>{
+      this._resolvePlayerInput = resolve;
+      this.game.ui.promptPlayerAction(unit);
+    });
+  }
+  submitPlayerAction(action, target){
+    if(!this._resolvePlayerInput) return;
+    const resolve = this._resolvePlayerInput; this._resolvePlayerInput = null;
+    this.game.ui.closeActionMenus();
+    this.executeAction(this.allies.find(a=>a.isPlayerControlled), action, target).then(resolve);
+  }
+
+  async takeAllyAiTurn(unit){
+    const { action, target } = this.game.ai.decideAction(unit, this);
+    if(action.isLimitCandidate){
+      await this.useLimit(unit, action.limitChoice);
+    } else {
+      await this.executeAction(unit, action, target);
+    }
+  }
+  async takeEnemyTurn(enemy){
+    const usable = this.game.skills.getUsableSkills(enemy).filter(s=>s.mpCost<=enemy.mp);
+    let pool = [{ key:'basic', built:{kind:'attack',element:enemy.element,target:'singleEnemy',power:0.9,mpCost:0,displayName:'攻擊'}, mpCost:0 }, ...usable];
+    if(enemy.isBoss && enemy.bossPhaseSkills && enemy.hp/enemy.maxHp() < 0.5 && RNG_GLOBAL.chance(0.5)){
+      enemy.bossPhaseSkills.forEach(sid=>{ const tpl=Database.skillGems[sid]; if(tpl) pool.push({key:'phase_'+sid, built:Object.assign(Util.deepClone(tpl),{displayName:tpl.name}), mpCost:tpl.mpCost}); });
+    }
+    const choice = RNG_GLOBAL.pick(pool);
+    // 'singleAlly'/'allAllies' from this enemy's perspective means its own
+    // monster side; 'singleEnemy'/'allEnemies' means the player's party.
+    const { hostileSide, friendlySide } = this.sidesFor(enemy);
+    const targets = (choice.built.target==='singleAlly'||choice.built.target==='allAllies') ? friendlySide : hostileSide;
+    const tauntTarget = targets.find(t=>t.hasStatus && t.hasStatus('buff_taunt'));
+    const target = tauntTarget || RNG_GLOBAL.pick(targets.length?targets:[hostileSide[0]]);
+    await this.executeAction(enemy, choice, target);
+  }
+
+  // ---------- Core action resolution (shared by all actors) ----------
+  // Returns {hostileSide, friendlySide} for `actor` — i.e. who counts as
+  // "all enemies" and "all allies" FROM THAT ACTOR'S PERSPECTIVE. Database
+  // skill targets (allEnemies/allAllies) are written generically and must
+  // be resolved relative to whoever is acting, not always the player's side.
+  sidesFor(actor){
+    if(actor.isEnemy){
+      return { hostileSide: this.allies.filter(a=>a.alive), friendlySide: this.aliveEnemies() };
+    }
+    return { hostileSide: this.aliveEnemies(), friendlySide: this.allies.filter(a=>a.alive) };
+  }
+
+  async executeAction(actor, action, primaryTarget){
+    const built = action.built;
+    actor.mp = Math.max(0, actor.mp - (action.mpCost||0));
+    const isAoe = built.target === 'allEnemies' || built.target === 'allAllies';
+    const { hostileSide, friendlySide } = this.sidesFor(actor);
+    const sideTargets = (built.target==='allEnemies') ? hostileSide
+                        : (built.target==='allAllies') ? (built.allies===false? hostileSide : friendlySide)
+                        : (built.target==='self') ? [actor]
+                        : [primaryTarget];
+    const targets = isAoe ? sideTargets : sideTargets.filter(Boolean);
+    if(targets.length===0){ this.game.ui.refreshUnitBars(); return; }
+
+    this.addLog(`${actor.name} 使用了 ${built.displayName || built.name}！`, built.isLimit);
+    await this.game.anim.lunge(actor);
+
+    const hits = built.hits || 1;
+    for(let h=0; h<hits; h++){
+      for(const target of targets){
+        if(!target.alive) continue;
+        if(built.kind==='heal'){
+          await this.resolveHeal(actor, target, built);
+        } else if(built.kind==='buff'){
+          this.resolveBuff(actor, target, built);
+        } else if(built.kind==='debuff'){
+          await this.resolveDebuffOrAttack(actor, target, built, true);
+        } else {
+          await this.resolveAttack(actor, target, built, action.gemInstance);
+        }
+      }
+    }
+    if(built.isLimit) actor.limitGauge = 0;
+    this.game.ui.refreshUnitBars();
+    await this.checkDeaths(targets.concat([actor]));
+  }
+
+  resolveBuff(actor, target, built){
+    if(!built.statusId) return; // e.g. the 'defend' noop action applies its own status before executeAction
+    if(target.hasBarrier && target.hasBarrier()){ /* still apply, barrier only blocks damage */ }
+    const def = Database.statusEffects[built.statusId];
+    if(!def) return; // guard against missing status definitions
+    target.addStatus(built.statusId, def.duration);
+    this.addLog(`${target.name} 獲得了 ${def.name} 效果！`);
+    this.game.anim.burst(target, built.element);
+  }
+
+  async resolveHeal(actor, target, built){
+    const power = built.power * (actor.getStat('matk') + actor.getStat('atk')*0.3);
+    const amount = Math.round(power * (0.9 + RNG_GLOBAL.next()*0.3));
+    const healed = target.heal(amount);
+    await this.game.anim.burst(target, 'light');
+    await this.game.anim.floatNumber(target, '+'+healed, 'heal');
+    this.addLog(`${target.name} 恢復了 ${healed} 點HP。`);
+    // Apply any status effects tagged on this heal (e.g. lim_sanctuary adds buff_barrier)
+    (built.appliesStatus||[]).forEach(s=>{
+      if(RNG_GLOBAL.chance(s.chance)){ target.addStatus(s.id); }
+    });
+  }
+
+  async resolveDebuffOrAttack(actor, target, built, isPureDebuff){
+    const hitChance = Util.clamp(actor.getStat('hit') - target.getStat('eva') + 0.15, 0.05, 0.99);
+    if(!RNG_GLOBAL.chance(hitChance)){
+      await this.game.anim.floatNumber(target, 'MISS', 'miss');
+      this.addLog(`${target.name} 閃避了！`); return;
+    }
+    if(isPureDebuff && built.statusId){
+      target.addStatus(built.statusId);
+      this.addLog(`${target.name} 陷入了 ${Database.statusEffects[built.statusId].name} 狀態！`);
+      await this.game.anim.burst(target, built.element);
+    }
+  }
+
+  computeDamage(actor, target, built, gemInstance){
+    const isMagic = ['fire','ice','thunder','wind','earth','light','dark'].includes(built.element) && built.kind==='attack' && built.element!=='physical';
+    const atkStat = isMagic ? actor.getStat('matk') : actor.getStat('atk');
+    const defStat = isMagic ? target.getStat('mdef') : target.getStat('def');
+    let defPierce = built.defPierce || 0;
+    const effectiveDef = defStat * (1-defPierce);
+    let raw = Math.max(1, atkStat * built.power * 1.6 - effectiveDef * 0.5);
+    // elemental affix bonus from the gem instance itself
+    let elemBonus = 0;
+    (gemInstance && gemInstance.affixes || []).forEach(af=>{ if(af.stat === 'elemDmg_'+built.element) elemBonus += af.value; });
+    raw *= (1+elemBonus);
+    // resistance
+    const res = target.getResist(built.element);
+    raw *= (1-res);
+    // crit
+    const critChance = Util.clamp(actor.getStat('crit') + (built.critBonus||0), 0, 0.95);
+    const isCrit = RNG_GLOBAL.chance(critChance);
+    if(isCrit) raw *= (1 + actor.getStat('critDmg'));
+    // variance
+    raw *= (0.92 + RNG_GLOBAL.next()*0.16);
+    return { amount: Math.round(raw), isCrit };
+  }
+
+  async resolveAttack(actor, target, built, gemInstance){
+    if(target.hasBarrier && target.hasBarrier()){
+      await this.game.anim.floatNumber(target, 'BARRIER', 'miss');
+      this.addLog(`${target.name} 的結界吸收了攻擊！`);
+      return;
+    }
+    const hitChance = Util.clamp(actor.getStat('hit') - target.getStat('eva'), 0.05, 0.99);
+    await this.game.anim.burst(target, built.element);
+    if(!RNG_GLOBAL.chance(hitChance)){
+      await this.game.anim.floatNumber(target, 'MISS', 'miss');
+      this.addLog(`${target.name} 閃避了攻擊！`);
+      return;
+    }
+    // execute-below threshold (e.g. 暗殺)
+    let execBelowProc = built.execBelow && (target.hp/target.maxHp() <= built.execBelow);
+    const { amount, isCrit } = this.computeDamage(actor, target, built, gemInstance);
+    const finalDmg = execBelowProc ? target.hp : amount;
+    target.takeDamage(finalDmg);
+    actor.gainLimit(8 + finalDmg*0.05);
+    target.gainLimit(5 + finalDmg*0.08);
+    await this.game.anim.hitFlash(target);
+    await this.game.anim.floatNumber(target, (isCrit?'CRIT! ':'')+Util.fmt(finalDmg), (isCrit?'crit ':'')+'element-'+built.element);
+    this.addLog(`${target.name} 受到 ${Util.fmt(finalDmg)} 點${ELEMENT_NAME[built.element]}傷害${isCrit?'（爆擊！）':''}。`, isCrit);
+    if(built.drainPct){ const heal = actor.heal(Math.round(finalDmg*built.drainPct)); this.addLog(`${actor.name} 吸取了 ${heal} 點HP。`); }
+    (built.appliesStatus||[]).forEach(s=>{ if(RNG_GLOBAL.chance(s.chance)){ target.addStatus(s.id); this.addLog(`${target.name} 陷入了 ${Database.statusEffects[s.id].name}！`); } });
+    if(actor.onHitStatus && actor.onHitStatus.length){ actor.onHitStatus.forEach(s=>{ if(RNG_GLOBAL.chance(s.chance)) target.addStatus(s.id); }); }
+    if(!target.alive) await this.game.anim.deathFade(target);
+  }
+
+  async checkDeaths(units){
+    for(const u of units){
+      if(u && !u.alive){
+        if(u.isEnemy){
+          const drops = this.game.loot.rollEnemyDrop(u, this.game.party.dangerLevel);
+          this.game.loot.applyDropsToRun(this.runLoot, drops);
+          this.addLog(`${u.name} 被擊敗了！`);
+        }
+      }
+    }
+  }
+
+  // `limitChoice` is one entry from SkillManager.getLimitSkills(unit), i.e.
+  // {built, gemInstance|null, source}. Callers (player UI, AI) are
+  // responsible for picking WHICH limit to use when a unit has more than
+  // one; this method just executes the chosen one.
+  async useLimit(unit, limitChoice){
+    if(!limitChoice || !limitChoice.built || !unit.limitReady()) return;
+    const limitSkill = limitChoice.built;
+    this.addLog(`${unit.name} 發動了 ${limitSkill.displayName}！`, true);
+    await this.game.anim.limitFlash(unit);
+    // Determine target: limit skills hit all enemies or all allies
+    const isHeal = limitSkill.kind === 'heal';
+    const { hostileSide, friendlySide } = this.sidesFor(unit);
+    const primaryTarget = isHeal ? friendlySide[0] : hostileSide[0];
+    await this.executeAction(unit, { built: limitSkill, mpCost:0 }, primaryTarget);
+    unit.limitGauge = 0;
+    await this.checkDeaths(this.enemies.concat(this.allies));
+    this.game.ui.refreshUnitBars();
+  }
+
+  retreat(){
+    // Cancel the battle loop cleanly, keep ALL loot accumulated so far —
+    // both from floors already cleared this run AND whatever was earned
+    // in the current (interrupted) battle.
+    this.active = false;
+    if(this._resolvePlayerInput){ this._resolvePlayerInput(); this._resolvePlayerInput = null; }
+    this.addLog('撤退了！', true);
+    // Fold this battle's partial loot into the run-level total first...
+    if(this.game.run){
+      const acc = this.game.run.accumulatedLoot;
+      acc.gold += this.runLoot.gold;
+      acc.gems.push(...this.runLoot.gems);
+      acc.equipment.push(...this.runLoot.equipment);
+      // ...then commit the FULL run-level total (previous floors + this one)
+      // to the party's permanent inventory in one go.
+      this.game.loot.commitRunLoot(acc);
+    } else {
+      // Defensive fallback if somehow there's no active run object.
+      this.game.loot.commitRunLoot(this.runLoot);
+    }
+    this.runLoot = {gold:0, gems:[], equipment:[]};
+    // NOTE: intentionally do NOT reviveAll() here — fallen members stay
+    // fallen until healed at the Church. This gives Church a distinct
+    // purpose from the Inn (which only restores HP/MP for the living).
+    const fallenCount = this.game.party.members.filter(m=>!m.alive).length;
+    this.game.run = null;
+    this.game.saveManager.autosave();
+    this.game.ui.hideOverlay();
+    this.game.ui.showToast(fallenCount>0 ? `成功撤退！取得的戰利品已保留。有 ${fallenCount} 位隊友倒下，請至教堂治療。` : '成功撤退！取得的戰利品已保留。');
+    this.game.ui.showScreen('town');
+    this.game.ui.renderTownScreen();
+  }
+
+  async endBattle(won){
+    this.active = false;
+    if(won){
+      // XP = base 8 per floor level, scaled by enemy count and danger
+      const xpReward = Math.round(
+        8 * this.enemies.length *
+        (1 + (this.game.run ? this.game.run.floor * 0.15 : 0)) *
+        (1 + this.game.party.dangerLevel * 0.1)
+      );
+      const levelUpMsgs = [];
+      this.game.party.livingMembers().forEach(u=>{
+        const levelUps = u.gainXp(xpReward);
+        if(levelUps && levelUps.length) levelUps.forEach(entry=>{
+          levelUpMsgs.push(`⬆ ${u.name} 升到了 Lv${entry.level}！`);
+          entry.learnedSkillIds.forEach(skillId=>{
+            const tpl = Database.skillGems[skillId];
+            if(tpl) levelUpMsgs.push(`📖 ${u.name} 學會了「${tpl.name}」！`);
+          });
+        });
+      });
+      this.addLog(`戰鬥勝利！獲得 ${xpReward} EXP。`, true);
+      levelUpMsgs.forEach(m=> this.addLog(m, true));
+    } else {
+      this.addLog('隊伍倒下了……', true);
+    }
+    await this.game.anim.wait(500);
+    if(this.onEnd) this.onEnd({ won, loot: this.runLoot });
+  }
+}
+
+/* ============================================================
+   SECTION 13: STAGE MANAGER — roguelite floor progression.
+   ============================================================ */
+class StageManager{
+  constructor(game){ this.game = game; }
+  unlockedStages(){
+    return Object.values(Database.stages).filter(s => this.game.party.dangerLevel >= s.minDanger);
+  }
+  beginRun(stageId){
+    const def = Database.stages[stageId]; if(!def) return false;
+    if(this.game.party.livingMembers().length === 0){
+      this.game.ui.showToast('全隊倒下了！請先到教堂復活隊友。');
+      return false;
+    }
+    this.game.run = {
+      stageId, floor:1, maxFloor: def.floors, def,
+      cleared:false, inBattle:false,
+      seed: Date.now(),
+      // Accumulates loot across ALL floors cleared so far in this run.
+      // Each individual battle's runLoot (on BattleManager) only tracks
+      // that one fight; it gets folded into this run-level total the
+      // moment the battle ends (win OR retreat), so progress isn't lost
+      // when moving between floors or leaving early.
+      accumulatedLoot: { gold:0, gems:[], equipment:[] },
+    };
+    this.game.ui.showScreen('dungeon');
+    this.game.ui.renderDungeonScreen();
+    return true;
+  }
+  // Fold one battle's loot into the run-level accumulator. Safe to call
+  // multiple times across floors — each battle's runLoot is fresh.
+  _foldBattleLootIntoRun(battleLoot){
+    if(!this.game.run) return;
+    const acc = this.game.run.accumulatedLoot;
+    acc.gold += battleLoot.gold;
+    acc.gems.push(...battleLoot.gems);
+    acc.equipment.push(...battleLoot.equipment);
+  }
+  isFinalFloor(){ return this.game.run.floor >= this.game.run.maxFloor; }
+  isEliteFloor(){ return this.game.run.floor % 3 === 0 && !this.isFinalFloor(); }
+  enterFloorBattle(forceAmbush){
+    const run = this.game.run;
+    const enemies = this.game.enemyManager.spawnWave(run.def, run.floor, this.game.party.dangerLevel, this.isFinalFloor(), this.isEliteFloor());
+    run.inBattle = true;
+    this.game.battle.start(enemies, { onEnd: (result)=> this.onBattleEnd(result) });
+  }
+  onBattleEnd(result){
+    const run = this.game.run;
+    run.inBattle = false;
+    if(result.won){
+      // Fold this floor's loot into the run-level total right away — this
+      // is what makes loot survive moving to the next floor (previously
+      // BattleManager.start() would reset its per-battle runLoot on the
+      // very next floor's battle, silently discarding anything not yet
+      // committed to the party's permanent inventory).
+      this._foldBattleLootIntoRun(result.loot);
+      this.game.ui.showRunResultScreen(result, ()=>{
+        if(this.isFinalFloor()){
+          this.completeRun(true);
+        } else {
+          run.floor++;
+          this.game.ui.showScreen('dungeon');
+          this.game.ui.renderDungeonScreen();
+        }
+      });
+    } else {
+      // Full party wipe: do NOT fold loot — this is the intended roguelite
+      // death penalty (see completeRun(false) below).
+      this.game.ui.showRunResultScreen(result, ()=> this.completeRun(false));
+    }
+  }
+  advanceFloorWithEvent(){
+    const run = this.game.run;
+    const roll = this.game.eventManager.rollEvent();
+    if(roll){
+      this.game.eventManager.trigger(roll, (msg)=>{
+        if(this.game.flags.pendingAmbush){
+          this.game.flags.pendingAmbush = false;
+          this.enterFloorBattle(true);
+        } else {
+          this.game.ui.renderDungeonScreen();
+        }
+      });
+    } else {
+      this.enterFloorBattle(false);
+    }
+  }
+  completeRun(survived){
+    if(survived){
+      this.game.loot.commitRunLoot(this.game.run.accumulatedLoot);
+      this.game.party.dangerLevel++; // permanent world danger increase on a successful clear
+      this.game.party.fullRestore(); // restores HP/MP for living members only — fallen stay down
+      const fallenCount = this.game.party.members.filter(m=>!m.alive).length;
+      this.game.ui.showToast(`挑戰成功！世界危險度提升至 ${this.game.party.dangerLevel}` + (fallenCount>0?`（${fallenCount}位隊友倒下，請至教堂治療）`:''));
+    } else {
+      // Roguelite death: lose this run's loot, keep codex + permanent danger level.
+      // The whole party wipes when this branch is reached, so a full revive
+      // is appropriate here — otherwise the player would be stuck unable to
+      // even reach the Church (everyone is down). Church remains relevant
+      // for the more common case of a partial wipe during a retreat or win.
+      this.game.party.reviveAll();
+      this.game.ui.showToast('你失去了本次戰利品，但圖鑑與危險度等永久資源仍然保留。');
+    }
+    this.game.run = null;
+    this.game.saveManager.autosave();
+    this.game.ui.showScreen('town');
+    this.game.ui.renderTownScreen();
+  }
+}
+
+/* ============================================================
+   SECTION 14: EVENT MANAGER — random events between battles.
+   ============================================================ */
+class EventManager{
+  constructor(game){ this.game = game; }
+  rollEvent(){
+    if(!RNG_GLOBAL.chance(0.45)) return null; // 45% chance something happens before the next fight
+    const entries = Database.allEventList.map(e=>({ item:e, weight:e.weight }));
+    return RNG_GLOBAL.weighted(entries);
+  }
+  trigger(eventDef, callback){
+    const msg = eventDef.effect(this.game);
+    this.game.ui.showEventModal(eventDef, msg, callback);
+  }
+}
+
+/* ============================================================
+   SECTION 15: TOWN MANAGER — hub navigation + shop transactions.
+   ============================================================ */
+class TownManager{
+  constructor(game){ this.game = game; }
+  buyEquipment(baseId){
+    const def = Database.equipment[baseId];
+    if(!this.game.party.spendGold(def.baseCost)) return {ok:false, msg:'金幣不足'};
+    const inst = this.game.equipmentManager.createInstance(baseId, 'common');
+    this.game.party.inventory.equipment.push(inst);
+    return {ok:true, inst};
+  }
+  buyGem(kind, baseId){
+    const cost = kind==='limit' ? 600 : kind==='special' ? 90 : kind==='ability' ? 70 : 60;
+    if(!this.game.party.spendGold(cost)) return {ok:false, msg:'金幣不足'};
+    let inst;
+    if(kind==='skill') inst = this.game.gems.createSkillGemInstance(baseId, 'common');
+    else if(kind==='special') inst = this.game.gems.createSpecialGemInstance(baseId, 'common');
+    else if(kind==='limit') inst = this.game.gems.createLimitGemInstance(baseId);
+    else inst = this.game.gems.createAbilityGemInstance(baseId, 'common');
+    this.game.party.inventory.gems.push(inst);
+    return {ok:true, inst};
+  }
+  sellEquipment(inst){
+    const value = this.game.equipmentManager.sellValue(inst);
+    this.game.party.addGold(value);
+    const idx = this.game.party.inventory.equipment.indexOf(inst);
+    if(idx>=0) this.game.party.inventory.equipment.splice(idx,1);
+    return value;
+  }
+  sellGem(inst){
+    const rarity = RARITY_TABLE[inst.rarity]||RARITY_TABLE.common;
+    const value = rarity.sellValue;
+    this.game.party.addGold(value);
+    const idx = this.game.party.inventory.gems.indexOf(inst);
+    if(idx>=0) this.game.party.inventory.gems.splice(idx,1);
+    return value;
+  }
+  restAtInn(){
+    const cost = 15 + this.game.party.dangerLevel*3;
+    if(!this.game.party.spendGold(cost)) return {ok:false, msg:'金幣不足'};
+    this.game.party.fullRestore();
+    return {ok:true};
+  }
+}
+
+/* ============================================================
+   SECTION 16: SAVE MANAGER — localStorage + JSON export/import.
+   ============================================================ */
+class SaveManager{
+  constructor(game){ this.game = game; this.SAVE_KEY = 'gemstone_chronicle_save_v1'; this.VERSION = 1; }
+  serialize(){
+    const p = this.game.party;
+    return {
+      version: this.VERSION,
+      savedAt: Date.now(),
+      gold: p.gold,
+      dangerLevel: p.dangerLevel,
+      members: p.members.map(m=>this._serializeUnit(m)),
+      recruitable: p.recruitable,
+      inventory: p.inventory,
+      codex: p.codex,
+    };
+  }
+  _serializeUnit(u){
+    return {
+      name:u.name, isMainCharacter:u.isMainCharacter, isPlayerControlled:u.isPlayerControlled,
+      base:u.base, level:u.level, xp:u.xp||0, xpToNext:u.xpToNext||u._calcXpToNext(u.level), element:u.element, resist:u.resist, glyph:u.glyph,
+      skills:u.skills, job:u.job, aiPersonality:u.aiPersonality,
+      equipment:u.equipment, // limit skills now live inside equipment sockets (kind:'limit' gems) — no separate field needed
+    };
+  }
+  _deserializeUnit(d){
+    const u = new Unit(d);
+    u.xp = d.xp || 0;
+    u.xpToNext = d.xpToNext || u._calcXpToNext(u.level);
+    u.equipment = d.equipment;
+    u.hp = u.maxHp(); u.mp = u.maxMp();
+    return u;
+  }
+  save(){
+    try{ localStorage.setItem(this.SAVE_KEY, JSON.stringify(this.serialize())); return true; }
+    catch(e){ console.error('save failed', e); return false; }
+  }
+  autosave(){ this.save(); }
+  hasSave(){ try{ return !!localStorage.getItem(this.SAVE_KEY); }catch(e){ return false; } }
+  load(){
+    try{
+      const raw = localStorage.getItem(this.SAVE_KEY);
+      if(!raw) return false;
+      this.applyData(JSON.parse(raw));
+      return true;
+    }catch(e){ console.error('load failed', e); return false; }
+  }
+  applyData(data){
+    // Version migration stub: future versions can transform `data` here
+    // based on data.version before applying, without touching callers.
+    if(!data.version) data.version = 1;
+    const p = this.game.party;
+    p.gold = data.gold; p.dangerLevel = data.dangerLevel;
+    p.members = data.members.map(d=>this._deserializeUnit(d));
+    p.recruitable = data.recruitable;
+    p.inventory = data.inventory;
+    p.codex = data.codex || {monsters:{},equipment:{},gems:{}};
+  }
+  exportJson(){
+    const data = this.serialize();
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'gemstone_chronicle_save.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  }
+  importJsonFile(file, onDone){
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try{ const data = JSON.parse(e.target.result); this.applyData(data); onDone(true); }
+      catch(err){ console.error(err); onDone(false); }
+    };
+    reader.readAsText(file);
+  }
+}
+
+/* ============================================================
+   SECTION 17: UI MANAGER — screen rendering & DOM event wiring.
+   Each screen is built as a template string and swapped into
+   #screen-stack. Helper renderers (party strip, item cards, etc.)
+   are reused across screens to avoid duplicated markup logic.
+   ============================================================ */
+class UIManager{
+  constructor(game){
+    this.game = game;
+    this.root = document.getElementById('screen-stack');
+    this.toastLayer = document.getElementById('toast-layer');
+    this.currentScreen = null;
+    this.selectedSkillIndex = null;
+    this.shopTab = 'weapon';
+    this.gemShopTab = 'skill';
+    this.inventoryTab = 'equipment'; // (legacy/unused placeholder, kept for compatibility)
+    this.forgeTab = 'enhance';
+    this.warehouseTab = 'equipment';
+    this.codexTab = 'monsters';
+    this.tavernTab = 'recruit';
+    this.equipTargetUnitIndex = 0;
+    this.equipSlotPickerSlot = null;
+    this.socketPickerCtx = null;
+    this.synthesizeSelection = [];
+  }
+
+  // ---------- Screen scaffolding ----------
+  showScreen(name){
+    this.currentScreen = name;
+    this.render();
+  }
+  showToast(msg){
+    const el = document.createElement('div');
+    el.className = 'toast'; el.textContent = msg;
+    this.toastLayer.appendChild(el);
+    setTimeout(()=>el.remove(), 2500);
+  }
+
+  render(){
+    const name = this.currentScreen;
+    const renderers = {
+      title: ()=>this.renderTitleScreen(),
+      town: ()=>this.renderTownScreen(),
+      stageSelect: ()=>this.renderStageSelectScreen(),
+      dungeon: ()=>this.renderDungeonScreen(),
+      battle: ()=>this.renderBattleScreen(),
+      party: ()=>this.renderPartyScreen(),
+      equipShop: ()=>this.renderEquipShopScreen(),
+      gemShop: ()=>this.renderGemShopScreen(),
+      forge: ()=>this.renderForgeScreen(),
+      tavern: ()=>this.renderTavernScreen(),
+      warehouse: ()=>this.renderWarehouseScreen(),
+      church: ()=>this.renderChurchScreen(),
+      guild: ()=>this.renderGuildScreen(),
+      codex: ()=>this.renderCodexScreen(),
+      saveScreen: ()=>this.renderSaveScreen(),
+    };
+    (renderers[name]||renderers.title)();
+  }
+
+  // Patches only the live topbar DOM nodes that change frequently (gold,
+  // danger level) without rebuilding the whole screen. Call this after any
+  // operation that alters party.gold or dangerLevel so the value is always
+  // current regardless of which shop/screen is currently showing.
+  refreshTopbar(){
+    const p = this.game.party;
+    const goldEl = document.querySelector('.gold-display');
+    if(goldEl) goldEl.textContent = `💰 ${Util.fmt(p.gold)}`;
+    const dangerEl = document.querySelector('.danger-display');
+    if(dangerEl) dangerEl.textContent = `⚠ ${p.dangerLevel}`;
+  }
+
+  setHtml(html){ this.root.innerHTML = html; }
+
+  topbarHtml(title){
+    const p = this.game.party;
+    return `<div class="topbar">
+      <div class="topbar-title">${title}</div>
+      <div class="row gap8">
+        <span class="gold-display">💰 ${Util.fmt(p.gold)}</span>
+        <span class="danger-display">⚠ ${p.dangerLevel}</span>
+      </div>
+    </div>`;
+  }
+
+  partyStripHtml(){
+    return `<div class="party-strip">${this.game.party.members.map(m=>`
+      <div class="party-card ${m.alive?'':'fallen'}">
+        <div class="pname">${m.alive?m.glyph:'💀'} ${Util.escapeHtml(m.name)}</div>
+        <div class="pjob">${m.alive?(m.job?Database.jobs[m.job].name:(m.isMainCharacter?'自由旅人':'')) + ' Lv'+m.level : '已倒下'}</div>
+        <div class="bar-track"><div class="bar-fill hp" style="width:${100*m.hp/m.maxHp()}%"></div></div>
+        <div class="bar-track"><div class="bar-fill mp" style="width:${100*m.mp/m.maxMp()}%"></div></div>
+      </div>`).join('')}</div>`;
+  }
+
+  // ---------- Title screen ----------
+  renderTitleScreen(){
+    const hasSave = this.game.saveManager.hasSave();
+    this.setHtml(`
+      <div class="screen active" id="screen-title">
+        <div class="title-emblem">💎</div>
+        <div class="title-logo">
+          <div class="t1">晶石異聞錄</div>
+          <div class="t2">GEMSTONE CHRONICLE</div>
+        </div>
+        <div class="title-menu">
+          <button class="btn primary" id="btn-new-game">開始新冒險</button>
+          <button class="btn ${hasSave?'':'disabled'}" id="btn-continue">繼續冒險</button>
+          <button class="btn ghost" id="btn-import-save">匯入存檔 (Save.json)</button>
+          <input type="file" id="file-import" accept=".json" style="display:none;">
+        </div>
+      </div>`);
+    document.getElementById('btn-new-game').onclick = ()=>{
+      this.showToast('新的冒險開始了！');
+      this.showScreen('town');
+    };
+    if(hasSave) document.getElementById('btn-continue').onclick = ()=>{
+      this.game.saveManager.load();
+      this.showScreen('town');
+    };
+    document.getElementById('btn-import-save').onclick = ()=> document.getElementById('file-import').click();
+    document.getElementById('file-import').onchange = (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      this.game.saveManager.importJsonFile(file, (ok)=>{
+        if(ok){ this.showToast('存檔匯入成功！'); this.showScreen('town'); }
+        else this.showToast('存檔格式錯誤。');
+      });
+    };
+  }
+
+  // ---------- Town screen ----------
+  renderTownScreen(){
+    const buildings = [
+      {key:'stage', glyph:'🗺️', label:'冒險者公會', action:()=>this.showScreen('stageSelect')},
+      {key:'inn', glyph:'🛏️', label:'旅館（恢復HP/MP）', action:()=>this.openInn()},
+      {key:'equipShop', glyph:'🗡️', label:'武器/防具店', action:()=>this.showScreen('equipShop')},
+      {key:'gemShop', glyph:'💎', label:'晶石商店', action:()=>this.showScreen('gemShop')},
+      {key:'forge', glyph:'🔨', label:'鍛造屋', action:()=>this.showScreen('forge')},
+      {key:'tavern', glyph:'🍺', label:'酒館', action:()=>this.showScreen('tavern')},
+      {key:'warehouse', glyph:'📦', label:'倉庫', action:()=>this.showScreen('warehouse')},
+      {key:'church', glyph:'⛪', label:'教堂（復活）', action:()=>this.showScreen('church')},
+      {key:'codex', glyph:'📖', label:'圖鑑', action:()=>this.showScreen('codex')},
+      {key:'party', glyph:'🧑‍🤝‍🧑', label:'隊伍/裝備', action:()=>this.showScreen('party')},
+      {key:'save', glyph:'💾', label:'存檔管理', action:()=>this.showScreen('saveScreen')},
+    ];
+    this.setHtml(`
+      <div class="screen active" id="screen-town">
+        ${this.topbarHtml('城鎮')}
+        ${this.partyStripHtml()}
+        <div class="scroll-area" style="padding:0;">
+          <div class="town-banner">
+            <div class="title">起始之鎮</div>
+            <div class="subtitle">世界危險度 ${this.game.party.dangerLevel} ‧ 永久循環的試煉持續著</div>
+          </div>
+          <div class="town-grid">
+            ${buildings.map((b,i)=>`<div class="town-tile" data-i="${i}"><div class="glyph">${b.glyph}</div><div class="label">${b.label}</div></div>`).join('')}
+          </div>
+        </div>
+      </div>`);
+    document.querySelectorAll('#screen-town .town-tile').forEach(el=>{
+      el.onclick = ()=> buildings[+el.dataset.i].action();
+    });
+  }
+  openInn(){
+    const cost = 15 + this.game.party.dangerLevel*3;
+    this.showConfirmModal('旅館', `花費 ${cost} 金幣，讓全隊HP/MP完全恢復？`, ()=>{
+      const r = this.game.town.restAtInn();
+      this.showToast(r.ok? '全隊已恢復精神！' : r.msg);
+      this.renderTownScreen();
+    });
+  }
+
+  // ---------- Stage select ----------
+  renderStageSelectScreen(){
+    const stages = this.game.stageManager.unlockedStages();
+    this.setHtml(`
+      <div class="screen active" id="screen-stage-select">
+        ${this.topbarHtml('冒險者公會 ‧ 選擇關卡')}
+        <div class="scroll-area">
+          <div class="stage-list">
+            ${stages.map(s=>`
+              <div class="stage-card" data-id="${s.id}">
+                <div class="stage-glyph">${s.glyph}</div>
+                <div class="stage-info">
+                  <div class="stage-name">${s.name}</div>
+                  <div class="stage-desc">${s.desc}</div>
+                  <div class="stage-meta">共 ${s.floors} 層 ‧ Boss: ${Database.bosses[s.boss].name}</div>
+                </div>
+              </div>`).join('')}
+            ${stages.length===0?'<div class="empty-state">尚無可挑戰的關卡。</div>':''}
+          </div>
+        </div>
+        <div class="footer-actions"><button class="btn flex1" id="btn-back-town">返回城鎮</button></div>
+      </div>`);
+    document.getElementById('btn-back-town').onclick = ()=>this.showScreen('town');
+    document.querySelectorAll('.stage-card').forEach(el=>{
+      el.onclick = ()=> this.game.stageManager.beginRun(el.dataset.id);
+    });
+  }
+
+  // ---------- Dungeon (between-floor) screen ----------
+  renderDungeonScreen(){
+    const run = this.game.run;
+    if(!run){ this.showScreen('town'); return; }
+    this.setHtml(`
+      <div class="screen active" id="screen-dungeon">
+        ${this.topbarHtml(run.def.name)}
+        ${this.partyStripHtml()}
+        <div class="scroll-area center-text">
+          <div style="font-size:48px; margin-top:20px;">${run.def.glyph}</div>
+          <div class="mt10" style="font-size:14px;">第 ${run.floor} / ${run.maxFloor} 層</div>
+          <div class="txt-dim txt-small mt6">${this.game.stageManager.isFinalFloor()?'前方傳來強大的氣息……Boss 在等著你。':(this.game.stageManager.isEliteFloor()?'此樓層似乎有菁英怪物徘徊。':'未知的危險潛伏於此。')}</div>
+        </div>
+        <div class="footer-actions">
+          <button class="btn ghost" id="btn-retreat">撤退回城鎮</button>
+          <button class="btn primary flex1" id="btn-advance">繼續前進</button>
+        </div>
+      </div>`);
+    document.getElementById('btn-advance').onclick = ()=> this.game.stageManager.advanceFloorWithEvent();
+    document.getElementById('btn-retreat').onclick = ()=>{
+      this.showConfirmModal('撤退', '撤退將保留目前已取得的戰利品並返回城鎮，確定撤退嗎？', ()=>{
+        this.game.loot.commitRunLoot(this.game.run.accumulatedLoot);
+        this.game.run = null;
+        this.game.saveManager.autosave();
+        this.showScreen('town');
+      });
+    };
+  }
+
+  showEventModal(eventDef, msg, callback){
+    this.showOverlay(`
+      <div class="modal-title">${eventDef.glyph} ${eventDef.name}</div>
+      <div class="modal-body center-text">
+        <div class="txt-small mb6">${eventDef.desc}</div>
+        <div class="txt-gold">${msg}</div>
+      </div>
+      <div class="modal-actions"><button class="btn primary flex1" id="btn-event-ok">繼續</button></div>
+    `);
+    document.getElementById('btn-event-ok').onclick = ()=>{ this.hideOverlay(); callback(msg); };
+  }
+
+  // ---------- Battle screen ----------
+  renderBattleScreen(){
+    const b = this.game.battle;
+    this.setHtml(`
+      <div class="screen active" id="screen-battle">
+        ${this.topbarHtml('戰鬥中')}
+        <div class="battle-stage">
+          <div class="enemy-field" id="enemy-field"></div>
+          <div class="fx-layer"></div>
+          <div class="dmg-popup-layer"></div>
+          <div class="ally-field" id="ally-field"></div>
+        </div>
+        <div class="battle-log" id="battle-log" title="點擊查看完整紀錄"></div>
+        <div class="command-window" id="command-window">
+          <div class="empty-state">等待行動……</div>
+        </div>
+      </div>`);
+    // Battle log: click opens full history overlay
+    document.getElementById('battle-log').onclick = ()=> this.showBattleLogHistory();
+    this.refreshUnitBars();
+  }
+  showBattleLogHistory(){
+    const logs = this.game.battle.log;
+    this.showOverlay(`
+      <div class="modal-title">📜 戰鬥記錄</div>
+      <div class="modal-body log-history-modal">
+        ${logs.length===0?'<div class="empty-state">尚無記錄</div>':
+          [...logs].reverse().map(l=>`<div class="log-line ${l.highlight?'highlight':''}">${Util.escapeHtml(l.text)}</div>`).join('')}
+      </div>
+      <div class="modal-actions"><button class="btn primary flex1" id="btn-log-close">關閉</button></div>
+    `);
+    document.getElementById('btn-log-close').onclick = ()=> this.hideOverlay();
+  }
+
+  enemyUnitHtml(e){
+    return `<div class="enemy-unit ${e.alive?'':'dead'}" data-unit-id="${e.uid}">
+      <div class="sprite">${e.glyph}</div>
+      <div class="ehp-track"><div class="ehp-fill" style="width:${100*e.hp/e.maxHp()}%"></div></div>
+      <div class="enemy-tag">${e.isBoss?'👑 ':(e.isElite?'⭐ ':'')}${Util.escapeHtml(e.name)}</div>
+    </div>`;
+  }
+  allyUnitHtml(a){
+    const statusIcons = a.statuses.map(s=>{ const d=Database.statusEffects[s.id]; return d?`<span class="status-icon ${d.kind}">${d.icon}</span>`:''; }).join('');
+    return `<div class="ally-unit ${a.alive?'':'dead'}" data-unit-id="${a.uid}">
+      <div class="aname">${a.glyph} ${Util.escapeHtml(a.name)}</div>
+      <div class="gauge-row">
+        <div class="bar-track"><div class="bar-fill hp" style="width:${100*a.hp/a.maxHp()}%"></div></div>
+        <div class="bar-track"><div class="bar-fill mp" style="width:${100*a.mp/a.maxMp()}%"></div></div>
+        <div class="bar-track"><div class="bar-fill limit" style="width:${a.limitGauge}%"></div></div>
+      </div>
+      <div class="status-icon-row">${statusIcons}</div>
+    </div>`;
+  }
+  refreshUnitBars(){
+    const ef = document.getElementById('enemy-field'); const af = document.getElementById('ally-field');
+    if(!ef || !af) return;
+    ef.innerHTML = this.game.battle.enemies.map(e=>this.enemyUnitHtml(e)).join('');
+    af.innerHTML = this.game.battle.allies.map(a=>this.allyUnitHtml(a)).join('');
+  }
+  appendLog(text, highlight){
+    const log = document.getElementById('battle-log'); if(!log) return;
+    const line = document.createElement('div');
+    line.className = 'log-line' + (highlight?' highlight':'');
+    line.textContent = text;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  promptPlayerAction(unit){
+    const cw = document.getElementById('command-window'); if(!cw) return;
+    const limitSkills = this.game.skills.getLimitSkills(unit);
+    const limitUsable = unit.limitReady() && limitSkills.length > 0;
+    cw.innerHTML = `<div class="command-grid">
+        <button class="btn primary" id="cmd-attack">⚔️<br>攻擊</button>
+        <button class="btn" id="cmd-skill">✨<br>技能</button>
+        <button class="btn ${limitUsable?'':'disabled'}" id="cmd-limit">🌟<br>極限技${limitSkills.length>1?` (${limitSkills.length})`:''}</button>
+        <button class="btn ghost" id="cmd-defend">🛡️<br>防禦</button>
+        <button class="btn danger" id="cmd-retreat" style="grid-column:span 4;">🏃 撤退（保留本輪戰利品，返回城鎮）</button>
+      </div>`;
+    document.getElementById('cmd-attack').onclick = ()=> this.promptTargetSelect(unit, { key:'basic', built:{kind:'attack',element:'physical',target:'singleEnemy',power:0.95,mpCost:0,displayName:'攻擊'}, mpCost:0 });
+    document.getElementById('cmd-skill').onclick = ()=> this.promptSkillSelect(unit);
+    document.getElementById('cmd-limit').onclick = ()=>{
+      if(!limitUsable) return;
+      if(limitSkills.length === 1){
+        this._executeChosenLimit(unit, limitSkills[0]);
+      } else {
+        this.promptLimitSelect(unit, limitSkills);
+      }
+    };
+    document.getElementById('cmd-defend').onclick = ()=>{
+      unit.addStatus('buff_def', 1);
+      this.appendLog(`${unit.name} 採取防禦姿態。`);
+      this.refreshUnitBars();
+      this.game.battle.submitPlayerAction({key:'noop',built:{kind:'buff',target:'self',mpCost:0,displayName:'防禦',statusId:null}, mpCost:0}, unit);
+      cw.innerHTML = `<div class="empty-state">等待行動……</div>`;
+    };
+    document.getElementById('cmd-retreat').onclick = ()=>{
+      this.showConfirmModal('撤退', '強制撤退將結束本場戰鬥。已在本次關卡中取得的戰利品仍會保留，確定撤退嗎？', ()=>{
+        this.game.battle.retreat();
+      });
+    };
+  }
+  promptSkillSelect(unit){
+    const skills = this.game.skills.getUsableSkills(unit);
+    const cw = document.getElementById('command-window');
+    cw.innerHTML = `<div class="skill-list">
+      ${skills.map((s,i)=>`<div class="skill-row ${s.mpCost>unit.mp?'disabled':''}" data-i="${i}">
+          <div><div class="skill-name">${s.built.glyph||''} ${Util.escapeHtml(s.built.displayName||s.built.name)}</div><div class="skill-desc">${s.built.desc||''}</div></div>
+          <div class="skill-cost">MP ${s.mpCost}</div>
+        </div>`).join('')}
+      ${skills.length===0?'<div class="empty-state">尚無可用技能</div>':''}
+      <button class="btn ghost mt6" id="btn-skill-back">返回</button>
+    </div>`;
+    document.querySelectorAll('.skill-row').forEach(el=>{
+      el.onclick = ()=> this.promptTargetSelect(unit, skills[+el.dataset.i]);
+    });
+    document.getElementById('btn-skill-back').onclick = ()=> this.promptPlayerAction(unit);
+  }
+  // Lists multiple available limit skills for the player to choose between
+  // (a unit can have one limit gem per equipped item, plus their job's
+  // signature limit, so 2+ simultaneous options is the normal case for a
+  // well-built character).
+  promptLimitSelect(unit, limitSkills){
+    const cw = document.getElementById('command-window');
+    cw.innerHTML = `<div class="skill-list">
+      ${limitSkills.map((s,i)=>`<div class="skill-row" data-i="${i}">
+          <div><div class="skill-name">${s.built.glyph||''} ${Util.escapeHtml(s.built.displayName||s.built.name)} ${s.source==='job'?'<span class="txt-dim txt-small">(職業限定)</span>':''}</div><div class="skill-desc">${s.built.desc||''}</div></div>
+        </div>`).join('')}
+      <button class="btn ghost mt6" id="btn-limit-back">返回</button>
+    </div>`;
+    document.querySelectorAll('.skill-row').forEach(el=>{
+      el.onclick = ()=> this._executeChosenLimit(unit, limitSkills[+el.dataset.i]);
+    });
+    document.getElementById('btn-limit-back').onclick = ()=> this.promptPlayerAction(unit);
+  }
+  // Executes a chosen limit skill and resumes the battle turn loop. This is
+  // shared by both the single-limit fast path (cmd-limit click goes
+  // straight here when there's only one option) and the multi-limit list.
+  _executeChosenLimit(unit, limitChoice){
+    document.getElementById('command-window').innerHTML = `<div class="empty-state">發動極限技中……</div>`;
+    this.game.battle.useLimit(unit, limitChoice).then(()=>{
+      this.refreshUnitBars();
+      // The actual action was already handled inside useLimit, so we just
+      // resolve the pending player-input promise to let the turn loop continue.
+      if(this.game.battle._resolvePlayerInput){
+        const resolve = this.game.battle._resolvePlayerInput;
+        this.game.battle._resolvePlayerInput = null;
+        resolve();
+      }
+    });
+  }
+  promptTargetSelect(unit, action){
+    const built = action.built;
+    const isAllyTarget = built.target==='singleAlly' || built.target==='allAllies';
+    const isAoe = built.target==='allEnemies' || built.target==='allAllies' || built.target==='self';
+    if(isAoe){
+      this.game.battle.submitPlayerAction(action, null);
+      document.getElementById('command-window').innerHTML = `<div class="empty-state">等待行動……</div>`;
+      return;
+    }
+    const candidates = isAllyTarget ? this.game.battle.allies.filter(a=>a.alive) : this.game.battle.aliveEnemies();
+    candidates.forEach(c=>{ const el=document.querySelector(`[data-unit-id="${c.uid}"]`); if(el) el.classList.add(isAllyTarget?'selected-target':'targetable'); });
+    const cleanup = ()=> candidates.forEach(c=>{ const el=document.querySelector(`[data-unit-id="${c.uid}"]`); if(el){ el.classList.remove('targetable'); el.classList.remove('selected-target'); el.onclick=null; } });
+    candidates.forEach(c=>{
+      const el = document.querySelector(`[data-unit-id="${c.uid}"]`);
+      if(el) el.onclick = ()=>{ cleanup(); this.game.battle.submitPlayerAction(action, c); document.getElementById('command-window').innerHTML = `<div class="empty-state">等待行動……</div>`; };
+    });
+    const cw = document.getElementById('command-window');
+    cw.innerHTML = `<div class="empty-state">請選擇目標……</div><button class="btn ghost mt6" id="btn-target-back">取消</button>`;
+    document.getElementById('btn-target-back').onclick = ()=>{ cleanup(); this.promptPlayerAction(unit); };
+  }
+  closeActionMenus(){ const cw = document.getElementById('command-window'); if(cw) cw.innerHTML = `<div class="empty-state">行動中……</div>`; }
+
+  showRunResultScreen(result, onContinue){
+    const loot = result.loot;
+    this.showOverlay(`
+      <div class="modal-title">${result.won?'戰鬥勝利！':'隊伍倒下了……'}</div>
+      <div class="modal-body">
+        ${result.won?`
+          <div class="section-label">本層戰利品</div>
+          <div class="txt-small">💰 金幣 +${Util.fmt(loot.gold)}</div>
+          ${loot.gems.map(g=>`<div class="txt-small">💎 ${this.game.gems.describe(g)}</div>`).join('')}
+          ${loot.equipment.map(e=>`<div class="txt-small">🗡️ ${Database.equipment[e.baseId].name} (${RARITY_NAME[e.rarity]})</div>`).join('')}
+          ${(loot.gems.length===0 && loot.equipment.length===0)?'<div class="txt-dim txt-small">沒有額外掉落物。</div>':''}
+        `:`<div class="txt-small">本次戰鬥中取得的戰利品已遺失，但圖鑑紀錄與世界危險度將永久保留。</div>`}
+      </div>
+      <div class="modal-actions"><button class="btn primary flex1" id="btn-result-ok">${result.won?'繼續':'返回城鎮'}</button></div>
+    `);
+    document.getElementById('btn-result-ok').onclick = ()=>{ this.hideOverlay(); onContinue(); };
+  }
+
+  // ---------- Overlay / modal helpers ----------
+  showOverlay(innerHtml){
+    let overlay = document.getElementById('global-overlay');
+    if(!overlay){
+      overlay = document.createElement('div');
+      overlay.id = 'global-overlay'; overlay.className = 'overlay';
+      this.root.appendChild(overlay);
+    }
+    overlay.innerHTML = `<div class="pixel-window modal-box">${innerHtml}</div>`;
+    requestAnimationFrame(()=> overlay.classList.add('show'));
+  }
+  hideOverlay(){ const overlay = document.getElementById('global-overlay'); if(overlay) overlay.classList.remove('show'); }
+  showConfirmModal(title, body, onConfirm){
+    this.showOverlay(`
+      <div class="modal-title">${title}</div>
+      <div class="modal-body txt-small">${body}</div>
+      <div class="modal-actions">
+        <button class="btn ghost flex1" id="btn-confirm-no">取消</button>
+        <button class="btn primary flex1" id="btn-confirm-yes">確定</button>
+      </div>`);
+    document.getElementById('btn-confirm-no').onclick = ()=> this.hideOverlay();
+    document.getElementById('btn-confirm-yes').onclick = ()=>{ this.hideOverlay(); onConfirm(); };
+  }
+
+  // ---------- Party / Equipment screen ----------
+  renderPartyScreen(){
+    const members = this.game.party.members;
+    if(this.equipTargetUnitIndex >= members.length) this.equipTargetUnitIndex = 0;
+    const unit = members[this.equipTargetUnitIndex] || members[0];
+    const xpPct = unit.xpToNext > 0 ? Math.round(100*(unit.xp||0)/unit.xpToNext) : 100;
+    this.setHtml(`
+      <div class="screen active" id="screen-party">
+        ${this.topbarHtml('隊伍 ‧ 裝備')}
+        <div class="tab-bar">${members.map((m,i)=>`<div class="tab-btn ${i===this.equipTargetUnitIndex?'active':''}" data-i="${i}">${m.glyph} ${Util.escapeHtml(m.name)}</div>`).join('')}</div>
+        <div class="scroll-area">
+          ${this.unitDetailHtml(unit)}
+          <div class="bar-track mt6" style="height:8px;" title="EXP ${unit.xp||0}/${unit.xpToNext}">
+            <div class="bar-fill xp" style="width:${xpPct}%"></div>
+          </div>
+          <div class="txt-small txt-dim mt6 center-text">EXP ${unit.xp||0} / ${unit.xpToNext}</div>
+
+          <div class="section-label mt10">裝備欄 <span class="txt-dim txt-small">（點擊換裝，點擊⬡可鑲嵌晶石）</span></div>
+          ${['weapon','offhand','armor','accessory'].map(slot=>this.equipSlotRowHtml(unit, slot)).join('')}
+
+          <div class="section-label mt10">
+            ${unit.isMainCharacter?'技能晶石（來自裝備孔洞）':'固定技能 ‧ 職業：'+Database.jobs[unit.job]?.name}
+          </div>
+          ${this.equippedSkillSummaryHtml(unit)}
+
+          ${unit.isMainCharacter ? '' : this.aiPersonalityPickerHtml(unit)}
+          <div class="section-label mt10">極限技 <span class="txt-dim txt-small">（裝備孔洞中的極限晶石 + 職業專屬極限技）</span></div>
+          ${this.limitSkillSummaryHtml(unit)}
+        </div>
+        <div class="footer-actions"><button class="btn flex1" id="btn-back-town">返回城鎮</button></div>
+      </div>`);
+    document.getElementById('btn-back-town').onclick = ()=>this.showScreen('town');
+    document.querySelectorAll('#screen-party .tab-btn').forEach(el=>{ el.onclick = ()=>{ this.equipTargetUnitIndex = +el.dataset.i; this.renderPartyScreen(); }; });
+    this._wirePartyScreenActions(unit);
+  }
+
+  // Shows all skill gems that are currently active (socketed in equipped gear)
+  equippedSkillSummaryHtml(unit){
+    if(unit.isMainCharacter){
+      const skills = this.game.skills.getUsableSkills(unit);
+      if(skills.length === 0) return `<div class="txt-small txt-dim">目前裝備的孔洞中沒有技能晶石。請在裝備孔洞中鑲嵌晶石。</div>`;
+      return `<div style="display:flex; flex-wrap:wrap; gap:6px;">${skills.map(s=>`
+        <div class="pixel-window" style="padding:6px 8px; font-size:11px; display:flex; align-items:center; gap:5px;">
+          <span>${s.built.glyph}</span>
+          <span class="rarity-${s.gemInstance?.rarity||'common'}">${s.built.displayName}</span>
+          <span class="txt-dim txt-small">MP${s.mpCost}</span>
+        </div>`).join('')}</div>`;
+    } else {
+      const jobSkills = (unit.skills||[]).map(id=>Database.skillGems[id]).filter(Boolean);
+      const socketedSkills = this.game.skills.getUsableSkills(unit).filter(s=>s.source==='gem');
+      return `<div class="txt-small mb6">${jobSkills.map(s=>s.name).join('・')||'無固定技能'}</div>`+
+        (socketedSkills.length?`<div class="txt-dim txt-small">晶石加成技能：${socketedSkills.map(s=>s.built.displayName).join('・')}</div>`:'');
+    }
+  }
+  unitDetailHtml(u){
+    return `<div class="pixel-window" style="padding:10px;">
+      <div class="row between"><div style="font-weight:bold;">${u.glyph} ${Util.escapeHtml(u.name)} Lv${u.level}</div><div class="txt-dim txt-small">${u.job?Database.jobs[u.job].name:'自由旅人'}</div></div>
+      <div class="stat-grid mt6">
+        <div><span class="stat-name">HP</span> ${Math.round(u.hp)}/${u.maxHp()}</div>
+        <div><span class="stat-name">MP</span> ${Math.round(u.mp)}/${u.maxMp()}</div>
+        <div><span class="stat-name">ATK</span> ${Math.round(u.getStat('atk'))}</div>
+        <div><span class="stat-name">MATK</span> ${Math.round(u.getStat('matk'))}</div>
+        <div><span class="stat-name">DEF</span> ${Math.round(u.getStat('def'))}</div>
+        <div><span class="stat-name">MDEF</span> ${Math.round(u.getStat('mdef'))}</div>
+        <div><span class="stat-name">SPD</span> ${Math.round(u.getStat('spd'))}</div>
+        <div><span class="stat-name">爆擊率</span> ${Math.round(u.getStat('crit')*100)}%</div>
+      </div>
+    </div>`;
+  }
+  equipSlotRowHtml(unit, slot){
+    const labelMap = {weapon:'武器',offhand:'副手',armor:'防具',accessory:'飾品'};
+    const inst = unit.equipment[slot];
+    const def = inst ? Database.equipment[inst.baseId] : null;
+    const gemGlyphFor = (g)=>{
+      if(g.kind==='skill') return Database.skillGems[g.baseId]?.glyph;
+      if(g.kind==='ability') return Database.abilityGems[g.baseId]?.glyph;
+      if(g.kind==='special') return Database.specialGems[g.baseId]?.glyph;
+      if(g.kind==='limit') return Database.limitGems[g.baseId]?.glyph;
+      return '💎';
+    };
+    const socketsHtml = inst ? (inst.sockets||[]).map((g,si)=>{
+      const isLocked = si >= (inst.unlockedSockets||0);
+      const cls = isLocked ? 'locked' : (g ? 'filled border-rarity-'+g.rarity+(g.kind==='limit'?' socket-pip-limit':'') : '');
+      const glyph = isLocked ? '' : (g ? gemGlyphFor(g) : '+');
+      return `<div class="socket-pip ${cls}" data-eqslot="${slot}" data-socketidx="${si}" title="${g?this.game.gems.describe(g):'空孔'}">${glyph}</div>`;
+    }).join('') : '';
+    return `<div class="equip-slot-row-wrap" data-slot="${slot}">
+      <div class="equip-slot-row" data-slot="${slot}">
+        <div class="slot-label">${labelMap[slot]}</div>
+        ${inst ? `<div class="slot-content rarity-${inst.rarity}">${def.glyph} ${def.name} +${inst.enhanceLevel} <span class="txt-dim">(${RARITY_NAME[inst.rarity]})</span></div>`
+               : `<div class="slot-content empty">（空，點擊裝備）</div>`}
+      </div>
+      ${inst ? `<div class="socket-pip-row">${socketsHtml}</div>` : ''}
+    </div>`;
+  }
+  // Shows every limit skill currently available to this unit: one entry per
+  // limit gem socketed across their equipped gear, PLUS their job's
+  // signature limit (if any) which is always available regardless of
+  // equipment. This replaces the old single-slot limitGemPickerHtml now
+  // that limits are equipment-socketed and a unit can have several at once.
+  limitSkillSummaryHtml(unit){
+    const limits = this.game.skills.getLimitSkills(unit);
+    if(limits.length === 0){
+      return `<div class="txt-small txt-dim">${unit.isMainCharacter?'尚未裝備任何極限技晶石。請在裝備孔洞中鑲嵌極限技晶石。':'此職業沒有專屬極限技，且尚未裝備極限技晶石。'}</div>`;
+    }
+    return `<div style="display:flex; flex-wrap:wrap; gap:6px;">${limits.map(l=>`
+      <div class="pixel-window" style="padding:6px 8px; font-size:11px; display:flex; align-items:center; gap:5px;">
+        <span>${l.built.glyph}</span>
+        <span class="txt-gold">${l.built.displayName}</span>
+        ${l.source==='job'?'<span class="txt-dim txt-small">(職業限定)</span>':''}
+      </div>`).join('')}</div>`;
+  }
+  aiPersonalityPickerHtml(unit){
+    return `<div class="section-label mt10">AI 性格</div>
+      <select id="ai-personality-select" class="btn" style="width:100%;">
+        ${Object.values(Database.aiPersonalities).map(p=>`<option value="${p.id}" ${p.id===unit.aiPersonality?'selected':''}>${p.name} - ${p.desc}</option>`).join('')}
+      </select>`;
+  }
+  _wirePartyScreenActions(unit){
+    document.querySelectorAll('#screen-party .equip-slot-row').forEach(el=>{
+      el.onclick = ()=> this.openEquipPicker(unit, el.dataset.slot);
+    });
+    document.querySelectorAll('#screen-party .socket-pip').forEach(el=>{
+      el.onclick = (ev)=>{
+        ev.stopPropagation(); // don't also trigger the parent equip-row's click
+        const slot = el.dataset.eqslot, idx = +el.dataset.socketidx;
+        const eqInst = unit.equipment[slot];
+        if(!eqInst) return;
+        if(idx >= (eqInst.unlockedSockets||0)){ this.showToast('此插槽尚未解鎖，請在鍛造屋強化裝備。'); return; }
+        this.openSocketGemPicker(unit, eqInst, idx);
+      };
+    });
+    const sel = document.getElementById('ai-personality-select');
+    if(sel) sel.onchange = ()=>{ this.game.party.setPersonality(unit, sel.value); this.showToast('AI 性格已更新'); };
+  }
+
+  // Picker for socketing any gem (skill/ability/special) into a specific
+  // equipment socket. This is the canonical "gem goes on equipment" flow:
+  // equipping the gear is what grants the wearer the gem's skill/effect.
+  openSocketGemPicker(unit, eqInst, slotIndex){
+    const current = eqInst.sockets[slotIndex];
+    const inv = this.game.party.inventory.gems; // ALL gem kinds can be socketed, including limit gems
+    const gemGlyph = (g)=> g.kind==='skill'?Database.skillGems[g.baseId]?.glyph : g.kind==='ability'?Database.abilityGems[g.baseId]?.glyph : g.kind==='limit'?Database.limitGems[g.baseId]?.glyph : Database.specialGems[g.baseId]?.glyph;
+    const kindLabel = (g)=> g.kind==='skill'?'技能晶石':g.kind==='ability'?'能力晶石':g.kind==='limit'?'極限技晶石':'特殊晶石（需與同裝備上的技能晶石組合）';
+    this.showOverlay(`
+      <div class="modal-title">鑲嵌晶石</div>
+      <div class="modal-body">
+        <div class="txt-small txt-dim mb6">將晶石鑲嵌至裝備孔洞中。技能晶石會賦予可用技能；能力晶石提升數值；特殊晶石可附加在技能晶石所在的另一孔洞，於戰鬥時自動與該技能組合；極限技晶石會賦予一個額外的極限技（裝備多件即可擁有多招極限技）。</div>
+        ${current?`<div class="item-card" id="pick-unsocket"><div class="item-glyph">❌</div><div class="item-info"><div class="item-name">取出目前晶石（${this.game.gems.describe(current)}）</div></div></div>`:''}
+        ${inv.length===0?'<div class="empty-state">倉庫中沒有可鑲嵌的晶石</div>':''}
+        ${inv.map((g,i)=>`<div class="item-card" data-i="${i}">
+          <div class="item-glyph">${gemGlyph(g)||'💎'}</div>
+          <div class="item-info"><div class="item-name rarity-${g.rarity}">${this.game.gems.describe(g)}</div>
+          <div class="item-sub">${kindLabel(g)}</div></div>
+        </div>`).join('')}
+      </div>
+      <div class="modal-actions"><button class="btn ghost flex1" id="btn-picker-close">關閉</button></div>
+    `);
+    document.getElementById('btn-picker-close').onclick = ()=> this.hideOverlay();
+    const unsocketBtn = document.getElementById('pick-unsocket');
+    if(unsocketBtn) unsocketBtn.onclick = ()=>{
+      this.game.equipmentManager.unsocketGem(eqInst, slotIndex);
+      this.hideOverlay(); this.renderPartyScreen();
+    };
+    document.querySelectorAll('#global-overlay .item-card[data-i]').forEach(el=>{
+      el.onclick = ()=>{
+        const chosen = inv[+el.dataset.i];
+        if(current) this.game.party.inventory.gems.push(current); // swap old gem back to inventory
+        const r = this.game.equipmentManager.socketGem(eqInst, chosen, slotIndex);
+        if(!r.ok){ this.showToast(r.msg); return; }
+        this.hideOverlay(); this.renderPartyScreen();
+      };
+    });
+  }
+  openEquipPicker(unit, slot){
+    const inv = this.game.party.inventory.equipment.filter(e=>Database.equipment[e.baseId].slot===slot);
+    const current = unit.equipment[slot];
+    const eqCardHtml = (e, idAttr='')=>{
+      const def = Database.equipment[e.baseId];
+      const statsHtml = Object.entries(def.baseStats).map(([k,v])=>{
+        const pct = ['hit','eva','crit','critDmg'].includes(k);
+        return `<span class="txt-dim txt-small">${k.toUpperCase()} ${v>0?'+':''}${pct?Math.round(v*100)+'%':Math.round(v*(1+(e.enhanceLevel||0)*0.12))}</span>`;
+      }).join(' ');
+      const socketsHtml = (e.sockets||[]).map((g,si)=>{
+        const isLocked = si >= (e.unlockedSockets||0);
+        if(isLocked) return `<span style="font-size:13px; opacity:0.3;">🔒</span>`;
+        if(!g) return `<span style="font-size:13px; opacity:0.5;">⬡</span>`;
+        const glyph = g.kind==='skill'? Database.skillGems[g.baseId]?.glyph : g.kind==='ability'? Database.abilityGems[g.baseId]?.glyph : g.kind==='limit'? Database.limitGems[g.baseId]?.glyph : Database.specialGems[g.baseId]?.glyph;
+        return `<span class="rarity-${g.rarity}" style="font-size:13px;" title="${this.game.gems.describe(g)}">${glyph||'💎'}</span>`;
+      }).join('');
+      return `<div class="item-card ${idAttr}" ${idAttr?`id="${idAttr}"`:''}>
+        <div class="item-glyph">${def.glyph}</div>
+        <div class="item-info" style="flex:1;">
+          <div class="item-name rarity-${e.rarity}">${def.name} +${e.enhanceLevel} <span class="txt-dim">(${RARITY_NAME[e.rarity]})</span></div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:2px;">${statsHtml}</div>
+          <div style="display:flex; gap:4px; margin-top:4px; align-items:center;"><span class="txt-small txt-dim">孔：</span>${socketsHtml}</div>
+        </div>
+      </div>`;
+    };
+    this.showOverlay(`
+      <div class="modal-title">選擇裝備</div>
+      <div class="modal-body">
+        ${current ? `<div class="section-label">目前裝備</div>${eqCardHtml(current,'pick-unequip')}<div class="section-label mt6">卸下目前裝備</div><div class="item-card" id="pick-unequip-btn"><div class="item-glyph">❌</div><div class="item-info"><div class="item-name">卸下（放回倉庫）</div></div></div>` : ''}
+        <div class="section-label mt6">倉庫（${inv.length} 件）</div>
+        ${inv.length===0?'<div class="empty-state">倉庫中沒有此類裝備</div>':''}
+        ${inv.map((e,i)=> eqCardHtml(e).replace('<div class="item-card', `<div class="item-card" data-i="${i}"`)).join('')}
+      </div>
+      <div class="modal-actions"><button class="btn ghost flex1" id="btn-picker-close">關閉</button></div>
+    `);
+    document.getElementById('btn-picker-close').onclick = ()=> this.hideOverlay();
+    const unequipBtn = document.getElementById('pick-unequip-btn');
+    if(unequipBtn) unequipBtn.onclick = ()=>{ this.game.equipmentManager.unequip(unit, slot); this.hideOverlay(); this.renderPartyScreen(); };
+    document.querySelectorAll('#global-overlay .item-card[data-i]').forEach(el=>{
+      el.onclick = ()=>{ this.game.equipmentManager.equip(unit, inv[+el.dataset.i]); this.hideOverlay(); this.renderPartyScreen(); };
+    });
+  }
+
+  // ---------- Equipment shop ----------
+  renderEquipShopScreen(){
+    const slots = ['weapon','offhand','armor','accessory'];
+    const labelMap = {weapon:'武器',offhand:'副手',armor:'防具',accessory:'飾品'};
+    const items = Object.values(Database.equipment).filter(e=>e.slot===this.shopTab);
+    this.setHtml(`
+      <div class="screen active" id="screen-equip-shop">
+        ${this.topbarHtml('武器/防具店')}
+        <div class="tab-bar">${slots.map(s=>`<div class="tab-btn ${s===this.shopTab?'active':''}" data-tab="${s}">${labelMap[s]}</div>`).join('')}</div>
+        <div class="scroll-area">
+          ${items.map(def=>`<div class="item-card" data-id="${def.id}">
+            <div class="item-glyph">${def.glyph}</div>
+            <div class="item-info"><div class="item-name">${def.name}</div><div class="item-sub">${def.sockets}孔 ‧ Tier${def.tier}</div></div>
+            <div class="item-price">💰${def.baseCost}</div>
+          </div>`).join('')}
+        </div>
+        <div class="footer-actions"><button class="btn flex1" id="btn-back-town">返回城鎮</button></div>
+      </div>`);
+    document.getElementById('btn-back-town').onclick = ()=>this.showScreen('town');
+    document.querySelectorAll('.tab-btn').forEach(el=>{ el.onclick = ()=>{ this.shopTab = el.dataset.tab; this.renderEquipShopScreen(); }; });
+    document.querySelectorAll('.item-card[data-id]').forEach(el=>{
+      el.onclick = ()=>{
+        const def = Database.equipment[el.dataset.id];
+        this.showConfirmModal('購買裝備', `購買 ${def.name}（💰${def.baseCost}）？`, ()=>{
+          const r = this.game.town.buyEquipment(def.id);
+          this.showToast(r.ok?`已購買 ${def.name}！（已存入倉庫）`:r.msg);
+        });
+      };
+    });
+  }
+
+  // ---------- Gem shop ----------
+  renderGemShopScreen(){
+    const tabs = [{k:'skill',label:'技能晶石'},{k:'ability',label:'能力晶石'},{k:'special',label:'特殊晶石'},{k:'limit',label:'極限晶石'}];
+    const dbMap = { skill:Database.skillGems, ability:Database.abilityGems, special:Database.specialGems, limit:Database.limitGems };
+    const costMap = { skill:60, ability:70, special:90, limit:600 };
+    const items = Object.values(dbMap[this.gemShopTab]);
+    this.setHtml(`
+      <div class="screen active" id="screen-gem-shop">
+        ${this.topbarHtml('晶石商店')}
+        <div class="tab-bar">${tabs.map(t=>`<div class="tab-btn ${t.k===this.gemShopTab?'active':''}" data-tab="${t.k}">${t.label}</div>`).join('')}</div>
+        <div class="scroll-area">
+          ${this.gemShopTab==='limit'?'<div class="txt-small txt-dim mb6">極限技晶石可鑲嵌於任何裝備孔洞中。每件裝備上的極限技晶石都會給予一招額外的極限技，可同時擁有多招。</div>':''}
+          ${items.map(def=>`<div class="item-card" data-id="${def.id}">
+            <div class="item-glyph">${def.glyph}</div>
+            <div class="item-info"><div class="item-name">${def.name}</div><div class="item-sub">${def.desc}</div></div>
+            <div class="item-price">💰${costMap[this.gemShopTab]}</div>
+          </div>`).join('')}
+        </div>
+        <div class="footer-actions"><button class="btn flex1" id="btn-back-town">返回城鎮</button></div>
+      </div>`);
+    document.getElementById('btn-back-town').onclick = ()=>this.showScreen('town');
+    document.querySelectorAll('.tab-btn').forEach(el=>{ el.onclick = ()=>{ this.gemShopTab = el.dataset.tab; this.renderGemShopScreen(); }; });
+    document.querySelectorAll('.item-card[data-id]').forEach(el=>{
+      el.onclick = ()=>{
+        const def = dbMap[this.gemShopTab][el.dataset.id];
+        this.showConfirmModal('購買晶石', `購買 ${def.name}（💰${costMap[this.gemShopTab]}）？`, ()=>{
+          const r = this.game.town.buyGem(this.gemShopTab, def.id);
+          this.showToast(r.ok?`已購買 ${def.name}！（已存入倉庫）`:r.msg);
+        });
+      };
+    });
+  }
+
+  // ---------- Forge ----------
+  renderForgeScreen(){
+    const eqInv = this.game.party.inventory.equipment.concat(this.game.party.members.flatMap(m=>Object.values(m.equipment||{}).filter(Boolean)));
+    this.setHtml(`
+      <div class="screen active" id="screen-forge">
+        ${this.topbarHtml('鍛造屋')}
+        <div class="tab-bar">
+          <div class="tab-btn ${this.forgeTab==='enhance'?'active':''}" data-tab="enhance">強化裝備</div>
+          <div class="tab-btn ${this.forgeTab==='synth'?'active':''}" data-tab="synth">晶石合成</div>
+        </div>
+        <div class="scroll-area" id="forge-body"></div>
+        <div class="footer-actions"><button class="btn flex1" id="btn-back-town">返回城鎮</button></div>
+      </div>`);
+    document.getElementById('btn-back-town').onclick = ()=>this.showScreen('town');
+    if(this.forgeTab!=='enhance' && this.forgeTab!=='synth') this.forgeTab='enhance';
+    document.querySelectorAll('#screen-forge .tab-btn').forEach(el=>{ el.onclick = ()=>{ this.forgeTab = el.dataset.tab; this.renderForgeScreen(); }; });
+    const body = document.getElementById('forge-body');
+    if(this.forgeTab==='enhance'){
+      const enhanceCardsHtml = eqInv.length===0 ? '<div class="empty-state">沒有可強化的裝備</div>' : eqInv.map((e,i)=>{
+        const def = Database.equipment[e.baseId];
+        return `<div class="item-card" data-i="${i}">
+          <div class="item-glyph">${def.glyph}</div>
+          <div class="item-info"><div class="item-name rarity-${e.rarity}">${def.name} +${e.enhanceLevel}</div><div class="item-sub">解鎖插槽 ${e.unlockedSockets}/${def.sockets}</div></div>
+          <div class="item-price">💰${this.game.forge.enhanceCost(e)}</div>
+        </div>`;
+      }).join('');
+      const rarityRow = eqInv.length? eqInv.map((e,i)=>{
+        const def = Database.equipment[e.baseId];
+        return `<div class="item-card" data-up="${i}"><div class="item-glyph">${def.glyph}</div><div class="item-info"><div class="item-name">升階 ${def.name}</div><div class="item-sub">${RARITY_NAME[e.rarity]} → ${RARITY_ORDER[Math.min(RARITY_ORDER.indexOf(e.rarity)+1,6)]!==e.rarity?RARITY_NAME[RARITY_ORDER[Math.min(RARITY_ORDER.indexOf(e.rarity)+1,6)]]:'已最高'}</div></div><div class="item-price">💰${this.game.forge.upgradeRarityCost(e)}</div></div>`;
+      }).join(''):'';
+      // Single assignment — NEVER use `+=` on innerHTML after attaching listeners,
+      // since `+=` reparses the whole subtree and silently drops prior onclick handlers.
+      body.innerHTML = enhanceCardsHtml + `<div class="section-label mt10">升階品質</div>` + rarityRow;
+      document.querySelectorAll('#forge-body .item-card[data-i]').forEach(el=>{
+        el.onclick = ()=>{
+          const e = eqInv[+el.dataset.i];
+          const def = Database.equipment[e.baseId];
+          const gemsNeeded = this.game.forge.enhanceMageGemCost(e);
+          this.showConfirmModal('強化裝備', `強化 ${def.name}：消耗 💰${this.game.forge.enhanceCost(e)} + ${gemsNeeded}顆能力晶石？`, ()=>{
+            const r = this.game.forge.enhance(e);
+            this.showToast(r.ok? `${def.name} 強化成功！(+${e.enhanceLevel})` : r.msg);
+            this.renderForgeScreen();
+          });
+        };
+      });
+      document.querySelectorAll('#forge-body .item-card[data-up]').forEach(el=>{
+        el.onclick = ()=>{
+          const e = eqInv[+el.dataset.up]; const def = Database.equipment[e.baseId];
+          this.showConfirmModal('升階品質', `將 ${def.name} 升階？花費 💰${this.game.forge.upgradeRarityCost(e)}`, ()=>{
+            const r = this.game.forge.upgradeRarity(e);
+            this.showToast(r.ok?'升階成功！':r.msg);
+            this.renderForgeScreen();
+          });
+        };
+      });
+    } else {
+      const gems = this.game.party.inventory.gems;
+      body.innerHTML = `<div class="txt-small txt-dim mb6">選擇三顆「種類、品質皆相同」的晶石進行合成，將得到更高品質的同類晶石一顆。</div>` +
+        (gems.length===0?'<div class="empty-state">倉庫中沒有晶石</div>':gems.map((g,i)=>{
+          const selected = this.synthesizeSelection.includes(i);
+          return `<div class="item-card ${selected?'selected':''}" data-gi="${i}">
+            <div class="item-glyph">${g.kind==='skill'?Database.skillGems[g.baseId].glyph:g.kind==='ability'?Database.abilityGems[g.baseId].glyph:g.kind==='special'?Database.specialGems[g.baseId].glyph:g.kind==='limit'?Database.limitGems[g.baseId].glyph:'🌟'}</div>
+            <div class="item-info"><div class="item-name rarity-${g.rarity}">${this.game.gems.describe(g)}</div></div>
+          </div>`;
+        }).join('')) + `<button class="btn primary mt10" id="btn-do-synth" style="width:100%;">合成 (${this.synthesizeSelection.length}/3)</button>`;
+      document.querySelectorAll('#forge-body .item-card[data-gi]').forEach(el=>{
+        el.onclick = ()=>{
+          const i = +el.dataset.gi;
+          const pos = this.synthesizeSelection.indexOf(i);
+          if(pos>=0) this.synthesizeSelection.splice(pos,1);
+          else if(this.synthesizeSelection.length<3) this.synthesizeSelection.push(i);
+          this.renderForgeScreen();
+        };
+      });
+      const synthBtn = document.getElementById('btn-do-synth');
+      if(synthBtn) synthBtn.onclick = ()=>{
+        if(this.synthesizeSelection.length!==3){ this.showToast('請選擇三顆晶石'); return; }
+        const instances = this.synthesizeSelection.map(i=>gems[i]);
+        const r = this.game.gems.trySynthesize(instances);
+        if(r.ok){
+          const sortedIdx = this.synthesizeSelection.slice().sort((a,b)=>b-a);
+          sortedIdx.forEach(i=>gems.splice(i,1));
+          gems.push(r.result);
+          this.showToast('合成成功！獲得更高品質晶石。');
+        } else this.showToast(r.msg);
+        this.synthesizeSelection = [];
+        this.renderForgeScreen();
+      };
+    }
+  }
+
+  // ---------- Tavern (recruitment) ----------
+  renderTavernScreen(){
+    const recruitable = this.game.party.recruitable;
+    this.setHtml(`
+      <div class="screen active" id="screen-tavern">
+        ${this.topbarHtml('酒館 ‧ 招募隊友')}
+        ${this.partyStripHtml()}
+        <div class="scroll-area">
+          <div class="txt-small txt-dim mb6">隊伍最多四人（包含主角）。隊友擁有固定職業，但可自由更換裝備與晶石。</div>
+          ${recruitable.map((r,i)=>{
+            const job = Database.jobs[r.jobId];
+            return `<div class="item-card ${r.hired?'':''}" data-i="${i}">
+              <div class="item-glyph">${job.glyph}</div>
+              <div class="item-info"><div class="item-name">${r.name} ‧ ${job.name}</div><div class="item-sub">${r.hired?'已加入隊伍':'尚未招募'}</div></div>
+              <div class="item-price">${r.hired?'✅':'💰'+r.cost}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="footer-actions"><button class="btn flex1" id="btn-back-town">返回城鎮</button></div>
+      </div>`);
+    document.getElementById('btn-back-town').onclick = ()=>this.showScreen('town');
+    document.querySelectorAll('.item-card[data-i]').forEach(el=>{
+      el.onclick = ()=>{
+        const r = recruitable[+el.dataset.i];
+        if(r.hired){ this.showToast(`${r.name} 已經在隊伍中了。`); return; }
+        this.showConfirmModal('招募隊友', `花費 💰${r.cost} 招募 ${r.name}（${Database.jobs[r.jobId].name}）加入隊伍？`, ()=>{
+          const result = this.game.party.hireAlly(r.jobId);
+          this.showToast(result.ok? `${r.name} 加入了隊伍！` : result.msg);
+          this.renderTavernScreen();
+        });
+      };
+    });
+  }
+
+  // ---------- Warehouse (inventory browser) ----------
+  renderWarehouseScreen(){
+    const tabs = [{k:'equipment',label:'裝備'},{k:'gems',label:'晶石'}];
+    this.setHtml(`
+      <div class="screen active" id="screen-warehouse">
+        ${this.topbarHtml('倉庫')}
+        <div class="tab-bar">${tabs.map(t=>`<div class="tab-btn ${t.k===this.warehouseTab?'active':''}" data-tab="${t.k}">${t.label}</div>`).join('')}</div>
+        <div class="scroll-area" id="warehouse-body"></div>
+        <div class="footer-actions"><button class="btn flex1" id="btn-back-town">返回城鎮</button></div>
+      </div>`);
+    document.getElementById('btn-back-town').onclick = ()=>this.showScreen('town');
+    if(this.warehouseTab!=='equipment' && this.warehouseTab!=='gems') this.warehouseTab='equipment';
+    document.querySelectorAll('#screen-warehouse .tab-btn').forEach(el=>{ el.onclick = ()=>{ this.warehouseTab = el.dataset.tab; this.renderWarehouseScreen(); }; });
+    const body = document.getElementById('warehouse-body');
+    if(this.warehouseTab==='equipment'){
+      const eq = this.game.party.inventory.equipment;
+      body.innerHTML = eq.length===0?'<div class="empty-state">倉庫中沒有裝備</div>':eq.map((e,i)=>{
+        const def = Database.equipment[e.baseId];
+        return `<div class="item-card" data-i="${i}">
+          <div class="item-glyph">${def.glyph}</div>
+          <div class="item-info"><div class="item-name rarity-${e.rarity}">${def.name} +${e.enhanceLevel}</div><div class="item-sub">${RARITY_NAME[e.rarity]} ‧ 出售價 💰${this.game.equipmentManager.sellValue(e)}</div></div>
+        </div>`;
+      }).join('');
+      document.querySelectorAll('#warehouse-body .item-card[data-i]').forEach(el=>{
+        el.onclick = ()=>{
+          const e = eq[+el.dataset.i]; const def = Database.equipment[e.baseId];
+          this.showConfirmModal('出售裝備', `出售 ${def.name}，獲得 💰${this.game.equipmentManager.sellValue(e)}？`, ()=>{
+            this.game.town.sellEquipment(e); this.showToast('已出售！'); this.renderWarehouseScreen();
+          });
+        };
+      });
+    } else {
+      const gems = this.game.party.inventory.gems;
+      body.innerHTML = gems.length===0?'<div class="empty-state">倉庫中沒有晶石</div>':gems.map((g,i)=>{
+        const sellVal = (RARITY_TABLE[g.rarity]||RARITY_TABLE.common).sellValue;
+        return `<div class="item-card" data-i="${i}">
+          <div class="item-glyph">${g.kind==='skill'?Database.skillGems[g.baseId].glyph:g.kind==='ability'?Database.abilityGems[g.baseId].glyph:g.kind==='special'?Database.specialGems[g.baseId].glyph:g.kind==='limit'?Database.limitGems[g.baseId].glyph:'🌟'}</div>
+          <div class="item-info"><div class="item-name rarity-${g.rarity}">${this.game.gems.describe(g)}</div><div class="item-sub">${(g.affixes||[]).map(a=>a.text).join('、')||'無詞條'}</div></div>
+          <div class="item-price">💰${sellVal}</div>
+        </div>`;
+      }).join('');
+      document.querySelectorAll('#warehouse-body .item-card[data-i]').forEach(el=>{
+        el.onclick = ()=>{
+          this.showConfirmModal('出售晶石', `出售此晶石？`, ()=>{
+            this.game.town.sellGem(gems[+el.dataset.i]); this.showToast('已出售！'); this.renderWarehouseScreen();
+          });
+        };
+      });
+    }
+  }
+
+  // ---------- Church (revival for fallen party members) ----------
+  renderChurchScreen(){
+    const fallen = this.game.party.members.filter(m=>!m.alive);
+    const living = this.game.party.members.filter(m=>m.alive);
+    this.setHtml(`
+      <div class="screen active" id="screen-church">
+        ${this.topbarHtml('教堂')}
+        <div class="scroll-area">
+          <div class="pixel-window" style="padding:14px; text-align:center;">
+            <div style="font-size:30px;">⛪</div>
+            <div class="txt-small mt6">教堂能讓倒下的隊友復活。旅館（HP/MP恢復）與教堂（復活）是不同的服務。</div>
+          </div>
+          <div class="section-label mt10">倒下的隊友（${fallen.length}）</div>
+          ${fallen.length===0?'<div class="empty-state">目前沒有隊友倒下。</div>':fallen.map((m,i)=>`
+            <div class="item-card" data-fi="${i}" style="opacity:0.7;">
+              <div class="item-glyph">${m.glyph}</div>
+              <div class="item-info"><div class="item-name">${Util.escapeHtml(m.name)} Lv${m.level}</div><div class="item-sub txt-dim">${m.job?Database.jobs[m.job].name:'自由旅人'} ‧ 已倒下</div></div>
+              <div class="item-price">✝️ 復活</div>
+            </div>`).join('')}
+          ${fallen.length>0?`<button class="btn primary mt6" id="btn-revive-all" style="width:100%;">✝️ 全部復活</button>`:''}
+          <div class="section-label mt10">健在的隊友（${living.length}）</div>
+          ${living.map(m=>`<div class="party-card" style="margin-bottom:6px;"><div class="pname">${m.glyph} ${Util.escapeHtml(m.name)}</div><div class="pjob">${m.job?Database.jobs[m.job].name:'自由旅人'} Lv${m.level}</div></div>`).join('')}
+        </div>
+        <div class="footer-actions"><button class="btn flex1" id="btn-back-town">返回城鎮</button></div>
+      </div>`);
+    document.getElementById('btn-back-town').onclick = ()=>this.showScreen('town');
+    document.querySelectorAll('#screen-church .item-card[data-fi]').forEach(el=>{
+      el.onclick = ()=>{
+        const m = fallen[+el.dataset.fi];
+        this.game.party.reviveOne(m);
+        this.showToast(`${m.name} 已復活！`);
+        this.renderChurchScreen();
+      };
+    });
+    const reviveAllBtn = document.getElementById('btn-revive-all');
+    if(reviveAllBtn) reviveAllBtn.onclick = ()=>{
+      fallen.forEach(m=> this.game.party.reviveOne(m));
+      this.showToast('全部隊友已復活！');
+      this.renderChurchScreen();
+    };
+  }
+
+  // ---------- Adventurer's Guild alias (stage select is the guild) ----------
+  renderGuildScreen(){ this.renderStageSelectScreen(); }
+
+  // ---------- Codex ----------
+  renderCodexScreen(){
+    const codex = this.game.party.codex;
+    const tabs = [{k:'monsters',label:'怪物'},{k:'equipment',label:'裝備'},{k:'gems',label:'晶石'}];
+    this.setHtml(`
+      <div class="screen active" id="screen-codex">
+        ${this.topbarHtml('圖鑑')}
+        <div class="tab-bar">${tabs.map(t=>`<div class="tab-btn ${t.k===this.codexTab?'active':''}" data-tab="${t.k}">${t.label}</div>`).join('')}</div>
+        <div class="scroll-area" id="codex-body"></div>
+        <div class="footer-actions"><button class="btn flex1" id="btn-back-town">返回城鎮</button></div>
+      </div>`);
+    document.getElementById('btn-back-town').onclick = ()=>this.showScreen('town');
+    if(!['monsters','equipment','gems'].includes(this.codexTab)) this.codexTab = 'monsters';
+    document.querySelectorAll('#screen-codex .tab-btn').forEach(el=>{ el.onclick = ()=>{ this.codexTab = el.dataset.tab; this.renderCodexScreen(); }; });
+    const body = document.getElementById('codex-body');
+    if(this.codexTab==='monsters'){
+      const all = Object.assign({}, Database.monsters, Database.bosses);
+      body.innerHTML = Object.values(all).map(m=>{
+        const seen = !!codex.monsters[m.id];
+        return `<div class="item-card"><div class="item-glyph">${seen?m.glyph:'❓'}</div><div class="item-info"><div class="item-name">${seen?m.name:'未發現'}</div><div class="item-sub">${seen?(ELEMENT_NAME[m.element]+'屬性'):'尚未遭遇過此怪物'}</div></div></div>`;
+      }).join('');
+    } else if(this.codexTab==='equipment'){
+      body.innerHTML = Object.values(Database.equipment).map(e=>{
+        const seen = !!codex.equipment[e.id];
+        return `<div class="item-card"><div class="item-glyph">${seen?e.glyph:'❓'}</div><div class="item-info"><div class="item-name">${seen?e.name:'未發現'}</div><div class="item-sub">${seen?('插槽 '+e.sockets):'尚未取得過此裝備'}</div></div></div>`;
+      }).join('');
+    } else {
+      const allGems = Object.assign({}, Database.skillGems, Database.abilityGems, Database.specialGems);
+      body.innerHTML = Object.values(allGems).map(g=>{
+        const seen = !!codex.gems[g.id];
+        return `<div class="item-card"><div class="item-glyph">${seen?g.glyph:'❓'}</div><div class="item-info"><div class="item-name">${seen?g.name:'未發現'}</div><div class="item-sub">${seen?(g.desc||''):'尚未取得過此晶石'}</div></div></div>`;
+      }).join('');
+    }
+  }
+
+  // ---------- Save screen ----------
+  renderSaveScreen(){
+    this.setHtml(`
+      <div class="screen active" id="screen-save">
+        ${this.topbarHtml('存檔管理')}
+        <div class="scroll-area">
+          <div class="pixel-window" style="padding:14px;">
+            <div class="txt-small mb6">遊戲會在每次完成關卡後自動存檔至本機（LocalStorage）。你也可以手動匯出/匯入存檔檔案。</div>
+            <button class="btn primary mt6" id="btn-manual-save" style="width:100%;">手動存檔</button>
+            <button class="btn mt6" id="btn-export-save" style="width:100%;">匯出 Save.json</button>
+            <button class="btn ghost mt6" id="btn-import-save2" style="width:100%;">匯入 Save.json</button>
+            <input type="file" id="file-import2" accept=".json" style="display:none;">
+          </div>
+        </div>
+        <div class="footer-actions"><button class="btn flex1" id="btn-back-town">返回城鎮</button></div>
+      </div>`);
+    document.getElementById('btn-back-town').onclick = ()=>this.showScreen('town');
+    document.getElementById('btn-manual-save').onclick = ()=>{ this.game.saveManager.save(); this.showToast('已存檔！'); };
+    document.getElementById('btn-export-save').onclick = ()=> this.game.saveManager.exportJson();
+    document.getElementById('btn-import-save2').onclick = ()=> document.getElementById('file-import2').click();
+    document.getElementById('file-import2').onchange = (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      this.game.saveManager.importJsonFile(file, (ok)=>{
+        this.showToast(ok?'存檔匯入成功！':'存檔格式錯誤。');
+        if(ok) this.renderTownScreen.call(this);
+        this.showScreen('town');
+      });
+    };
+  }
+}
+
+/* ============================================================
+   SECTION 18: GAME — top-level bootstrap, owns every manager.
+   ============================================================ */
+class Game{
+  constructor(){
+    this.events = new EventBus();
+    this.flags = { pendingAmbush:false };
+    this.run = null;
+
+    // Order matters only in that PartyManager needs equipmentManager/gems
+    // available on `this.game` already — so we construct managers first,
+    // then PartyManager last among the "data" managers.
+    this.equipmentManager = new EquipmentManager(this);
+    this.gems = new GemManager(this);
+    this.skills = new SkillManager(this);
+    this.forge = new ForgeManager(this);
+    this.enemyManager = new EnemyManager(this);
+    this.loot = new LootManager(this);
+    this.anim = new AnimationManager(this);
+    this.ai = new AIManager(this);
+    this.eventManager = new EventManager(this);
+    this.town = new TownManager(this);
+    this.saveManager = new SaveManager(this);
+
+    this.party = new PartyManager(this); // needs equipmentManager + gems
+    this.party._giveStarterGear();
+    this.battle = new BattleManager(this);
+    this.stageManager = new StageManager(this);
+    this.ui = new UIManager(this);
+  }
+  init(){
+    this.ui.showScreen('title');
+  }
+}
+
+let GAME = null;
+window.addEventListener('DOMContentLoaded', ()=>{
+  GAME = new Game();
+  GAME.init();
+});
+</script>
+</body>
+</html>
