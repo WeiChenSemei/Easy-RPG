@@ -147,6 +147,7 @@
         <div id="view-sys" class="modal overlay">
             <div class="modal-title">系統設定 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
             <div class="item-list" style="margin-top: 20px;">
+                <div class="btn" onclick="renamePlayer()">修改角色名稱</div>
                 <div class="btn primary" onclick="exportSave()">匯出繼承碼 (備份進度)</div>
                 <div class="btn danger" onclick="importSave()">匯入繼承碼 (覆蓋進度)</div>
                 <hr style="border-color:#444; margin: 10px 0;">
@@ -244,10 +245,10 @@ const WEAKNESS = { '水':'火', '火':'木', '木':'電', '電':'水', '光':'�
 
 const GRADES = [
     { id: 0, name: '普通', color: 'var(--q-normal)', statMult: 1, affixes: 1, weight: 60, chance: 0.05 },
-    { id: 1, name: '優秀', color: 'var(--q-good)', statMult: 1.2, affixes: 2, weight: 25, chance: 0.15 },
-    { id: 2, name: '稀有', color: 'var(--q-rare)', statMult: 1.4, affixes: 3, weight: 10, chance: 0.3 },
-    { id: 3, name: '史詩', color: 'var(--q-epic)', statMult: 1.6, affixes: 4, weight: 4, chance: 0.6 },
-    { id: 4, name: '傳說', color: 'var(--q-legend)', statMult: 1.8, affixes: 5, weight: 1, chance: 1.0 }
+    { id: 1, name: '優秀', color: 'var(--q-good)', statMult: 1.5, affixes: 2, weight: 25, chance: 0.15 },
+    { id: 2, name: '稀有', color: 'var(--q-rare)', statMult: 2.2, affixes: 3, weight: 10, chance: 0.3 },
+    { id: 3, name: '史詩', color: 'var(--q-epic)', statMult: 3.5, affixes: 4, weight: 4, chance: 0.6 },
+    { id: 4, name: '傳說', color: 'var(--q-legend)', statMult: 5, affixes: 5, weight: 1, chance: 1.0 }
 ];
 
 const EQUIP_BASES = {
@@ -275,13 +276,34 @@ const SKILLS = {
     'heavy': { name: '重擊', baseChance: 12, power: 1.5, type: 'dmg', text: '使出全力重擊', mpCost: 3 }
 };
 
-const MONSTERS = [
-    { id: 'slime', name: '史萊姆', icon: '💧', hostile: false, isBoss: false, baseHp: 20, atk: 2, def: 1, spd: 3 },
-    { id: 'goblin', name: '哥布林', icon: '👺', hostile: true, isBoss: false, baseHp: 25, atk: 4, def: 2, spd: 6 },
-    { id: 'orc', name: '獸人', icon: '👹', hostile: true, isBoss: false, baseHp: 45, atk: 5, def: 4, spd: 4 },
-    { id: 'bat', name: '蝙蝠', icon: '🦇', hostile: true, isBoss: false, baseHp: 15, atk: 3, def: 1, spd: 9 },
-    { id: 'skeleton', name: '骷髏', icon: '💀', hostile: true, isBoss: false, baseHp: 30, atk: 6, def: 0, spd: 5 },
-    { id: 'boss_dragon', name: '深淵魔龍', icon: '🐲', hostile: false, isBoss: true, baseHp: 150, atk: 12, def: 8, spd: 2 }
+// 怪物屬性模板 (保留機制: 5普通, 1魔王)
+const MONSTER_TEMPLATES = [
+    { id: 'm1', hostile: false, isBoss: false, baseHp: 20, atk: 2, def: 1, spd: 3 },
+    { id: 'm2', hostile: true, isBoss: false, baseHp: 25, atk: 4, def: 2, spd: 6 },
+    { id: 'm3', hostile: true, isBoss: false, baseHp: 45, atk: 5, def: 4, spd: 4 },
+    { id: 'm4', hostile: true, isBoss: false, baseHp: 15, atk: 3, def: 1, spd: 9 },
+    { id: 'm5', hostile: true, isBoss: false, baseHp: 30, atk: 6, def: 0, spd: 5 },
+    { id: 'b1', hostile: false, isBoss: true, baseHp: 150, atk: 12, def: 8, spd: 2 }
+];
+
+// 怪物名稱與圖示資料庫
+const NORMAL_APPEARANCES = [
+    { name: '史萊姆', icon: '💧' }, { name: '哥布林', icon: '👺' },
+    { name: '獸人', icon: '👹' }, { name: '蝙蝠', icon: '🦇' },
+    { name: '骷髏', icon: '💀' }, { name: '惡狼', icon: '🐺' },
+    { name: '毒蛇', icon: '🐍' }, { name: '幽靈', icon: '👻' },
+    { name: '狂暴兔', icon: '🐰' }, { name: '殭屍', icon: '🧟' },
+    { name: '巨魔', icon: '🧌' }, { name: '食人花', icon: '🌺' },
+    { name: '魔蜘蛛', icon: '🕷️' }, { name: '毒蠍', icon: '🦂' },
+    { name: '蜥蜴', icon: '🦎' }, { name: '石像鬼', icon: '🗿' }
+];
+
+const BOSS_APPEARANCES = [
+    { name: '深淵魔龍', icon: '🐲' }, { name: '獨眼巨魔', icon: '👁️' },
+    { name: '死靈騎士', icon: '💀' }, { name: '牛頭酋長', icon: '🐂' },
+    { name: '深海巨妖', icon: '🐙' }, { name: '地獄三頭犬', icon: '🐶' },
+    { name: '墮落天使', icon: '👼' }, { name: '狂暴巨熊', icon: '🐻' },
+    { name: '嗜血沙蟲', icon: '🐛' }, { name: '暗影魔王', icon: '👿' }
 ];
 
 const ALLY_TYPES = [
@@ -291,6 +313,7 @@ const ALLY_TYPES = [
 /* ==================== 2. State & Save Management ==================== */
 
 let p = {
+    name: '探索者',
     lvl: 1, exp: 0, gold: 0, x: 0, y: 0,
     hp: 100, mp: 50, 
     base: { maxHp: 100, maxMp: 50, atk: 5, def: 3, matk: 2, mdef: 2, hit: 90, eva: 5, crit: 5, critDmg: 150, speed: 10 },
@@ -324,7 +347,7 @@ function loadSave() {
             inTown = data.inTown; shopItems = data.shopItems || [];
             map = data.map || []; entities = data.entities || [];
             
-            // 兼容舊存檔的 HP/MP 邏輯遷移
+            p.name = data.p.name || '探索者';
             if(p.hp === undefined) p.hp = (data.p.stats && data.p.stats.hp !== undefined) ? data.p.stats.hp : data.p.base.maxHp;
             if(p.mp === undefined) p.mp = (data.p.stats && data.p.stats.mp !== undefined) ? data.p.stats.mp : data.p.base.maxMp;
             if(p.base.hp !== undefined) delete p.base.hp;
@@ -363,6 +386,7 @@ function importSave() {
                 maxFloor = data.maxFloor || Math.max(1, data.floor || 1);
                 inTown = data.inTown; shopItems = data.shopItems || [];
                 
+                p.name = data.p.name || '探索者';
                 if(p.hp === undefined) p.hp = (data.p.stats && data.p.stats.hp !== undefined) ? data.p.stats.hp : data.p.base.maxHp;
                 if(p.mp === undefined) p.mp = (data.p.stats && data.p.stats.mp !== undefined) ? data.p.stats.mp : data.p.base.maxMp;
                 if(p.base.hp !== undefined) delete p.base.hp;
@@ -421,7 +445,7 @@ function generateItem(targetGrade = null, f = floor) {
     }
     
     affixCount = Math.max(0, affixCount);
-    let availableStats = Object.keys(STATS).filter(k => k !== 'maxHp' && k !== 'maxMp'); // 不在隨機詞綴中大量產生基底血魔
+    let availableStats = Object.keys(STATS).filter(k => k !== 'maxHp' && k !== 'maxMp');
     for(let i=0; i<affixCount; i++) {
         let rs = availableStats[Math.floor(Math.random() * availableStats.length)];
         item.stats[rs] = (item.stats[rs] || 0) + Math.floor((Math.random() * 3 + 1) * gMult);
@@ -467,7 +491,7 @@ function updateHUD() {
     document.getElementById('p-mp-bar').style.width = `${(p.mp / p.stats.maxMp) * 100}%`;
     
     document.getElementById('p-gold').innerText = p.gold;
-    document.getElementById('p-name').innerText = `探索者 LV.${p.lvl}`;
+    document.getElementById('p-name').innerText = `${p.name} LV.${p.lvl}`;
     document.getElementById('p-pot-hp').innerText = p.pots.hp;
     document.getElementById('p-pot-mp').innerText = p.pots.mp;
     
@@ -504,6 +528,18 @@ function log(msg, type = '') {
 }
 
 /* ==================== 4. Map & Movement ==================== */
+
+function renamePlayer() {
+    customPrompt("請輸入新的角色名稱：", (newName) => {
+        if(newName && newName.trim().length > 0) {
+            p.name = newName.trim().substring(0, 10);
+            updateHUD();
+            autoSave();
+            log(`改名為 ${p.name}`, 'sys');
+            customAlert(`改名成功！現在你的名字是：${p.name}`);
+        }
+    }, p.name, "修改名稱");
+}
 
 function openFloorSelect() {
     closeAllOverlays();
@@ -577,20 +613,24 @@ function spawnEntityAtEmpty(type) {
     if (tries > 0) {
         if (type === 'monster') {
             let isBossSpawn = Math.random() < 0.05;
-            let pool = MONSTERS.filter(m => isBossSpawn ? m.isBoss : !m.isBoss);
-            if(pool.length === 0) pool = MONSTERS.filter(m => !m.isBoss);
+            let tmplPool = MONSTER_TEMPLATES.filter(m => isBossSpawn ? m.isBoss : !m.isBoss);
+            if(tmplPool.length === 0) tmplPool = MONSTER_TEMPLATES.filter(m => !m.isBoss);
             
-            let t = pool[Math.floor(Math.random() * pool.length)];
+            let t = tmplPool[Math.floor(Math.random() * tmplPool.length)];
             let mGrade = weightedRandom(GRADES);
             let mult = (1 + floor * 0.3) * mGrade.statMult;
             let monEle = ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)];
             let prefix = monEle !== '無' ? `[${monEle}]` : '';
             
+            // 隨機外觀
+            let appPool = isBossSpawn ? BOSS_APPEARANCES : NORMAL_APPEARANCES;
+            let app = appPool[Math.floor(Math.random() * appPool.length)];
+            
             entities.push({
                 type: 'monster', x: rx, y: ry, ref: t, id: Math.random(), 
-                name: `${mGrade.name}${prefix}${t.name}`,
+                name: `${mGrade.name}${prefix}${app.name}`,
                 element: monEle, isBoss: t.isBoss,
-                grade: mGrade, icon: t.icon, hostile: t.hostile,
+                grade: mGrade, icon: app.icon, hostile: t.hostile,
                 hp: Math.floor(t.baseHp * mult), maxHp: Math.floor(t.baseHp * mult),
                 atk: Math.floor(t.atk * mult) || 1, def: Math.floor(t.def * mult) || 0, spd: t.spd
             });
@@ -889,7 +929,6 @@ function combatRound(mon, monInitiated = false) {
         }
     }
     
-    // 傭兵必定行動 (30%發動技能，70%普通攻擊)
     if (mon.hp > 0 && p.hp > 0) {
         p.party.forEach(ally => {
             if (ally.hp <= 0) return;
