@@ -71,7 +71,6 @@
     </style>
 </head>
 <body>
-
     <div id="header">
         <div style="flex: 1;">
             <div id="p-name">探索者 LV.1</div>
@@ -92,13 +91,9 @@
     </div>
 
     <div id="main-area">
-        
         <div id="log" onclick="openLogHistory()" title="點擊查看完整歷程"></div>
-
         <div id="map-scroll-area">
-            <div id="map-center-wrapper">
-                <div id="map-container"></div>
-            </div>
+            <div id="map-center-wrapper"><div id="map-container"></div></div>
         </div>
 
         <div id="view-town" class="modal active">
@@ -120,17 +115,13 @@
                     <div style="font-size: 2.5em; font-weight: bold; width: 80px; color: var(--q-legend);">B<span id="fs-current">1</span></div>
                     <div class="btn" style="width: 60px; font-size: 1.8em; padding: 5px;" onclick="changeFloorSelect(1)">+</div>
                 </div>
-                <div class="item-list">
-                    <div class="btn primary" onclick="confirmStartGame()" style="padding: 15px;">確認出發</div>
-                </div>
+                <div class="item-list"><div class="btn primary" onclick="confirmStartGame()" style="padding: 15px;">確認出發</div></div>
             </div>
         </div>
 
         <div id="view-char" class="modal overlay">
             <div class="modal-title">角色狀態與裝備 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
-            <div style="font-size:0.8em; color:#aaa; margin-bottom: 10px; text-align: center;">
-                屬性相剋: 水>火>木>電>水 | 光闇互剋<br>左手武器攻擊、右手防具抵擋
-            </div>
+            <div style="font-size:0.8em; color:#aaa; margin-bottom: 10px; text-align: center;">屬性相剋: 水>火>木>電>水 | 光闇互剋<br>左手武器攻擊、右手防具抵擋</div>
             <div id="char-stats" class="stat-grid"></div>
             <div class="modal-title" style="margin-top: 10px;">已裝備</div>
             <div id="char-eq" class="item-list"></div>
@@ -177,25 +168,23 @@
                 <div id="dialog-btns" style="display: flex; gap: 10px; justify-content: center;"></div>
             </div>
         </div>
-
     </div>
 
     <div id="footer">
         <div style="flex:1;">
             <div id="d-pad">
-                <div class="d-empty"></div><div class="btn" onclick="move(0, -1)">▲</div><div class="d-empty"></div>
-                <div class="btn" onclick="move(-1, 0)">◀</div><div class="btn" onclick="move(0, 0)">休</div><div class="btn" onclick="move(1, 0)">▶</div>
-                <div class="d-empty"></div><div class="btn" onclick="move(0, 1)">▼</div><div class="d-empty"></div>
+                <div class="d-empty"></div><div class="btn" onclick="move(0, -1)" title="快捷鍵: W / 向上鍵">▲</div><div class="d-empty"></div>
+                <div class="btn" onclick="move(-1, 0)" title="快捷鍵: A / 向左鍵">◀</div><div class="btn" onclick="move(0, 0)" title="快捷鍵: 空白鍵">休</div><div class="btn" onclick="move(1, 0)" title="快捷鍵: D / 向右鍵">▶</div>
+                <div class="d-empty"></div><div class="btn" onclick="move(0, 1)" title="快捷鍵: S / 向下鍵">▼</div><div class="d-empty"></div>
             </div>
         </div>
         <div style="display: flex; flex-direction: column; gap: 5px; justify-content: center; min-width: 90px;">
-            <div class="btn" onclick="openChar()">角色/背包</div>
-            <div class="btn" onclick="openSys()">系統設定</div>
+            <div class="btn" onclick="openChar()" title="快捷鍵: C / I">角色/背包</div>
+            <div class="btn" onclick="openSys()" title="快捷鍵: Esc">系統設定</div>
         </div>
     </div>
 
 <script>
-/* ==================== 0. Custom Dialog System ==================== */
 function customAlert(msg, title="提示") {
     document.getElementById('dialog-title').innerText = title;
     document.getElementById('dialog-msg').innerHTML = msg.replace(/\n/g, '<br>');
@@ -228,8 +217,6 @@ function customPrompt(msg, onConfirm, defaultVal="", title="輸入") {
 }
 
 function closeDialog() { document.getElementById('view-dialog').classList.remove('active'); }
-
-/* ==================== 1. Data Definitions ==================== */
 
 const STATS = { 
     maxHp: '最大生命', maxMp: '最大魔力', 
@@ -314,11 +301,13 @@ const BOSS_APPEARANCES = [
     { name: '破壞沙蟲', icon: '🐛' }, { name: '暗影領主', icon: '👿' }
 ];
 
+// 傭兵強度曲線基礎值設定
 const ALLY_TYPES = [
-    { type: '戰士', hpMult: 80 }, { type: '法師', hpMult: 40 }, { type: '牧師', hpMult: 50 }
+    { type: '戰士', baseHp: 30, baseAtk: 4, baseMatk: 1 }, 
+    { type: '法師', baseHp: 15, baseAtk: 1, baseMatk: 5 }, 
+    { type: '牧師', baseHp: 20, baseAtk: 2, baseMatk: 3 }
 ];
 
-/* ==================== 2. State & Save Management ==================== */
 let p = {
     name: '探索者',
     lvl: 1, exp: 0, gold: 0, x: 0, y: 0,
@@ -339,7 +328,6 @@ let shopItems = [];
 let logHistory = [];
 let selectedFloor = 1; 
 
-/* ==================== 2.5 Base Functions ==================== */
 function log(msg, type = '') {
     let logBox = document.getElementById('log');
     if (!logBox) return;
@@ -435,6 +423,10 @@ function updateTownUI() {
     }
 }
 
+function getFloorMultiplier(f = 1, isBoss = false) {
+    return 1 + ((f - 1) * (isBoss ? 0.45 : 0.3)) + Math.pow(f - 1, 1.3) * 0.05;
+}
+
 function weightedRandom(list) {
     let total = list.reduce((sum, item) => sum + item.weight, 0);
     let r = Math.random() * total;
@@ -483,7 +475,8 @@ function generateItem(forcedGrade, targetFloor) {
         skill = skillKeys[Math.floor(Math.random() * skillKeys.length)];
     }
 
-    let prefixStr = itemPrefixes.join('');
+    // 移除所有隨機名稱中的 '的' 以符合簡潔命名風格
+    let prefixStr = itemPrefixes.join('').replace(/的/g, '');
     let eleIcon = element !== '無' ? E_ICONS[element] : '';
     let name = `${prefixStr}${base.name}${eleIcon}`;
     let itemValue = Math.floor(10 * grade.statMult * f);
@@ -572,7 +565,6 @@ function importSave() {
     }, "", "匯入繼承碼");
 }
 
-/* ==================== 3. Core Logic ==================== */
 function renamePlayer() {
     customPrompt("請輸入新的角色名稱：", (newName) => {
         if(newName && newName.trim().length > 0) {
@@ -662,22 +654,14 @@ function spawnEntityAtEmpty(type) {
             
             let t = tmplPool[Math.floor(Math.random() * tmplPool.length)];
             
-            // 【難度設定 1】前面四個樓層出現怪物的品級限制
             let allowedGrades = GRADES;
-            if (floor === 1) {
-                allowedGrades = GRADES.filter(g => g.id === 0); // 只出現普通
-            } else if (floor === 2) {
-                allowedGrades = GRADES.filter(g => g.id <= 1);  // 只出現普通、優秀
-            } else if (floor === 3) {
-                allowedGrades = GRADES.filter(g => g.id <= 2);  // 只出現普通、優秀、稀有
-            } else if (floor === 4) {
-                allowedGrades = GRADES.filter(g => g.id <= 3);  // 只出現普通、優秀、稀有、史詩
-            }
+            if (floor === 1) allowedGrades = GRADES.filter(g => g.id === 0);
+            else if (floor === 2) allowedGrades = GRADES.filter(g => g.id <= 1);
+            else if (floor === 3) allowedGrades = GRADES.filter(g => g.id <= 2);
+            else if (floor === 4) allowedGrades = GRADES.filter(g => g.id <= 3);
             
             let mGrade = weightedRandom(allowedGrades);
-            
-            // 降低 B1 初期難度，後期則採用平滑指數曲線
-            let floorMult = 1 + ((floor - 1) * (isBossSpawn ? 0.45 : 0.3)) + Math.pow(floor - 1, 1.3) * 0.05;
+            let floorMult = getFloorMultiplier(floor, isBossSpawn);
             let mult = floorMult * mGrade.statMult;
             
             let monEle = ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)];
@@ -689,7 +673,6 @@ function spawnEntityAtEmpty(type) {
             let weaknessKey = DAMAGE_SKILL_KEYS[Math.floor(Math.random() * DAMAGE_SKILL_KEYS.length)];
             let weaknessName = SKILLS[weaknessKey].name;
             
-            // 【難度設定 5】隨機給予怪物一種技能
             let skillKeys = Object.keys(SKILLS);
             let randomSkill = skillKeys[Math.floor(Math.random() * skillKeys.length)];
             
@@ -702,7 +685,6 @@ function spawnEntityAtEmpty(type) {
                 hp: Math.floor(t.baseHp * mult), maxHp: Math.floor(t.baseHp * mult),
                 mp: Math.floor(50 * mult), maxMp: Math.floor(50 * mult),
                 atk: Math.floor(t.atk * mult) || 1, def: Math.floor(t.def * mult) || 0,
-                // 【難度設定 4】怪物增加魔攻、魔防、閃避、爆擊屬性
                 matk: Math.floor((t.matk || Math.floor(t.atk * 0.8)) * mult) || 1,
                 mdef: Math.floor((t.mdef || Math.floor(t.def * 0.8)) * mult) || 0,
                 eva: Math.min(75, Math.floor(5 + (floor * 0.5) + (mGrade.id * 3))),
@@ -796,7 +778,6 @@ function move(dx, dy) {
                 applyRegen();
                 tickEntities();
             } else {
-                // 降低初期碰撞障礙物的傷害，平滑中後期傷害
                 let dmg = Math.floor((floor - 1) * 3 + 8);
                 if (wallEle !== '無' && WEAKNESS[sEle] === wallEle) {
                     log(`🛡️ 盾牌的 [${sEle}] 屬性完全吸收了 [${wallEle}] 障礙的傷害！`, 'heal');
@@ -829,7 +810,16 @@ function move(dx, dy) {
                 let at = ALLY_TYPES[Math.floor(Math.random() * ALLY_TYPES.length)];
                 let letter = String.fromCharCode(65 + p.party.length);
                 let allyName = `${at.type}${letter}`;
-                p.party.push({ name: allyName, classType: at.type, hp: at.hpMult * floor, maxHp: at.hpMult * floor });
+                
+                let fMult = getFloorMultiplier(floor);
+                p.party.push({ 
+                    name: allyName, 
+                    classType: at.type, 
+                    hp: Math.floor(at.baseHp * fMult), 
+                    maxHp: Math.floor(at.baseHp * fMult),
+                    atk: Math.max(1, Math.floor(at.baseAtk * fMult)),
+                    matk: Math.max(1, Math.floor(at.baseMatk * fMult))
+                });
                 
                 log(`🤝 遇到了流浪傭兵，${allyName} 加入了隊伍！`, 'sys');
                 entities = entities.filter(e => e !== ent);
@@ -913,7 +903,6 @@ function tickEntities() {
     autoSave();
 }
 
-/* ==================== 5. Combat & Potions ==================== */
 function checkAutoPotions() {
     let used = false;
     if (p.hp < p.stats.maxHp * 0.3 && p.pots.hp > 0) {
@@ -968,7 +957,6 @@ function combatRound(mon, monInitiated = false) {
                 log(`你的攻擊被 <span style="color:${mon.grade.color}">${mon.name}</span> 閃避了。${skillText}`, 'new'); 
             }
         } else {
-            // 怪物行動
             let target = 'p';
             let blockAlly = null;
             
@@ -980,7 +968,6 @@ function combatRound(mon, monInitiated = false) {
                 }
             }
             
-            // 【難度設定 5】怪物戰鬥時有 25% 機率釋放擁有的技能
             let castSkill = false;
             let skData = SKILLS[mon.skill];
             if (skData && Math.random() < 0.25) {
@@ -989,12 +976,10 @@ function combatRound(mon, monInitiated = false) {
                     mon.mp -= skData.mpCost;
                     
                     if (skData.type === 'heal') {
-                        // 治療自己
                         let healVal = Math.floor(mon.maxHp * skData.power);
                         mon.hp = Math.min(mon.maxHp, mon.hp + healVal);
                         log(`🔮 <span style="color:${mon.grade.color}">${mon.name}</span> 施放了 [${skData.name}]，恢復自身 ${healVal} 點生命！`, 'heal');
                     } else {
-                        // 傷害型技能攻擊玩家或隊友
                         if (skData.type === 'mdmg' || skData.type === 'mdmg_drain') {
                             let targetMdef = target === 'p' ? p.stats.mdef : p.stats.mdef / 2;
                             let mdmg = Math.max(1, Math.floor(mon.matk * skData.power * (mon.matk / (mon.matk + targetMdef + 1))));
@@ -1011,7 +996,6 @@ function combatRound(mon, monInitiated = false) {
                                 mon.mp = Math.min(mon.maxMp, mon.mp + Math.floor(mdmg * 0.3));
                             }
                         } else {
-                            // 物理型技能
                             let targetDef = target === 'p' ? p.stats.def : p.stats.def / 2;
                             let pdmg = Math.max(1, Math.floor(mon.atk * skData.power * (mon.atk / (mon.atk + targetDef + 1))));
                             
@@ -1028,7 +1012,6 @@ function combatRound(mon, monInitiated = false) {
                 }
             }
             
-            // 如果沒有放技能，則進行普通攻擊
             if (!castSkill) {
                 let mEleMult = 1.0;
                 let mEleText = "";
@@ -1061,19 +1044,21 @@ function combatRound(mon, monInitiated = false) {
     if (mon.hp > 0 && p.hp > 0) {
         p.party.forEach(ally => {
             if (ally.hp <= 0) return;
+            let allyAtk = ally.atk || 5; 
+            let allyMatk = ally.matk || 5;
             let useSkill = Math.random() < 0.3;
             if (useSkill) {
                 if (ally.classType === '戰士') {
-                    let d = Math.floor(floor * 8 + 5); mon.hp -= d; log(`⚔️ ${ally.name} 使出重擊，造成 ${d} 傷害。`);
+                    let d = Math.floor(allyAtk * 1.5 + 2); mon.hp -= d; log(`⚔️ ${ally.name} 使出重擊，造成 ${d} 傷害。`);
                 } else if (ally.classType === '法師') {
-                    let d = Math.floor(floor * 10 + 2); mon.hp -= d; log(`☄️ ${ally.name} 發射能量球，造成 ${d} 魔傷。`);
+                    let d = Math.floor(allyMatk * 1.8 + 2); mon.hp -= d; log(`☄️ ${ally.name} 發射能量球，造成 ${d} 魔傷。`);
                 } else if (ally.classType === '牧師') {
-                    let h = Math.floor(p.stats.maxHp * 0.15);
+                    let h = Math.floor(allyMatk * 1.5 + 5);
                     p.hp = Math.min(p.stats.maxHp, p.hp + h);
                     log(`✨ ${ally.name} 施放治療術，恢復 ${h} HP。`, 'heal');
                 }
             } else {
-                let d = Math.floor(floor * 3 + 2); 
+                let d = Math.max(1, allyAtk); 
                 mon.hp -= d;
                 log(`🗡️ ${ally.name} 攻擊了怪物，造成 ${d} 傷害。`);
             }
@@ -1209,8 +1194,8 @@ function checkLevelUp() {
         p.base.maxHp += 10;
         p.base.maxMp += 2;
         p.base.atk += 2; p.base.def += 1;
-        p.base.matk += 2; // 提升魔攻成長性
-        p.base.mdef += 1; // 提升魔防成長性
+        p.base.matk += 2; 
+        p.base.mdef += 1; 
         log(`升級了！目前等級 LV.${p.lvl}`, 'sys');
         req = p.lvl * 100;
         leveled = true;
@@ -1239,7 +1224,6 @@ function handleDeath() {
     setTimeout(() => { returnTown(true); }, 1500);
 }
 
-/* ==================== 6. Flow & UI Controls ==================== */
 function closeAllOverlays() { 
     document.querySelectorAll('.overlay:not(#view-dialog)').forEach(el => el.classList.remove('active')); 
 }
@@ -1288,7 +1272,6 @@ function animShake(id) {
     if(el) { el.classList.remove('anim-shake'); void el.offsetWidth; el.classList.add('anim-shake'); }
 }
 
-/* ==================== 7. Modals (Char, Shop, Church) ==================== */
 function renderCharScreen() {
     let stHtml = '';
     for(let k in STATS) {
@@ -1450,6 +1433,41 @@ function openChurch() {
         customAlert("已成功找回所有遺失物！", "贖回成功");
     }, "贖回確認");
 }
+
+document.addEventListener('keydown', (e) => {
+    // 防止在輸入框打字時誤觸快捷鍵
+    if (e.target.tagName.toLowerCase() === 'input') return;
+
+    let activeDialog = document.getElementById('view-dialog');
+    if (activeDialog.classList.contains('active')) {
+        if (e.key === 'Enter' && window.currentDialogYes) { e.preventDefault(); window.currentDialogYes(); }
+        if (e.key === 'Escape') { e.preventDefault(); closeDialog(); }
+        return;
+    }
+
+    let isOverlayActive = Array.from(document.querySelectorAll('.overlay:not(#view-dialog)')).some(el => el.classList.contains('active'));
+    if (isOverlayActive) {
+        if (e.key === 'Escape') { e.preventDefault(); closeAllOverlays(); }
+        return;
+    }
+
+    let key = e.key.toLowerCase();
+    
+    // 系統與背包快捷鍵
+    if (key === 'escape') { e.preventDefault(); openSys(); return; }
+    if (key === 'c' || key === 'i') { e.preventDefault(); openChar(); return; }
+
+    // 移動與戰鬥控制 (WASD 或 箭頭)
+    if (!inTown && p.hp > 0 && !document.getElementById('view-exit').classList.contains('active')) {
+        switch(key) {
+            case 'arrowup': case 'w': e.preventDefault(); move(0, -1); break;
+            case 'arrowdown': case 's': e.preventDefault(); move(0, 1); break;
+            case 'arrowleft': case 'a': e.preventDefault(); move(-1, 0); break;
+            case 'arrowright': case 'd': e.preventDefault(); move(1, 0); break;
+            case ' ': case 'clear': e.preventDefault(); move(0, 0); break; // 空白鍵休息
+        }
+    }
+});
 
 // 啟動與載入存檔
 loadSave();
