@@ -50,6 +50,15 @@
             text-shadow: 1px 1px 2px #000;
         }
         #log:active { background: rgba(20, 10, 30, 0.9); }
+        
+        /* 確保訊息項目高度統一、不發生外距塌陷 */
+        #log div {
+            margin: 3px 0;
+            padding: 0;
+            word-break: break-all;
+            line-height: 1.4;
+        }
+        
         .log-new { color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.3); }
         .log-dmg { color: var(--danger); text-shadow: 0 0 5px rgba(244,67,54,0.4); }
         .log-heal { color: var(--heal); text-shadow: 0 0 5px rgba(76,175,80,0.4); }
@@ -532,10 +541,15 @@ function log(msg, type = '') {
     div.appendChild(span);
     logBox.appendChild(div);
     
-    while (logBox.childNodes.length > 40) {
-        logBox.removeChild(logBox.firstChild);
+    // 修正：改用 children (僅 HTML 元素)，避免留下空行文字節點造成的底部留白
+    while (logBox.children.length > 40) {
+        logBox.removeChild(logBox.firstElementChild);
     }
-    logBox.scrollTop = logBox.scrollHeight;
+    
+    // 修正：使用微延遲確保瀏覽器排版完成後，才進行最精準的 scrollTop 置底滾動
+    setTimeout(() => {
+        logBox.scrollTop = logBox.scrollHeight;
+    }, 10);
 
     let timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     let classStr = '';
@@ -752,11 +766,11 @@ function importSave() {
     }, "", "覆寫靈魂記憶");
 }
 
-// === 新增重置遊戲功能 ===
+// === 重置遊戲功能 ===
 function resetGame() {
     customConfirm("警告：這將徹底抹除你所有的靈魂記憶（刪除存檔），\n包含裝備、等級與金幣，且【無法復原】。\n\n確定要斬斷輪迴，重新開始嗎？", () => {
         localStorage.removeItem('abyss_save');
-        location.reload(); // 重新載入頁面即可回歸初始狀態
+        location.reload();
     }, "刪除存檔確認");
 }
 
@@ -902,6 +916,7 @@ function spawnEntityAtEmpty(type) {
 
 function getEntityAt(x, y) { return entities.find(e => e.x === x && e.y === y); }
 
+// 繪製地圖
 function drawMap() {
     if (inTown) return;
     const cont = document.getElementById('map-container');
@@ -1454,7 +1469,10 @@ function openLogHistory() {
     closeAllOverlays();
     document.getElementById('full-log-content').innerHTML = logHistory.join('<br>');
     document.getElementById('view-log-history').classList.add('active');
-    setTimeout(() => { let el = document.getElementById('full-log-content'); el.scrollTop = el.scrollHeight; }, 10);
+    setTimeout(() => { 
+        let el = document.getElementById('full-log-content'); 
+        if (el) el.scrollTop = el.scrollHeight; 
+    }, 50);
 }
 
 function openChar() {
