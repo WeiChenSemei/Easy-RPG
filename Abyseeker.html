@@ -6,185 +6,336 @@
     <title>深淵探索者</title>
     <style>
         :root {
-            --bg: #121212; --panel: #1e1e1e; --text: #e0e0e0; --accent: #4caf50; --danger: #f44336;
-            --q-normal: #ffffff; --q-good: #4caf50; --q-rare: #2196f3; --q-epic: #9c27b0; --q-legend: #ff9800;
+            /* 魔幻深淵色系 */
+            --bg-deep: #05020a;
+            --panel-bg: rgba(22, 16, 36, 0.92);
+            --panel-border: #3b2a59;
+            --text-main: #e2dced;
+            --text-dim: #9283a8;
+            --accent-glow: #8a2be2;
+            
+            --q-normal: #dcdcdc; --q-good: #4caf50; --q-rare: #00bcd4; --q-epic: #9c27b0; --q-legend: #ffb300;
+            --danger: #f44336; --heal: #4caf50; --mana: #2196f3;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* Layout */
-        #header { padding: 10px; background: var(--panel); border-bottom: 2px solid #333; display: flex; justify-content: space-between; font-size: 0.9em; z-index: 10;}
-        #main-area { flex: 1; position: relative; overflow: hidden; background: #0a0a0a; display: flex; flex-direction: column; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        body { 
+            background: radial-gradient(circle at 50% 30%, #1b1030 0%, var(--bg-deep) 100%);
+            color: var(--text-main); 
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden; 
+        }
+        
+        /* 捲軸美化 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+
+        /* Layout Panels */
+        #header { 
+            padding: 12px 15px; background: var(--panel-bg); 
+            border-bottom: 2px solid var(--panel-border); 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            display: flex; justify-content: space-between; font-size: 0.95em; z-index: 10;
+            backdrop-filter: blur(5px);
+        }
+        
+        #main-area { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
         
         /* Log Area */
-        #log { flex: 0 0 16vh; min-height: 80px; padding: 5px; overflow-y: auto; font-size: 0.85em; color: #aaa; border-bottom: 2px solid #333; line-height: 1.4; cursor: pointer; background: var(--panel); z-index: 5;}
-        #log:active { background: #222; }
-        .log-new { color: white; }
-        .log-dmg { color: var(--danger); }
-        .log-heal { color: var(--accent); }
-        .log-sys { color: var(--q-legend); }
+        #log { 
+            flex: 0 0 16vh; min-height: 85px; padding: 8px 12px; overflow-y: auto; 
+            font-size: 0.85em; color: var(--text-dim); border-bottom: 1px solid var(--panel-border); 
+            line-height: 1.5; cursor: pointer; background: rgba(10, 5, 18, 0.7); z-index: 5;
+            text-shadow: 1px 1px 2px #000;
+        }
+        #log:active { background: rgba(20, 10, 30, 0.9); }
+        .log-new { color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.3); }
+        .log-dmg { color: var(--danger); text-shadow: 0 0 5px rgba(244,67,54,0.4); }
+        .log-heal { color: var(--heal); text-shadow: 0 0 5px rgba(76,175,80,0.4); }
+        .log-sys { color: var(--q-legend); text-shadow: 0 0 5px rgba(255,179,0,0.4); }
 
         /* Map & Scrolling */
         #map-scroll-area { flex: 1; position: relative; overflow: auto; scroll-behavior: smooth; }
-        #map-center-wrapper { display: flex; min-width: 100%; min-height: 100%; padding: 20px; box-sizing: border-box; }
-        #map-container { display: grid; gap: 1px; background: #333; border: 2px solid #555; margin: auto; flex-shrink: 0; box-shadow: 0 0 15px rgba(0,0,0,0.8);}
+        #map-center-wrapper { display: flex; min-width: 100%; min-height: 100%; padding: 20px; box-sizing: border-box; align-items: center; justify-content: center; }
         
-        .cell { width: 11vw; height: 11vw; min-width: 35px; min-height: 35px; max-width: 45px; max-height: 45px; background: #2a2a2a; display: flex; justify-content: center; align-items: center; font-size: 1.2rem; }
-        .cell.wall { background: #1a1a1a; }
-        .cell.obstacle { background: #1a1a1a; box-shadow: inset 0 0 10px rgba(244,67,54,0.3); border: 1px solid var(--danger); }
+        #map-container { 
+            display: grid; gap: 2px; background: #000; 
+            border: 2px solid var(--panel-border); margin: auto; flex-shrink: 0; 
+            box-shadow: 0 0 30px rgba(138, 43, 226, 0.15), inset 0 0 20px rgba(0,0,0,1);
+            border-radius: 8px; overflow: hidden;
+            transition: transform 0.1s;
+        }
         
+        .cell { 
+            width: 11vw; height: 11vw; min-width: 38px; min-height: 38px; max-width: 50px; max-height: 50px; 
+            background: rgba(35, 25, 50, 0.6); 
+            display: flex; justify-content: center; align-items: center; 
+            font-size: 1.4rem; position: relative;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.5);
+            text-shadow: 0 2px 5px rgba(0,0,0,0.8);
+        }
+        .cell.wall { background: rgba(15, 10, 20, 0.9); box-shadow: inset 0 0 10px #000; }
+        .cell.obstacle { 
+            background: rgba(20, 10, 15, 0.9); 
+            box-shadow: inset 0 0 15px rgba(244,67,54,0.2); 
+            border: 1px solid rgba(244,67,54,0.4); 
+        }
+        
+        /* 環境光芒 Overlay */
+        #flash-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; opacity: 0; z-index: 15; mix-blend-mode: screen;
+            transition: opacity 0.3s ease-out;
+        }
+        .flash-active { opacity: 0.5 !important; transition: opacity 0.05s !important; }
+
         /* Footer Controls */
-        #footer { background: var(--panel); border-top: 2px solid #333; display: flex; padding: 8px; gap: 5px; z-index: 10; }
-        #controls { padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-        .btn { padding: 12px 5px; background: #333; color: white; border: 1px solid #555; border-radius: 5px; text-align: center; cursor: pointer; font-weight: bold;}
-        .btn:active { background: #555; }
-        .btn.primary { background: #2e7d32; border-color: #1b5e20; }
-        .btn.danger { background: #c62828; border-color: #b71c1c; }
+        #footer { 
+            background: var(--panel-bg); border-top: 2px solid var(--panel-border); 
+            display: flex; padding: 12px; gap: 10px; z-index: 10; 
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.6);
+            backdrop-filter: blur(5px);
+        }
         
-        /* D-Pad specific */
-        #d-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 100%; max-width: 180px; margin: 0 auto;}
+        /* 魔幻風格按鈕 */
+        .btn { 
+            padding: 12px 5px; 
+            background: linear-gradient(180deg, #2a1f3d 0%, #171024 100%);
+            color: var(--text-main); border: 1px solid var(--panel-border); 
+            border-radius: 6px; text-align: center; cursor: pointer; 
+            font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            transition: all 0.15s ease;
+            text-shadow: 1px 1px 2px #000;
+        }
+        .btn:hover { 
+            border-color: #6a4b9c; 
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.4); 
+            transform: translateY(-1px);
+        }
+        .btn:active { background: #171024; transform: translateY(1px); box-shadow: none; }
+        
+        .btn.primary { 
+            background: linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%); 
+            border-color: #4caf50; 
+        }
+        .btn.primary:hover { box-shadow: 0 0 10px rgba(76, 175, 80, 0.5); }
+        
+        .btn.danger { 
+            background: linear-gradient(180deg, #c62828 0%, #b71c1c 100%); 
+            border-color: #f44336; 
+        }
+        .btn.danger:hover { box-shadow: 0 0 10px rgba(244, 67, 54, 0.5); }
+        
+        #d-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; max-width: 180px; margin: 0 auto;}
         .d-empty { visibility: hidden; }
         
         /* Modals */
-        .modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: none; flex-direction: column; z-index: 20; padding: 10px; overflow-y: auto;}
-        .modal.active { display: flex; }
+        .modal { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(5, 2, 10, 0.95); display: none; flex-direction: column; 
+            z-index: 20; padding: 15px; overflow-y: auto;
+            backdrop-filter: blur(8px);
+        }
+        .modal.active { display: flex; animation: fadeIn 0.3s ease; }
         .overlay { z-index: 30; } 
-        .modal-title { font-size: 1.2em; text-align: center; margin-bottom: 15px; color: var(--q-legend); border-bottom: 1px solid #444; padding-bottom: 5px;}
+        
+        .modal-title { 
+            font-size: 1.3em; text-align: center; margin-bottom: 15px; 
+            color: var(--q-legend); border-bottom: 1px solid var(--panel-border); 
+            padding-bottom: 8px; text-shadow: 0 0 8px rgba(255,179,0,0.5);
+            letter-spacing: 2px;
+        }
         
         /* Item & Stats Grid */
-        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85em; margin-bottom: 10px;}
-        .stat-row { display: flex; justify-content: space-between; background: #222; padding: 4px 8px; border-radius: 3px; align-items: center; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.85em; margin-bottom: 15px;}
+        .stat-row { 
+            display: flex; justify-content: space-between; 
+            background: rgba(30, 20, 45, 0.6); padding: 6px 10px; 
+            border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);
+            align-items: center; 
+        }
         
-        .item-list { display: flex; flex-direction: column; gap: 8px; }
-        .item-card { background: #222; border: 1px solid #444; padding: 8px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;}
+        .item-list { display: flex; flex-direction: column; gap: 10px; }
+        .item-card { 
+            background: linear-gradient(90deg, rgba(30, 20, 45, 0.8) 0%, rgba(20, 15, 30, 0.9) 100%); 
+            border: 1px solid var(--panel-border); padding: 10px; border-radius: 6px; 
+            display: flex; justify-content: space-between; align-items: center;
+            transition: border-color 0.2s;
+        }
+        .item-card:hover { border-color: #5a4080; }
         .item-info { flex: 1; }
-        .item-name { font-weight: bold; font-size: 0.9em;}
-        .item-stats { font-size: 0.75em; color: #aaa; margin-top: 3px;}
+        .item-name { font-weight: bold; font-size: 0.95em; text-shadow: 1px 1px 2px #000; }
+        .item-stats { font-size: 0.8em; color: var(--text-dim); margin-top: 4px;}
         
-        /* Animations */
-        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-3px); } 50% { transform: translateX(3px); } 75% { transform: translateX(-3px); } 100% { transform: translateX(0); } }
-        .anim-shake { animation: shake 0.3s; }
-
         /* Bars */
-        .bar-bg { background: #333; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 2px;}
-        .bar-fg { height: 100%; transition: width 0.2s; }
+        .bar-bg { 
+            background: rgba(0,0,0,0.5); height: 8px; border-radius: 4px; 
+            overflow: hidden; margin-top: 3px; border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+        }
+        .bar-fg { 
+            height: 100%; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            box-shadow: 0 0 5px currentColor;
+        }
+
+        /* 動畫區 */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* 輕微震動 (自身) */
+        @keyframes shake { 
+            0% { transform: translateX(0); } 25% { transform: translateX(-4px); } 
+            50% { transform: translateX(4px); } 75% { transform: translateX(-4px); } 100% { transform: translateX(0); } 
+        }
+        .anim-shake { animation: shake 0.25s ease-in-out; }
+        
+        /* 強烈震動 (畫面) */
+        @keyframes shakeHard { 
+            0% { transform: translate(0, 0) rotate(0deg); } 
+            20% { transform: translate(-5px, 5px) rotate(-1deg); } 
+            40% { transform: translate(5px, -5px) rotate(1deg); } 
+            60% { transform: translate(-5px, -5px) rotate(-1deg); } 
+            80% { transform: translate(5px, 5px) rotate(1deg); } 
+            100% { transform: translate(0, 0) rotate(0deg); } 
+        }
+        .anim-shake-hard { animation: shakeHard 0.35s ease-in-out; }
+
+        /* 衝撞/攻擊躍動 */
+        @keyframes bump { 
+            0% { transform: scale(1); filter: brightness(1); } 
+            50% { transform: scale(1.4); filter: brightness(1.5) drop-shadow(0 0 5px rgba(255,255,255,0.5)); } 
+            100% { transform: scale(1); filter: brightness(1); } 
+        }
+        .anim-bump { animation: bump 0.2s ease-out; z-index: 5; position: relative;}
     </style>
 </head>
 <body>
+
     <div id="header">
         <div style="flex: 1;">
-            <div id="p-name">探索者 LV.1</div>
+            <div id="p-name" style="color:var(--q-legend); font-weight:bold; letter-spacing:1px; margin-bottom: 2px;">探索者 LV.1</div>
             <div>HP: <span id="p-hp">100</span>/<span id="p-maxhp">100</span></div>
-            <div class="bar-bg"><div id="p-hp-bar" class="bar-fg" style="background: var(--danger); width: 100%;"></div></div>
+            <div class="bar-bg"><div id="p-hp-bar" class="bar-fg" style="background: var(--danger); color: var(--danger); width: 100%;"></div></div>
             <div>MP: <span id="p-mp">50</span>/<span id="p-maxmp">50</span></div>
-            <div class="bar-bg"><div id="p-mp-bar" class="bar-fg" style="background: #2196f3; width: 100%;"></div></div>
-            <div style="font-size: 0.8em; margin-top: 5px; color: #aaa;">
-                紅水:<span id="p-pot-hp" style="color:var(--danger)">0</span> | 藍水:<span id="p-pot-mp" style="color:var(--q-rare)">0</span> <small>(<30%自飲)</small>
+            <div class="bar-bg"><div id="p-mp-bar" class="bar-fg" style="background: var(--mana); color: var(--mana); width: 100%;"></div></div>
+            <div style="font-size: 0.8em; margin-top: 5px; color: var(--text-dim);">
+                紅水:<span id="p-pot-hp" style="color:var(--danger); font-weight:bold;">0</span> | 藍水:<span id="p-pot-mp" style="color:var(--q-rare); font-weight:bold;">0</span> <small>(<30%自飲)</small>
             </div>
         </div>
         <div style="text-align: right; margin-left: 10px;">
-            <div id="floor-display" style="color: var(--q-legend); font-weight: bold;">城鎮</div>
-            <div>金幣: <span id="p-gold">0</span></div>
+            <div id="floor-display" style="color: var(--q-legend); font-weight: bold; font-size:1.1em; text-shadow:0 0 5px rgba(255,179,0,0.5);">城鎮</div>
+            <div style="margin-top:4px;">金幣: <span id="p-gold" style="color:#ffd700">0</span></div>
             <div>EXP: <span id="p-exp">0</span></div>
-            <div class="bar-bg" style="width: 80px; margin-left: auto;"><div id="p-exp-bar" class="bar-fg" style="background: var(--q-legend); width: 0%;"></div></div>
+            <div class="bar-bg" style="width: 80px; margin-left: auto;"><div id="p-exp-bar" class="bar-fg" style="background: var(--q-legend); color: var(--q-legend); width: 0%;"></div></div>
         </div>
     </div>
 
     <div id="main-area">
+        <div id="flash-overlay"></div> <!-- 魔法環境光層 -->
+        
         <div id="log" onclick="openLogHistory()" title="點擊查看完整歷程"></div>
+
         <div id="map-scroll-area">
-            <div id="map-center-wrapper"><div id="map-container"></div></div>
+            <div id="map-center-wrapper">
+                <div id="map-container"></div>
+            </div>
         </div>
 
         <div id="view-town" class="modal active">
             <div class="modal-title">起始城鎮</div>
-            <p style="text-align: center; margin-bottom: 20px; color: #aaa;">這是安全的避風港。</p>
+            <p style="text-align: center; margin-bottom: 20px; color: var(--text-dim);">遠方的深淵散發著幽暗的氣息...這是最後的安全之地。</p>
             <div class="item-list">
-                <div class="btn primary" onclick="openFloorSelect()">出發探險 (選擇樓層)</div>
-                <div class="btn" onclick="openShop()">進入商店 (買藥/裝備)</div>
-                <div class="btn" id="btn-church" onclick="openChurch()">教堂 (目前無遺失屍體)</div>
+                <div class="btn primary" onclick="openFloorSelect()" style="padding: 15px; font-size: 1.1em;">出發探險 (選擇樓層)</div>
+                <div class="btn" onclick="openShop()">進入黑市 (買藥/裝備)</div>
+                <div class="btn" id="btn-church" onclick="openChurch()">靈魂聖堂 (目前無遺失軀殼)</div>
             </div>
         </div>
 
         <div id="view-floor-select" class="modal overlay">
             <div class="modal-title">選擇深淵樓層 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
             <div style="text-align: center; margin: 30px 0;">
-                <p style="color: #aaa; margin-bottom: 15px;">請選擇欲探索的樓層<br><small>(目前歷史最高: B<span id="fs-max">1</span>)</small></p>
+                <p style="color: var(--text-dim); margin-bottom: 15px;">凝視深淵...請選擇潛入的深度<br><small>(目前歷史最深紀錄: B<span id="fs-max">1</span>)</small></p>
                 <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 30px;">
                     <div class="btn" style="width: 60px; font-size: 1.8em; padding: 5px;" onclick="changeFloorSelect(-1)">-</div>
-                    <div style="font-size: 2.5em; font-weight: bold; width: 80px; color: var(--q-legend);">B<span id="fs-current">1</span></div>
+                    <div style="font-size: 2.8em; font-weight: bold; width: 100px; color: var(--q-legend); text-shadow: 0 0 10px rgba(255,179,0,0.6);">B<span id="fs-current">1</span></div>
                     <div class="btn" style="width: 60px; font-size: 1.8em; padding: 5px;" onclick="changeFloorSelect(1)">+</div>
                 </div>
-                <div class="item-list"><div class="btn primary" onclick="confirmStartGame()" style="padding: 15px;">確認出發</div></div>
+                <div class="item-list">
+                    <div class="btn primary" onclick="confirmStartGame()" style="padding: 15px; font-size:1.1em; letter-spacing: 2px;">躍入深淵</div>
+                </div>
             </div>
         </div>
 
         <div id="view-char" class="modal overlay">
             <div class="modal-title">角色狀態與裝備 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
-            <div style="font-size:0.8em; color:#aaa; margin-bottom: 10px; text-align: center;">屬性相剋: 水>火>木>電>水 | 光闇互剋<br>左手武器攻擊、右手防具抵擋</div>
+            <div style="font-size:0.8em; color:var(--text-dim); margin-bottom: 10px; text-align: center;">
+                元素法則: 水>火>木>電>水 | 光闇互剋<br>左手主宰破壞、右手抵禦侵蝕
+            </div>
             <div id="char-stats" class="stat-grid"></div>
-            <div class="modal-title" style="margin-top: 10px;">已裝備</div>
+            <div class="modal-title" style="margin-top: 10px;">靈魂綁定裝備</div>
             <div id="char-eq" class="item-list"></div>
-            <div class="modal-title" style="margin-top: 10px;">背包 (點擊裝備/分解)</div>
+            <div class="modal-title" style="margin-top: 10px;">空間背包 (點擊裝備/分解)</div>
             <div id="char-inv" class="item-list"></div>
         </div>
 
         <div id="view-shop" class="modal overlay">
-            <div class="modal-title">深淵商店 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
-            <p style="text-align:center; font-size:0.8em; color:#aaa; margin-bottom: 10px;">(裝備商品會在每次進入深淵時重新進貨)</p>
+            <div class="modal-title">深淵黑市 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
+            <p style="text-align:center; font-size:0.8em; color:var(--text-dim); margin-bottom: 10px;">(未知遺物會在每次深淵探索歸來後重新進貨)</p>
             <div id="shop-list" class="item-list"></div>
         </div>
 
         <div id="view-sys" class="modal overlay">
             <div class="modal-title">系統設定 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
             <div class="item-list" style="margin-top: 20px;">
-                <div class="btn" onclick="renamePlayer()">修改角色名稱</div>
-                <div class="btn primary" onclick="exportSave()">匯出繼承碼 (備份進度)</div>
-                <div class="btn danger" onclick="importSave()">匯入繼承碼 (覆蓋進度)</div>
-                <hr style="border-color:#444; margin: 10px 0;">
-                <div class="btn" onclick="returnTown(false)">放棄探索，強制回城</div>
+                <div class="btn" onclick="renamePlayer()">銘刻真名 (修改名稱)</div>
+                <div class="btn primary" onclick="exportSave()">萃取靈魂記憶 (匯出繼承碼)</div>
+                <div class="btn danger" onclick="importSave()">覆寫靈魂記憶 (匯入繼承碼)</div>
+                <hr style="border-color:var(--panel-border); margin: 10px 0;">
+                <div class="btn" onclick="returnTown(false)">捏碎回城卷軸 (放棄探索)</div>
             </div>
         </div>
 
         <div id="view-log-history" class="modal overlay">
-            <div class="modal-title">冒險歷程 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
+            <div class="modal-title">深淵回憶錄 <span style="float:right; cursor:pointer;" onclick="closeAllOverlays()">✖</span></div>
             <div id="full-log-content" style="flex:1; overflow-y:auto; font-size:0.9em; line-height:1.6; padding-bottom: 20px;"></div>
         </div>
         
-        <div id="view-exit" class="modal overlay" style="justify-content: center; background: rgba(0,0,0,0.9);">
-            <div class="modal-title">發現隱藏出口</div>
-            <div class="item-list" style="max-width: 80%; margin: 0 auto; width: 100%;">
-                <div class="btn" onclick="continueExplore()">繼續探索本地圖</div>
-                <div class="btn primary" onclick="nextFloor()">前往下一層 (自動存檔)</div>
-                <div class="btn danger" onclick="returnTown(false)">返回城鎮 (保留物品)</div>
+        <div id="view-exit" class="modal overlay" style="justify-content: center; background: rgba(5,2,10,0.95);">
+            <div class="modal-title" style="font-size:1.5em; border:none;">發現了往更深處的裂隙</div>
+            <div class="item-list" style="max-width: 80%; margin: 20px auto 0; width: 100%;">
+                <div class="btn" onclick="continueExplore()" style="padding:15px;">稍作停留 (繼續探索本地圖)</div>
+                <div class="btn primary" onclick="nextFloor()" style="padding:15px;">躍入深淵下一層 (自動存檔)</div>
+                <div class="btn danger" onclick="returnTown(false)" style="padding:15px;">使用裂隙返回城鎮 (保留戰利品)</div>
             </div>
         </div>
 
         <div id="view-dialog" class="modal overlay" style="justify-content: center; background: rgba(0,0,0,0.85); z-index: 100;">
-            <div style="background: #222; padding: 20px; border: 1px solid #555; border-radius: 8px; max-width: 90%; margin: 0 auto; width: 300px; box-shadow: 0 0 20px rgba(0,0,0,1);">
+            <div style="background: var(--panel-bg); padding: 20px; border: 1px solid var(--accent-glow); border-radius: 8px; max-width: 90%; margin: 0 auto; width: 320px; box-shadow: 0 0 30px rgba(138,43,226,0.3);">
                 <div id="dialog-title" class="modal-title" style="border-bottom: none; margin-bottom: 10px;">提示</div>
-                <div id="dialog-msg" style="margin-bottom: 20px; font-size: 0.9em; line-height: 1.5; color: #ccc; text-align: center; word-break: break-all;"></div>
-                <input type="text" id="dialog-input" style="display: none; width: 100%; padding: 10px; margin-bottom: 20px; background: #111; border: 1px solid #555; color: white; border-radius: 4px; box-sizing: border-box;">
+                <div id="dialog-msg" style="margin-bottom: 20px; font-size: 0.95em; line-height: 1.6; color: var(--text-main); text-align: center; word-break: break-all;"></div>
+                <input type="text" id="dialog-input" style="display: none; width: 100%; padding: 12px; margin-bottom: 20px; background: #0a0510; border: 1px solid var(--panel-border); color: white; border-radius: 4px; box-sizing: border-box; outline:none;">
                 <div id="dialog-btns" style="display: flex; gap: 10px; justify-content: center;"></div>
             </div>
         </div>
+
     </div>
 
     <div id="footer">
         <div style="flex:1;">
             <div id="d-pad">
-                <div class="d-empty"></div><div class="btn" onclick="move(0, -1)" title="快捷鍵: W / 向上鍵">▲</div><div class="d-empty"></div>
-                <div class="btn" onclick="move(-1, 0)" title="快捷鍵: A / 向左鍵">◀</div><div class="btn" onclick="move(0, 0)" title="快捷鍵: 空白鍵">休</div><div class="btn" onclick="move(1, 0)" title="快捷鍵: D / 向右鍵">▶</div>
-                <div class="d-empty"></div><div class="btn" onclick="move(0, 1)" title="快捷鍵: S / 向下鍵">▼</div><div class="d-empty"></div>
+                <div class="d-empty"></div><div class="btn" onclick="move(0, -1)" title="快捷鍵: W 或 ↑">▲</div><div class="d-empty"></div>
+                <div class="btn" onclick="move(-1, 0)" title="快捷鍵: A 或 ←">◀</div><div class="btn" onclick="move(0, 0)" title="快捷鍵: Space" style="font-size:0.8em; display:flex; align-items:center; justify-content:center;">休</div><div class="btn" onclick="move(1, 0)" title="快捷鍵: D 或 →">▶</div>
+                <div class="d-empty"></div><div class="btn" onclick="move(0, 1)" title="快捷鍵: S 或 ↓">▼</div><div class="d-empty"></div>
             </div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 5px; justify-content: center; min-width: 90px;">
-            <div class="btn" onclick="openChar()" title="快捷鍵: C / I">角色/背包</div>
-            <div class="btn" onclick="openSys()" title="快捷鍵: Esc">系統設定</div>
+        <div style="display: flex; flex-direction: column; gap: 8px; justify-content: center; min-width: 100px;">
+            <div class="btn" onclick="openChar()" title="快捷鍵: C 或 I">狀態背包 (C)</div>
+            <div class="btn" onclick="openSys()" title="快捷鍵: Esc">系統設定 (Esc)</div>
         </div>
     </div>
 
 <script>
+/* ==================== 0. Custom Dialog System ==================== */
 function customAlert(msg, title="提示") {
     document.getElementById('dialog-title').innerText = title;
     document.getElementById('dialog-msg').innerHTML = msg.replace(/\n/g, '<br>');
@@ -217,6 +368,37 @@ function customPrompt(msg, onConfirm, defaultVal="", title="輸入") {
 }
 
 function closeDialog() { document.getElementById('view-dialog').classList.remove('active'); }
+
+/* ==================== 0.5 Animation & FX Effects ==================== */
+function triggerBump(id) {
+    let el = document.getElementById(id);
+    if(el) {
+        el.classList.remove('anim-bump');
+        void el.offsetWidth; // trigger reflow
+        el.classList.add('anim-bump');
+    }
+}
+
+function shakeScreen(intensity = 'normal') {
+    let el = document.getElementById('map-container');
+    if(el) {
+        el.classList.remove('anim-shake');
+        el.classList.remove('anim-shake-hard');
+        void el.offsetWidth;
+        el.classList.add(intensity === 'hard' ? 'anim-shake-hard' : 'anim-shake');
+    }
+}
+
+function flashOverlay(colorHex) {
+    let flash = document.getElementById('flash-overlay');
+    if(flash) {
+        flash.style.backgroundColor = colorHex;
+        flash.classList.add('flash-active');
+        setTimeout(() => { flash.classList.remove('flash-active'); }, 50); // 短暫閃爍
+    }
+}
+
+/* ==================== 1. Data Definitions ==================== */
 
 const STATS = { 
     maxHp: '最大生命', maxMp: '最大魔力', 
@@ -301,13 +483,13 @@ const BOSS_APPEARANCES = [
     { name: '破壞沙蟲', icon: '🐛' }, { name: '暗影領主', icon: '👿' }
 ];
 
-// 傭兵強度曲線基礎值設定
 const ALLY_TYPES = [
-    { type: '戰士', baseHp: 30, baseAtk: 4, baseMatk: 1 }, 
-    { type: '法師', baseHp: 15, baseAtk: 1, baseMatk: 5 }, 
-    { type: '牧師', baseHp: 20, baseAtk: 2, baseMatk: 3 }
+    { type: '戰士', baseHp: 100, baseAtk: 15 }, 
+    { type: '法師', baseHp: 50, baseAtk: 20 }, 
+    { type: '牧師', baseHp: 70, baseAtk: 8 }
 ];
 
+/* ==================== 2. State & Save Management ==================== */
 let p = {
     name: '探索者',
     lvl: 1, exp: 0, gold: 0, x: 0, y: 0,
@@ -328,6 +510,7 @@ let shopItems = [];
 let logHistory = [];
 let selectedFloor = 1; 
 
+/* ==================== 2.5 Base Functions ==================== */
 function log(msg, type = '') {
     let logBox = document.getElementById('log');
     if (!logBox) return;
@@ -350,10 +533,10 @@ function log(msg, type = '') {
 
     let timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     let classStr = '';
-    if (type === 'new') classStr = ' style="color:white;"';
-    else if (type === 'dmg') classStr = ' style="color:var(--danger);"';
-    else if (type === 'heal') classStr = ' style="color:var(--accent);"';
-    else if (type === 'sys') classStr = ' style="color:var(--q-legend);"';
+    if (type === 'new') classStr = ' class="log-new"';
+    else if (type === 'dmg') classStr = ' class="log-dmg"';
+    else if (type === 'heal') classStr = ' class="log-heal"';
+    else if (type === 'sys') classStr = ' class="log-sys"';
 
     logHistory.push(`[${timeStr}] <span${classStr}>${msg}</span>`);
     if (logHistory.length > 300) logHistory.shift();
@@ -406,25 +589,23 @@ function updateHUD() {
     
     let fDisp = document.getElementById('floor-display');
     if (inTown) {
-        fDisp.innerText = '城鎮';
+        fDisp.innerText = '起始城鎮';
     } else {
-        fDisp.innerText = 'B' + floor;
+        fDisp.innerText = '深淵 B' + floor;
     }
 }
 
 function updateTownUI() {
     let btnCh = document.getElementById('btn-church');
     if (corpse) {
-        btnCh.innerText = `教堂 (贖回屍體: ${Math.max(10, corpse.floor * 20)}G)`;
+        btnCh.innerText = `靈魂聖堂 (贖回軀殼: ${Math.max(10, corpse.floor * 20)}G)`;
         btnCh.style.borderColor = 'var(--danger)';
+        btnCh.style.boxShadow = '0 0 10px rgba(244,67,54,0.4)';
     } else {
-        btnCh.innerText = '教堂 (目前無遺失屍體)';
+        btnCh.innerText = '靈魂聖堂 (目前無遺失軀殼)';
         btnCh.style.borderColor = '';
+        btnCh.style.boxShadow = 'none';
     }
-}
-
-function getFloorMultiplier(f = 1, isBoss = false) {
-    return 1 + ((f - 1) * (isBoss ? 0.45 : 0.3)) + Math.pow(f - 1, 1.3) * 0.05;
 }
 
 function weightedRandom(list) {
@@ -475,7 +656,7 @@ function generateItem(forcedGrade, targetFloor) {
         skill = skillKeys[Math.floor(Math.random() * skillKeys.length)];
     }
 
-    // 移除所有隨機名稱中的 '的' 以符合簡潔命名風格
+    // 將名稱中的「的」完全過濾掉
     let prefixStr = itemPrefixes.join('').replace(/的/g, '');
     let eleIcon = element !== '無' ? E_ICONS[element] : '';
     let name = `${prefixStr}${base.name}${eleIcon}`;
@@ -523,7 +704,7 @@ function loadSave() {
                 drawMap();
                 setTimeout(scrollToPlayer, 100);
             }
-            log("已自動讀取本地存檔。", "sys");
+            log("幽微的光芒閃爍，已自動讀取靈魂存檔。", "sys");
         } catch(e) { console.error("Save load failed", e); }
     } else {
         updateStats(); 
@@ -534,11 +715,11 @@ function loadSave() {
 function exportSave() {
     let data = JSON.stringify({ p, corpse, floor, maxFloor, inTown, shopItems }); 
     let b64 = btoa(encodeURIComponent(data));
-    customPrompt("請複製以下繼承碼並妥善保存：", () => {}, b64, "匯出繼承碼");
+    customPrompt("請複製以下靈魂記憶碼並妥善保存：", () => {}, b64, "萃取靈魂記憶");
 }
 
 function importSave() {
-    customPrompt("請貼上您的繼承碼（這將覆蓋目前進度）：", (b64) => {
+    customPrompt("請貼上您的靈魂記憶碼（這將覆蓋目前進度）：", (b64) => {
         if(b64) {
             try {
                 let data = JSON.parse(decodeURIComponent(atob(b64)));
@@ -556,25 +737,31 @@ function importSave() {
                 returnTown(false, true); 
                 autoSave();
                 closeAllOverlays();
-                log("繼承碼讀取成功！歡迎回來。", "sys");
-                customAlert("繼承碼讀取成功！", "讀取成功");
+                log("記憶讀取成功！歡迎回歸深淵。", "sys");
+                customAlert("靈魂記憶覆寫成功！", "讀取成功");
             } catch(e) {
-                customAlert("無效的繼承碼，請確認是否複製完整。", "錯誤");
+                customAlert("無效的記憶碎片，請確認是否複製完整。", "錯誤");
             }
         }
-    }, "", "匯入繼承碼");
+    }, "", "覆寫靈魂記憶");
+}
+
+/* ==================== 3. Core Logic ==================== */
+
+function getFloorMultiplier(f, isBoss = false) {
+    return 1 + ((f - 1) * (isBoss ? 0.45 : 0.3)) + Math.pow(f - 1, 1.3) * 0.05;
 }
 
 function renamePlayer() {
-    customPrompt("請輸入新的角色名稱：", (newName) => {
+    customPrompt("請銘刻新的真名：", (newName) => {
         if(newName && newName.trim().length > 0) {
             p.name = newName.trim().substring(0, 10);
             updateHUD();
             autoSave();
-            log(`改名為 ${p.name}`, 'sys');
-            customAlert(`改名成功！現在你的名字是：${p.name}`);
+            log(`命運之線變動，改名為 ${p.name}`, 'sys');
+            customAlert(`真名已確立！現在你的名字是：${p.name}`);
         }
-    }, p.name, "修改名稱");
+    }, p.name, "銘刻真名");
 }
 
 function openFloorSelect() {
@@ -598,7 +785,7 @@ function confirmStartGame() {
     closeAllOverlays();
     document.getElementById('view-town').classList.remove('active');
     refreshShop(); 
-    log(`進入了深淵 B${floor}...`, 'sys');
+    log(`你躍入了深淵 B${floor}... 周圍的光線逐漸被吞噬。`, 'sys');
     generateMap();
 }
 
@@ -716,7 +903,7 @@ function drawMap() {
             if (cellVal === 0) {
                 let ent = getEntityAt(x, y);
                 if (p.x === x && p.y === y) content = `<div id="p-sprite" style="transition:0.1s;">🧍</div>`;
-                else if (ent) content = ent.type === 'exit' ? (ent.hidden ? '' : '🚪') : `<div id="e-${ent.id}">${ent.icon}</div>`;
+                else if (ent) content = ent.type === 'exit' ? (ent.hidden ? '' : '<span style="text-shadow:0 0 10px #ff00ff">🚪</span>') : `<div id="e-${ent.id}">${ent.icon}</div>`;
             }
             html += `<div class="${cls}" id="c-${x}-${y}">${content}</div>`;
         }
@@ -757,6 +944,7 @@ function move(dx, dy) {
         let cellVal = map[ny][nx];
         
         if (cellVal > 0) {
+            triggerBump('p-sprite'); // 撞擊牆壁動畫
             let wallEle = ELEMENTS[cellVal - 1];
             let wEle = p.eq['左手'] ? (p.eq['左手'].element || '無') : '無';
             let sEle = p.eq['右手'] ? (p.eq['右手'].element || '無') : '無';
@@ -774,6 +962,7 @@ function move(dx, dy) {
                     lootMsg = ` 發現了裝備！`;
                 }
                 log(`⚡ 武器的 [${wEle}] 屬性擊碎了 [${wallEle}] 障礙！${lootMsg}`, 'sys');
+                flashOverlay('rgba(255,255,255,0.4)'); // 擊碎閃白光
                 drawMap();
                 applyRegen();
                 tickEntities();
@@ -781,17 +970,22 @@ function move(dx, dy) {
                 let dmg = Math.floor((floor - 1) * 3 + 8);
                 if (wallEle !== '無' && WEAKNESS[sEle] === wallEle) {
                     log(`🛡️ 盾牌的 [${sEle}] 屬性完全吸收了 [${wallEle}] 障礙的傷害！`, 'heal');
+                    flashOverlay('rgba(76,175,80,0.3)'); // 吸收綠光
                 } else if (wallEle !== '無' && sEle === wallEle) {
                     log(`🛡️ 盾牌的 [${sEle}] 屬性與其相同，免受傷害！`, 'heal');
+                    flashOverlay('rgba(255,255,255,0.2)');
                 } else {
                     if (wallEle !== '無' && WEAKNESS[wallEle] === sEle) {
                         dmg = Math.floor(dmg * 2); 
                         log(`💥 觸碰 [${wallEle}] 障礙！盾牌被剋制，受到嚴重的 ${dmg} 傷害！`, 'dmg');
+                        shakeScreen('hard');
+                        flashOverlay('rgba(244,67,54,0.5)');
                     } else {
                         log(`💥 觸碰 [${wallEle}] 障礙，受到 ${dmg} 傷害！`, 'dmg');
+                        shakeScreen('normal');
+                        flashOverlay('rgba(244,67,54,0.3)');
                     }
                     p.hp -= dmg;
-                    animShake('p-sprite');
                     updateHUD();
                     if (p.hp <= 0) handleDeath();
                 }
@@ -802,8 +996,8 @@ function move(dx, dy) {
         let ent = getEntityAt(nx, ny);
         if (ent && ent.type === 'monster') {
             combatRound(ent);
-            animShake(`e-${ent.id}`);
-            animShake('p-sprite');
+            triggerBump(`e-${ent.id}`); // 怪物受擊動畫
+            triggerBump('p-sprite'); // 玩家攻擊動作
         } else {
             p.x = nx; p.y = ny;
             if (ent && ent.type === 'ally_token') {
@@ -811,17 +1005,17 @@ function move(dx, dy) {
                 let letter = String.fromCharCode(65 + p.party.length);
                 let allyName = `${at.type}${letter}`;
                 
-                let fMult = getFloorMultiplier(floor);
+                let allyMult = getFloorMultiplier(floor);
                 p.party.push({ 
                     name: allyName, 
                     classType: at.type, 
-                    hp: Math.floor(at.baseHp * fMult), 
-                    maxHp: Math.floor(at.baseHp * fMult),
-                    atk: Math.max(1, Math.floor(at.baseAtk * fMult)),
-                    matk: Math.max(1, Math.floor(at.baseMatk * fMult))
+                    hp: Math.floor(at.baseHp * allyMult), 
+                    maxHp: Math.floor(at.baseHp * allyMult),
+                    atk: Math.floor(at.baseAtk * allyMult)
                 });
                 
-                log(`🤝 遇到了流浪傭兵，${allyName} 加入了隊伍！`, 'sys');
+                log(`🤝 幽光閃爍中，流浪傭兵 ${allyName} 加入了隊伍！`, 'sys');
+                flashOverlay('rgba(255,215,0,0.3)'); // 金色閃光
                 entities = entities.filter(e => e !== ent);
             }
             if (ent && ent.type === 'exit') {
@@ -830,6 +1024,7 @@ function move(dx, dy) {
                 scrollToPlayer();
                 closeAllOverlays();
                 document.getElementById('view-exit').classList.add('active');
+                flashOverlay('rgba(138,43,226,0.5)'); // 發現出口深紫光
                 autoSave();
                 return;
             }
@@ -844,7 +1039,7 @@ function move(dx, dy) {
 
 function tickEntities() {
     p.party = p.party.filter(ally => {
-        if (ally.hp <= 0) log(`☠️ ${ally.name} 重傷倒下，離開了隊伍。`, 'dmg');
+        if (ally.hp <= 0) log(`☠️ ${ally.name} 的靈魂消散，離開了隊伍。`, 'dmg');
         return ally.hp > 0;
     });
 
@@ -891,7 +1086,7 @@ function tickEntities() {
                 if (nx === p.x && ny === p.y) {
                     if (ent.hostile) {
                         combatRound(ent, true);
-                        animShake('p-sprite');
+                        triggerBump('p-sprite'); // 怪物主動攻擊時玩家受擊動畫
                     }
                 } else if (!getEntityAt(nx, ny)) {
                     ent.x = nx; ent.y = ny;
@@ -903,20 +1098,23 @@ function tickEntities() {
     autoSave();
 }
 
+/* ==================== 5. Combat & Potions ==================== */
 function checkAutoPotions() {
     let used = false;
     if (p.hp < p.stats.maxHp * 0.3 && p.pots.hp > 0) {
         p.pots.hp--;
         let heal = Math.floor(p.stats.maxHp * 0.4);
         p.hp = Math.min(p.stats.maxHp, p.hp + heal);
-        log(`🩸血量危急！自動喝下紅水，恢復 ${heal} HP。`, 'heal');
+        log(`🩸血量危急！自動灌下紅水，恢復 ${heal} HP。`, 'heal');
+        flashOverlay('rgba(244,67,54,0.3)');
         used = true;
     }
     if (p.mp < p.stats.maxMp * 0.3 && p.pots.mp > 0) {
         p.pots.mp--;
         let mpHeal = Math.floor(p.stats.maxMp * 0.4);
         p.mp = Math.min(p.stats.maxMp, p.mp + mpHeal);
-        log(`💧魔力不足！自動喝下藍水，恢復 ${mpHeal} MP。`, 'heal');
+        log(`💧魔力乾涸！自動灌下藍水，恢復 ${mpHeal} MP。`, 'heal');
+        flashOverlay('rgba(33,150,243,0.3)');
         used = true;
     }
     return used;
@@ -924,7 +1122,7 @@ function checkAutoPotions() {
 
 function combatRound(mon, monInitiated = false) {
     if (!mon.hostile && !monInitiated) {
-        log(`攻擊了 ${mon.name}，它發怒了！`);
+        log(`驚動了 <span style="color:${mon.grade.color}">${mon.name}</span>，深淵傳來了它的怒吼！`);
         mon.hostile = true;
     }
     
@@ -943,8 +1141,8 @@ function combatRound(mon, monInitiated = false) {
             let pEleMult = 1.0;
             let pEleText = "";
             if (mEle !== '無' && wEle !== '無') {
-                if (WEAKNESS[wEle] === mEle) { pEleMult = 1.5; pEleText = " <span style='color:var(--accent)'>(剋制!)</span>"; }
-                else if (WEAKNESS[mEle] === wEle) { pEleMult = 0.7; pEleText = " <span style='color:#888'>(被剋)</span>"; }
+                if (WEAKNESS[wEle] === mEle) { pEleMult = 1.5; pEleText = " <span style='color:var(--heal)'>(屬性剋制!)</span>"; }
+                else if (WEAKNESS[mEle] === wEle) { pEleMult = 0.7; pEleText = " <span style='color:var(--text-dim)'>(屬性被剋)</span>"; }
             }
 
             let dmg = doAttack(p.stats.atk, mon.def, p.stats.hit, p.stats.crit, p.stats.critDmg, pEleMult, mon.eva || 5);
@@ -953,6 +1151,7 @@ function combatRound(mon, monInitiated = false) {
             if (dmg >= 0) {
                 mon.hp -= dmg;
                 log(`你對 <span style="color:${mon.grade.color}">${mon.name}</span> 造成 ${dmg} 傷害。${pEleText}${skillText}`, 'new');
+                if(!skillText) flashOverlay('rgba(255,255,255,0.2)'); // 普攻閃白光
             } else {
                 log(`你的攻擊被 <span style="color:${mon.grade.color}">${mon.name}</span> 閃避了。${skillText}`, 'new'); 
             }
@@ -978,7 +1177,7 @@ function combatRound(mon, monInitiated = false) {
                     if (skData.type === 'heal') {
                         let healVal = Math.floor(mon.maxHp * skData.power);
                         mon.hp = Math.min(mon.maxHp, mon.hp + healVal);
-                        log(`🔮 <span style="color:${mon.grade.color}">${mon.name}</span> 施放了 [${skData.name}]，恢復自身 ${healVal} 點生命！`, 'heal');
+                        log(`🔮 <span style="color:${mon.grade.color}">${mon.name}</span> 施放了 [${skData.name}]，恢復深淵之血 ${healVal} 點！`, 'heal');
                     } else {
                         if (skData.type === 'mdmg' || skData.type === 'mdmg_drain') {
                             let targetMdef = target === 'p' ? p.stats.mdef : p.stats.mdef / 2;
@@ -986,26 +1185,26 @@ function combatRound(mon, monInitiated = false) {
                             
                             if (target === 'p') {
                                 p.hp -= mdmg;
-                                log(`🔮 <span style="color:${mon.grade.color}">${mon.name}</span> 施放了 [${skData.name}]，對你造成 ${mdmg} 魔法傷害！`, 'dmg');
+                                log(`🔮 <span style="color:${mon.grade.color}">${mon.name}</span> 釋放 [${skData.name}]，對你造成 ${mdmg} 魔法侵蝕！`, 'dmg');
+                                shakeScreen('hard'); flashOverlay('rgba(138,43,226,0.3)');
                                 checkAutoPotions();
                             } else {
                                 blockAlly.hp -= mdmg;
-                                log(`🔮 <span style="color:${mon.grade.color}">${mon.name}</span> 施放了 [${skData.name}]，擊中隊友 ${blockAlly.name} 造成 ${mdmg} 魔法傷害！`);
+                                log(`🔮 <span style="color:${mon.grade.color}">${mon.name}</span> 釋放 [${skData.name}]，擊中隊友 ${blockAlly.name} 造成 ${mdmg} 魔法侵蝕！`);
                             }
-                            if (skData.type === 'mdmg_drain') {
-                                mon.mp = Math.min(mon.maxMp, mon.mp + Math.floor(mdmg * 0.3));
-                            }
+                            if (skData.type === 'mdmg_drain') mon.mp = Math.min(mon.maxMp, mon.mp + Math.floor(mdmg * 0.3));
                         } else {
                             let targetDef = target === 'p' ? p.stats.def : p.stats.def / 2;
                             let pdmg = Math.max(1, Math.floor(mon.atk * skData.power * (mon.atk / (mon.atk + targetDef + 1))));
                             
                             if (target === 'p') {
                                 p.hp -= pdmg;
-                                log(`⚔️ <span style="color:${mon.grade.color}">${mon.name}</span> 施放了 [${skData.name}]，對你造成 ${pdmg} 物理傷害！`, 'dmg');
+                                log(`⚔️ <span style="color:${mon.grade.color}">${mon.name}</span> 施放 [${skData.name}]，對你造成 ${pdmg} 物理重擊！`, 'dmg');
+                                shakeScreen('hard'); flashOverlay('rgba(244,67,54,0.3)');
                                 checkAutoPotions();
                             } else {
                                 blockAlly.hp -= pdmg;
-                                log(`⚔️ <span style="color:${mon.grade.color}">${mon.name}</span> 施放了 [${skData.name}]，擊中隊友 ${blockAlly.name} 造成 ${pdmg} 物理傷害！`);
+                                log(`⚔️ <span style="color:${mon.grade.color}">${mon.name}</span> 施放 [${skData.name}]，擊中隊友 ${blockAlly.name} 造成 ${pdmg} 物理重擊！`);
                             }
                         }
                     }
@@ -1017,7 +1216,7 @@ function combatRound(mon, monInitiated = false) {
                 let mEleText = "";
                 if (target === 'p' && mEle !== '無' && sEle !== '無') {
                     if (WEAKNESS[mEle] === sEle) { mEleMult = 1.5; mEleText = " <span style='color:var(--danger)'>(防具被剋!)</span>"; }
-                    else if (WEAKNESS[sEle] === mEle) { mEleMult = 0.7; mEleText = " <span style='color:var(--accent)'>(防具抵抗!)</span>"; }
+                    else if (WEAKNESS[sEle] === mEle) { mEleMult = 0.7; mEleText = " <span style='color:var(--heal)'>(防具抵抗!)</span>"; }
                 }
 
                 let defStat = target === 'p' ? p.stats.def : p.stats.def / 2;
@@ -1027,15 +1226,16 @@ function combatRound(mon, monInitiated = false) {
                 if (dmg >= 0) {
                     if (target === 'p') {
                         p.hp -= dmg;
-                        log(`<span style="color:${mon.grade.color}">${mon.name}</span> 對你造成 ${dmg} 傷害。${mEleText}`, 'dmg');
+                        log(`受到 <span style="color:${mon.grade.color}">${mon.name}</span> 攻擊，承受了 ${dmg} 傷害。${mEleText}`, 'dmg');
+                        shakeScreen('normal'); flashOverlay('rgba(244,67,54,0.2)');
                         checkAutoPotions(); 
                     } else {
                         blockAlly.hp -= dmg;
-                        log(`🛡️ ${blockAlly.name} 幫你擋下了攻擊，受到 ${dmg} 傷害。`);
-                        if(blockAlly.hp <= 0) log(`${blockAlly.name} 重傷倒下了。`, 'dmg');
+                        log(`🛡️ ${blockAlly.name} 替你擋下了致命一擊，受到 ${dmg} 傷害。`);
+                        if(blockAlly.hp <= 0) log(`${blockAlly.name} 抵擋不住，重傷倒下了。`, 'dmg');
                     }
                 } else {
-                    log(`<span style="color:${mon.grade.color}">${mon.name}</span> 的攻擊未命中。`);
+                    log(`<span style="color:${mon.grade.color}">${mon.name}</span> 的攻擊只擊中了你的殘影。`);
                 }
             }
         }
@@ -1044,23 +1244,22 @@ function combatRound(mon, monInitiated = false) {
     if (mon.hp > 0 && p.hp > 0) {
         p.party.forEach(ally => {
             if (ally.hp <= 0) return;
-            let allyAtk = ally.atk || 5; 
-            let allyMatk = ally.matk || 5;
             let useSkill = Math.random() < 0.3;
             if (useSkill) {
                 if (ally.classType === '戰士') {
-                    let d = Math.floor(allyAtk * 1.5 + 2); mon.hp -= d; log(`⚔️ ${ally.name} 使出重擊，造成 ${d} 傷害。`);
+                    let d = Math.floor(ally.atk * 1.5); mon.hp -= d; log(`⚔️ ${ally.name} 使出破軍重擊，造成 ${d} 傷害。`);
                 } else if (ally.classType === '法師') {
-                    let d = Math.floor(allyMatk * 1.8 + 2); mon.hp -= d; log(`☄️ ${ally.name} 發射能量球，造成 ${d} 魔傷。`);
+                    let d = Math.floor(ally.atk * 2.0); mon.hp -= d; log(`☄️ ${ally.name} 發射奧術法球，造成 ${d} 魔法傷害。`);
                 } else if (ally.classType === '牧師') {
-                    let h = Math.floor(allyMatk * 1.5 + 5);
+                    let h = Math.floor(p.stats.maxHp * 0.15);
                     p.hp = Math.min(p.stats.maxHp, p.hp + h);
-                    log(`✨ ${ally.name} 施放治療術，恢復 ${h} HP。`, 'heal');
+                    log(`✨ ${ally.name} 吟唱神聖禱言，為你恢復 ${h} HP。`, 'heal');
+                    flashOverlay('rgba(76,175,80,0.2)');
                 }
             } else {
-                let d = Math.max(1, allyAtk); 
+                let d = Math.max(1, Math.floor(ally.atk * 0.6)); 
                 mon.hp -= d;
-                log(`🗡️ ${ally.name} 攻擊了怪物，造成 ${d} 傷害。`);
+                log(`🗡️ ${ally.name} 揮舞武器，對怪物造成 ${d} 傷害。`);
             }
         });
     }
@@ -1068,7 +1267,7 @@ function combatRound(mon, monInitiated = false) {
     updateHUD();
 
     if (mon.hp <= 0) {
-        log(`擊敗了 <span style="color:${mon.grade.color}">${mon.name}</span>！`);
+        log(`深淵生物 <span style="color:${mon.grade.color}">${mon.name}</span> 倒下了！`);
         entities = entities.filter(e => e.id !== mon.id);
         
         let xp = Math.floor(mon.maxHp * 0.5);
@@ -1077,13 +1276,13 @@ function combatRound(mon, monInitiated = false) {
         if (mon.isBoss) { xp *= 5; g *= 5; } 
         
         p.exp += xp; p.gold += g;
-        log(`獲得 ${xp} EXP, ${g} 金幣。`);
+        log(`汲取了 ${xp} 靈魂經驗, 搜刮了 ${g} 金幣。`);
         
         if (mon.isBoss || Math.random() < mon.grade.chance * 3 || Math.random() < 0.15) {
             let grade = mon.isBoss ? GRADES[Math.floor(Math.random() * 3) + 2] : mon.grade; 
             let item = generateItem(grade);
             p.inv.push(item);
-            log(`掉落物品: <span style="color:${item.grade.color}">${item.name}</span>`, 'sys');
+            log(`深淵中浮現出遺物: <span style="color:${item.grade.color}">${item.name}</span>`, 'sys');
         }
 
         checkLevelUp();
@@ -1129,7 +1328,6 @@ function processSkills(mon, wEle) {
     if (activeCandidates.length === 0) return "";
     
     let chosen = activeCandidates[Math.floor(Math.random() * activeCandidates.length)];
-    
     let data = chosen.data;
     let count = chosen.count;
     let mpCost = data.mpCost || 0;
@@ -1159,12 +1357,20 @@ function processSkills(mon, wEle) {
         else if (WEAKNESS[mEle] === wEle) eleMult = 0.7;
     }
 
+    // 依據技能類型決定環境光芒顏色
+    let fColor = 'rgba(255,255,255,0.4)';
+    if(data.type === 'heal') fColor = 'rgba(76,175,80,0.4)'; // 綠色光芒
+    else if(data.type === 'mdmg') fColor = 'rgba(138,43,226,0.4)'; // 奧術紫光
+    else if(data.type === 'mdmg_drain') fColor = 'rgba(233,30,99,0.4)'; // 汲取猩紅光
+    else if(data.type === 'dmg') fColor = 'rgba(255,152,0,0.4)'; // 戰意橘光
+    flashOverlay(fColor);
+
     if (data.type === 'mdmg') {
         let mdefVal = mon.mdef !== undefined ? mon.mdef : mon.def/2;
         let mdmg = Math.max(1, p.stats.matk * (data.power || 1.1) * powerMult * (p.stats.matk / (p.stats.matk + mdefVal + 1)));
         mdmg = Math.floor(mdmg * eleMult * weaknessMult); 
         mon.hp -= mdmg;
-        return ` <span style="color:var(--q-rare)">[${elePrefix}${data.name}: ${mdmg}魔傷 (-${mpCost}MP)]</span>${weaknessText}`;
+        return ` <span style="color:var(--q-epic); text-shadow:0 0 5px rgba(156,39,176,0.5);">[${elePrefix}${data.name}: ${mdmg}魔傷 (-${mpCost}MP)]</span>${weaknessText}`;
     } else if (data.type === 'mdmg_drain') {
         let mdefVal = mon.mdef !== undefined ? mon.mdef : mon.def/2;
         let mdmg = Math.max(1, p.stats.matk * (data.power || 1.0) * powerMult * (p.stats.matk / (p.stats.matk + mdefVal + 1)));
@@ -1172,16 +1378,16 @@ function processSkills(mon, wEle) {
         mon.hp -= mdmg;
         let stealMp = Math.max(1, Math.floor(mdmg * 0.3));
         p.mp = Math.min(p.stats.maxMp, p.mp + stealMp);
-        return ` <span style="color:var(--q-rare)">[${elePrefix}${data.name}: ${mdmg}魔傷/汲取+${stealMp}魔力 (-${mpCost}MP)]</span>${weaknessText}`;
+        return ` <span style="color:#e91e63; text-shadow:0 0 5px rgba(233,30,99,0.5);">[${elePrefix}${data.name}: ${mdmg}魔傷/汲取+${stealMp}魔力 (-${mpCost}MP)]</span>${weaknessText}`;
     } else if (data.type === 'heal') {
         let heal = Math.floor(p.stats.maxHp * data.power * powerMult);
         p.hp = Math.min(p.stats.maxHp, p.hp + heal);
-        return ` <span style="color:var(--accent)">[${data.name}: +${heal}HP (-${mpCost}MP)]</span>`;
+        return ` <span style="color:var(--heal); text-shadow:0 0 5px rgba(76,175,80,0.5);">[${data.name}: +${heal}HP (-${mpCost}MP)]</span>`;
     } else if (data.type === 'dmg') {
          let pdmg = Math.floor(p.stats.atk * (data.power || 1.4) * powerMult);
          pdmg = Math.floor(pdmg * eleMult * weaknessMult);
          mon.hp -= pdmg;
-         return ` <span style="color:var(--q-legend)">[${elePrefix}${data.name}: ${pdmg}物理 (-${mpCost}MP)]</span>${weaknessText}`;
+         return ` <span style="color:var(--q-legend); text-shadow:0 0 5px rgba(255,179,0,0.5);">[${elePrefix}${data.name}: ${pdmg}物理 (-${mpCost}MP)]</span>${weaknessText}`;
     }
     return "";
 }
@@ -1191,25 +1397,24 @@ function checkLevelUp() {
     let leveled = false;
     while (p.exp >= req) {
         p.exp -= req; p.lvl++;
-        p.base.maxHp += 10;
-        p.base.maxMp += 2;
+        p.base.maxHp += 10; p.base.maxMp += 2;
         p.base.atk += 2; p.base.def += 1;
-        p.base.matk += 2; 
-        p.base.mdef += 1; 
-        log(`升級了！目前等級 LV.${p.lvl}`, 'sys');
+        p.base.matk += 2; p.base.mdef += 1;
+        log(`靈魂共鳴！等級提升至 LV.${p.lvl}`, 'sys');
+        flashOverlay('rgba(255,215,0,0.5)'); // 升級金光
         req = p.lvl * 100;
         leveled = true;
     }
     if (leveled) {
         updateStats();
-        p.hp = p.stats.maxHp;
-        p.mp = p.stats.maxMp;
+        p.hp = p.stats.maxHp; p.mp = p.stats.maxMp;
         updateHUD();
     }
 }
 
 function handleDeath() {
-    log("你倒下了...", 'dmg');
+    log("深淵吞噬了你...", 'dmg');
+    flashOverlay('rgba(0,0,0,0.8)'); // 死亡黑屏效果
     corpse = { eq: JSON.parse(JSON.stringify(p.eq)), gold: p.gold, floor: floor, inv: p.inv, pots: p.pots };
     
     p.eq = { '左手':null, '右手':null, '護手':null, '頭部':null, '身體':null, '腰部':null, '褲子':null, '鞋子':null };
@@ -1224,6 +1429,7 @@ function handleDeath() {
     setTimeout(() => { returnTown(true); }, 1500);
 }
 
+/* ==================== 6. Flow & UI Controls ==================== */
 function closeAllOverlays() { 
     document.querySelectorAll('.overlay:not(#view-dialog)').forEach(el => el.classList.remove('active')); 
 }
@@ -1248,7 +1454,7 @@ function nextFloor() {
     floor++; 
     if (floor > maxFloor) maxFloor = floor;
     closeAllOverlays();
-    log(`深入到了第 ${floor} 層`, 'sys');
+    log(`越陷越深，來到了第 ${floor} 層...`, 'sys');
     updateHUD(); generateMap(); 
 }
 
@@ -1257,9 +1463,9 @@ function returnTown(isDeath = false, skipSave = false) {
     closeAllOverlays();
     document.getElementById('view-town').classList.add('active');
     document.getElementById('map-container').innerHTML = ''; 
-    if (!isDeath) log("平安返回城鎮。");
+    if (!isDeath) log("你平安地從深淵邊緣返回了城鎮。");
     
-    if (p.party.length > 0) log("隊友們在城鎮與你道別了。", "sys");
+    if (p.party.length > 0) log("傭兵們拿了應得的報酬，在城鎮與你道別了。", "sys");
     
     p.hp = p.stats.maxHp; p.mp = p.stats.maxMp; p.party = [];
     updateHUD();
@@ -1267,11 +1473,7 @@ function returnTown(isDeath = false, skipSave = false) {
     if(!skipSave) autoSave();
 }
 
-function animShake(id) {
-    let el = document.getElementById(id);
-    if(el) { el.classList.remove('anim-shake'); void el.offsetWidth; el.classList.add('anim-shake'); }
-}
-
+/* ==================== 7. Modals (Char, Shop, Church) ==================== */
 function renderCharScreen() {
     let stHtml = '';
     for(let k in STATS) {
@@ -1281,10 +1483,10 @@ function renderCharScreen() {
         
         if (k === 'eva' || k === 'crit') {
             let capped = Math.min(75, val);
-            valStr = `${capped}% <small style="color:#888;">(上限75%)</small>`;
+            valStr = `${capped}% <small style="color:var(--text-dim);">(上限75%)</small>`;
         }
         
-        stHtml += `<div class="stat-row"><span>${STATS[k]}</span><span style="color:${val> (p.base[k]||0) ?'var(--accent)':'white'}">${valStr}</span></div>`;
+        stHtml += `<div class="stat-row"><span>${STATS[k]}</span><span style="color:${val> (p.base[k]||0) ?'var(--heal)':'white'}">${valStr}</span></div>`;
     }
     
     let skStr = [];
@@ -1292,7 +1494,7 @@ function renderCharScreen() {
         let name = SKILLS[sk] ? SKILLS[sk].name : '未知';
         skStr.push(`${name}x${p.skills[sk]}`);
     }
-    if(skStr.length > 0) stHtml += `<div style="grid-column: span 2; font-size:0.9em; color:var(--q-legend); margin-top:5px;">技能(耗魔): ${skStr.join(', ')}</div>`;
+    if(skStr.length > 0) stHtml += `<div style="grid-column: span 2; font-size:0.9em; color:var(--q-legend); margin-top:5px; text-shadow:0 0 5px rgba(255,179,0,0.3);">覺醒技能(耗魔): ${skStr.join(', ')}</div>`;
     document.getElementById('char-stats').innerHTML = stHtml;
 
     let eqHtml = '';
@@ -1300,15 +1502,15 @@ function renderCharScreen() {
         let item = p.eq[s];
         if (item) {
             let stText = Object.entries(item.stats).map(([k,v]) => `${STATS[k]}+${v}`).join(' ');
-            if (item.skill) stText += ` [${SKILLS[item.skill] ? SKILLS[item.skill].name : '未知'}]`;
+            if (item.skill) stText += ` <span style="color:var(--q-epic)">[${SKILLS[item.skill] ? SKILLS[item.skill].name : '未知'}]</span>`;
             eqHtml += `<div class="item-card" onclick="unequip('${s}')">
                 <div class="item-info">
                     <div class="item-name" style="color:${item.grade.color}">${s}: ${item.name}</div>
                     <div class="item-stats">${stText}</div>
-                </div><div class="btn" style="padding: 5px;">卸下</div>
+                </div><div class="btn" style="padding: 5px;" title="解除綁定">解除</div>
             </div>`;
         } else {
-            eqHtml += `<div class="item-card" style="opacity: 0.5;">${s}: 未裝備</div>`;
+            eqHtml += `<div class="item-card" style="opacity: 0.5;">${s}: 虛無</div>`;
         }
     });
     document.getElementById('char-eq').innerHTML = eqHtml;
@@ -1316,16 +1518,18 @@ function renderCharScreen() {
     let invHtml = '';
     p.inv.forEach((item, idx) => {
         let stText = Object.entries(item.stats).map(([k,v]) => `${STATS[k]}+${v}`).join(' ');
-        if (item.skill) stText += ` [${SKILLS[item.skill] ? SKILLS[item.skill].name : '未知'}]`;
+        if (item.skill) stText += ` <span style="color:var(--q-epic)">[${SKILLS[item.skill] ? SKILLS[item.skill].name : '未知'}]</span>`;
+        let sellPrice = Math.max(1, Math.floor(item.val * 0.3));
+        
         invHtml += `<div class="item-card">
-            <div class="item-info" onclick="equip(${idx})" style="cursor:pointer;">
+            <div class="item-info" onclick="equip(${idx})" style="cursor:pointer;" title="靈魂綁定(裝備)">
                 <div class="item-name" style="color:${item.grade.color}">${item.name} (${item.slot})</div>
                 <div class="item-stats">${stText}</div>
             </div>
-            <div class="btn danger" style="padding: 5px;" onclick="sellItem(${idx}, ${item.val})">分解(+${item.val}G)</div>
+            <div class="btn danger" style="padding: 5px;" onclick="sellItem(${idx}, ${sellPrice})">分解(+${sellPrice}G)</div>
         </div>`;
     });
-    if (p.inv.length === 0) invHtml = "<div style='text-align:center;color:#666;'>背包是空的</div>";
+    if (p.inv.length === 0) invHtml = "<div style='text-align:center;color:var(--text-dim); margin:20px 0;'>空間背包空無一物</div>";
     document.getElementById('char-inv').innerHTML = invHtml;
 }
 
@@ -1360,26 +1564,26 @@ function renderShop() {
     let html = `
         <div class="item-card" style="border-color: var(--danger)">
             <div class="item-info">
-                <div class="item-name" style="color:var(--danger)">紅色藥水 (HP < 30% 自動飲用)</div>
-                <div class="item-stats">恢復 40% 總生命值，目前持有: ${p.pots.hp}</div>
+                <div class="item-name" style="color:var(--danger); text-shadow:0 0 5px rgba(244,67,54,0.5);">生命精粹 (HP < 30% 自飲)</div>
+                <div class="item-stats">恢復 40% 生命值，目前持有: ${p.pots.hp}</div>
             </div>
             <div class="btn ${p.gold >= 15 ? 'primary' : ''}" style="padding: 5px; min-width: 50px;" onclick="buyPotion('hp', 15)">15G</div>
         </div>
         <div class="item-card" style="border-color: var(--q-rare); margin-bottom: 10px;">
             <div class="item-info">
-                <div class="item-name" style="color:var(--q-rare)">藍色藥水 (MP < 30% 自動飲用)</div>
-                <div class="item-stats">恢復 40% 總魔力值，目前持有: ${p.pots.mp}</div>
+                <div class="item-name" style="color:var(--q-rare); text-shadow:0 0 5px rgba(0,188,212,0.5);">奧術之水 (MP < 30% 自飲)</div>
+                <div class="item-stats">恢復 40% 魔力值，目前持有: ${p.pots.mp}</div>
             </div>
             <div class="btn ${p.gold >= 15 ? 'primary' : ''}" style="padding: 5px; min-width: 50px;" onclick="buyPotion('mp', 15)">15G</div>
         </div>
-        <hr style="border-color:#444; margin: 10px 0;">
-        <div style="font-size:0.9em; color:var(--q-legend); margin-bottom:5px;">隨機裝備 (深淵探索歸來刷新):</div>
+        <hr style="border-color:var(--panel-border); margin: 10px 0;">
+        <div style="font-size:0.9em; color:var(--q-legend); margin-bottom:5px;">黑市遺物 (深淵歸來後刷新):</div>
     `;
 
     shopItems.forEach((item, idx) => {
         let cost = item.val * 3; 
         let stText = Object.entries(item.stats).map(([k,v]) => `${STATS[k]}+${v}`).join(' ');
-        if (item.skill) stText += ` [${SKILLS[item.skill] ? SKILLS[item.skill].name : '未知'}]`;
+        if (item.skill) stText += ` <span style="color:var(--q-epic)">[${SKILLS[item.skill] ? SKILLS[item.skill].name : '未知'}]</span>`;
         
         html += `<div class="item-card">
             <div class="item-info">
@@ -1393,19 +1597,19 @@ function renderShop() {
 }
 
 function buyPotion(type, cost) {
-    if (p.gold >= cost) { p.gold -= cost; p.pots[type]++; log(`購買了${type==='hp'?'紅':'藍'}色藥水。`, 'sys'); updateHUD(); renderShop(); autoSave(); }
-    else { customAlert("金幣不足", "錯誤"); }
+    if (p.gold >= cost) { p.gold -= cost; p.pots[type]++; log(`交易完成，獲得${type==='hp'?'生命精粹':'奧術之水'}。`, 'sys'); updateHUD(); renderShop(); autoSave(); }
+    else { customAlert("金幣不足", "黑市拒絕了你"); }
 }
 
 function buyItem(idx, cost) {
-    if (p.gold >= cost) { p.gold -= cost; p.inv.push(shopItems[idx]); shopItems.splice(idx, 1); log("購買裝備成功。", "sys"); updateHUD(); renderShop(); autoSave(); }
-    else { customAlert("金幣不足。", "錯誤"); }
+    if (p.gold >= cost) { p.gold -= cost; p.inv.push(shopItems[idx]); shopItems.splice(idx, 1); log("遺物交易成功。", "sys"); updateHUD(); renderShop(); autoSave(); }
+    else { customAlert("金幣不足。", "黑市拒絕了你"); }
 }
 
 function openChurch() {
     if (!corpse) {
-        log("神父：迷途的羔羊啊，你並沒有遺失的軀殼。", "sys");
-        customAlert("沒有遺失的屍體。");
+        log("聖堂祭司：迷途的靈魂啊，你在深淵中並無牽掛。", "sys");
+        customAlert("沒有遺留在深淵的軀殼。");
         return;
     }
     
@@ -1413,12 +1617,12 @@ function openChurch() {
     
     if (p.gold < cost) {
         let lack = cost - p.gold;
-        log(`神父：香油錢不足。贖回屍體需要 ${cost} 金幣，你還差 ${lack} 金幣。`, "dmg");
-        customAlert(`金幣不足！\n你需要 ${cost}G 來贖回屍體\n(請先光著身子去深淵打史萊姆賺錢)`, "警告");
+        log(`聖堂祭司：靈魂的引導需要代價。贖回軀殼需要 ${cost} 金幣，你還差 ${lack} 金幣。`, "dmg");
+        customAlert(`金幣不足！\n儀式需要 ${cost}G 來喚回遺失的靈魂與物品\n(請先前往較淺的深淵收集金幣)`, "儀式失敗");
         return;
     }
 
-    customConfirm(`找回遺失的裝備、物品和金幣需要香油錢 ${cost}G。\n(你目前有 ${p.gold}G)\n\n你要支付嗎？`, () => {
+    customConfirm(`喚回遺留在深淵 B${corpse.floor} 的軀殼與物資需要獻上 ${cost}G。\n(你目前擁有 ${p.gold}G)\n\n要開始靈魂引導儀式嗎？`, () => {
         p.gold -= cost;
         for (let s in corpse.eq) if (corpse.eq[s]) { if (p.eq[s]) p.inv.push(p.eq[s]); p.eq[s] = corpse.eq[s]; }
         p.gold += corpse.gold;
@@ -1429,49 +1633,28 @@ function openChurch() {
         updateStats();
         updateTownUI();
         autoSave();
-        log("神父為你找回了一切遺物。", "heal");
-        customAlert("已成功找回所有遺失物！", "贖回成功");
-    }, "贖回確認");
+        log("聖堂祭司完成了儀式，你找回了遺失的一切。", "heal");
+        flashOverlay('rgba(255,215,0,0.4)');
+        customAlert("儀式成功！已成功找回所有遺失物！", "贖回成功");
+    }, "儀式確認");
 }
 
-document.addEventListener('keydown', (e) => {
-    // 防止在輸入框打字時誤觸快捷鍵
-    if (e.target.tagName.toLowerCase() === 'input') return;
+/* ==================== 8. Keyboard Controls ==================== */
+window.addEventListener('keydown', (e) => {
+    if(document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
 
-    let activeDialog = document.getElementById('view-dialog');
-    if (activeDialog.classList.contains('active')) {
-        if (e.key === 'Enter' && window.currentDialogYes) { e.preventDefault(); window.currentDialogYes(); }
-        if (e.key === 'Escape') { e.preventDefault(); closeDialog(); }
-        return;
-    }
-
-    let isOverlayActive = Array.from(document.querySelectorAll('.overlay:not(#view-dialog)')).some(el => el.classList.contains('active'));
-    if (isOverlayActive) {
-        if (e.key === 'Escape') { e.preventDefault(); closeAllOverlays(); }
-        return;
-    }
-
-    let key = e.key.toLowerCase();
-    
-    // 系統與背包快捷鍵
-    if (key === 'escape') { e.preventDefault(); openSys(); return; }
-    if (key === 'c' || key === 'i') { e.preventDefault(); openChar(); return; }
-
-    // 移動與戰鬥控制 (WASD 或 箭頭)
-    if (!inTown && p.hp > 0 && !document.getElementById('view-exit').classList.contains('active')) {
-        switch(key) {
-            case 'arrowup': case 'w': e.preventDefault(); move(0, -1); break;
-            case 'arrowdown': case 's': e.preventDefault(); move(0, 1); break;
-            case 'arrowleft': case 'a': e.preventDefault(); move(-1, 0); break;
-            case 'arrowright': case 'd': e.preventDefault(); move(1, 0); break;
-            case ' ': case 'clear': e.preventDefault(); move(0, 0); break; // 空白鍵休息
-        }
+    switch(e.key.toLowerCase()) {
+        case 'w': case 'arrowup': move(0, -1); break;
+        case 'a': case 'arrowleft': move(-1, 0); break;
+        case 's': case 'arrowdown': move(0, 1); break;
+        case 'd': case 'arrowright': move(1, 0); break;
+        case ' ': move(0, 0); e.preventDefault(); break; 
+        case 'c': case 'i': openChar(); break;
+        case 'escape': openSys(); break;
     }
 });
 
-// 啟動與載入存檔
 loadSave();
-
 </script>
 </body>
 </html>
