@@ -334,7 +334,6 @@
 /* ===============================
    1. 資料與常數定義區 (DATA)
    =============================== */
-/* */
 const ELEMENTS = { none: '無', fire: '火', water: '水', wood: '木', lightning: '雷', light: '光', dark: '闇' };
 
 function getElementMultiplier(atkEle, defEle) {
@@ -409,7 +408,7 @@ const MODIFIERS = {
     'steal_gold': { id: 'steal_gold', name: '偷竊', type: 'offensive', desc: '命中時有 40% 機率偷取額外金幣' },
     'bless_infuse': { id: 'bless_infuse', name: '祝福', type: 'friendly', desc: '附加祝福（強化攻擊與防禦）3回合' },
     'curse_infuse': { id: 'curse_infuse', name: '詛咒', type: 'offensive', desc: '附加詛咒（弱化攻擊與防禦）3回合' },
-    'confuse_infuse': { id: 'confuse_infuse', name: '附加混難', type: 'offensive', desc: '25% 機率使敵人陷入混亂狀態 2 回合' },
+    'confuse_infuse': { id: 'confuse_infuse', name: '附加混亂', type: 'offensive', desc: '25% 機率使敵人陷入混亂狀態 2 回合' },
     'sleep_infuse': { id: 'sleep_infuse', name: '附加睡眠', type: 'offensive', desc: '25% 機率使敵人陷入睡眠狀態 2 回合' },
     'silence_infuse': { id: 'silence_infuse', name: '附加禁咒', type: 'offensive', desc: '25% 機率使敵人陷入禁咒狀態 2 回合' },
     'lucky': { id: 'lucky', name: '幸運', type: 'any', desc: '技能原有的機率性效果判定成功機率提升 1.5 倍' }
@@ -641,7 +640,7 @@ const Meta = {
         customNames: ['', '', ''], questLevel: 1, questsCompleted: 0, maxFloor: 1, bossKills: {}
     },
     load() {
-        let keysToTry = ['sc_meta_v28', 'sc_meta_v27', 'sc_meta_v26', 'sc_meta_v25', 'sc_meta_v24', 'sc_meta_v23', 'sc_meta_v22', 'sc_meta_v21', 'sc_meta_v20', 'sc_meta_v19'];
+        let keysToTry = ['sc_meta_v29', 'sc_meta_v28', 'sc_meta_v27', 'sc_meta_v26', 'sc_meta_v25', 'sc_meta_v24', 'sc_meta_v23'];
         let saved = null;
         for (let key of keysToTry) {
             saved = localStorage.getItem(key);
@@ -657,7 +656,7 @@ const Meta = {
         }
         this.updateUI();
     },
-    save() { localStorage.setItem('sc_meta_v28', JSON.stringify(this.data)); this.updateUI(); },
+    save() { localStorage.setItem('sc_meta_v29', JSON.stringify(this.data)); this.updateUI(); },
     addGold(amount) { this.data.gold += amount; this.save(); },
     getStatCost(stat) { return 20 + (this.data.pUpgrades[stat] * 15); },
     upgradeStat(stat) {
@@ -783,7 +782,8 @@ class Entity {
         }
 
         if (type === 'weakened') duration = 999; 
-        if (type === 'vine_wrapped') duration = 1; 
+        if (type === 'vine_wrapped') duration = 2; // 修復：將藤蔓纏繞的回合數提昇至2回合，以便能配合打擊
+        
         const existing = this.buffs.find(b => b.type === type);
         if (existing) existing.duration = Math.max(existing.duration, duration); else this.buffs.push({ type, duration, value });
     }
@@ -1999,6 +1999,19 @@ const Battle = {
                             this.log(`> ${critLog}對 ${target.displayName} 造成 <span class="c-dmg">${finalDmg}</span> 點傷害。`);
                         }
 
+                        // === 新增藤蔓術特效判斷 ===
+                        if (skill.special === 'vine' && !died) {
+                            if (Math.random() < 0.5) {
+                                target.addBuff('poison', 3, 0, actor);
+                                this.log(`> ☠️ 附毒：${target.displayName} 中毒了！`);
+                            } else {
+                                target.addBuff('paralyze', 2, 0, actor);
+                                this.log(`> ⚡ 麻痺：${target.displayName} 被麻痺了！`);
+                            }
+                            target.addBuff('vine_wrapped', 2, 0, actor);
+                            this.log(`> 🌱 藤蔓纏繞：${target.displayName} 被粗壯的藤蔓徹底束縛了！`);
+                        }
+
                         if (originalSkillId === 'drain_strike' && !died) { let drainAmt = Math.floor(finalDmg * 0.4); if (drainAmt > 0) { actor.heal(drainAmt); this.floatText(actor.id, `+${drainAmt}`, 'var(--success)'); } }
                         if (mods.includes('life_steal')) { let healAmt = Math.floor(finalDmg * 0.3); if(healAmt > 0) { actor.heal(healAmt); this.floatText(actor.id, `+${healAmt}`, 'var(--success)'); } }
                         if (originalSkillId === 'soul_drain' && !died) { let mpDrain = Math.floor(finalDmg * 0.1) + 5; target.mp = Math.max(0, target.mp - mpDrain); actor.mp = Math.min(actor.maxMp, actor.mp + mpDrain); this.log(`> 👻 吸魂：${actor.displayName} 奪取了 ${mpDrain} 點魔力。`); this.floatText(actor.id, `+${mpDrain}MP`, 'var(--mp-fill)'); }
@@ -2045,7 +2058,9 @@ const Battle = {
                         
                     } else if (skill.type === 'heal' || skill.type === 'buff') {
                         let success = true;
-                        if (skill.applyBuff && skill.chance !== undefined) {
+
+                        // 修復：支援 buff 類型技能的負面效果 (applyDebuff) 判定，原本只有 applyBuff，導致負面輔助技能永遠不會生效
+                        if ((skill.applyBuff || skill.applyDebuff) && skill.chance !== undefined) {
                             let baseChance = skill.chance;
                             if (mods.includes('lucky')) baseChance = Math.min(1.0, baseChance * 1.5);
                             success = Math.random() < baseChance;
@@ -2058,8 +2073,22 @@ const Battle = {
                                 this.log(`> ${target.displayName} 恢復了 <span class="c-heal">${healAmt}</span> HP。`);
                                 let healGrowth = target.tryGrow('hp', 0.15); if (healGrowth) this.log(healGrowth);
                             }
-                            if (skill.applyBuff === 'shield_up') { let shieldVal = Math.floor(actor.maxHp * 0.35); target.shield += shieldVal; target.addBuff('def_up', 3, 0, actor); this.log(`> ${target.displayName} 獲得防禦與護盾！`); } 
-                            else if (skill.applyBuff) { target.addBuff(skill.applyBuff, 3, 0, actor); }
+                            
+                            if (skill.applyBuff === 'shield_up') { 
+                                let shieldVal = Math.floor(actor.maxHp * 0.35); 
+                                target.shield += shieldVal; 
+                                target.addBuff('def_up', 3, 0, actor); 
+                                this.log(`> ${target.displayName} 獲得防禦與護盾！`); 
+                            } 
+                            else if (skill.applyBuff) { 
+                                target.addBuff(skill.applyBuff, 3, 0, actor); 
+                                this.log(`> ✨ 附加狀態成功：${target.displayName} 獲得了 <b>【${BUFF_EFFECTS[skill.applyBuff]?.name || skill.applyBuff}】</b>！`);
+                            }
+                            else if (skill.applyDebuff) {
+                                // 修正點：支援負面狀態如混亂、睡眠、石化、禁咒術的附加
+                                target.addBuff(skill.applyDebuff, 3, 0, actor);
+                                this.log(`> ✨ 附加狀態成功：${target.displayName} 陷入了 <b>【${BUFF_EFFECTS[skill.applyDebuff]?.name || skill.applyDebuff}】</b>！`);
+                            }
 
                             if (originalSkillId === 'purify' || skill.id === 'purify') {
                                 let isTargetEnemy = (target.isEnemy !== actor.isEnemy);
@@ -2184,3 +2213,4 @@ Game.init();
 </script>
 </body>
 </html>
+
