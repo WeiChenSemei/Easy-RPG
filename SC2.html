@@ -91,7 +91,7 @@ h2 { font-size: 20px; margin: 4px 0; color: var(--primary); font-weight: 700; }
 
 .card {
     background: linear-gradient(180deg, var(--panel-bg-raised), var(--panel-bg));
-    border: 1px solid var(--border-color); border-radius: var(--radius); padding: 15px; width: 100%; max-width: 340px;
+    border: 1px solid var(--border-color); border-radius: var(--radius); padding: 15px; width: 100%; max-width: 340px; margin: 0 auto;
     text-align: left; box-shadow: 0 6px 14px rgba(0,0,0,0.35);
 }
 .card-title { font-size: var(--font-lg); font-weight: bold; margin-bottom: 5px; color: var(--warning); }
@@ -107,7 +107,7 @@ h2 { font-size: 20px; margin: 4px 0; color: var(--primary); font-weight: 700; }
 
 .btn-main {
     background: linear-gradient(180deg, #5b9ee8, var(--primary)); color: white; border: none; padding: 13px; border-radius: 8px;
-    font-size: var(--font-lg); font-weight: bold; cursor: pointer; width: 100%; max-width: 340px;
+    font-size: var(--font-lg); font-weight: bold; cursor: pointer; width: 100%; max-width: 340px; margin: 0 auto;
     transition: transform 0.08s ease, filter 0.15s ease; flex-shrink: 0; box-shadow: 0 3px 0 rgba(0,0,0,0.25);
 }
 .btn-main:active { transform: translateY(2px) scale(0.99); filter: brightness(0.92); box-shadow: 0 1px 0 rgba(0,0,0,0.25); }
@@ -202,6 +202,8 @@ h2 { font-size: 20px; margin: 4px 0; color: var(--primary); font-weight: 700; }
 .s-icon { width: 14px; height: 14px; border-radius: 3px; display: inline-block; font-size: 10px; line-height: 14px; font-weight: bold; text-align: center; color: #fff; }
 .s-atk { background: var(--danger); } .s-def { background: var(--primary); } .s-poi { background: #9b59b6; } .s-reg { background: var(--success); } .s-shd { background: #e0a13a; } .s-shk { background: var(--warning-2); color:#000; } .s-frz { background: #3498db; } .s-bld { background: #c0392b; } .s-brk { background: #8e44ad; }
 .s-vin { background: #16a085; } .s-sth { background: #454b5e; color: #fff; } .s-bli { background: #5d6b73; }
+.s-slp { background: #5c6bc0; } .s-cfs { background: #d63384; } .s-pet { background: #8d8c7a; } .s-sil { background: #4a5859; }
+.s-ctr { background: #d4622a; } .s-chg { background: #00acc1; } .s-brz { background: #b71c1c; } .s-rfl { background: #26a69a; }
 
 .log-area { background: #07080b; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); height: 140px; overflow-y: auto; padding: 8px; font-size: var(--font-md); display: flex; flex-direction: column; gap: 4px; cursor: pointer; flex-shrink: 0; }
 .log-area:active { background: #0d0f14; }
@@ -448,6 +450,14 @@ h2 { font-size: 20px; margin: 4px 0; color: var(--primary); font-weight: 700; }
         </div>
     </div>
 
+    <!-- Modal: Entity Details -->
+    <div id="modal-entity-details" class="modal" onclick="if(event.target===this) Battle.closeEntityDetails()">
+        <div class="modal-content">
+            <div class="modal-header"><span id="entity-details-title">詳細資訊</span> <button class="icon-btn" onclick="Battle.closeEntityDetails()">✕</button></div>
+            <div class="modal-body" id="entity-details-body"></div>
+        </div>
+    </div>
+
     <!-- Custom Dialog Modal -->
     <div id="custom-dialog" class="modal">
         <div class="modal-content" style="max-width: 320px; text-align: center; border-color: var(--primary);">
@@ -513,6 +523,41 @@ function getElementMultiplier(atkEle, defEle) {
     return ELEMENT_MULT.NEUTRAL;
 }
 
+/**
+ * 狀態效果統一資料表：每一種 buff/debuff 只要在這裡登記一次，
+ * 戰鬥畫面的小圖示、詳細資訊視窗的完整說明，都會自動套用，
+ * 不需要在渲染程式碼裡另外寫 if/else 判斷。
+ */
+const BUFF_META = {
+    atk_up:       { icon: '攻', cls: 's-atk', label: '攻擊提升', isDebuff: false },
+    atk_down:     { icon: '弱', cls: 's-atk', label: '攻擊下降', isDebuff: true },
+    def_up:       { icon: '防', cls: 's-def', label: '防禦提升', isDebuff: false },
+    def_down:     { icon: '脆', cls: 's-def', label: '防禦下降', isDebuff: true },
+    poison:       { icon: '毒', cls: 's-poi', label: '中毒（每回合損血）', isDebuff: true },
+    regen:        { icon: '癒', cls: 's-reg', label: '再生（每回合回血）', isDebuff: false },
+    stun:         { icon: '暈', cls: 's-shk', label: '暈眩（無法行動）', isDebuff: true },
+    paralyze:     { icon: '麻', cls: 's-shk', label: '麻痺（無法行動）', isDebuff: true },
+    freeze:       { icon: '凍', cls: 's-frz', label: '冰凍（防禦大幅降低）', isDebuff: true },
+    bleed:        { icon: '血', cls: 's-bld', label: '流血（每回合損血）', isDebuff: true },
+    weakened:     { icon: '崩', cls: 's-brk', label: '弱點崩潰（攻防大幅降低）', isDebuff: true },
+    vine_wrapped: { icon: '藤', cls: 's-vin', label: '藤蔓纏繞（易被火焰引燃）', isDebuff: true },
+    stealth:      { icon: '隱', cls: 's-sth', label: '隱形（行動或被擊中後解除）', isDebuff: false },
+    blind:        { icon: '盲', cls: 's-bli', label: '盲目（命中率減半）', isDebuff: true },
+    sleep:        { icon: '眠', cls: 's-slp', label: '睡眠（無法行動，受到傷害雙倍且會醒來）', isDebuff: true },
+    confuse:      { icon: '亂', cls: 's-cfs', label: '混亂（行動不受控制）', isDebuff: true },
+    petrified:    { icon: '石', cls: 's-pet', label: '石化（無法行動，受到傷害大幅降低，無法被上其他異常）', isDebuff: true },
+    silenced:     { icon: '禁', cls: 's-sil', label: '禁咒（無法使用含魔法標籤的技能）', isDebuff: true },
+    counter:      { icon: '擊', cls: 's-ctr', label: '反擊架式（受擊時隨機反擊）', isDebuff: false },
+    charging:     { icon: '蓄', cls: 's-chg', label: '蓄力（下次攻擊傷害2.5倍）', isDebuff: false },
+    berserk:      { icon: '暴', cls: 's-brz', label: '狂暴（攻擊1.5倍/防禦0.5倍，且不受控制）', isDebuff: true },
+    reflect:      { icon: '反', cls: 's-rfl', label: '反射結界（傷害與異常狀態反彈給對手）', isDebuff: false }
+};
+
+// 負面狀態清單（供「淨化」、「石化免疫其他異常」等機制共用，避免各處清單各自維護、容易漏改）。
+const DEBUFF_TYPES = Object.keys(BUFF_META).filter(k => BUFF_META[k].isDebuff);
+// 可以被「驅散」的敵方增益狀態（用於淨化術/水之神奇蹟對敵人使用時）。
+const DISPELLABLE_BUFF_TYPES = ['atk_up', 'def_up', 'regen', 'counter', 'charging', 'reflect'];
+
 const PERSONALITIES = {
     'Brave': { name: '勇敢', desc: '喜歡攻擊血多的敵人，無視自身安危' },
     'Conservative': { name: '保守', desc: '血量低於一半必防禦或治療，優先補尾刀' },
@@ -543,7 +588,11 @@ const MODIFIERS = {
     'bless_infuse': { id: 'bless_infuse', name: '祝福', type: 'friendly', desc: '附加祝福（強化攻擊與防禦）3回合' },
     'curse_infuse': { id: 'curse_infuse', name: '詛咒', type: 'offensive', desc: '附加詛咒（弱化攻擊與防禦）3回合' },
     'blind_chance': { id: 'blind_chance', name: '附加盲目', type: 'offensive', desc: '30% 機率使目標陷入盲目狀態，命中率減半，持續3回合' },
-    'mp_drain': { id: 'mp_drain', name: '吸魔', type: 'offensive', desc: '命中時吸收目標最大魔力 10% 轉化為自身 MP' }
+    'mp_drain': { id: 'mp_drain', name: '吸魔', type: 'offensive', desc: '命中時吸收目標最大魔力 10% 轉化為自身 MP' },
+    'confuse_chance': { id: 'confuse_chance', name: '附加混亂', type: 'offensive', desc: '25% 機率使敵人陷入混亂，持續2回合' },
+    'sleep_chance': { id: 'sleep_chance', name: '附加睡眠', type: 'offensive', desc: '25% 機率使敵人陷入睡眠，持續2回合' },
+    'silence_chance': { id: 'silence_chance', name: '附加禁咒', type: 'offensive', desc: '25% 機率使敵人陷入禁咒，持續2回合' },
+    'lucky': { id: 'lucky', name: '幸運', type: 'any', desc: '使該技能本身內建的機率判定提高1.5倍（例如50%變75%），但不影響安裝在同一技能上的其他被動符文機率' }
 };
 
 const SKILLS = {
@@ -565,7 +614,7 @@ const SKILLS = {
     'group_heal': { id: 'group_heal', name: '聖靈讚歌', type: 'heal', power: 1.0, mpCost: 25, target: 'all_allies', tags: ['heal', 'team'], req: ['heal'], element: 'none', desc: '恢復全體友軍 HP。' },
     'purify': { id: 'purify', name: '淨化術', type: 'buff', power: 0, mpCost: 10, target: 'any', tags: ['magic', 'heal', 'team'], req: ['magic'], element: 'none', desc: '消除單體友軍的異常狀態，或驅散單體敵人的增益狀態。', special: 'purify' },
     'meditate': { id: 'meditate', name: '冥想', type: 'buff', power: 0, mpCost: 0, target: 'self', tags: ['magic', 'mana'], req: ['magic'], element: 'none', desc: '放棄攻擊，大量回復自身的魔力。', special: 'meditate' },
-    'stealth': { id: 'stealth', name: '隱形術', type: 'buff', power: 0, mpCost: 10, target: 'self', tags: ['speed', 'stealth'], element: 'none', desc: '隱形2回合(降仇恨，被擊中解除)。隱身攻擊有50%機率發動1.5倍奇襲。', applyBuff: 'stealth', buffDuration: 2 },
+    'stealth': { id: 'stealth', name: '隱形術', type: 'buff', power: 0, mpCost: 10, target: 'ally', tags: ['speed', 'stealth', 'magic'], element: 'none', desc: '使目標（可以是自己或隊友）隱形，直到其攻擊、使用技能或被擊中為止。隱身攻擊有50%機率發動1.5倍奇襲。', applyBuff: 'stealth', buffDuration: 2 },
     'gamble_atk': { id: 'gamble_atk', name: '賭博(攻)', type: 'attack', power: 1.0, mpCost: 8, target: 'enemy', tags: ['magic', 'luck'], req: [], element: 'none', desc: '隨機對敵人使用攻擊技能。技能與被動將繼承賭博本身的強化。', special: 'gamble_atk' },
     'gamble_def': { id: 'gamble_def', name: '賭博(守)', type: 'heal', power: 1.0, mpCost: 8, target: 'ally', tags: ['magic', 'luck'], req: [], element: 'none', desc: '隨機對隊友使用治療或輔助技能。技能與被動將繼承賭博本身的強化。', special: 'gamble_def' },
     'poison_dagger': { id: 'poison_dagger', name: '毒刃', type: 'attack', power: 0.8, mpCost: 6, target: 'enemy', tags: ['melee', 'poison'], element: 'wood', desc: '造成 80% 傷害並附加 3 回合中毒。', applyDebuff: 'poison' },
@@ -574,6 +623,14 @@ const SKILLS = {
     'soul_drain': { id: 'soul_drain', name: '吸魂術', type: 'attack', power: 1.1, mpCost: 10, target: 'enemy', tags: ['magic', 'dark'], element: 'dark', desc: '造成 110% 闇屬性傷害，並吸取目標少量魔力轉化為自身 MP。', special: 'soul_drain' },
     'adrenaline': { id: 'adrenaline', name: '激發潛能', type: 'buff', power: 0, mpCost: 12, target: 'self', tags: ['speed', 'buff'], req: ['melee'], element: 'none', desc: '提升自身攻擊力 3 回合。', applyBuff: 'atk_up', buffDuration: 3 },
     'drain_strike': { id: 'drain_strike', name: '吸血暗蝕', type: 'attack', power: 1.1, mpCost: 12, target: 'enemy', tags: ['melee'], req: ['melee'], element: 'none', desc: '造成傷害，吸收 40% 轉為生命並獲得自身再生。', applyBuff: 'regen', buffDuration: 3 },
+    'counter_stance': { id: 'counter_stance', name: '反擊架式', type: 'buff', power: 0, mpCost: 10, target: 'self', tags: ['melee', 'buff'], element: 'none', desc: '進入反擊架式2回合，受到攻擊時會隨機使用自身技能或普通攻擊反擊對手。', applyBuff: 'counter', buffDuration: 2 },
+    'charge': { id: 'charge', name: '蓄力', type: 'buff', power: 0, mpCost: 8, target: 'self', tags: ['buff'], element: 'none', desc: '蓄勢待發，下一次攻擊造成的傷害提升至 2.5 倍。', applyBuff: 'charging', buffDuration: 1, special: 'charge' },
+    'berserker_rage': { id: 'berserker_rage', name: '狂暴', type: 'buff', power: 0, mpCost: 12, target: 'self', tags: ['buff'], element: 'none', desc: '陷入狂暴：攻擊力提升至1.5倍、防禦力降低至0.5倍，且接下來3回合將無法自主行動，只會對敵人發動普通攻擊。', applyBuff: 'berserk', buffDuration: 3 },
+    'sleep_spell': { id: 'sleep_spell', name: '睡眠術', type: 'attack', power: 0, mpCost: 12, target: 'enemy', tags: ['magic'], element: 'none', desc: '50% 機率使敵人陷入睡眠3回合。睡眠期間無法行動、受到的傷害會加倍，且被攻擊會立刻醒來。', special: 'sleep_spell' },
+    'confusion_spell': { id: 'confusion_spell', name: '混亂術', type: 'attack', power: 0, mpCost: 12, target: 'enemy', tags: ['magic'], element: 'none', desc: '50% 機率使敵人陷入混亂3回合。混亂期間敵我不分，行動完全隨機。', special: 'confusion_spell' },
+    'petrify_spell': { id: 'petrify_spell', name: '石化術', type: 'attack', power: 0, mpCost: 14, target: 'any', tags: ['magic'], element: 'none', desc: '50% 機率使目標（友軍或敵人皆可）石化3回合。石化期間無法行動，但受到的傷害會大幅降低，且無法被施加其他異常狀態。', special: 'petrify_spell' },
+    'silence_spell': { id: 'silence_spell', name: '禁咒術', type: 'attack', power: 0, mpCost: 12, target: 'enemy', tags: ['magic'], element: 'none', desc: '50% 機率使敵人陷入禁咒3回合。禁咒期間無法使用含有魔法標籤的技能，但仍可使用近戰技能與普通攻擊。', special: 'silence_spell' },
+    'reflect_ward': { id: 'reflect_ward', name: '反射結界', type: 'buff', power: 0, mpCost: 14, target: 'ally', tags: ['magic', 'shield'], element: 'none', desc: '為目標（可以是自己或隊友）張開反射結界2回合，受到的傷害有80%會反彈給攻擊者，異常狀態與增益效果也會被彈回施放者身上。', applyBuff: 'reflect', buffDuration: 2 },
     'summon_minion': { id: 'summon_minion', name: '魔王召喚', type: 'buff', power: 0, mpCost: 10, target: 'self', tags: ['magic', 'boss'], element: 'none', desc: '召喚該地下城的怪物前來支援。<span style="color:var(--warning-2);">(魔王專用)</span>', special: 'summon' }
 };
 
@@ -587,15 +644,15 @@ const DUNGEONS = [
     { id: 'ruins', name: '遺忘廢墟', monsters: [
         { name: '骷髏兵', hp: 45, mp: 10, atk: 8, def: 4, spd: 5, element: 'none', skills: ['attack', 'slash'], isLarge: false },
         { name: '腐肉殭屍', hp: 70, mp: 0, atk: 9, def: 5, spd: 3, element: 'wood', skills: ['attack', 'poison_dagger'], isLarge: false },
-        { name: '怨靈', hp: 40, mp: 30, atk: 12, def: 2, spd: 9, element: 'water', skills: ['attack', 'frost'], isLarge: false },
+        { name: '怨靈', hp: 40, mp: 30, atk: 12, def: 2, spd: 9, element: 'water', skills: ['attack', 'frost', 'stealth'], isLarge: false },
         { name: '骸骨巨人', hp: 130, mp: 10, atk: 16, def: 8, spd: 4, element: 'none', skills: ['attack', 'heavy_strike'], isLarge: true },
-        { name: '墮落修女', hp: 55, mp: 40, atk: 8, def: 3, spd: 6, element: 'none', skills: ['attack', 'heal'], isSupport: true },
+        { name: '墮落修女', hp: 55, mp: 40, atk: 8, def: 3, spd: 6, element: 'none', skills: ['attack', 'heal', 'meditate'], isSupport: true },
         { name: '👑 骸骨暴君', hp: 250, mp: 50, atk: 20, def: 12, spd: 6, element: 'none', skills: ['attack', 'heavy_strike', 'summon_minion'], isBoss: true, weak: { element: 'fire', skill: 'shield_bash' } }
     ]},
     { id: 'forest', name: '幽暗密林', monsters: [
-        { name: '狂暴野狼', hp: 55, mp: 10, atk: 11, def: 3, spd: 10, element: 'none', skills: ['attack', 'slash'], isLarge: false },
+        { name: '狂暴野狼', hp: 55, mp: 10, atk: 11, def: 3, spd: 10, element: 'none', skills: ['attack', 'slash', 'berserker_rage'], isLarge: false },
         { name: '毒蜘蛛', hp: 45, mp: 15, atk: 9, def: 4, spd: 8, element: 'wood', skills: ['attack', 'poison_dagger'], isLarge: false },
-        { name: '樹妖', hp: 85, mp: 20, atk: 7, def: 8, spd: 4, element: 'wood', skills: ['attack', 'defend'], isLarge: false },
+        { name: '樹妖', hp: 85, mp: 20, atk: 7, def: 8, spd: 4, element: 'wood', skills: ['attack', 'vine_spell'], isLarge: false },
         { name: '巨型食人花', hp: 140, mp: 20, atk: 14, def: 6, spd: 3, element: 'wood', skills: ['attack', 'venom_blast'], isLarge: true },
         { name: '叢林薩滿', hp: 60, mp: 45, atk: 9, def: 4, spd: 7, element: 'wood', skills: ['attack', 'heal', 'adrenaline'], isSupport: true },
         { name: '👑 猛毒樹蟲', hp: 280, mp: 40, atk: 18, def: 15, spd: 4, element: 'wood', skills: ['attack', 'venom_blast', 'summon_minion'], isBoss: true, weak: { element: 'fire', skill: 'slash' } }
@@ -603,7 +660,7 @@ const DUNGEONS = [
     { id: 'volcano', name: '灼熱火山', monsters: [
         { name: '熔岩史萊姆', hp: 50, mp: 20, atk: 8, def: 5, spd: 4, element: 'fire', skills: ['attack', 'fireball'], isLarge: false },
         { name: '火蜥蜴', hp: 75, mp: 15, atk: 12, def: 6, spd: 7, element: 'fire', skills: ['attack', 'slash'], isLarge: false },
-        { name: '火焰精靈', hp: 40, mp: 40, atk: 14, def: 2, spd: 11, element: 'fire', skills: ['attack', 'firestorm'], isLarge: false },
+        { name: '火焰精靈', hp: 40, mp: 40, atk: 14, def: 2, spd: 11, element: 'fire', skills: ['attack', 'firestorm', 'gamble_atk'], isLarge: false },
         { name: '熔岩巨獸', hp: 150, mp: 10, atk: 17, def: 10, spd: 3, element: 'fire', skills: ['attack', 'heavy_strike'], isLarge: true },
         { name: '灰焰祭司', hp: 65, mp: 50, atk: 10, def: 4, spd: 8, element: 'fire', skills: ['attack', 'heal', 'taunt'], isSupport: true },
         { name: '👑 炎魔領主', hp: 300, mp: 60, atk: 22, def: 10, spd: 5, element: 'fire', skills: ['attack', 'firestorm', 'summon_minion'], isBoss: true, weak: { element: 'water', skill: 'frost' } }
@@ -617,19 +674,19 @@ const DUNGEONS = [
         { name: '👑 冰晶翼龍', hp: 270, mp: 50, atk: 21, def: 14, spd: 10, element: 'water', skills: ['attack', 'frost', 'summon_minion'], isBoss: true, weak: { element: 'lightning', skill: 'heavy_strike' } }
     ]},
     { id: 'canyon', name: '狂風峽谷', monsters: [
-        { name: '風妖精', hp: 40, mp: 30, atk: 10, def: 3, spd: 13, element: 'none', skills: ['attack'], isLarge: false },
-        { name: '狂風狼', hp: 60, mp: 15, atk: 12, def: 4, spd: 11, element: 'none', skills: ['attack', 'slash'], isLarge: false },
+        { name: '風妖精', hp: 40, mp: 30, atk: 10, def: 3, spd: 13, element: 'none', skills: ['attack', 'confusion_spell'], isLarge: false },
+        { name: '狂風狼', hp: 60, mp: 15, atk: 12, def: 4, spd: 11, element: 'none', skills: ['attack', 'gale_slash'], isLarge: false },
         { name: '雷鳥', hp: 55, mp: 25, atk: 13, def: 3, spd: 10, element: 'lightning', skills: ['attack', 'lightning_strike'], isLarge: false },
-        { name: '巨型獅鷲', hp: 145, mp: 20, atk: 16, def: 7, spd: 8, element: 'none', skills: ['attack', 'heavy_strike'], isLarge: true },
+        { name: '巨型獅鷲', hp: 145, mp: 20, atk: 16, def: 7, spd: 8, element: 'none', skills: ['attack', 'heavy_strike', 'charge'], isLarge: true },
         { name: '風暴守護者', hp: 70, mp: 40, atk: 10, def: 6, spd: 8, element: 'none', skills: ['attack', 'heal', 'adrenaline'], isSupport: true },
         { name: '👑 狂風巨獸', hp: 320, mp: 40, atk: 24, def: 11, spd: 7, element: 'none', skills: ['attack', 'cleave', 'summon_minion'], isBoss: true, weak: { element: 'wood', skill: 'cleave' } }
     ]},
     { id: 'temple', name: '遠古神殿', monsters: [
-        { name: '石像鬼', hp: 80, mp: 10, atk: 13, def: 8, spd: 6, element: 'none', skills: ['attack', 'defend'], isLarge: false },
+        { name: '石像鬼', hp: 80, mp: 10, atk: 13, def: 8, spd: 6, element: 'none', skills: ['attack', 'petrify_spell'], isLarge: false },
         { name: '魔法守衛', hp: 65, mp: 40, atk: 14, def: 5, spd: 7, element: 'lightning', skills: ['attack', 'lightning_strike'], isLarge: false },
-        { name: '異教徒', hp: 55, mp: 30, atk: 12, def: 4, spd: 8, element: 'none', skills: ['attack', 'slash'], isLarge: false },
-        { name: '守護巨像', hp: 180, mp: 20, atk: 15, def: 14, spd: 3, element: 'none', skills: ['attack', 'shield_bash'], isLarge: true },
-        { name: '神殿祭司', hp: 75, mp: 80, atk: 9, def: 4, spd: 8, element: 'none', skills: ['attack', 'group_heal', 'purify'], isSupport: true },
+        { name: '異教徒', hp: 55, mp: 30, atk: 12, def: 4, spd: 8, element: 'none', skills: ['attack', 'slash', 'silence_spell'], isLarge: false },
+        { name: '守護巨像', hp: 180, mp: 20, atk: 15, def: 14, spd: 3, element: 'none', skills: ['attack', 'shield_bash', 'counter_stance'], isLarge: true },
+        { name: '神殿祭司', hp: 75, mp: 80, atk: 9, def: 4, spd: 8, element: 'none', skills: ['attack', 'group_heal', 'reflect_ward'], isSupport: true },
         { name: '👑 墮落大主教', hp: 350, mp: 100, atk: 18, def: 12, spd: 9, element: 'lightning', skills: ['attack', 'lightning_strike', 'summon_minion'], isBoss: true, weak: { element: 'wood', skill: 'poison_dagger' } }
     ]},
     { id: 'swamp', name: '深淵沼澤', monsters: [
@@ -642,10 +699,10 @@ const DUNGEONS = [
     ]},
     { id: 'throne', name: '絕望王座', monsters: [
         { name: '暗影騎士', hp: 110, mp: 20, atk: 16, def: 10, spd: 8, element: 'none', skills: ['attack', 'slash'], isLarge: false },
-        { name: '夢魘', hp: 85, mp: 40, atk: 18, def: 5, spd: 12, element: 'fire', skills: ['attack', 'firestorm'], isLarge: false },
-        { name: '地獄犬', hp: 70, mp: 20, atk: 15, def: 5, spd: 13, element: 'fire', skills: ['attack', 'fireball'], isLarge: false },
+        { name: '夢魘', hp: 85, mp: 40, atk: 18, def: 5, spd: 12, element: 'fire', skills: ['attack', 'firestorm', 'sleep_spell'], isLarge: false },
+        { name: '地獄犬', hp: 70, mp: 20, atk: 15, def: 5, spd: 13, element: 'fire', skills: ['attack', 'fireball', 'blood_blade'], isLarge: false },
         { name: '毀滅巨獸', hp: 200, mp: 30, atk: 22, def: 12, spd: 6, element: 'none', skills: ['attack', 'cleave'], isLarge: true },
-        { name: '厄運使者', hp: 90, mp: 80, atk: 12, def: 7, spd: 10, element: 'none', skills: ['attack', 'group_heal', 'meditate'], isSupport: true },
+        { name: '厄運使者', hp: 90, mp: 80, atk: 12, def: 7, spd: 10, element: 'none', skills: ['attack', 'group_heal', 'gamble_def'], isSupport: true },
         { name: '👑 絕望魔王', hp: 500, mp: 150, atk: 28, def: 16, spd: 11, element: 'none', skills: ['attack', 'heavy_strike', 'firestorm', 'summon_minion'], isBoss: true, weak: { element: 'water', skill: 'purify' } }
     ]},
     { id: 'nightrealm', name: '永夜墓域', monsters: [
@@ -686,12 +743,20 @@ const RUN_KEYS = SAVE_KEY_VERSIONS.map(v => 'sc_run_' + v);
    ============================================================ */
 
 /**
+ * 幸運符文（lucky）只會提高「技能本身內建」的機率判定，
+ * 不會影響安裝在同一技能上的其他被動符文（那些各自有自己的 chance，走 MODIFIER_HANDLERS，不受此影響）。
+ */
+function getLuckMultiplier(mods) { return (mods && mods.includes('lucky')) ? 1.5 : 1.0; }
+function rollLucky(baseChance, luckMult) { return Math.random() < Math.min(1, baseChance * (luckMult || 1)); }
+
+/**
  * 技能專屬特效。用 skill.id 當 key。
  * 可用的生命週期：
  *   getHitCount(ctx)      -> 這次施放要打幾下（預設 1 下）
  *   modifyDamage(ctx)     -> 在爆擊倍率套用之後、扣血之前，修改 ctx.damage
  *   onHit(ctx)            -> 命中後（已經扣血、已知道 ctx.died）觸發的額外效果
- * ctx 內容請見 runSkillEffect() 呼叫處的註解。
+ *   applyStatus(ctx)      -> 沒有傷害、純機率狀態法術專用；回傳 true/false 代表是否成功施加
+ * ctx 內容請見 runSkillEffect() 呼叫處的註解，一律會帶 ctx.luckMult。
  */
 const SKILL_EFFECTS = {
     gale_slash: {
@@ -706,7 +771,7 @@ const SKILL_EFFECTS = {
             if (ctx.died) return;
             ctx.target.addBuff('vine_wrapped', 1);
             ctx.log(`> 🌿 ${ctx.target.displayName} 被藤蔓纏繞了！`);
-            if (Math.random() < 0.3) {
+            if (rollLucky(0.3, ctx.luckMult)) {
                 if (Math.random() < 0.5) {
                     ctx.target.addBuff('poison', 3);
                     ctx.log(`> ☠️ 藤蔓的毒液滲入！${ctx.target.displayName} 中毒了！`);
@@ -728,7 +793,7 @@ const SKILL_EFFECTS = {
     lightning_strike: {
         onHit: (ctx) => {
             if (ctx.died) return;
-            if (Math.random() < 0.25) {
+            if (rollLucky(0.25, ctx.luckMult)) {
                 ctx.target.addBuff('paralyze', 2);
                 ctx.log(`> ⚡ 閃電麻痺！ ${ctx.target.displayName} 陷入麻痺狀態！`);
             }
@@ -755,6 +820,42 @@ const SKILL_EFFECTS = {
                 ctx.floatText(ctx.target.id, `-${amt}MP`, 'var(--mp-fill)');
                 ctx.floatText(ctx.actor.id, `+${amt}MP`, 'var(--mp-fill)');
             }
+        }
+    },
+    sleep_spell: {
+        applyStatus: (ctx) => {
+            if (!rollLucky(0.5, ctx.luckMult)) return false;
+            ctx.target.addBuff('sleep', 3);
+            ctx.log(`> 💤 ${ctx.target.displayName} 陷入了沉睡！`);
+            ctx.floatText(ctx.target.id, '睡眠', 'var(--mp-fill)');
+            return true;
+        }
+    },
+    confusion_spell: {
+        applyStatus: (ctx) => {
+            if (!rollLucky(0.5, ctx.luckMult)) return false;
+            ctx.target.addBuff('confuse', 3);
+            ctx.log(`> 💫 ${ctx.target.displayName} 陷入了混亂！`);
+            ctx.floatText(ctx.target.id, '混亂', 'var(--warning)');
+            return true;
+        }
+    },
+    petrify_spell: {
+        applyStatus: (ctx) => {
+            if (!rollLucky(0.5, ctx.luckMult)) return false;
+            ctx.target.addBuff('petrified', 3);
+            ctx.log(`> 🗿 ${ctx.target.displayName} 被石化了！`);
+            ctx.floatText(ctx.target.id, '石化', 'var(--text-muted)');
+            return true;
+        }
+    },
+    silence_spell: {
+        applyStatus: (ctx) => {
+            if (!rollLucky(0.5, ctx.luckMult)) return false;
+            ctx.target.addBuff('silenced', 3);
+            ctx.log(`> 🔇 ${ctx.target.displayName} 被禁咒了！`);
+            ctx.floatText(ctx.target.id, '禁咒', 'var(--primary)');
+            return true;
         }
     }
 };
@@ -864,6 +965,18 @@ const MODIFIER_HANDLERS = {
                 ctx.floatText(ctx.actor.id, `+${amt}MP`, 'var(--mp-fill)');
             }
         }
+    },
+    confuse_chance: {
+        phase: 'onHit', chance: 0.25,
+        apply: (ctx) => { ctx.target.addBuff('confuse', 2); ctx.log(`> 💫 附加混亂：${ctx.target.displayName} 陷入混亂！`); }
+    },
+    sleep_chance: {
+        phase: 'onHit', chance: 0.25,
+        apply: (ctx) => { ctx.target.addBuff('sleep', 2); ctx.log(`> 💤 附加睡眠：${ctx.target.displayName} 陷入睡眠！`); }
+    },
+    silence_chance: {
+        phase: 'onHit', chance: 0.25,
+        apply: (ctx) => { ctx.target.addBuff('silenced', 2); ctx.log(`> 🔇 附加禁咒：${ctx.target.displayName} 陷入禁咒！`); }
     }
 };
 
@@ -965,19 +1078,25 @@ class Entity {
     get atk() {
         let val = this.baseAtk;
         if (this.hasBuff('weakened')) val *= 0.3;
+        if (this.hasBuff('berserk')) val *= 1.5;
         return Math.floor(this.hasBuff('atk_up') ? val * 1.5 : (this.hasBuff('atk_down') ? val * 0.7 : val));
     }
     get def() {
         let val = this.baseDef;
         if (this.hasBuff('weakened')) val *= 0.3;
+        if (this.hasBuff('berserk')) val *= 0.5;
         return Math.floor(this.hasBuff('def_up') ? val * 1.5 : (this.hasBuff('def_down') ? val * 0.6 : val));
     }
     get spd() { return this.baseSpd; }
 
     hasBuff(type) { return this.buffs.some(b => b.type === type); }
     addBuff(type, duration, value = 0) {
+        // 石化期間無法被施加其他異常狀態（石化本身、以及淨化等「移除」動作不受此限制）。
+        if (this.hasBuff('petrified') && type !== 'petrified' && DEBUFF_TYPES.includes(type)) return;
         if (type === 'weakened') duration = 999;
         if (type === 'vine_wrapped') duration = 1;
+        // 蓄力要撐過「本回合結束」的狀態衰減，才能真正在下一次行動時派上用場。
+        if (type === 'charging') duration = 2;
         const existing = this.buffs.find(b => b.type === type);
         if (existing) existing.duration = Math.max(existing.duration, duration); else this.buffs.push({ type, duration, value });
     }
@@ -999,11 +1118,17 @@ class Entity {
     }
 
     takeDamage(amount) {
+        if (this.hasBuff('sleep')) amount *= 2;
+        if (this.hasBuff('petrified')) amount *= 0.25;
         if (this.shield > 0) { if (this.shield >= amount) { this.shield -= amount; amount = 0; } else { amount -= this.shield; this.shield = 0; } }
         this.hp = Math.max(0, this.hp - Math.floor(amount));
         if (amount > 0 && this.hasBuff('stealth')) {
             this.buffs = this.buffs.filter(b => b.type !== 'stealth');
             Battle.log(`> 👁️ ${this.displayName} 遭到攻擊，隱形狀態被打破了！`);
+        }
+        if (amount > 0 && this.hasBuff('sleep')) {
+            this.buffs = this.buffs.filter(b => b.type !== 'sleep');
+            Battle.log(`> ⏰ ${this.displayName} 被打醒了！`);
         }
         return this.hp <= 0;
     }
@@ -1244,15 +1369,42 @@ const Battle = {
         this.currentEntity = this.turnQueue.shift();
         this.updateUI();
 
-        if (this.currentEntity.hasBuff('stun') || this.currentEntity.hasBuff('paralyze')) {
-            let blockType = this.currentEntity.hasBuff('stun') ? '暈眩' : '麻痺';
+        if (this.currentEntity.hasBuff('stun') || this.currentEntity.hasBuff('paralyze') || this.currentEntity.hasBuff('sleep') || this.currentEntity.hasBuff('petrified')) {
+            let blockType = this.currentEntity.hasBuff('stun') ? '暈眩' : this.currentEntity.hasBuff('paralyze') ? '麻痺' : this.currentEntity.hasBuff('sleep') ? '沉睡' : '石化';
             this.log(`⚡ ${this.currentEntity.displayName} 受到 <span class="c-dmg">${blockType}</span> 影響，無法行動！`);
             let g = this.currentEntity.tryGrow('hp', 0.15); if (g) this.log(g);
             setTimeout(() => this.nextTurn(), 800);
             return;
         }
 
-        if (this.currentEntity.isPlayer) this.showPlayerActions(); else this.processAI(this.currentEntity);
+        if (this.currentEntity.hasBuff('confuse')) { this.processConfusedAction(this.currentEntity); return; }
+
+        // 狂暴：即使是玩家角色，也交給 AI 邏輯處理（processAI 內部會強制其只使用普通攻擊）。
+        if (this.currentEntity.isPlayer && !this.currentEntity.hasBuff('berserk')) this.showPlayerActions(); else this.processAI(this.currentEntity);
+    },
+
+    // 混亂：敵我不分，從自己會的技能中隨機挑一個，對隨機目標（不分敵我）使用。
+    async processConfusedAction(entity) {
+        const panel = document.getElementById('action-panel');
+        panel.innerHTML = `<div style="text-align:center; padding:15px; color:var(--text-muted); font-size:var(--font-md);">😵‍💫 ${entity.displayName} 混亂中，行動無法預測...</div>`;
+        await new Promise(r => setTimeout(r, 600));
+        if (!this.isActive) return;
+
+        let allAlive = [...Game.state.party, ...Game.state.enemies].filter(e => e.hp > 0);
+        if (allAlive.length === 0) { this.nextTurn(); return; }
+
+        let usableSkills = entity.skills.filter(sId => {
+            let s = SKILLS[sId]; if (!s || s.special === 'summon') return false;
+            let cost = this.getSkillCost(entity, sId);
+            return cost.isHp ? entity.hp > cost.amount : entity.mp >= cost.amount;
+        });
+        let skillId = usableSkills.length > 0 ? usableSkills[Math.floor(Math.random() * usableSkills.length)] : 'attack';
+        let skill = SKILLS[skillId];
+        let target = skill.target === 'self' ? entity : allAlive[Math.floor(Math.random() * allAlive.length)];
+        let targets = (skill.target === 'all_enemies' || skill.target === 'all_allies') ? allAlive : [target];
+
+        this.log(`> 😵‍💫 ${entity.displayName} 混亂之中，胡亂地行動了起來！`);
+        this.executeAction(entity, skill, targets, skillId);
     },
 
     // 神威奇蹟判定：每個「真正輪到的角色回合」擲一次，而不是每次 nextTurn() 呼叫都擲。
@@ -1308,7 +1460,7 @@ const Battle = {
             let healPercent = Math.min(0.60, 0.10 + templeLv * 0.05);
             color = "#3498db"; prayMsg = `💧 ${prayActor.displayName} 向水之神祈禱，隊伍全體得到狀態淨化與生命恢復！`;
             this.log(`<div style="font-size:16px; color:${color}; font-weight:bold; margin-bottom:8px; text-shadow: 1px 1px 2px #000;">${prayMsg}</div>`);
-            let debuffs = ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped', 'blind'];
+            let debuffs = DEBUFF_TYPES;
             Game.state.party.forEach(p => {
                 if (p.hp > 0) {
                     p.buffs = p.buffs.filter(b => !debuffs.includes(b.type));
@@ -1424,6 +1576,14 @@ const Battle = {
         const refs = {};
         div.querySelectorAll('[data-r]').forEach(el => { refs[el.getAttribute('data-r')] = el; });
         div._refs = refs;
+        div._entity = entity;
+        // 點擊卡片：如果目前正在選擇目標（targetable + 已註冊 _targetClickHandler），就選擇目標；
+        // 否則點擊卡片一律顯示該角色的詳細資訊。onclick 本身建立後就不再更動，
+        // 靠 classList/_targetClickHandler 這兩個「狀態旗標」決定行為，避免跟選擇目標的邏輯互相覆蓋。
+        div.onclick = () => {
+            if (div.classList.contains('targetable') && div._targetClickHandler) div._targetClickHandler();
+            else this.showEntityDetails(div._entity);
+        };
         this.entityNodes[entity.id] = div;
         document.getElementById(entity.isEnemy ? 'enemy-team' : 'player-team').appendChild(div);
         return div;
@@ -1458,18 +1618,10 @@ const Battle = {
         r.mpText.textContent = `${entity.mp}/${entity.maxMp}`;
 
         let buffsHtml = [];
-        if (entity.shield > 0) buffsHtml.push(`<span class="s-icon s-shd">盾</span>`);
+        if (entity.shield > 0) buffsHtml.push(`<span class="s-icon s-shd" title="護盾">盾</span>`);
         entity.buffs.forEach(b => {
-            let cls = '', txt = '';
-            if (b.type === 'atk_up') { cls = 's-atk'; txt = '攻'; } if (b.type === 'atk_down') { cls = 's-atk'; txt = '弱'; }
-            if (b.type === 'def_up') { cls = 's-def'; txt = '防'; } if (b.type === 'def_down') { cls = 's-def'; txt = '脆'; }
-            if (b.type === 'poison') { cls = 's-poi'; txt = '毒'; } if (b.type === 'regen') { cls = 's-reg'; txt = '癒'; }
-            if (b.type === 'stun') { cls = 's-shk'; txt = '暈'; } if (b.type === 'paralyze') { cls = 's-shk'; txt = '麻'; }
-            if (b.type === 'freeze') { cls = 's-frz'; txt = '凍'; } if (b.type === 'bleed') { cls = 's-bld'; txt = '血'; }
-            if (b.type === 'weakened') { cls = 's-brk'; txt = '崩'; } if (b.type === 'vine_wrapped') { cls = 's-vin'; txt = '藤'; }
-            if (b.type === 'stealth') { cls = 's-sth'; txt = '隱'; }
-            if (b.type === 'blind') { cls = 's-bli'; txt = '盲'; }
-            if (cls) buffsHtml.push(`<span class="s-icon ${cls}">${txt}</span>`);
+            const meta = BUFF_META[b.type];
+            if (meta) buffsHtml.push(`<span class="s-icon ${meta.cls}" title="${meta.label}">${meta.icon}</span>`);
         });
         r.icons.innerHTML = buffsHtml.join('');
         return div;
@@ -1483,10 +1635,11 @@ const Battle = {
     floatText(targetId, text, color, variant) {
         const targetDiv = this.entityNodes[targetId]; if (!targetDiv) return;
         const rect = targetDiv.getBoundingClientRect(); const container = document.getElementById('game-container');
+        const containerRect = container.getBoundingClientRect();
         const floatDiv = document.createElement('div');
         floatDiv.className = 'float-text' + (variant ? ` float-text-${variant}` : '');
         floatDiv.style.color = color; floatDiv.innerHTML = text;
-        floatDiv.style.top = (rect.top - container.getBoundingClientRect().top) + 'px'; floatDiv.style.left = (rect.left + rect.width / 2) + 'px';
+        floatDiv.style.top = (rect.top - containerRect.top) + 'px'; floatDiv.style.left = (rect.left - containerRect.left + rect.width / 2) + 'px';
         container.appendChild(floatDiv);
         setTimeout(() => floatDiv.remove(), 2000);
     },
@@ -1495,6 +1648,47 @@ const Battle = {
         const node = this.entityNodes[targetId];
         if (node) UI.playEffect(node, 'fx-hit', 300);
     },
+
+    showEntityDetails(entity) {
+        if (!entity) return;
+        const modal = document.getElementById('modal-entity-details');
+        const title = document.getElementById('entity-details-title');
+        const body = document.getElementById('entity-details-body');
+
+        title.innerText = (entity.isBoss ? '👑 ' : '') + entity.displayName;
+
+        let html = '<div style="margin-bottom:12px;">';
+        html += entity.personality ? `<div style="color:var(--warning); margin-bottom:4px;">【${PERSONALITIES[entity.personality].name}】${PERSONALITIES[entity.personality].desc}</div>` : `<div style="color:var(--success); margin-bottom:4px;">【玩家角色】</div>`;
+        let eleTag = entity.element !== 'none' ? `<span class="element-tag" style="--ele-color:${ELEMENT_COLORS[entity.element]}">${ELEMENTS[entity.element]}</span>` : '<span style="color:var(--text-muted);">無屬性</span>';
+        html += `<div style="margin-bottom:4px;">屬性：${eleTag}</div>`;
+        html += `<div>HP：<b>${entity.hp} / ${entity.maxHp}</b>　MP：<b>${entity.mp} / ${entity.maxMp}</b></div>`;
+        html += `<div>攻擊：<b>${entity.atk}</b>（基礎 ${entity.baseAtk}）　防禦：<b>${entity.def}</b>（基礎 ${entity.baseDef}）　速度：<b>${entity.spd}</b></div>`;
+        if (entity.shield > 0) html += `<div>護盾：<b>${entity.shield}</b></div>`;
+        html += '</div>';
+
+        if (entity.buffs.length > 0) {
+            html += '<div style="margin-bottom:12px;"><b style="color:var(--primary);">目前狀態</b>';
+            entity.buffs.forEach(b => {
+                const meta = BUFF_META[b.type];
+                html += `<div style="margin-top:4px;">・${meta ? meta.label : b.type}（剩餘 ${b.duration} 回合）</div>`;
+            });
+            html += '</div>';
+        }
+
+        html += '<div><b style="color:var(--primary);">技能</b>';
+        entity.skills.forEach(sId => {
+            let s = SKILLS[sId]; if (!s) return;
+            let lv = entity.skillLevels[sId] || 1;
+            let mods = entity.skillModifiers[sId] || [];
+            let modsText = mods.length > 0 ? `<span style="color:var(--warning); font-size:var(--font-sm);">［${mods.map(m => MODIFIERS[m].name).join('、')}］</span>` : '';
+            html += `<div style="margin-top:6px;">・${s.name}${lv > 1 ? `(Lv.${lv})` : ''} ${modsText}<br><span style="color:var(--text-muted); font-size:var(--font-sm);">${s.desc}</span></div>`;
+        });
+        html += '</div>';
+
+        body.innerHTML = html;
+        modal.classList.add('active');
+    },
+    closeEntityDetails() { document.getElementById('modal-entity-details').classList.remove('active'); },
 
     showPlayerActions() {
         const panel = document.getElementById('action-panel'); panel.innerHTML = '';
@@ -1508,9 +1702,11 @@ const Battle = {
             let costInfo = this.getSkillCost(this.currentEntity, skillId);
             let costColor = costInfo.isHp ? 'var(--danger)' : '#aaa'; let costLabel = costInfo.isHp ? 'HP' : 'MP';
             let eleTag = skill.element !== 'none' ? `<span class="element-tag" style="--ele-color:${ELEMENT_COLORS[skill.element]}">${ELEMENTS[skill.element]}</span>` : '';
+            let silencedOut = this.currentEntity.hasBuff('silenced') && skill.tags.includes('magic');
 
-            btn.innerHTML = `<strong style="color:var(--warning);">${dName}</strong> ${eleTag}${modText}<span style="font-size:var(--font-sm); color:${costColor}; margin-top:2px;">${costLabel}: ${costInfo.amount}</span>`;
+            btn.innerHTML = `<strong style="color:var(--warning);">${dName}</strong> ${eleTag}${modText}<span style="font-size:var(--font-sm); color:${costColor}; margin-top:2px;">${costLabel}: ${costInfo.amount}</span>${silencedOut ? '<span class="sk-mods" style="color:var(--text-muted);">禁咒中，無法使用</span>' : ''}`;
             if (costInfo.isHp) { if (this.currentEntity.hp <= costInfo.amount) btn.disabled = true; } else { if (this.currentEntity.mp < costInfo.amount) btn.disabled = true; }
+            if (silencedOut) btn.disabled = true;
             btn.onclick = () => this.prepareTargeting(skill, skillId); grid.appendChild(btn);
         });
         panel.appendChild(grid);
@@ -1528,7 +1724,7 @@ const Battle = {
         if (skill.target === 'any') {
             [...Game.state.enemies, ...Game.state.party].filter(e => e.hp > 0).forEach(e => {
                 let div = this.entityNodes[e.id]; if (!div) return; div.classList.add('targetable');
-                div.onclick = () => {
+                div._targetClickHandler = () => {
                     let tgts = [e];
                     if (isAoe) tgts = e.isPlayer ? Game.state.party.filter(x => x.hp > 0) : Game.state.enemies.filter(x => x.hp > 0);
                     this.executeAction(this.currentEntity, skill, tgts, originalSkillId);
@@ -1537,21 +1733,21 @@ const Battle = {
         } else if (skill.target === 'enemy' || skill.target === 'all_enemies') {
             Game.state.enemies.filter(e => e.hp > 0).forEach(e => {
                 let div = this.entityNodes[e.id]; if (!div) return; div.classList.add('targetable');
-                div.onclick = () => this.executeAction(this.currentEntity, skill, isAoe ? Game.state.enemies.filter(x => x.hp > 0) : [e], originalSkillId);
+                div._targetClickHandler = () => this.executeAction(this.currentEntity, skill, isAoe ? Game.state.enemies.filter(x => x.hp > 0) : [e], originalSkillId);
             });
         } else if (skill.target === 'ally' || skill.target === 'all_allies' || skill.target === 'self') {
             let validTargets = skill.target === 'self' ? [this.currentEntity] : Game.state.party.filter(p => p.hp > 0);
             validTargets.forEach(p => {
                 let div = this.entityNodes[p.id]; if (!div) return; div.classList.add('targetable');
-                div.onclick = () => this.executeAction(this.currentEntity, skill, isAoe ? Game.state.party.filter(x => x.hp > 0) : [p], originalSkillId);
+                div._targetClickHandler = () => this.executeAction(this.currentEntity, skill, isAoe ? Game.state.party.filter(x => x.hp > 0) : [p], originalSkillId);
             });
         }
     },
-    clearTargeting() { document.querySelectorAll('.entity').forEach(div => { div.classList.remove('targetable'); div.onclick = null; }); },
+    clearTargeting() { document.querySelectorAll('.entity').forEach(div => { div.classList.remove('targetable'); div._targetClickHandler = null; }); },
 
     async processAI(entity) {
         const panel = document.getElementById('action-panel');
-        panel.innerHTML = `<div style="text-align:center; padding:15px; color:var(--text-muted); font-size:var(--font-md);">【${PERSONALITIES[entity.personality].name}】思考中...</div>`;
+        panel.innerHTML = `<div style="text-align:center; padding:15px; color:var(--text-muted); font-size:var(--font-md);">${entity.personality ? `【${PERSONALITIES[entity.personality].name}】思考中...` : '狂暴中...'}</div>`;
         await new Promise(r => setTimeout(r, 600));
         if (!this.isActive) return;
 
@@ -1561,6 +1757,14 @@ const Battle = {
 
         let allEnemiesStealth = enemies.every(e => e.hasBuff('stealth'));
         let targetableEnemies = allEnemiesStealth ? enemies : enemies.filter(e => !e.hasBuff('stealth'));
+
+        // 狂暴：不受控制，只會對隨機敵人使用普通攻擊。
+        if (entity.hasBuff('berserk')) {
+            if (targetableEnemies.length === 0) { this.nextTurn(); return; }
+            let target = targetableEnemies[Math.floor(Math.random() * targetableEnemies.length)];
+            this.executeAction(entity, SKILLS.attack, [target], 'attack');
+            return;
+        }
 
         if (entity.isBoss && entity.skills.includes('summon_minion') && entity.summonCount < 3) {
             if (Math.random() < 0.20 && allies.length < 5) {
@@ -1572,6 +1776,8 @@ const Battle = {
         let options = [];
         entity.skills.forEach(skillId => {
             if (skillId === 'summon_minion') return;
+            // 禁咒：無法使用含有 magic 標籤的技能。
+            if (entity.hasBuff('silenced') && SKILLS[skillId].tags.includes('magic')) return;
 
             const skill = SKILLS[skillId]; let costInfo = this.getSkillCost(entity, skillId);
             if (costInfo.isHp && entity.hp <= costInfo.amount) return; if (!costInfo.isHp && entity.mp < costInfo.amount) return;
@@ -1624,10 +1830,10 @@ const Battle = {
             if (skill.special === 'purify') {
                 let isTargetAlly = (target.isEnemy === entity.isEnemy);
                 if (isTargetAlly) {
-                    let hasDebuff = target.buffs.some(b => ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped', 'blind'].includes(b.type));
+                    let hasDebuff = target.buffs.some(b => DEBUFF_TYPES.includes(b.type));
                     if (hasDebuff) opt.score += 80; else opt.score -= 50;
                 } else {
-                    let hasBuff = target.buffs.some(b => ['atk_up', 'def_up', 'regen'].includes(b.type));
+                    let hasBuff = target.buffs.some(b => DISPELLABLE_BUFF_TYPES.includes(b.type));
                     if (hasBuff) opt.score += 80; else opt.score -= 50;
                 }
             }
@@ -1651,6 +1857,18 @@ const Battle = {
 
     async executeAction(actor, skill, targets, originalSkillId, comboCount = 0) {
         this.clearTargeting(); document.getElementById('action-panel').innerHTML = '';
+
+        // 隱形術修改：只要行動（攻擊或使用任何技能）就會解除隱形，不再只靠「被擊中」才解除。
+        // 這裡先記錄「行動前」是否隱形，行動結束後才處理解除，避免跟本次行動中途才套用的
+        // 奇襲加成判斷互相干擾（奇襲加成仍然要看得到行動前的隱形狀態）。
+        const hadStealthBeforeThisAction = actor.hasBuff('stealth');
+
+        // 蓄力：整個行動（含多目標、多段攻擊）都享有加成，且只消耗一次。
+        let chargeMultiplier = 1;
+        if (actor.hasBuff('charging')) {
+            chargeMultiplier = 2.5;
+            actor.buffs = actor.buffs.filter(b => b.type !== 'charging');
+        }
 
         if (comboCount === 0) {
             let costInfo = this.getSkillCost(actor, originalSkillId);
@@ -1720,6 +1938,11 @@ const Battle = {
         let executionCount = triggerDouble ? 2 : 1;
         let powerMultiplier = 1 + ((actor.skillLevels[originalSkillId] || 1) - 1) * 0.20;
         if (mods.includes('blood_magic')) powerMultiplier += 0.20;
+        if (chargeMultiplier > 1 && skill.type === 'attack') {
+            powerMultiplier *= chargeMultiplier;
+            this.log(`> ✨ <b>蓄力解放！</b>${actor.displayName} 的攻擊威力大幅提升！`);
+        }
+        let luckMult = getLuckMultiplier(mods);
 
         if (skill.special === 'summon') {
             actor.summonCount++;
@@ -1739,6 +1962,7 @@ const Battle = {
             await new Promise(r => setTimeout(r, 650));
             if (!this.isActive) return;
 
+            this.resolveStealthBreak(actor, hadStealthBeforeThisAction);
             await this.processCombo(actor, originalSkillId, comboCount);
             return;
         }
@@ -1772,106 +1996,143 @@ const Battle = {
                             continue;
                         }
 
-                        if (target.isEnemy && target.isBoss && !target.hasBuff('weakened')) {
-                            let hitWeakness = false;
-                            if (target.weakness) {
-                                if (target.weakness.element && skill.element === target.weakness.element) hitWeakness = true;
-                                if (target.weakness.skill && effectId === target.weakness.skill) hitWeakness = true;
+                        let died = false;
+                        let effectiveTarget = target;
+
+                        if (skill.power === 0) {
+                            // 純狀態法術（睡眠術/混亂術/石化術/禁咒術）：不計算傷害，只處理機率狀態施加。
+                            const statusFx = SKILL_EFFECTS[effectId];
+                            let applied = false;
+                            if (statusFx && statusFx.applyStatus) {
+                                applied = statusFx.applyStatus({ actor, target, skill, luckMult, log: (m) => this.log(m), floatText: (id, t, c) => this.floatText(id, t, c) });
                             }
-                            if (hitWeakness) {
-                                target.addBuff('weakened', 999);
-                                this.log(`> ❗ <b style="color:var(--warning); font-size:16px;">弱點識破！</b> ${target.displayName} 的弱點被擊中，攻防大幅崩潰！`);
-                                this.floatText(target.id, `弱點破壞!`, 'var(--warning)');
-                                UI.screenShake();
-                            }
-                        }
-
-                        let actualCritRate = mods.includes('crit_rate_up') ? 0.30 : actor.critRate;
-                        let actualCritDmg = mods.includes('crit_dmg_up') ? 2.50 : actor.critDmg;
-                        let isCrit = Math.random() < actualCritRate;
-
-                        let baseDmg = Math.floor(actor.atk * (skill.power * powerMultiplier) * scaleFactor);
-
-                        if (actor.hasBuff('stealth') && Math.random() < 0.5) {
-                            baseDmg = Math.floor(baseDmg * 1.5);
-                            this.log(`> 🗡️ 奇襲發動！傷害提升 1.5 倍！`);
-                        }
-
-                        let targetDef = Math.floor(target.def);
-                        if (mods.includes('pierce')) targetDef = Math.floor(targetDef * 0.5);
-                        if (target.hasBuff('freeze')) targetDef = Math.floor(targetDef * 0.5);
-
-                        let eleMul = getElementMultiplier(skill.element, target.element);
-                        let finalDmg = Math.max(2, Math.floor((baseDmg / Math.max(1, targetDef)) * eleMul * 10 * (0.85 + Math.random() * 0.3)));
-
-                        if (isCrit) { finalDmg = Math.floor(finalDmg * actualCritDmg); }
-
-                        // 技能專屬的傷害修正（例如猛毒爆發引爆中毒），以及跨技能的元素連動（例如烈焰引燃藤蔓）。
-                        let dmgCtx = { actor, target, skill, damage: finalDmg, log: (m) => this.log(m) };
-                        const skillFx = SKILL_EFFECTS[effectId];
-                        if (skillFx && skillFx.modifyDamage) skillFx.modifyDamage(dmgCtx);
-                        applyElementalSynergies(dmgCtx);
-                        finalDmg = dmgCtx.damage;
-
-                        if (eleMul > 1 && hit === 1) this.log(`> 💥 屬性強烈相剋！`);
-                        if (eleMul < 0.8 && hit === 1) this.log(`> 🛡️ 屬性相抗性...`);
-
-                        let died = target.takeDamage(finalDmg);
-                        this.hitFlash(target.id);
-                        if (isCrit) UI.screenShake();
-
-                        let floatTextVal = isCrit ? `-${finalDmg} 爆擊!` : `-${finalDmg}`;
-                        let floatColor = isCrit ? '#ff5722' : 'var(--danger)';
-                        this.floatText(target.id, floatTextVal, floatColor, isCrit ? 'crit' : null);
-
-                        let critLog = isCrit ? `<span style="color:var(--warning); font-weight:bold;">【爆擊】</span> ` : '';
-                        if (effectId === 'gale_slash') {
-                            this.log(`> 🗡️ ${SKILL_EFFECTS.gale_slash.hitLabel(hit)}${critLog}對 ${target.displayName} 造成 <span class="c-dmg">${finalDmg}</span> 點傷害。`);
+                            if (!applied) this.log(`> ${target.displayName} 抵抗了${skill.name}的效果。`);
                         } else {
-                            this.log(`> ${critLog}對 ${target.displayName} 造成 <span class="c-dmg">${finalDmg}</span> 點傷害。`);
-                        }
-
-                        if (Game.state.mode === 'quest' && Game.state.activeQuest && Game.state.activeQuest.type === 'kill' && died && target.isEnemy) {
-                            Game.state.activeQuest.progress++; Game.updateQuestTracker();
-                        }
-
-                        if (skill.applyBuff && !selfBuffApplied && !died) { actor.addBuff(skill.applyBuff, getBuffDuration(skill)); selfBuffApplied = true; }
-
-                        // 技能專屬的「命中後」效果（例如吸血暗蝕的生命汲取、閃電術的麻痺機率、藤蔓術的纏繞）。
-                        const onHitFx = SKILL_EFFECTS[effectId];
-                        if (onHitFx && onHitFx.onHit) onHitFx.onHit({ actor, target, skill, damage: finalDmg, died, log: (m) => this.log(m), floatText: (id, t, c) => this.floatText(id, t, c) });
-
-                        // 被動符文（命中觸發類）：poison_infuse / bleed_infuse / paralyze_chance / stun_chance / freeze_chance / curse_infuse / life_steal / steal_gold
-                        runModifierHandlers('onHit', mods, { actor, target, skill, damage: finalDmg, died, log: (m) => this.log(m), floatText: (id, t, c) => this.floatText(id, t, c) });
-
-                        let targetGrowth = target.tryGrow('def', 0.1); if (targetGrowth) this.log(targetGrowth);
-                        if (skill.applyDebuff && !died) target.addBuff(skill.applyDebuff, getBuffDuration(skill));
-
-                        if (died) {
-                            if (target.isEnemy && target.isBoss) {
-                                Meta.data.bossKills[target.name] = (Meta.data.bossKills[target.name] || 0) + 1;
-                                Meta.save();
+                            if (target.isEnemy && target.isBoss && !target.hasBuff('weakened')) {
+                                let hitWeakness = false;
+                                if (target.weakness) {
+                                    if (target.weakness.element && skill.element === target.weakness.element) hitWeakness = true;
+                                    if (target.weakness.skill && effectId === target.weakness.skill) hitWeakness = true;
+                                }
+                                if (hitWeakness) {
+                                    target.addBuff('weakened', 999);
+                                    this.log(`> ❗ <b style="color:var(--warning); font-size:16px;">弱點識破！</b> ${target.displayName} 的弱點被擊中，攻防大幅崩潰！`);
+                                    this.floatText(target.id, `弱點破壞!`, 'var(--warning)');
+                                    UI.screenShake();
+                                }
                             }
-                            this.log(`> 💀 <b>${target.displayName} 被徹底擊敗了！</b>`);
-                            let killGrowth = actor.tryGrow('atk', 0.5); if (killGrowth) this.log(killGrowth);
+
+                            let actualCritRate = mods.includes('crit_rate_up') ? 0.30 : actor.critRate;
+                            let actualCritDmg = mods.includes('crit_dmg_up') ? 2.50 : actor.critDmg;
+                            let isCrit = Math.random() < actualCritRate;
+
+                            let baseDmg = Math.floor(actor.atk * (skill.power * powerMultiplier) * scaleFactor);
+
+                            if (actor.hasBuff('stealth') && Math.random() < 0.5) {
+                                baseDmg = Math.floor(baseDmg * 1.5);
+                                this.log(`> 🗡️ 奇襲發動！傷害提升 1.5 倍！`);
+                            }
+
+                            let targetDef = Math.floor(target.def);
+                            if (mods.includes('pierce')) targetDef = Math.floor(targetDef * 0.5);
+                            if (target.hasBuff('freeze')) targetDef = Math.floor(targetDef * 0.5);
+
+                            let eleMul = getElementMultiplier(skill.element, target.element);
+                            let finalDmg = Math.max(2, Math.floor((baseDmg / Math.max(1, targetDef)) * eleMul * 10 * (0.85 + Math.random() * 0.3)));
+
+                            if (isCrit) { finalDmg = Math.floor(finalDmg * actualCritDmg); }
+
+                            // 技能專屬的傷害修正（例如猛毒爆發引爆中毒），以及跨技能的元素連動（例如烈焰引燃藤蔓）。
+                            let dmgCtx = { actor, target, skill, damage: finalDmg, log: (m) => this.log(m) };
+                            const skillFx = SKILL_EFFECTS[effectId];
+                            if (skillFx && skillFx.modifyDamage) skillFx.modifyDamage(dmgCtx);
+                            applyElementalSynergies(dmgCtx);
+                            finalDmg = dmgCtx.damage;
+
+                            if (eleMul > 1 && hit === 1) this.log(`> 💥 屬性強烈相剋！`);
+                            if (eleMul < 0.8 && hit === 1) this.log(`> 🛡️ 屬性相抗性...`);
+
+                            // 反射結界：目標身上有反射時，80%的傷害會彈回施放者身上，目標只承受剩下的20%。
+                            let reflecting = target.hasBuff('reflect') && target !== actor;
+                            let dmgToTarget = finalDmg, dmgToActor = 0;
+                            if (reflecting) { dmgToActor = Math.floor(finalDmg * 0.8); dmgToTarget = finalDmg - dmgToActor; }
+
+                            died = target.takeDamage(dmgToTarget);
+                            this.hitFlash(target.id);
+                            if (isCrit) UI.screenShake();
+
+                            let floatTextVal = isCrit ? `-${dmgToTarget} 爆擊!` : `-${dmgToTarget}`;
+                            let floatColor = isCrit ? '#ff5722' : 'var(--danger)';
+                            this.floatText(target.id, floatTextVal, floatColor, isCrit ? 'crit' : null);
+
+                            let critLog = isCrit ? `<span style="color:var(--warning); font-weight:bold;">【爆擊】</span> ` : '';
+                            if (effectId === 'gale_slash') {
+                                this.log(`> 🗡️ ${SKILL_EFFECTS.gale_slash.hitLabel(hit)}${critLog}對 ${target.displayName} 造成 <span class="c-dmg">${dmgToTarget}</span> 點傷害。`);
+                            } else {
+                                this.log(`> ${critLog}對 ${target.displayName} 造成 <span class="c-dmg">${dmgToTarget}</span> 點傷害。`);
+                            }
+
+                            if (reflecting && dmgToActor > 0) {
+                                let actorDied = actor.takeDamage(dmgToActor);
+                                this.hitFlash(actor.id);
+                                this.floatText(actor.id, `-${dmgToActor} 反射`, 'var(--danger)');
+                                this.log(`> 🪞 反射結界將 <span class="c-dmg">${dmgToActor}</span> 點傷害彈回了 ${actor.displayName} 身上！`);
+                                if (actorDied) this.log(`> 💀 <b>${actor.displayName} 被自己反彈回來的攻擊擊敗了！</b>`);
+                            }
+                            effectiveTarget = reflecting ? actor : target;
+
+                            if (Game.state.mode === 'quest' && Game.state.activeQuest && Game.state.activeQuest.type === 'kill' && died && target.isEnemy) {
+                                Game.state.activeQuest.progress++; Game.updateQuestTracker();
+                            }
+
+                            if (skill.applyBuff && !selfBuffApplied && !died) { actor.addBuff(skill.applyBuff, getBuffDuration(skill)); selfBuffApplied = true; }
+
+                            // 技能專屬的「命中後」效果（例如吸血暗蝕的生命汲取、閃電術的麻痺機率、藤蔓術的纏繞）。
+                            // 反射中的話，這些效果改套用在 effectiveTarget（也就是施放者自己）身上。
+                            const onHitFx = SKILL_EFFECTS[effectId];
+                            if (onHitFx && onHitFx.onHit) onHitFx.onHit({ actor, target: effectiveTarget, skill, damage: finalDmg, died, luckMult, log: (m) => this.log(m), floatText: (id, t, c) => this.floatText(id, t, c) });
+
+                            // 被動符文（命中觸發類）：poison_infuse / bleed_infuse / paralyze_chance / stun_chance / freeze_chance / curse_infuse / life_steal / steal_gold / mp_drain / blind_chance / confuse_chance / sleep_chance / silence_chance
+                            runModifierHandlers('onHit', mods, { actor, target: effectiveTarget, skill, damage: finalDmg, died, log: (m) => this.log(m), floatText: (id, t, c) => this.floatText(id, t, c) });
+
+                            let targetGrowth = effectiveTarget.tryGrow('def', 0.1); if (targetGrowth) this.log(targetGrowth);
+                            if (skill.applyDebuff && !died) effectiveTarget.addBuff(skill.applyDebuff, getBuffDuration(skill));
+
+                            if (died) {
+                                if (target.isEnemy && target.isBoss) {
+                                    Meta.data.bossKills[target.name] = (Meta.data.bossKills[target.name] || 0) + 1;
+                                    Meta.save();
+                                }
+                                this.log(`> 💀 <b>${target.displayName} 被徹底擊敗了！</b>`);
+                                let killGrowth = actor.tryGrow('atk', 0.5); if (killGrowth) this.log(killGrowth);
+                            }
+
+                            // 反擊架式：目標若處於反擊狀態且沒有被擊敗，隨機用自己的技能或普攻反擊回去。
+                            if (!died && target.hasBuff('counter') && target !== actor) {
+                                await this.performCounterAttack(target, actor);
+                            }
                         }
 
                     } else if (skill.type === 'heal' || skill.type === 'buff') {
+                        // 反射結界：對著有反射的目標施放治療/增益，效果會彈回施放者自己身上。
+                        let reflectingBuff = target.hasBuff('reflect') && target !== actor && effectId !== 'purify' && effectId !== 'meditate';
+                        let effectiveTarget = reflectingBuff ? actor : target;
+                        if (reflectingBuff) this.log(`> 🪞 ${target.displayName} 的反射結界將效果彈回了 ${actor.displayName} 身上！`);
+
                         if (skill.type === 'heal') {
                             let healAmt = Math.floor((actor.atk + actor.def) * (skill.power * powerMultiplier) * 0.7 * scaleFactor * (0.9 + Math.random() * 0.2));
-                            target.heal(healAmt); this.floatText(target.id, `+${healAmt}`, 'var(--success)');
-                            this.log(`> ${target.displayName} 恢復了 <span class="c-heal">${healAmt}</span> HP。`);
-                            let healGrowth = target.tryGrow('hp', 0.15); if (healGrowth) this.log(healGrowth);
+                            effectiveTarget.heal(healAmt); this.floatText(effectiveTarget.id, `+${healAmt}`, 'var(--success)');
+                            this.log(`> ${effectiveTarget.displayName} 恢復了 <span class="c-heal">${healAmt}</span> HP。`);
+                            let healGrowth = effectiveTarget.tryGrow('hp', 0.15); if (healGrowth) this.log(healGrowth);
                         }
-                        if (skill.applyBuff === 'shield_up') { let shieldVal = Math.floor(actor.maxHp * 0.35); target.shield += shieldVal; target.addBuff('def_up', getBuffDuration(skill)); this.log(`> ${target.displayName} 獲得防禦與護盾！`); }
-                        else if (skill.applyBuff) { target.addBuff(skill.applyBuff, getBuffDuration(skill)); }
+                        if (skill.applyBuff === 'shield_up') { let shieldVal = Math.floor(actor.maxHp * 0.35); effectiveTarget.shield += shieldVal; effectiveTarget.addBuff('def_up', getBuffDuration(skill)); this.log(`> ${effectiveTarget.displayName} 獲得防禦與護盾！`); }
+                        else if (skill.applyBuff) { effectiveTarget.addBuff(skill.applyBuff, getBuffDuration(skill)); }
 
                         if (effectId === 'purify') {
                             let isTargetEnemy = (target.isEnemy !== actor.isEnemy);
                             if (isTargetEnemy) {
-                                let buffsToRemove = ['atk_up', 'def_up', 'regen'];
                                 let removed = false;
-                                target.buffs = target.buffs.filter(b => { if (buffsToRemove.includes(b.type)) { removed = true; return false; } return true; });
+                                target.buffs = target.buffs.filter(b => { if (DISPELLABLE_BUFF_TYPES.includes(b.type)) { removed = true; return false; } return true; });
                                 if (removed) {
                                     this.log(`> ✨ 淨化之光閃耀，${target.displayName} 身上的增益狀態被完全驅散！`);
                                     this.floatText(target.id, `驅散`, 'var(--warning)');
@@ -1879,9 +2140,8 @@ const Battle = {
                                     this.log(`> ✨ ${target.displayName} 身上沒有增益狀態。`);
                                 }
                             } else {
-                                let debuffs = ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped', 'blind'];
                                 let removed = false;
-                                target.buffs = target.buffs.filter(b => { if (debuffs.includes(b.type)) { removed = true; return false; } return true; });
+                                target.buffs = target.buffs.filter(b => { if (DEBUFF_TYPES.includes(b.type)) { removed = true; return false; } return true; });
                                 if (removed) {
                                     this.log(`> ✨ 淨化之光閃耀，${target.displayName} 身上的負面狀態被完全淨化！`);
                                     this.floatText(target.id, `淨化`, 'var(--success)');
@@ -1898,7 +2158,7 @@ const Battle = {
                             this.floatText(actor.id, `+${recoverMp}MP`, 'var(--mp-fill)');
                         }
 
-                        runModifierHandlers('onCast', mods, { actor, target, skill, log: (m) => this.log(m) });
+                        runModifierHandlers('onCast', mods, { actor, target: effectiveTarget, skill, log: (m) => this.log(m) });
                     } else if (skill.type === 'defend') {
                         actor.isDefending = true; actor.mp = Math.min(actor.maxMp, actor.mp + Math.floor(actor.maxMp * 0.1) + 4);
                         this.log(`> ${actor.displayName} 進行防禦。`);
@@ -1914,7 +2174,17 @@ const Battle = {
 
         await new Promise(r => setTimeout(r, 650)); if (!this.isActive) return;
 
+        this.resolveStealthBreak(actor, hadStealthBeforeThisAction);
         await this.processCombo(actor, originalSkillId, comboCount);
+    },
+
+    // 隱形術修改：只要行動（攻擊或使用任何技能）就解除隱形，不再只靠「被擊中」才解除。
+    // 只處理「行動前就已經隱形」的情況，避免把這次行動剛套用的全新隱形立刻解除掉。
+    resolveStealthBreak(actor, hadStealthBeforeThisAction) {
+        if (hadStealthBeforeThisAction && actor.hasBuff('stealth')) {
+            actor.buffs = actor.buffs.filter(b => b.type !== 'stealth');
+            this.log(`> 👁️ ${actor.displayName} 因為行動而現出了身形，隱形狀態解除。`);
+        }
     },
 
     async processCombo(actor, originalSkillId, comboCount) {
@@ -1963,6 +2233,31 @@ const Battle = {
         }
 
         this.nextTurn();
+    },
+
+    // 反擊架式：defender 反擊 attacker。用簡化的傷害流程（不扣MP、不會再觸發反擊、不佔用回合），
+    // 避免跟正規的 executeAction 流程互相嵌套造成回合順序錯亂或反擊連鎖無限迴圈。
+    async performCounterAttack(defender, attacker) {
+        if (!this.isActive || attacker.hp <= 0 || defender.hp <= 0) return;
+        let pool = defender.skills.filter(s => SKILLS[s] && SKILLS[s].type === 'attack' && SKILLS[s].power > 0 && SKILLS[s].target !== 'self');
+        let skillId = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : 'attack';
+        let skill = SKILLS[skillId];
+
+        await new Promise(r => setTimeout(r, 300)); if (!this.isActive) return;
+        this.log(`> 🔄 <b style="color:var(--warning);">反擊！</b> ${defender.displayName} 抓住破綻，反擊了 ${attacker.displayName}！`);
+
+        let baseDmg = Math.floor(defender.atk * skill.power);
+        let targetDef = Math.floor(attacker.def);
+        let eleMul = getElementMultiplier(skill.element, attacker.element);
+        let finalDmg = Math.max(2, Math.floor((baseDmg / Math.max(1, targetDef)) * eleMul * 10 * (0.85 + Math.random() * 0.3)));
+
+        let died = attacker.takeDamage(finalDmg);
+        this.hitFlash(attacker.id);
+        this.floatText(attacker.id, `-${finalDmg}`, 'var(--danger)');
+        this.log(`> 對 ${attacker.displayName} 造成 <span class="c-dmg">${finalDmg}</span> 點反擊傷害。`);
+        this.updateUI();
+        if (died) this.log(`> 💀 <b>${attacker.displayName} 被反擊擊敗了！</b>`);
+        await new Promise(r => setTimeout(r, 300));
     }
 };
 /* ============================================================
@@ -2244,7 +2539,13 @@ const Game = {
             activeSkills.forEach(skillId => {
                 let currentMods = this.state.party[0].skillModifiers[skillId] || [];
                 if (!currentMods.includes(modKey)) {
-                    let mainSkill = SKILLS[skillId]; let isOffensive = mainSkill.type === 'attack'; let isFriendly = mainSkill.type === 'heal' || mainSkill.type === 'buff'; let weight = 2;
+                    let mainSkill = SKILLS[skillId];
+                    let canHitAllies = ['self', 'ally', 'all_allies', 'any'].includes(mainSkill.target);
+                    let canHitEnemies = ['enemy', 'all_enemies', 'any'].includes(mainSkill.target);
+                    // 「攻擊性」被動只能裝在絕對不會打到自己隊友的技能上；「友善」被動只能裝在絕對不會打到敵人的技能上。
+                    let isOffensive = mainSkill.type === 'attack' && canHitEnemies && !canHitAllies;
+                    let isFriendly = (mainSkill.type === 'heal' || mainSkill.type === 'buff') && canHitAllies && !canHitEnemies;
+                    let weight = 2;
                     if (mod.type === 'offensive' && !isOffensive) weight = 0; if (mod.type === 'friendly' && !isFriendly) weight = 0;
                     if (modKey === 'aoe_spread' && (mainSkill.target === 'all_enemies' || mainSkill.target === 'all_allies' || mainSkill.target === 'self')) weight = 0;
                     if (weight > 0) modifierPool.push({ type: 'modifier', data: mod, targetSkillId: skillId, targetSkillName: mainSkill.name });
