@@ -782,7 +782,7 @@ class Entity {
         }
 
         if (type === 'weakened') duration = 999; 
-        if (type === 'vine_wrapped') duration = 2; // 修復：將藤蔓纏繞的回合數提昇至2回合，以便能配合打擊
+        if (type === 'vine_wrapped') duration = 2; 
         
         const existing = this.buffs.find(b => b.type === type);
         if (existing) existing.duration = Math.max(existing.duration, duration); else this.buffs.push({ type, duration, value });
@@ -1178,7 +1178,6 @@ const Game = {
                     if (mod.type === 'offensive' && !isOffensive) weight = 0; if (mod.type === 'friendly' && !isFriendly) weight = 0;
                     if (modKey === 'aoe_spread' && (mainSkill.target === 'all_enemies' || mainSkill.target === 'all_allies' || mainSkill.target === 'self')) weight = 0;
                     
-                    // 新增過濾：若是對自己或隊友施放的招式，抽卡時的被動能力排除 Debuff 類型
                     let isSelfOrAllyTarget = ['self', 'ally', 'all_allies'].includes(mainSkill.target);
                     let isDebuffModifier = ['paralyze_chance', 'freeze_chance', 'blind_infuse', 'poison_infuse', 'bleed_infuse', 'stun_chance', 'curse_infuse', 'confuse_infuse', 'sleep_infuse', 'silence_infuse'].includes(modKey);
                     if (isSelfOrAllyTarget && isDebuffModifier) weight = 0;
@@ -1503,9 +1502,18 @@ const Battle = {
     },
     
     getSkillCost(entity, skillId) {
-        let skill = SKILLS[skillId]; let mods = entity.skillModifiers[skillId] || [];
-        let cost = skill.mpCost; if (mods.includes('mp_reduction')) cost = Math.ceil(cost / 2);
-        return { amount: cost, isHp: mods.includes('blood_magic') };
+        let skill = SKILLS[skillId]; 
+        let mods = entity.skillModifiers[skillId] || [];
+        
+        // 新設定: MP消耗 = (原始消耗 + (裝備符文數量 * 2))
+        let calculatedCost = skill.mpCost + (mods.length * 2);
+        
+        // 有減免符文的話，最終消耗再除以2 (以無條件進位確保至少需1點消耗)
+        if (mods.includes('mp_reduction')) {
+            calculatedCost = Math.ceil(calculatedCost / 2);
+        }
+        
+        return { amount: calculatedCost, isHp: mods.includes('blood_magic') };
     },
 
     getSkillDisplayName(entity, skillId) {
@@ -1570,8 +1578,14 @@ const Battle = {
             let s = SKILLS[sId];
             let lv = entity.skillLevels[sId] || 1;
             let mods = entity.skillModifiers[sId] || [];
+            
+            // 動態取得當前的技能消耗
+            let costInfo = Battle.getSkillCost(entity, sId);
+            let costColor = costInfo.isHp ? 'var(--danger)' : '#aaa';
+            let costLabel = costInfo.isHp ? 'HP' : 'MP';
+            
             let modsText = mods.length > 0 ? `<br><span style="color:var(--warning); font-size:11px;">└ 符文: ${mods.map(m=>MODIFIERS[m].name).join(', ')}</span>` : '';
-            return `<li style="margin-bottom:8px;"><b>${s.name} (Lv.${lv})</b> <span style="color:var(--text-muted); font-size:11px;">[消耗:${s.mpCost}MP / 類型:${s.type}]</span><br><span style="color:#bbb; font-size:12px;">${s.desc}</span>${modsText}</li>`;
+            return `<li style="margin-bottom:8px;"><b>${s.name} (Lv.${lv})</b> <span style="color:var(--text-muted); font-size:11px;">[消耗:<span style="color:${costColor}">${costInfo.amount}${costLabel}</span> / 類型:${s.type}]</span><br><span style="color:#bbb; font-size:12px;">${s.desc}</span>${modsText}</li>`;
         }).join('');
         
         let buffsHtml = entity.buffs.map(b => {
@@ -1618,7 +1632,6 @@ const Battle = {
         
         const floatDiv = document.createElement('div'); floatDiv.className = 'float-text'; floatDiv.style.color = color; floatDiv.innerHTML = text;
         
-        // 修正：在 top 與 left 的計算中，皆扣除遊戲容器 containerRect 的相對偏移，以確保數字精準落在框格上方
         floatDiv.style.top = (rect.top - containerRect.top) + 'px'; 
         floatDiv.style.left = (rect.left - containerRect.left + rect.width / 2) + 'px';
         
@@ -1999,7 +2012,6 @@ const Battle = {
                             this.log(`> ${critLog}對 ${target.displayName} 造成 <span class="c-dmg">${finalDmg}</span> 點傷害。`);
                         }
 
-                        // === 新增藤蔓術特效判斷 ===
                         if (skill.special === 'vine' && !died) {
                             if (Math.random() < 0.5) {
                                 target.addBuff('poison', 3, 0, actor);
@@ -2059,7 +2071,6 @@ const Battle = {
                     } else if (skill.type === 'heal' || skill.type === 'buff') {
                         let success = true;
 
-                        // 修復：支援 buff 類型技能的負面效果 (applyDebuff) 判定，原本只有 applyBuff，導致負面輔助技能永遠不會生效
                         if ((skill.applyBuff || skill.applyDebuff) && skill.chance !== undefined) {
                             let baseChance = skill.chance;
                             if (mods.includes('lucky')) baseChance = Math.min(1.0, baseChance * 1.5);
@@ -2085,7 +2096,6 @@ const Battle = {
                                 this.log(`> ✨ 附加狀態成功：${target.displayName} 獲得了 <b>【${BUFF_EFFECTS[skill.applyBuff]?.name || skill.applyBuff}】</b>！`);
                             }
                             else if (skill.applyDebuff) {
-                                // 修正點：支援負面狀態如混亂、睡眠、石化、禁咒術的附加
                                 target.addBuff(skill.applyDebuff, 3, 0, actor);
                                 this.log(`> ✨ 附加狀態成功：${target.displayName} 陷入了 <b>【${BUFF_EFFECTS[skill.applyDebuff]?.name || skill.applyDebuff}】</b>！`);
                             }
@@ -2213,4 +2223,3 @@ Game.init();
 </script>
 </body>
 </html>
-
