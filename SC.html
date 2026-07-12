@@ -83,7 +83,7 @@
         .nb-keyword { color: var(--warning); font-weight: bold; font-size: var(--font-lg); }
 
         .battle-area { flex: 1; display: flex; flex-direction: column; padding: 10px; overflow-y: auto; gap: 8px; }
-        .team-container { display: flex; justify-content: space-between; gap: 5px; }
+        .team-container { display: flex; justify-content: space-between; gap: 5px; flex-shrink: 0; }
         .entity { background: var(--panel-bg); border: 1px solid #333; border-radius: 6px; padding: 6px; flex: 1; text-align: center; position: relative; transition: transform 0.2s, border-color 0.2s; min-width: 0; cursor: pointer; }
         .entity.active-turn { border-color: var(--warning); transform: translateY(-2px); box-shadow: 0 0 8px rgba(241, 196, 15, 0.5); }
         .entity.dead { opacity: 0.3; filter: grayscale(1); }
@@ -112,7 +112,20 @@
         .s-sil { background: #b7950b; color: #fff; } 
         .s-ref { background: #2471a3; color: #fff; } 
 
-        .log-area { background: #0a0a0a; border-top: 1px solid #333; border-bottom: 1px solid #333; height: 140px; overflow-y: auto; padding: 8px; font-size: var(--font-md); display: flex; flex-direction: column; gap: 4px; cursor: pointer; flex-shrink: 0;}
+        .log-area { 
+            background: #0a0a0a; 
+            border: 1px solid #333; 
+            border-radius: 6px;
+            flex: 1; /* 動態填滿高度 */
+            min-height: 100px;
+            overflow-y: auto; 
+            padding: 8px; 
+            font-size: var(--font-md); 
+            display: flex; 
+            flex-direction: column; 
+            gap: 4px; 
+            cursor: pointer; 
+        }
         .log-area:active { background: #111; }
         .log-entry { margin: 0; line-height: 1.4; animation: fadeIn 0.2s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
@@ -235,13 +248,15 @@
     <div id="screen-battle" class="screen">
         <div style="text-align:center; padding: 4px; background:#111; font-size:var(--font-sm); border-bottom:1px solid #333;" id="quest-tracker"></div>
         <div class="battle-area">
-            <div style="text-align: center; font-size: var(--font-sm); color: var(--text-muted); letter-spacing: 2px;">ENEMIES (點擊查看詳情)</div>
+            <div style="text-align: center; font-size: var(--font-sm); color: var(--text-muted); letter-spacing: 2px; flex-shrink: 0;">ENEMIES (點擊查看詳情)</div>
             <div class="team-container" id="enemy-team"></div>
-            <div style="flex: 1;"></div>
-            <div style="text-align: center; font-size: var(--font-sm); color: var(--text-muted); letter-spacing: 2px;">PARTY (點擊查看詳情)</div>
+            
+            <!-- 戰鬥訊息欄移至此處，並透過 flex:1 動態延展 -->
+            <div class="log-area" id="battle-log" onclick="UI.showFullLog()"></div>
+            
+            <div style="text-align: center; font-size: var(--font-sm); color: var(--text-muted); letter-spacing: 2px; flex-shrink: 0;">PARTY (點擊查看詳情)</div>
             <div class="team-container" id="player-team"></div>
         </div>
-        <div class="log-area" id="battle-log" onclick="UI.showFullLog()"></div>
         <div class="action-panel" id="action-panel"></div>
     </div>
 
@@ -1505,10 +1520,7 @@ const Battle = {
         let skill = SKILLS[skillId]; 
         let mods = entity.skillModifiers[skillId] || [];
         
-        // 新設定: MP消耗 = (原始消耗 + (裝備符文數量 * 2))
         let calculatedCost = skill.mpCost + (mods.length * 2);
-        
-        // 有減免符文的話，最終消耗再除以2 (以無條件進位確保至少需1點消耗)
         if (mods.includes('mp_reduction')) {
             calculatedCost = Math.ceil(calculatedCost / 2);
         }
@@ -1579,7 +1591,6 @@ const Battle = {
             let lv = entity.skillLevels[sId] || 1;
             let mods = entity.skillModifiers[sId] || [];
             
-            // 動態取得當前的技能消耗
             let costInfo = Battle.getSkillCost(entity, sId);
             let costColor = costInfo.isHp ? 'var(--danger)' : '#aaa';
             let costLabel = costInfo.isHp ? 'HP' : 'MP';
