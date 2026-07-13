@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>靈魂與選擇 V29 - 奧秘結界與狀態昇華</title>
+    <title>靈魂與選擇 V30 - 狂化魔王與極限挑戰</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -53,6 +53,7 @@
         .btn-success { background: #27ae60; } .btn-success:active { background: #1e8449; }
         .btn-warning { background: #d35400; } .btn-warning:active { background: #a04000; }
         .btn-danger { background: #c0392b; } .btn-danger:active { background: #922b21; }
+        .btn-purple { background: #8e44ad; } .btn-purple:active { background: #732d91; }
 
         .meta-box { border-radius: 8px; padding: 15px; width: 100%; max-width: 340px; margin: 0 auto 15px auto; text-align: left; flex-shrink: 0; display: block; }
         .meta-box h3 { margin: 0 0 10px 0; font-size: var(--font-lg); text-align: center; }
@@ -111,6 +112,7 @@
         .s-pet { background: #566573; color: #fff; } 
         .s-sil { background: #b7950b; color: #fff; } 
         .s-ref { background: #2471a3; color: #fff; } 
+        .s-bbk { background: #8e0000; color: #fff; } /* 魔王狂化 */
 
         .log-area { 
             background: #0a0a0a; 
@@ -180,8 +182,8 @@
     <!-- Screen: Main Menu -->
     <div id="screen-menu" class="screen active">
         <div class="center-content">
-            <h1>靈魂與選擇 V29</h1>
-            <div class="subtitle" style="margin-bottom: 5px;">奧秘結界與狀態昇華</div>
+            <h1>靈魂與選擇 V30</h1>
+            <div class="subtitle" style="margin-bottom: 5px;">狂化魔王與極限挑戰</div>
             
             <div style="font-size:var(--font-md); margin-bottom: 15px; padding: 5px; border: 1px dashed #555; border-radius: 4px; width: 100%; max-width: 340px;">
                 主角姓名：<span id="player-name-display" style="color:var(--success); font-weight:bold; cursor:pointer; text-decoration:underline;" onclick="Meta.editPlayerName()">冒險者</span>
@@ -191,6 +193,7 @@
             
             <button class="btn-main btn-warning" onclick="Game.openQuestBoard()" style="margin-bottom:10px;">📜 任務公會 (接取任務)</button>
             <button class="btn-main" onclick="Game.startEndless()" style="margin-bottom:10px;">⚔️ 無盡地下城 (無限探索)</button>
+            <button class="btn-main btn-purple" onclick="Game.startBossRush()" style="margin-bottom:10px;">💀 魔王地下城 (極限挑戰)</button>
             
             <div class="meta-box temple-box" style="margin-top:10px;">
                 <h3>🏛️ 祈願神廟 (Lv.<span id="menu-temple-lv">1</span>)</h3>
@@ -251,7 +254,6 @@
             <div style="text-align: center; font-size: var(--font-sm); color: var(--text-muted); letter-spacing: 2px; flex-shrink: 0;">ENEMIES (點擊查看詳情)</div>
             <div class="team-container" id="enemy-team"></div>
             
-            <!-- 戰鬥訊息欄移至此處，並透過 flex:1 動態延展 -->
             <div class="log-area" id="battle-log" onclick="UI.showFullLog()"></div>
             
             <div style="text-align: center; font-size: var(--font-sm); color: var(--text-muted); letter-spacing: 2px; flex-shrink: 0;">PARTY (點擊查看詳情)</div>
@@ -398,7 +400,8 @@ const BUFF_EFFECTS = {
     'confuse': { name: '混亂', desc: '神智不清不受控。每回合隨機選擇任意對象進行隨機技能施放（包含敵我傷害或治癒）' },
     'petrify': { name: '石化', desc: '無法行動。受到的傷害降低為 25%，並且完全免疫任何新的負面狀態' },
     'silence': { name: '禁咒', desc: '無法施展魔法類（magic）技能，但仍可使用戰鬥武技（melee）' },
-    'reflect': { name: '反射結界', desc: '將受到的 80% 傷害與所有正負面附加狀態完全反彈回發動者身上' }
+    'reflect': { name: '反射結界', desc: '將受到的 80% 傷害與所有正負面附加狀態完全反彈回發動者身上' },
+    'boss_berserk': { name: '魔王狂化', desc: '傷害提升 50%，並完全免疫所有負面異常狀態！' }
 };
 
 const MODIFIERS = {
@@ -406,7 +409,7 @@ const MODIFIERS = {
     'double_cast': { id: 'double_cast', name: '二連擊', type: 'any', desc: '有 50% 機率連續觸發兩次效果' },
     'crit_rate_up': { id: 'crit_rate_up', name: '爆率增加', type: 'offensive', desc: '該技能的爆擊率提升至 30%' },
     'crit_dmg_up': { id: 'crit_dmg_up', name: '爆傷增加', type: 'offensive', desc: '該技能的爆擊傷害提升至 250%' },
-    'paralyze_chance': { id: 'paralyze_chance', name: '附加麻痺', type: 'offensive', desc: '30% 機率使目標本回合及下回合無法行動' },
+    'paralyze_chance': { id: 'paralyze_chance', name: '附加麻痺', type: 'offensive', desc: '20% 機率使目標本回合及下回合無法行動' },
     'freeze_chance': { id: 'freeze_chance', name: '附加冰凍', type: 'offensive', desc: '30% 機率大幅降低目標防禦力' },
     'blind_infuse': { id: 'blind_infuse', name: '盲目', type: 'offensive', desc: '30% 機率使敵人陷入盲目狀態（命中率減半）' },
     'add_shield': { id: 'add_shield', name: '增加護盾', type: 'any', desc: '施放時為自身增加 15% 最大HP 的護盾' },
@@ -442,7 +445,7 @@ const SKILLS = {
     'firestorm': { id: 'firestorm', name: '烈焰風暴', type: 'attack', power: 1.1, mpCost: 18, target: 'all_enemies', tags: ['magic', 'fire'], req: ['fire'], element: 'fire', desc: '全體 110% 烈焰傷害。' },
     'frost': { id: 'frost', name: '冰霜打擊', type: 'attack', power: 1.2, mpCost: 10, target: 'enemy', tags: ['magic', 'water'], req: ['magic'], element: 'water', desc: '120% 水傷害，並降低目標防禦力。', applyDebuff: 'def_down' },
     'lightning_strike': { id: 'lightning_strike', name: '閃電術', type: 'attack', power: 1.4, mpCost: 10, target: 'enemy', tags: ['magic', 'lightning'], element: 'lightning', desc: '造成 140% 雷傷害，25% 機率麻痺目標。', applyDebuff: 'paralyze', chance: 0.25 },
-    'vine_spell': { id: 'vine_spell', name: '藤蔓術', type: 'attack', power: 1.1, mpCost: 10, target: 'enemy', tags: ['magic', 'wood'], req: ['magic'], element: 'wood', desc: '造成 110% 木傷害，隨機中毒或麻痺。命中後若受火屬攻擊將引發燃燒。', special: 'vine' },
+    'vine_spell': { id: 'vine_spell', name: '藤蔓術', type: 'attack', power: 1.1, mpCost: 10, target: 'enemy', tags: ['magic', 'wood'], req: ['magic'], element: 'wood', desc: '造成 110% 木傷害，有 20% 機率麻痺目標或 30% 機率使目標中毒。命中後若受火屬攻擊將引發燃燒。', special: 'vine' },
     'holy_light': { id: 'holy_light', name: '聖光彈', type: 'attack', power: 1.3, mpCost: 10, target: 'enemy', tags: ['magic', 'light'], element: 'light', desc: '凝聚神聖之力，造成 130% 光屬性魔法傷害。' },
     'soul_drain': { id: 'soul_drain', name: '吸魂術', type: 'attack', power: 1.1, mpCost: 10, target: 'enemy', tags: ['magic', 'dark'], element: 'dark', desc: '造成 110% 闇屬性傷害並吸取目標少量 MP。', special: 'drain_mp' },
     'blood_blade': { id: 'blood_blade', name: '血刃', type: 'attack', power: 1.1, mpCost: 8, target: 'enemy', tags: ['melee', 'blood'], element: 'none', desc: '造成 110% 物理傷害，並附加 3 回合流血。', applyDebuff: 'bleed' },
@@ -624,6 +627,7 @@ const UI = {
             <div class="notebook-section"><h3>📊 生涯統計</h3>
             <div class="nb-item">完成任務總數：<span class="nb-keyword">${Meta.data.questsCompleted}</span> 次</div>
             <div class="nb-item">無盡模式最深紀錄：<span class="nb-keyword">B${Meta.data.maxFloor}F</span></div>
+            <div class="nb-item">魔王地下城最深紀錄：<span class="nb-keyword">B${Meta.data.maxBossRushFloor || 1}F</span></div>
             <div class="nb-item">魔王討伐總數：<span class="nb-keyword">${totalBossKills}</span> 隻</div>
             </div>
             <div class="notebook-section"><h3>🛡️ 職業圖鑑</h3>`;
@@ -652,10 +656,10 @@ const UI = {
 const Meta = {
     data: { 
         playerName: '冒險者', gold: 0, tavernLevel: 1, templeLevel: 1, pUpgrades: { hp: 0, mp: 0, atk: 0, def: 0 },
-        customNames: ['', '', ''], questLevel: 1, questsCompleted: 0, maxFloor: 1, bossKills: {}
+        customNames: ['', '', ''], questLevel: 1, questsCompleted: 0, maxFloor: 1, maxBossRushFloor: 1, bossKills: {}
     },
     load() {
-        let keysToTry = ['sc_meta_v29', 'sc_meta_v28', 'sc_meta_v27', 'sc_meta_v26', 'sc_meta_v25', 'sc_meta_v24', 'sc_meta_v23'];
+        let keysToTry = ['sc_meta_v30.1', 'sc_meta_v30', 'sc_meta_v29', 'sc_meta_v28', 'sc_meta_v27', 'sc_meta_v26', 'sc_meta_v25', 'sc_meta_v24', 'sc_meta_v23'];
         let saved = null;
         for (let key of keysToTry) {
             saved = localStorage.getItem(key);
@@ -668,10 +672,11 @@ const Meta = {
             if(!this.data.customNames) this.data.customNames = ['', '', ''];
             if(!this.data.templeLevel) this.data.templeLevel = 1;
             if(!this.data.bossKills) this.data.bossKills = {};
+            if(!this.data.maxBossRushFloor) this.data.maxBossRushFloor = 1;
         }
         this.updateUI();
     },
-    save() { localStorage.setItem('sc_meta_v29', JSON.stringify(this.data)); this.updateUI(); },
+    save() { localStorage.setItem('sc_meta_v30.1', JSON.stringify(this.data)); this.updateUI(); },
     addGold(amount) { this.data.gold += amount; this.save(); },
     getStatCost(stat) { return 20 + (this.data.pUpgrades[stat] * 15); },
     upgradeStat(stat) {
@@ -763,6 +768,7 @@ class Entity {
         if (this.hasBuff('atk_down')) mult -= 0.3;
         if (this.hasBuff('weakened')) mult -= 0.7; 
         if (this.hasBuff('berserk')) mult += 0.5; 
+        if (this.hasBuff('boss_berserk')) mult += 0.5; 
         mult = Math.max(0.2, mult); 
         return Math.floor(this.baseAtk * mult); 
     }
@@ -791,8 +797,14 @@ class Entity {
         }
 
         const debuffList = ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped', 'blind', 'sleep', 'confuse', 'silence'];
+        
         if (this.hasBuff('petrify') && debuffList.includes(type)) {
             Battle.log(`> 🗿 ${this.displayName} 目前正處於石化凝固狀態，完全免疫負面效果【${BUFF_EFFECTS[type]?.name || type}】！`);
+            return;
+        }
+
+        if (this.hasBuff('boss_berserk') && debuffList.includes(type)) {
+            Battle.log(`> 💢 ${this.displayName} 處於狂化狀態，咆哮著震開了負面效果【${BUFF_EFFECTS[type]?.name || type}】！`);
             return;
         }
 
@@ -839,7 +851,7 @@ class Entity {
         if (this.hasBuff('sleep')) {
             amount = Math.floor(amount * 2.0);
             this.buffs = this.buffs.filter(b => b.type !== 'sleep');
-            Battle.log(`> 💤 沉睡中的 ${this.displayName} 毫無防備地受到了雙倍傷害！並猛然被打醒解除了睡眠！`);
+            Battle.log(`> 💤 沉睡中的 ${this.displayName} 毫無防備地受到了雙倍傷害！並猛然被打醒解解除睡眠！`);
         }
 
         if (this.shield > 0) { 
@@ -849,6 +861,16 @@ class Entity {
         
         this.hp = Math.max(0, this.hp - amount);
         
+        // 魔王血量低於50% 觸發狂暴與淨化
+        if (this.hp > 0 && this.isBoss && (this.hp / this.maxHp) <= 0.5 && !this.hasBuff('boss_berserk')) {
+            this.addBuff('boss_berserk', 999, 0, this);
+            const debuffList = ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped', 'blind', 'sleep', 'confuse', 'silence'];
+            this.buffs = this.buffs.filter(b => !debuffList.includes(b.type)); // 清除現有負面狀態
+            
+            Battle.log(`> 💢 <b style="color:var(--danger); font-size:16px;">【魔王狂化】</b> ${this.displayName} 的血量低於一半，憤怒地驅散了所有負面狀態並進入狂暴狀態！`);
+            Battle.floatText(this.id, `狂暴!`, 'var(--danger)');
+        }
+
         if (amount > 0 && this.hasBuff('stealth')) {
             this.buffs = this.buffs.filter(b => b.type !== 'stealth');
             Battle.log(`> 👁️ ${this.displayName} 遭到攻擊，隱形狀態被破除露出了身形！`);
@@ -903,7 +925,7 @@ const Game = {
     
     init() {
         Meta.load(); 
-        let keysToTry = ['sc_run_v29', 'sc_run_v28', 'sc_run_v27', 'sc_run_v26', 'sc_run_v25', 'sc_run_v24', 'sc_run_v23'];
+        let keysToTry = ['sc_run_v30.1', 'sc_run_v30', 'sc_run_v29', 'sc_run_v28', 'sc_run_v27', 'sc_run_v26', 'sc_run_v25', 'sc_run_v24', 'sc_run_v23'];
         let savedRun = null;
         for(let key of keysToTry) {
             savedRun = localStorage.getItem(key);
@@ -915,7 +937,7 @@ const Game = {
     
     checkSave() {
         try {
-            let keysToTry = ['sc_run_v29', 'sc_run_v28', 'sc_run_v27', 'sc_run_v26', 'sc_run_v25', 'sc_run_v24', 'sc_run_v23'];
+            let keysToTry = ['sc_run_v30.1', 'sc_run_v30', 'sc_run_v29', 'sc_run_v28', 'sc_run_v27', 'sc_run_v26', 'sc_run_v25', 'sc_run_v24', 'sc_run_v23'];
             let save = null;
             for(let key of keysToTry) {
                 save = localStorage.getItem(key);
@@ -935,9 +957,9 @@ const Game = {
         } catch(e) { console.error(e); this.clearRunSave(); this.showScreen('menu'); }
     },
     
-    saveData() { localStorage.setItem('sc_run_v29', JSON.stringify(this.state)); },
+    saveData() { localStorage.setItem('sc_run_v30.1', JSON.stringify(this.state)); },
     clearRunSave() { 
-        let keysToRemove = ['sc_run_v29', 'sc_run_v28', 'sc_run_v27', 'sc_run_v26', 'sc_run_v25', 'sc_run_v24', 'sc_run_v23'];
+        let keysToRemove = ['sc_run_v30.1', 'sc_run_v30', 'sc_run_v29', 'sc_run_v28', 'sc_run_v27', 'sc_run_v26', 'sc_run_v25', 'sc_run_v24', 'sc_run_v23'];
         keysToRemove.forEach(k => localStorage.removeItem(k));
         document.getElementById('btn-continue').style.display = 'none'; 
     },
@@ -947,13 +969,13 @@ const Game = {
         if (confirm1) {
             let confirm2 = await CustomDialog.show({ type: 'confirm', title: '【最終確認】', isDanger: true, message: '這將會完全清除所有存檔，無法恢復。確定要繼續嗎？' });
             if (confirm2) {
-                const allKeys = ['sc_meta_v29', 'sc_run_v29', 'sc_meta_v28', 'sc_run_v28', 'sc_meta_v27', 'sc_run_v27', 'sc_meta_v26', 'sc_run_v26'];
+                const allKeys = ['sc_meta_v30.1', 'sc_run_v30.1', 'sc_meta_v30', 'sc_run_v30', 'sc_meta_v29', 'sc_run_v29', 'sc_meta_v28', 'sc_run_v28', 'sc_meta_v27', 'sc_run_v27', 'sc_meta_v26', 'sc_run_v26'];
                 allKeys.forEach(k => localStorage.removeItem(k));
                 try { localStorage.clear(); } catch(e) {} 
 
                 Meta.data = { 
                     playerName: '冒險者', gold: 0, tavernLevel: 1, templeLevel: 1, pUpgrades: { hp: 0, mp: 0, atk: 0, def: 0 },
-                    customNames: ['', '', ''], questLevel: 1, questsCompleted: 0, maxFloor: 1, bossKills: {}
+                    customNames: ['', '', ''], questLevel: 1, questsCompleted: 0, maxFloor: 1, maxBossRushFloor: 1, bossKills: {}
                 };
                 Meta.save(); 
                 
@@ -1077,6 +1099,30 @@ const Game = {
         this.showClassSelect(); 
     },
 
+    async startBossRush() {
+        let startFl = 1;
+        let maxBossFl = Meta.data.maxBossRushFloor || 1;
+        if (maxBossFl > 1) {
+            let res = await CustomDialog.show({
+                type: 'prompt',
+                title: '選擇起始樓層',
+                message: `請輸入要挑戰的魔王層數 (最高可選 ${maxBossFl}F)：`,
+                defaultText: '1'
+            });
+            if (res === false) return; 
+            startFl = parseInt(res);
+            if (isNaN(startFl) || startFl < 1) startFl = 1;
+            if (startFl > maxBossFl) startFl = maxBossFl;
+        }
+
+        this.state.mode = 'boss_rush'; 
+        this.state.activeQuest = null; 
+        this.state.dungeonPool = ENDLESS_MONSTERS.filter(m => m.isBoss); 
+        this.state.dungeonName = `魔王地下城 (B${startFl}F 開始)`; 
+        this.state.startingFloor = startFl;
+        this.showClassSelect();
+    },
+
     showClassSelect() {
         this.showScreen('class'); document.getElementById('header-floor').innerText = `建立隊伍`; document.getElementById('target-dungeon-name').innerText = this.state.dungeonName;
         const list = document.getElementById('class-list'); list.innerHTML = '';
@@ -1116,37 +1162,46 @@ const Game = {
         this.saveData(); this.state.enemies = [];
         
         let pool = this.state.dungeonPool;
-        let isBossHuntTarget = (this.state.mode === 'quest' && this.state.activeQuest && this.state.activeQuest.type === 'boss_hunt' && this.state.floor >= this.state.activeQuest.target);
-        let randomBossSpawn = (this.state.floor >= 10 && Math.random() < 0.10);
-        let bosses = pool.filter(m => m.isBoss);
-
-        if ((isBossHuntTarget || randomBossSpawn) && bosses.length > 0) {
+        
+        if (this.state.mode === 'boss_rush') {
+            let bosses = pool;
             let bossTpl = bosses[Math.floor(Math.random() * bosses.length)];
-            let scale = 1 + (this.state.floor * 0.15);
+            let scale = 1 + (this.state.floor * 0.20); 
             let eData = { ...bossTpl, hp: Math.floor(bossTpl.hp * scale * 1.5), atk: Math.floor(bossTpl.atk * scale * 1.5), def: Math.floor(bossTpl.def * scale * 1.5), isEnemy: true, skillLevels: { 'attack': 1, [bossTpl.skills[1]]: Math.floor(1 + this.state.floor * 0.2) } };
             this.state.enemies.push(new Entity(eData));
         } else {
-            let enemyCount = Math.min(5, 1 + Math.floor(Math.random() * 3) + (this.state.floor > 3 ? 1 : 0));
-            let normalsAndSupports = pool.filter(m => !m.isBoss);
-            for(let i=0; i<enemyCount; i++) {
-                let tpl = null;
-                let r = Math.random();
-                if (r < 0.2) { 
-                    let supports = normalsAndSupports.filter(m => m.isSupport);
-                    if (supports.length > 0) tpl = supports[Math.floor(Math.random() * supports.length)];
-                } else if (r < 0.4) {
-                    let larges = normalsAndSupports.filter(m => m.isLarge);
-                    if (larges.length > 0) tpl = larges[Math.floor(Math.random() * larges.length)];
-                }
-                
-                if (!tpl) {
-                    let normals = normalsAndSupports.filter(m => !m.isLarge && !m.isSupport);
-                    tpl = normals.length ? normals[Math.floor(Math.random() * normals.length)] : normalsAndSupports[0];
-                }
-                
-                let scale = 1 + (this.state.floor * 0.15); 
-                let eData = { ...tpl, hp: Math.floor(tpl.hp * scale), atk: Math.floor(tpl.atk * scale), def: Math.floor(tpl.def * scale), isEnemy: true, skillLevels: { 'attack': 1, [tpl.skills[1]]: Math.floor(1 + this.state.floor * 0.2) } };
+            let isBossHuntTarget = (this.state.mode === 'quest' && this.state.activeQuest && this.state.activeQuest.type === 'boss_hunt' && this.state.floor >= this.state.activeQuest.target);
+            let randomBossSpawn = (this.state.floor >= 10 && Math.random() < 0.10);
+            let bosses = pool.filter(m => m.isBoss);
+
+            if ((isBossHuntTarget || randomBossSpawn) && bosses.length > 0) {
+                let bossTpl = bosses[Math.floor(Math.random() * bosses.length)];
+                let scale = 1 + (this.state.floor * 0.15);
+                let eData = { ...bossTpl, hp: Math.floor(bossTpl.hp * scale * 1.5), atk: Math.floor(bossTpl.atk * scale * 1.5), def: Math.floor(bossTpl.def * scale * 1.5), isEnemy: true, skillLevels: { 'attack': 1, [bossTpl.skills[1]]: Math.floor(1 + this.state.floor * 0.2) } };
                 this.state.enemies.push(new Entity(eData));
+            } else {
+                let enemyCount = Math.min(5, 1 + Math.floor(Math.random() * 3) + (this.state.floor > 3 ? 1 : 0));
+                let normalsAndSupports = pool.filter(m => !m.isBoss);
+                for(let i=0; i<enemyCount; i++) {
+                    let tpl = null;
+                    let r = Math.random();
+                    if (r < 0.2) { 
+                        let supports = normalsAndSupports.filter(m => m.isSupport);
+                        if (supports.length > 0) tpl = supports[Math.floor(Math.random() * supports.length)];
+                    } else if (r < 0.4) {
+                        let larges = normalsAndSupports.filter(m => m.isLarge);
+                        if (larges.length > 0) tpl = larges[Math.floor(Math.random() * larges.length)];
+                    }
+                    
+                    if (!tpl) {
+                        let normals = normalsAndSupports.filter(m => !m.isLarge && !m.isSupport);
+                        tpl = normals.length ? normals[Math.floor(Math.random() * normals.length)] : normalsAndSupports[0];
+                    }
+                    
+                    let scale = 1 + (this.state.floor * 0.15); 
+                    let eData = { ...tpl, hp: Math.floor(tpl.hp * scale), atk: Math.floor(tpl.atk * scale), def: Math.floor(tpl.def * scale), isEnemy: true, skillLevels: { 'attack': 1, [tpl.skills[1]]: Math.floor(1 + this.state.floor * 0.2) } };
+                    this.state.enemies.push(new Entity(eData));
+                }
             }
         }
         
@@ -1155,7 +1210,7 @@ const Game = {
 
     updateQuestTracker() {
         const tracker = document.getElementById('quest-tracker');
-        if(this.state.mode === 'endless') { tracker.style.display = 'none'; return; }
+        if(this.state.mode === 'endless' || this.state.mode === 'boss_rush') { tracker.style.display = 'none'; return; }
         tracker.style.display = 'block'; let q = this.state.activeQuest;
         let text = '';
         if (q.type === 'kill') text = `討伐進度: ${q.progress} / ${q.target}`;
@@ -1166,6 +1221,8 @@ const Game = {
     
     generateRewards() {
         if(this.state.mode === 'endless') { Meta.data.maxFloor = Math.max(Meta.data.maxFloor, this.state.floor); Meta.save(); }
+        if(this.state.mode === 'boss_rush') { Meta.data.maxBossRushFloor = Math.max(Meta.data.maxBossRushFloor || 1, this.state.floor); Meta.save(); }
+        
         let earnedGold = Math.floor(20 * (1 + this.state.floor * 0.3)); Meta.addGold(earnedGold);
         document.getElementById('reward-loot').innerText = `獲得 ${earnedGold} 枚金幣！`;
 
@@ -1563,6 +1620,7 @@ const Battle = {
             if(b.type === 'petrify') { cls='s-pet'; txt='石'; }
             if(b.type === 'silence') { cls='s-sil'; txt='禁'; }
             if(b.type === 'reflect') { cls='s-ref'; txt='反'; }
+            if(b.type === 'boss_berserk') { cls='s-bbk'; txt='怒'; }
             
             buffsHtml.push(`<span class="s-icon ${cls}">${txt}</span>`);
         });
@@ -1908,7 +1966,11 @@ const Battle = {
 
         if (skill.special === 'summon') {
             actor.summonCount++; 
-            let pool = Game.state.dungeonPool.filter(m => !m.isBoss && !m.isLarge && !m.isSupport);
+            
+            // 修正：如果是 boss_rush 模式，直接從所有非 Boss 怪物中抽，否則從當前地下城抽
+            let basePool = Game.state.mode === 'boss_rush' ? ENDLESS_MONSTERS : Game.state.dungeonPool;
+            let pool = basePool.filter(m => !m.isBoss && !m.isLarge && !m.isSupport);
+            
             if (pool.length > 0 && Game.state.enemies.filter(e => e.hp > 0).length < 5) {
                 let tpl = pool[Math.floor(Math.random() * pool.length)];
                 let scale = 1 + (Game.state.floor * 0.15); 
@@ -2024,12 +2086,13 @@ const Battle = {
                         }
 
                         if (skill.special === 'vine' && !died) {
-                            if (Math.random() < 0.5) {
-                                target.addBuff('poison', 3, 0, actor);
-                                this.log(`> ☠️ 附毒：${target.displayName} 中毒了！`);
-                            } else {
+                            let r = Math.random();
+                            if (r < 0.20) {
                                 target.addBuff('paralyze', 2, 0, actor);
                                 this.log(`> ⚡ 麻痺：${target.displayName} 被麻痺了！`);
+                            } else if (r < 0.50) {
+                                target.addBuff('poison', 3, 0, actor);
+                                this.log(`> ☠️ 附毒：${target.displayName} 中毒了！`);
                             }
                             target.addBuff('vine_wrapped', 2, 0, actor);
                             this.log(`> 🌱 藤蔓纏繞：${target.displayName} 被粗壯的藤蔓徹底束縛了！`);
@@ -2046,6 +2109,9 @@ const Battle = {
                         if (skill.applyDebuff && !died) {
                             let baseChance = skill.chance !== undefined ? skill.chance : 1.0;
                             if (mods.includes('lucky')) baseChance = Math.min(1.0, baseChance * 1.5);
+                            
+                            if (mods.includes('paralyze_chance') && skill.applyDebuff === 'paralyze') baseChance = 0.2; 
+                            
                             if (Math.random() < baseChance) {
                                 target.addBuff(skill.applyDebuff, 3, 0, actor);
                                 this.log(`> ✨ 附加狀態成功：${target.displayName} 陷入了 <b>【${BUFF_EFFECTS[skill.applyDebuff]?.name || skill.applyDebuff}】</b>！`);
@@ -2057,7 +2123,7 @@ const Battle = {
                         if (mods.includes('poison_infuse') && !died && Math.random() < 0.3) { target.addBuff('poison', 3, 0, actor); this.log(`> ☠️ 附毒：${target.displayName} 中毒了！`); }
                         if (mods.includes('bleed_infuse') && !died && Math.random() < 0.3) { target.addBuff('bleed', 3, 0, actor); this.log(`> 🩸 割裂：${target.displayName} 開始流血！`); }
                         if (mods.includes('blind_infuse') && !died && Math.random() < 0.3) { target.addBuff('blind', 3, 0, actor); this.log(`> 👁️ 盲目：${target.displayName} 雙眼被遮蔽！`); }
-                        if (mods.includes('paralyze_chance') && !died && Math.random() < 0.3) { target.addBuff('paralyze', 2, 0, actor); this.log(`> ⚡ 麻痺：${target.displayName} 被麻痺了！`); }
+                        if (mods.includes('paralyze_chance') && !died && Math.random() < 0.2) { target.addBuff('paralyze', 2, 0, actor); this.log(`> ⚡ 麻痺：${target.displayName} 被麻痺了！`); }
                         if (mods.includes('stun_chance') && !died && Math.random() < 0.2) { target.addBuff('stun', 1, 0, actor); this.log(`> 🌀 暈眩：${target.displayName} 被擊中痛處眩暈了！`); }
                         if (mods.includes('freeze_chance') && !died && Math.random() < 0.3) { target.addBuff('freeze', 2, 0, actor); this.log(`> ❄️ 凍結：${target.displayName} 凝結了一層冰霜！`); }
                         if (mods.includes('curse_infuse') && !died) { target.addBuff('atk_down', 3, 0, actor); target.addBuff('def_down', 3, 0, actor); this.log(`> 💀 詛咒：${target.displayName} 攻防均被詛咒折損！`); }
