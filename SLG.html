@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>聖域之戰 - 完整修復版</title>
+    <title>聖域之戰 - 史詩擴充版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #1a202c; color: #e2e8f0; touch-action: manipulation; font-family: 'Segoe UI', sans-serif; overflow: hidden; user-select: none; -webkit-user-select: none; }
@@ -68,7 +68,6 @@
         .hero-card.selected { border-color: #ecc94b; box-shadow: 0 0 10px rgba(236, 201, 75, 0.5); background-color: #2c5282; }
         .hero-card.low-hp { border-color: #e53e3e; background-color: rgba(229, 62, 62, 0.2); }
 
-        /* 自定義捲軸 */
         ::-webkit-scrollbar { width: 6px; background: transparent; }
         ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #718096; }
@@ -168,7 +167,6 @@
             <h1 class="text-4xl font-bold text-yellow-500 mb-1 drop-shadow-md">聖域之鎮</h1>
             <p class="text-gray-400 mb-4 text-sm">挑戰進度：第 <span id="town-level-num" class="text-white font-bold text-lg">1</span> 關</p>
             
-            <!-- 神器展示區 -->
             <div id="artifact-container" class="w-full flex justify-center gap-2 mb-4 flex-wrap min-h-[40px]"></div>
 
             <div class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 mb-4 shadow-lg relative overflow-hidden">
@@ -275,17 +273,33 @@
         const raceCounters = { '人類': ['怪物', '亡靈'], '獸人': ['人類', '矮人'], '精靈': ['獸人', '怪物'], '矮人': ['龍族', '魔族'], '魔族': ['人類', '精靈'], '亡靈': ['精靈', '獸人'], '龍族': [], '怪物': [] };
         const classCounters = { [CLASS_MELEE]: [CLASS_AGILE], [CLASS_AGILE]: [CLASS_RANGED], [CLASS_RANGED]: [CLASS_MELEE] };
 
-        const levelThemes = [{ name: "迷霧森林", bg: "#22543d" }, { name: "亡靈墓園", bg: "#1a202c" }, { name: "廢棄要塞", bg: "#4a5568" }, { name: "獸人荒野", bg: "#7b341e" }];
-        const bossThemes = [{ name: "巨龍火山口", bg: "#742a2a" }, { name: "深淵祭壇", bg: "#4a148c" }];
+        // --- 場景主題 (10種普通 + 4種Boss) ---
+        const levelThemes = [
+            { name: "迷霧森林", bg: "#22543d" }, { name: "亡靈墓園", bg: "#1a202c" }, { name: "廢棄要塞", bg: "#4a5568" }, 
+            { name: "獸人荒野", bg: "#7b341e" }, { name: "靜謐綠洲", bg: "#276749" }, { name: "幽暗洞穴", bg: "#2d3748" },
+            { name: "冰雪凍原", bg: "#2b6cb0" }, { name: "腐化沼澤", bg: "#285e61" }, { name: "遠古遺跡", bg: "#744210" }, { name: "龍骨荒野", bg: "#975a16" }
+        ];
+        const bossThemes = [
+            { name: "巨龍火山口", bg: "#742a2a" }, { name: "深淵祭壇", bg: "#4a148c" }, 
+            { name: "黑暗王座", bg: "#1a202c" }, { name: "混沌裂隙", bg: "#553c9a" }
+        ];
         
         const TERRAIN_TREE = 'tree'; const TERRAIN_MOUNTAIN = 'mountain'; const TERRAIN_BUSH = 'bush';
 
+        // --- 神器庫 (12種) ---
         const artifactPool = [
             { id: 'a1', name: '吸血戒指', icon: '💍', desc: '攻擊時恢復造成傷害 30% 的生命值。' },
             { id: 'a2', name: '神速之靴', icon: '👢', desc: '全體英雄戰鬥中的移動力 +1。' },
             { id: 'a3', name: '巨人之心', icon: '❤️', desc: '全體英雄基礎最大生命值永久 +5！' },
             { id: 'a4', name: '勇氣徽章', icon: '🎖️', desc: '全體英雄基礎攻擊力永久 +2！' },
-            { id: 'a5', name: '鷹眼面罩', icon: '🦅', desc: '遠程與敏捷系英雄，攻擊與技能範圍 +1。' }
+            { id: 'a5', name: '鷹眼面罩', icon: '🦅', desc: '遠程與敏捷系英雄，攻擊與技能範圍 +1。' },
+            { id: 'a6', name: '守護者之盾', icon: '🛡️', desc: '全體英雄基礎最大生命值永久 +10！' },
+            { id: 'a7', name: '狂戰士手環', icon: '💪', desc: '全體英雄基礎攻擊力永久 +4！' },
+            { id: 'a8', name: '刺客袖劍', icon: '🗡️', desc: '全體「敏捷」英雄基礎攻擊力永久 +3！' },
+            { id: 'a9', name: '法師之書', icon: '📖', desc: '全體「遠程」英雄基礎攻擊力永久 +3！' },
+            { id: 'a10', name: '騎士榮耀', icon: '👑', desc: '全體「近戰」英雄基礎最大生命值永久 +8！' },
+            { id: 'a11', name: '再生墜飾', icon: '🍀', desc: '每回合開始時，全體英雄自動恢復 2 點生命。' },
+            { id: 'a12', name: '戰神之刃', icon: '⚔️', desc: '全體英雄基礎攻擊力 +3、最大生命值 +3！' }
         ];
 
         const classNames = {
@@ -307,24 +321,57 @@
             { id: 'h8', name: '巴丁', race: '矮人', classType: CLASS_RANGED, baseType: '火槍手', icon: '🔫', maxHp: 20, atk: 13, moveRange: 2, atkRange: 3, skill: { name: '狙擊', type: 'damage', power: 2.0, range: 5, maxCd: 4, desc: '超遠程狙擊'} }
         ];
 
+        // --- 怪物庫 (24種 - 8種族 x 3職業) ---
         const enemyPool = [
-            { name: '獸人步兵', race: '獸人', classType: CLASS_MELEE, type: '戰士', icon: '👹', maxHp: 20, atk: 7, moveRange: 2, atkRange: 1, gold: 10 },
-            { name: '哥布林', race: '怪物', classType: CLASS_AGILE, type: '盜賊', icon: '👺', maxHp: 10, atk: 5, moveRange: 4, atkRange: 1, gold: 8 },
-            { name: '骷髏弓手', race: '亡靈', classType: CLASS_RANGED, type: '射手', icon: '💀', maxHp: 14, atk: 8, moveRange: 2, atkRange: 3, gold: 12 },
-            { name: '石像鬼', race: '怪物', classType: CLASS_MELEE, type: '飛兵', icon: '🦇', maxHp: 25, atk: 9, moveRange: 4, atkRange: 1, gold: 15 },
-            { name: '巨怪', race: '怪物', classType: CLASS_MELEE, type: '坦克', icon: '🧌', maxHp: 35, atk: 9, moveRange: 2, atkRange: 1, gold: 20 },
-            { name: '黑暗精靈', race: '精靈', classType: CLASS_AGILE, type: '刺客', icon: '🧝‍♀️', maxHp: 15, atk: 11, moveRange: 4, atkRange: 1, gold: 15 },
+            // 人類
+            { name: '叛軍步兵', race: '人類', classType: CLASS_MELEE, type: '戰士', icon: '💂', maxHp: 20, atk: 7, moveRange: 2, atkRange: 1, gold: 10 },
+            { name: '盜賊團刺客', race: '人類', classType: CLASS_AGILE, type: '盜賊', icon: '🦹', maxHp: 12, atk: 9, moveRange: 4, atkRange: 1, gold: 8 },
+            { name: '叛軍弩手', race: '人類', classType: CLASS_RANGED, type: '射手', icon: '🏹', maxHp: 14, atk: 8, moveRange: 2, atkRange: 3, gold: 12 },
+            // 獸人
+            { name: '獸人步兵', race: '獸人', classType: CLASS_MELEE, type: '戰士', icon: '👹', maxHp: 22, atk: 8, moveRange: 2, atkRange: 1, gold: 10 },
+            { name: '獸人獵手', race: '獸人', classType: CLASS_AGILE, type: '刺客', icon: '👺', maxHp: 14, atk: 10, moveRange: 3, atkRange: 1, gold: 9 },
+            { name: '獸人術士', race: '獸人', classType: CLASS_RANGED, type: '法師', icon: '👁️', maxHp: 16, atk: 9, moveRange: 2, atkRange: 2, gold: 12 },
+            // 精靈
+            { name: '墮落衛士', race: '精靈', classType: CLASS_MELEE, type: '騎士', icon: '🛡️', maxHp: 18, atk: 7, moveRange: 3, atkRange: 1, gold: 11 },
+            { name: '黑暗精靈', race: '精靈', classType: CLASS_AGILE, type: '刺客', icon: '🧝‍♀️', maxHp: 12, atk: 11, moveRange: 4, atkRange: 1, gold: 15 },
+            { name: '墮落遊俠', race: '精靈', classType: CLASS_RANGED, type: '射手', icon: '🏹', maxHp: 14, atk: 9, moveRange: 3, atkRange: 2, gold: 13 },
+            // 矮人
+            { name: '黑鐵守衛', race: '矮人', classType: CLASS_MELEE, type: '戰士', icon: '🛡️', maxHp: 25, atk: 6, moveRange: 2, atkRange: 1, gold: 12 },
+            { name: '黑鐵潛行者', race: '矮人', classType: CLASS_AGILE, type: '盜賊', icon: '🥷', maxHp: 15, atk: 8, moveRange: 3, atkRange: 1, gold: 10 },
+            { name: '黑鐵火槍手', race: '矮人', classType: CLASS_RANGED, type: '射手', icon: '🔫', maxHp: 18, atk: 10, moveRange: 2, atkRange: 3, gold: 14 },
+            // 魔族
+            { name: '劣魔', race: '魔族', classType: CLASS_MELEE, type: '戰士', icon: '👿', maxHp: 18, atk: 9, moveRange: 3, atkRange: 1, gold: 10 },
+            { name: '魅魔', race: '魔族', classType: CLASS_AGILE, type: '刺客', icon: '💃', maxHp: 14, atk: 11, moveRange: 4, atkRange: 1, gold: 14 },
+            { name: '邪能法師', race: '魔族', classType: CLASS_RANGED, type: '法師', icon: '🔮', maxHp: 15, atk: 10, moveRange: 2, atkRange: 3, gold: 15 },
+            // 亡靈
+            { name: '骷髏戰士', race: '亡靈', classType: CLASS_MELEE, type: '戰士', icon: '💀', maxHp: 15, atk: 6, moveRange: 2, atkRange: 1, gold: 8 },
             { name: '吸血鬼', race: '亡靈', classType: CLASS_AGILE, type: '刺客', icon: '🧛', maxHp: 18, atk: 12, moveRange: 3, atkRange: 1, gold: 18 },
-            { name: '獸人術士', race: '獸人', classType: CLASS_RANGED, type: '法師', icon: '👁️', maxHp: 16, atk: 10, moveRange: 2, atkRange: 2, gold: 14 }
+            { name: '骷髏弓手', race: '亡靈', classType: CLASS_RANGED, type: '射手', icon: '🦴', maxHp: 12, atk: 8, moveRange: 2, atkRange: 3, gold: 12 },
+            // 龍族
+            { name: '龍人守衛', race: '龍族', classType: CLASS_MELEE, type: '戰士', icon: '🦎', maxHp: 25, atk: 9, moveRange: 2, atkRange: 1, gold: 15 },
+            { name: '幼翼龍', race: '龍族', classType: CLASS_AGILE, type: '飛兵', icon: '🦇', maxHp: 18, atk: 10, moveRange: 4, atkRange: 1, gold: 14 },
+            { name: '龍炎噴吐者', race: '龍族', classType: CLASS_RANGED, type: '法師', icon: '🔥', maxHp: 20, atk: 11, moveRange: 2, atkRange: 2, gold: 16 },
+            // 怪物
+            { name: '巨怪', race: '怪物', classType: CLASS_MELEE, type: '坦克', icon: '🧌', maxHp: 35, atk: 8, moveRange: 2, atkRange: 1, gold: 20 },
+            { name: '哥布林', race: '怪物', classType: CLASS_AGILE, type: '盜賊', icon: '👺', maxHp: 10, atk: 5, moveRange: 4, atkRange: 1, gold: 8 },
+            { name: '毒史萊姆', race: '怪物', classType: CLASS_RANGED, type: '法師', icon: '🦠', maxHp: 15, atk: 6, moveRange: 2, atkRange: 2, gold: 10 }
         ];
 
+        // --- Boss庫 (10種) ---
         const bossPool = [
-            { name: '巨龍幼崽', race: '龍族', classType: CLASS_MELEE, type: '首領', icon: '🐉', maxHp: 60, atk: 13, moveRange: 3, atkRange: 2, gold: 80 },
-            { name: '死靈法師', race: '亡靈', classType: CLASS_RANGED, type: '首領', icon: '🧟', maxHp: 50, atk: 15, moveRange: 2, atkRange: 3, gold: 80 },
-            { name: '深淵惡魔', race: '怪物', classType: CLASS_MELEE, type: '首領', icon: '👿', maxHp: 75, atk: 12, moveRange: 3, atkRange: 1, gold: 100 }
+            { name: '獸人酋長', race: '獸人', classType: CLASS_MELEE, type: '首領', icon: '👹', maxHp: 65, atk: 14, moveRange: 3, atkRange: 1, gold: 100 },
+            { name: '死靈法師', race: '亡靈', classType: CLASS_RANGED, type: '首領', icon: '🧟', maxHp: 50, atk: 15, moveRange: 2, atkRange: 3, gold: 100 },
+            { name: '深淵惡魔', race: '魔族', classType: CLASS_MELEE, type: '首領', icon: '👿', maxHp: 75, atk: 12, moveRange: 3, atkRange: 1, gold: 100 },
+            { name: '巨龍幼崽', race: '龍族', classType: CLASS_MELEE, type: '首領', icon: '🐉', maxHp: 60, atk: 13, moveRange: 3, atkRange: 2, gold: 100 },
+            { name: '精靈女王幻影', race: '精靈', classType: CLASS_RANGED, type: '首領', icon: '🧚‍♀️', maxHp: 45, atk: 16, moveRange: 3, atkRange: 3, gold: 100 },
+            { name: '哥布林之王', race: '怪物', classType: CLASS_AGILE, type: '首領', icon: '👑', maxHp: 55, atk: 11, moveRange: 4, atkRange: 1, gold: 100 },
+            { name: '墮落大公爵', race: '人類', classType: CLASS_MELEE, type: '首領', icon: '🧛‍♂️', maxHp: 60, atk: 12, moveRange: 3, atkRange: 1, gold: 100 },
+            { name: '黑鐵鍛造王', race: '矮人', classType: CLASS_MELEE, type: '首領', icon: '⚒️', maxHp: 80, atk: 10, moveRange: 2, atkRange: 1, gold: 100 },
+            { name: '吸血鬼真祖', race: '亡靈', classType: CLASS_AGILE, type: '首領', icon: '🦇', maxHp: 55, atk: 14, moveRange: 4, atkRange: 1, gold: 100 },
+            { name: '地獄火炎魔', race: '魔族', classType: CLASS_RANGED, type: '首領', icon: '🌋', maxHp: 70, atk: 14, moveRange: 2, atkRange: 3, gold: 100 }
         ];
 
-        const SAVE_KEY = 'sanctuary_tactics_v9';
+        const SAVE_KEY = 'sanctuary_tactics_v10';
         const COLS = 6; const ROWS = 8;
         const FACTION_PLAYER = 'player'; const FACTION_ENEMY = 'enemy';
 
@@ -373,30 +420,20 @@
             }
         }
 
-        // --- 無縫重置邏輯 ---
-        function confirmReset() {
-            document.getElementById('reset-modal').classList.remove('hidden');
-        }
+        function confirmReset() { document.getElementById('reset-modal').classList.remove('hidden'); }
 
         function executeReset() {
-            // 1. 移除本機存檔
             localStorage.removeItem(SAVE_KEY);
-            // 2. 隱藏彈窗
             document.getElementById('reset-modal').classList.add('hidden');
-            // 3. 重新初始化狀態與英雄
-            initGlobalState();
-            initHeroes();
-            // 4. 重建關卡並儲存，然後切換畫面
+            initGlobalState(); initHeroes();
             globalState.currentLevelData = generateRandomLevel(globalState.currentLevel);
-            saveGame();
-            switchScreen('screen-town');
+            saveGame(); switchScreen('screen-town');
             showToast("進度已重置，新的冒險開始！");
         }
 
         function toggleManual(show) {
             const modal = document.getElementById('manual-modal');
-            if (show) modal.classList.remove('hidden');
-            else modal.classList.add('hidden');
+            if (show) modal.classList.remove('hidden'); else modal.classList.add('hidden');
         }
 
         function showArtifactInfo(aid) {
@@ -452,18 +489,16 @@
 
                         bossDef = { 
                             name: `[導師] ${cName}`, race: ref.race, classType: ref.classType, type: '導師', 
-                            icon: '🥋', maxHp: 65 + hpBoost, atk: 12 + Math.floor(levelNum*0.5), moveRange: ref.moveRange, atkRange: ref.atkRange, gold: 120 
+                            icon: '🥋', maxHp: 65 + hpBoost, atk: 12 + Math.floor(levelNum*0.5), moveRange: ref.moveRange, atkRange: ref.atkRange, gold: 150 
                         };
                         tutorInfo = { baseType: bType, targetTier: tTier, className: cName };
                         enemiesToSpawn.push({ id: `boss_${levelNum}`, ...bossDef, isBoss: true, isTutor: true, pos: getValidPos(0, 2) });
-                    } else {
-                        isTutor = false;
-                    }
+                    } else isTutor = false;
                 }
                 
                 if (!isTutor) {
                     let hpBoost = Math.floor(levelNum * 1.5);
-                    bossDef = bossPool[(levelNum/3 - 1) % bossPool.length] || bossPool[0];
+                    bossDef = bossPool[Math.floor(Math.random() * bossPool.length)];
                     enemiesToSpawn.push({ id: `boss_${levelNum}`, ...bossDef, maxHp: bossDef.maxHp + hpBoost, isBoss: true, pos: getValidPos(0, 2) });
                 }
                 enemyCount--;
@@ -729,7 +764,6 @@
             }
         }
 
-        // --- 核心邏輯與尋路 ---
         function getUnitAt(x, y) { return bState.units.find(u => u.x === x && u.y === y && u.hp > 0); }
         function getTerrainAt(x, y) { return bState.terrain.find(t => t.x === x && t.y === y); }
         function getDistance(x1, y1, x2, y2) { return Math.abs(x1 - x2) + Math.abs(y1 - y2); }
@@ -744,7 +778,7 @@
                 if (occupant && occupant.faction !== unit.faction && occupant.id !== unit.id) continue;
                 
                 let t = getTerrainAt(curr.x, curr.y);
-                if (t && t.type === TERRAIN_TREE && (curr.x !== unit.x || curr.y !== unit.y)) continue; // 樹木無法通行
+                if (t && t.type === TERRAIN_TREE && (curr.x !== unit.x || curr.y !== unit.y)) continue; 
 
                 if (curr.dist <= unit.moveRange) {
                     if (!occupant || occupant.id === unit.id) cells.push({x: curr.x, y: curr.y});
@@ -862,10 +896,9 @@
             if (classCounters[atkUnit.classType]?.includes(defUnit.classType)) { multiplier += 0.5; counterCount++; }
             if (classCounters[defUnit.classType]?.includes(atkUnit.classType)) { multiplier -= 0.3; weakCount++; }
             
-            // 地形影響
             let atkT = getTerrainAt(atkUnit.x, atkUnit.y); let defT = getTerrainAt(defUnit.x, defUnit.y);
-            if(atkT && atkT.type === TERRAIN_MOUNTAIN) multiplier += 0.3; // 高地+攻
-            if(defT && defT.type === TERRAIN_BUSH) multiplier -= 0.3; // 草叢減傷
+            if(atkT && atkT.type === TERRAIN_MOUNTAIN) multiplier += 0.3; 
+            if(defT && defT.type === TERRAIN_BUSH) multiplier -= 0.3; 
 
             return { multiplier: Math.max(0.2, multiplier), counterCount, weakCount };
         }
@@ -1017,6 +1050,12 @@
                         
                         if (newArt.id === 'a3') heroRuntime.forEach(h => { h.maxHp += 5; h.hp += 5; });
                         if (newArt.id === 'a4') heroRuntime.forEach(h => { h.atk += 2; });
+                        if (newArt.id === 'a6') heroRuntime.forEach(h => { h.maxHp += 10; h.hp += 10; });
+                        if (newArt.id === 'a7') heroRuntime.forEach(h => { h.atk += 4; });
+                        if (newArt.id === 'a8') heroRuntime.forEach(h => { if(h.classType === CLASS_AGILE) h.atk += 3; });
+                        if (newArt.id === 'a9') heroRuntime.forEach(h => { if(h.classType === CLASS_RANGED) h.atk += 3; });
+                        if (newArt.id === 'a10') heroRuntime.forEach(h => { if(h.classType === CLASS_MELEE) { h.maxHp += 8; h.hp += 8; } });
+                        if (newArt.id === 'a12') heroRuntime.forEach(h => { h.atk += 3; h.maxHp += 3; h.hp += 3; });
                     } else {
                         document.getElementById('battle-result-artifact').classList.add('hidden');
                     }
@@ -1062,8 +1101,16 @@
             bState.currentTurn = FACTION_PLAYER;
             document.getElementById('turn-indicator').innerText = "回合: 玩家階段"; document.getElementById('turn-indicator').className = "text-xs text-blue-300 font-bold";
             showToast("你的回合");
+            
+            let hasRegen = globalState.artifacts.includes('a11');
+
             bState.units.filter(u => u.faction === FACTION_PLAYER).forEach(u => {
                 u.hasActed = false; if(u.currentCd > 0) u.currentCd--; 
+                if (hasRegen && u.hp < u.maxHp) {
+                    u.hp = Math.min(u.maxHp, u.hp + 2);
+                    updateGlobalHeroHp(u);
+                    showFloatingHtml(u.x, u.y, `<div class="text-heal">+2</div>`);
+                }
             });
             renderUnits();
         }
