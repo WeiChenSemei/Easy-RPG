@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>聖域之戰 - 完整修復版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #1a202c; color: #e2e8f0; touch-action: manipulation; font-family: 'Segoe UI', sans-serif; overflow: hidden; user-select: none; -webkit-user-select: none; }
+        .screen { display: none; height: 100vh; width: 100vw; flex-direction: column; }
+        .screen.active { display: flex; }
+
+        /* 棋盤與地形 */
+        #game-board {
+            position: relative; width: 100%; max-width: 450px; aspect-ratio: 6 / 8;
+            background-color: #2d3748; 
+            background-image: linear-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+            background-size: calc(100% / 6) calc(100% / 8); border: 2px solid #4a5568; box-shadow: 0 10px 25px rgba(0,0,0,0.5) inset; margin: 0 auto; transition: background-color 0.5s ease;
+        }
+        .terrain {
+            position: absolute; width: calc(100% / 6); height: calc(100% / 8); display: flex; align-items: center; justify-content: center; font-size: 2rem; z-index: 1; opacity: 0.8; pointer-events: none;
+        }
+        .terrain-bush { background-color: rgba(72, 187, 120, 0.2); }
+        .terrain-mountain { background-color: rgba(160, 174, 192, 0.2); }
+
+        /* 單位 */
+        .unit { position: absolute; width: calc(100% / 6); height: calc(100% / 8); transition: left 0.3s ease, top 0.3s ease, transform 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; z-index: 10; }
+        .unit-inner { width: 80%; height: 80%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.5); position: relative; }
+        .faction-player .unit-inner { background: linear-gradient(135deg, #3182ce, #2b6cb0); border: 2px solid #63b3ed; }
+        .faction-enemy .unit-inner { background: linear-gradient(135deg, #e53e3e, #c53030); border: 2px solid #fc8181; }
+        .unit.exhausted { filter: grayscale(80%) brightness(0.6); }
+        .unit.is-boss .unit-inner { border: 3px solid #ecc94b; box-shadow: 0 0 12px #ecc94b; transform: scale(1.2); }
+        .unit.is-tutor .unit-inner { border: 3px solid #9f7aea; box-shadow: 0 0 12px #9f7aea; transform: scale(1.2); }
+
+        .hp-bar-bg { position: absolute; bottom: -6px; width: 80%; height: 6px; background-color: #000; border-radius: 3px; overflow: hidden; border: 1px solid #4a5568; }
+        .hp-bar-fill { height: 100%; background-color: #48bb78; transition: width 0.3s ease; }
+        
+        .trait-badge { font-size: 0.65rem; padding: 2px 4px; border-radius: 4px; font-weight: bold; background: rgba(0,0,0,0.7); color: white; border: 1px solid #4a5568; display: inline-block; text-align: center; }
+
+        /* 高亮特效 */
+        .cell-highlight { position: absolute; width: calc(100% / 6); height: calc(100% / 8); pointer-events: auto; cursor: pointer; z-index: 5; opacity: 0.6; animation: pulse 1.5s infinite; }
+        .highlight-move { background-color: #4299e1; border: 2px solid #bee3f8; }
+        .highlight-attack { background-color: #f56565; border: 2px solid #fed7d7; animation: attackPulse 1s infinite; z-index: 11;}
+        .highlight-skill { background-color: #ecc94b; border: 2px solid #fef08a; animation: skillPulse 1s infinite; z-index: 11;}
+        .highlight-heal { background-color: #48bb78; border: 2px solid #9ae6b4; animation: healPulse 1s infinite; z-index: 11;}
+
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 0.7; } 100% { opacity: 0.4; } }
+        @keyframes attackPulse { 0% { opacity: 0.5; background-color: #f56565; } 50% { opacity: 0.8; background-color: #c53030; } 100% { opacity: 0.5; background-color: #f56565; } }
+        @keyframes skillPulse { 0% { opacity: 0.5; background-color: #ecc94b; } 50% { opacity: 0.8; background-color: #d69e2e; } 100% { opacity: 0.5; background-color: #ecc94b; } }
+        @keyframes healPulse { 0% { opacity: 0.5; background-color: #48bb78; } 50% { opacity: 0.8; background-color: #2f855a; } 100% { opacity: 0.5; background-color: #48bb78; } }
+        
+        .anim-attack { animation: attackBump 0.4s ease-out; }
+        @keyframes attackBump { 0% { transform: scale(1); } 50% { transform: scale(1.3) translateY(-10px); filter: brightness(1.5); } 100% { transform: scale(1); } }
+        .anim-damage { animation: damageShake 0.4s ease-in-out; }
+        @keyframes damageShake { 0% { transform: translate(0, 0); filter: brightness(1); } 20% { transform: translate(-5px, 5px); filter: brightness(2) sepia(1) hue-rotate(-50deg) saturate(5); } 40% { transform: translate(5px, -5px); } 60% { transform: translate(-5px, -5px); } 80% { transform: translate(5px, 5px); } 100% { transform: translate(0, 0); filter: brightness(1); } }
+
+        .floating-text { position: absolute; text-align: center; font-weight: bold; font-size: 1.2rem; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; z-index: 50; pointer-events: none; animation: floatUp 1.2s ease-out forwards; }
+        .text-dmg { color: #ff3333; font-size: 1.5rem; }
+        .text-heal { color: #48bb78; font-size: 1.5rem; }
+        .text-counter { color: #f6e05e; font-size: 1rem; }
+        .text-weak { color: #a0aec0; font-size: 1rem; }
+        .text-gold { color: #ecc94b; font-size: 1.2rem; }
+        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-40px) scale(1.2); opacity: 0; } }
+
+        #toast { position: absolute; top: 15%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0, 0, 0, 0.85); color: #ecc94b; padding: 12px 24px; border-radius: 8px; font-weight: bold; z-index: 100; opacity: 0; transition: opacity 0.3s; pointer-events: none; text-align: center; white-space: nowrap; }
+        
+        .hero-card { border: 2px solid #4a5568; transition: all 0.2s; }
+        .hero-card.selected { border-color: #ecc94b; box-shadow: 0 0 10px rgba(236, 201, 75, 0.5); background-color: #2c5282; }
+        .hero-card.low-hp { border-color: #e53e3e; background-color: rgba(229, 62, 62, 0.2); }
+
+        /* 自定義捲軸 */
+        ::-webkit-scrollbar { width: 6px; background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #718096; }
+        .no-scroll-bar::-webkit-scrollbar { width: 0px; }
+    </style>
+</head>
+<body>
+    <div id="toast">提示訊息</div>
+
+    <!-- 神器資訊彈窗 -->
+    <div id="artifact-info-modal" class="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-[60] hidden">
+        <div class="bg-gray-800 border-2 border-purple-500 rounded-xl p-6 max-w-[80%] text-center shadow-2xl transform transition-all">
+            <div id="art-info-icon" class="text-5xl mb-3 drop-shadow">💍</div>
+            <h3 id="art-info-name" class="text-2xl text-yellow-400 font-bold mb-2">神器名稱</h3>
+            <p id="art-info-desc" class="text-gray-300 text-sm mb-6 leading-relaxed">神器描述說明文字</p>
+            <button onclick="document.getElementById('artifact-info-modal').classList.add('hidden')" class="bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white font-bold py-2 px-8 rounded-lg shadow transition-colors w-full">關閉</button>
+        </div>
+    </div>
+
+    <!-- 遊戲說明書彈窗 -->
+    <div id="manual-modal" class="absolute inset-0 bg-black bg-opacity-85 flex flex-col items-center justify-center z-[70] hidden p-4">
+        <div class="bg-gray-800 border-2 border-yellow-600 rounded-xl w-full max-w-md h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="bg-gray-900 p-4 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-yellow-400">📖 遊戲說明書</h2>
+                <button onclick="toggleManual(false)" class="text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1 text-sm text-gray-300 leading-relaxed space-y-6">
+                <section>
+                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">⚔️ 傷害剋制系統 (加成 50%)</h3>
+                    <p class="mb-2">攻擊時，若觸發剋制條件，傷害將大幅提升！若種族與職業同時剋制，將引發<span class="text-yellow-400 font-bold">「大剋制!!」</span>。</p>
+                    <div class="bg-gray-900 p-2 rounded border border-gray-700">
+                        <p class="text-red-400 font-bold mb-1">【職業剋制】</p>
+                        <p class="mb-2">⚔️ 近戰 ＞ 🥷 敏捷 ＞ 🏹 遠程 ＞ ⚔️ 近戰</p>
+                        <p class="text-green-400 font-bold mb-1">【種族剋制】</p>
+                        <ul class="list-disc pl-4 space-y-1">
+                            <li><span class="text-white font-bold">人類</span> ＞ 怪物 / 亡靈</li>
+                            <li><span class="text-white font-bold">獸人</span> ＞ 人類 / 矮人</li>
+                            <li><span class="text-white font-bold">精靈</span> ＞ 獸人 / 怪物</li>
+                            <li><span class="text-white font-bold">矮人</span> ＞ 龍族 / 魔族</li>
+                            <li><span class="text-white font-bold">魔族</span> ＞ 人類 / 精靈</li>
+                            <li><span class="text-white font-bold">亡靈</span> ＞ 精靈 / 獸人</li>
+                        </ul>
+                    </div>
+                </section>
+                <section>
+                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">🗺️ 地形效果</h3>
+                    <p>戰場上隨機生成的地形會影響戰局：</p>
+                    <ul class="mt-2 space-y-2">
+                        <li><span class="text-xl">🌲</span> <b>樹林：</b> 障礙物，無法通行與停留。</li>
+                        <li><span class="text-xl">⛰️</span> <b>高地：</b> 居高臨下，站在上方攻擊時<span class="text-red-400 font-bold">傷害 +30%</span>。</li>
+                        <li><span class="text-xl">🌿</span> <b>草叢：</b> 隱蔽身形，站在上方受擊時<span class="text-green-400 font-bold">受到傷害 -30%</span>。</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">🎓 轉職與導師系統</h3>
+                    <p>在每 3 關的首領戰中，有 60% 機率遭遇敵方陣營的<span class="text-purple-400 font-bold">「職業導師」</span>。</p>
+                    <p class="mt-1">只要您的隊伍中有<span class="text-yellow-400">符合該職業路線、且位階剛好低一階</span>的學徒，擊敗導師後即可當場<b>進階轉職</b>，全能力將獲得巨幅提升！</p>
+                </section>
+                <section>
+                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">💍 神器系統</h3>
+                    <p>擊敗一般首領會隨機掉落全隊共用的「神器」。獲得的神器會展示在城鎮上方，點擊圖示即可查看加成效果。生命與攻擊加成在獲得當下即永久生效。</p>
+                </section>
+            </div>
+            <div class="p-3 bg-gray-900 border-t border-gray-700">
+                <button onclick="toggleManual(false)" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded shadow">我瞭解了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 重置確認彈窗 -->
+    <div id="reset-modal" class="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-[80] hidden">
+        <div class="bg-gray-800 border-2 border-red-500 rounded-xl p-6 max-w-[80%] text-center shadow-2xl">
+            <h3 class="text-2xl text-red-400 font-bold mb-4">⚠️ 警告</h3>
+            <p class="text-gray-300 text-sm mb-6">確定要放棄當前進度，重新開始冒險嗎？<br>這將會清除您的所有金幣與神器。</p>
+            <div class="flex justify-between gap-4">
+                <button onclick="document.getElementById('reset-modal').classList.add('hidden')" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg w-1/2">取消</button>
+                <button onclick="executeReset()" class="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg w-1/2">確認重置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 城鎮介面 ==================== -->
+    <div id="screen-town" class="screen active bg-gray-900 items-center relative overflow-y-auto no-scroll-bar pb-10">
+        <div class="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik0yMCAwTDBg...')] pointer-events-none"></div>
+        
+        <div class="w-full max-w-md p-4 z-10 flex flex-col items-center mt-2">
+            <div class="w-full flex justify-between items-center mb-2">
+                <button onclick="confirmReset()" class="text-xs text-gray-500 hover:text-red-400 underline">重新開始</button>
+                <div class="flex gap-2">
+                    <button onclick="toggleManual(true)" class="bg-gray-800 text-white border border-gray-600 px-3 py-1 rounded-full shadow text-sm hover:bg-gray-700">📖 說明書</button>
+                    <div class="bg-gray-800 px-3 py-1 rounded-full border border-yellow-600 text-yellow-400 font-bold shadow flex items-center">
+                        💰 <span id="town-gold-display">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <h1 class="text-4xl font-bold text-yellow-500 mb-1 drop-shadow-md">聖域之鎮</h1>
+            <p class="text-gray-400 mb-4 text-sm">挑戰進度：第 <span id="town-level-num" class="text-white font-bold text-lg">1</span> 關</p>
+            
+            <!-- 神器展示區 -->
+            <div id="artifact-container" class="w-full flex justify-center gap-2 mb-4 flex-wrap min-h-[40px]"></div>
+
+            <div class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 mb-4 shadow-lg relative overflow-hidden">
+                <div id="boss-warning" class="hidden absolute top-0 left-0 w-full h-1 bg-red-500 animate-pulse"></div>
+                <h2 class="text-yellow-400 font-bold border-b border-gray-600 pb-1 mb-2">📜 場景情報: <span id="town-level-title" class="text-white"></span></h2>
+                <div id="enemy-intel-list" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <div class="w-full flex flex-col gap-3">
+                <button onclick="restAtInn()" class="bg-green-700 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-xl shadow border-b-4 border-green-900 active:border-b-0 active:translate-y-1 flex items-center">
+                    <span class="text-2xl mr-3">⛺</span> 
+                    <span class="flex-1 text-left">客棧休息 <span class="text-xs font-normal text-green-200 block">全體恢復生命</span></span>
+                    <span class="bg-green-900 px-2 py-1 rounded text-sm text-yellow-400 border border-green-800">30G</span>
+                </button>
+                <button onclick="switchScreen('screen-roster')" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow border-b-4 border-blue-900 active:border-b-0 active:translate-y-1 flex items-center">
+                    <span class="text-2xl mr-3">🍻</span> <span class="flex-1 text-left">酒館編隊 <span class="text-xs font-normal text-blue-200 block">管理英雄與技能</span></span>
+                </button>
+                <button onclick="startLevel()" class="bg-red-700 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-xl shadow border-b-4 border-red-900 active:border-b-0 active:translate-y-1 flex items-center justify-center">
+                    <span class="text-2xl mr-2">⚔️</span> <span class="text-xl">出城迎戰</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 編隊介面 ==================== -->
+    <div id="screen-roster" class="screen bg-gray-800">
+        <header class="bg-gray-900 p-3 shadow-md flex justify-between items-center z-20">
+            <h1 class="text-lg font-bold text-yellow-500">酒館編隊</h1>
+            <div class="flex gap-2">
+                <button onclick="toggleManual(true)" class="bg-gray-700 border border-gray-600 px-3 py-1 rounded text-white text-sm font-bold hover:bg-gray-600">📖</button>
+                <button onclick="switchScreen('screen-town')" class="bg-gray-600 px-3 py-1 rounded text-white text-sm font-bold hover:bg-gray-500">返回</button>
+            </div>
+        </header>
+
+        <div class="bg-gray-900 p-2 text-xs border-b border-gray-700 shadow-inner flex justify-between items-center cursor-pointer hover:bg-gray-800 transition-colors" onclick="toggleManual(true)">
+            <span class="text-yellow-400 font-bold">💡 忘記剋制與轉職關係了？</span>
+            <span class="text-blue-300 font-bold underline">點擊查看說明書</span>
+        </div>
+        
+        <div class="p-3 flex-1 overflow-y-auto no-scroll-bar">
+            <div class="flex justify-between items-center mb-3">
+                <p class="text-gray-300 text-sm">選擇 4 名夥伴 (重傷者 1 HP)</p>
+                <span class="text-sm font-bold text-yellow-400 bg-gray-700 px-2 py-1 rounded" id="roster-count">0/4</span>
+            </div>
+            <div id="roster-grid" class="grid grid-cols-2 gap-2 pb-6"></div>
+        </div>
+    </div>
+
+    <!-- ==================== 戰鬥介面 ==================== -->
+    <div id="screen-battle" class="screen">
+        <header class="bg-gray-800 p-2 shadow-md flex justify-between items-center z-20">
+            <div>
+                <h1 class="text-md font-bold text-yellow-500" id="battle-title">⚔️ 關卡</h1>
+                <p id="turn-indicator" class="text-xs text-blue-300 font-semibold">回合: 玩家階段</p>
+            </div>
+            <button id="end-turn-btn" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-1 px-3 text-sm rounded shadow">結束回合</button>
+        </header>
+
+        <div id="unit-panel" class="bg-gray-700 h-24 flex items-center px-3 shadow-inner text-sm transition-opacity duration-200 opacity-0 z-20">
+            <div id="panel-icon" class="text-4xl mr-3 drop-shadow-md">🛡️</div>
+            <div class="flex-1 text-xs flex flex-col justify-center">
+                <div class="flex justify-between font-bold text-[1rem] mb-1">
+                    <span id="panel-name" class="text-blue-300 drop-shadow"></span>
+                    <span id="panel-hp" class="text-green-400 bg-gray-800 px-2 rounded"></span>
+                </div>
+                <div class="flex gap-1 mb-1 items-center">
+                    <span id="panel-race" class="trait-badge bg-green-800 border-green-600"></span>
+                    <span id="panel-class" class="trait-badge bg-red-800 border-red-600"></span>
+                    <span id="panel-skill-name" class="trait-badge bg-purple-800 border-purple-600 ml-auto hidden text-[0.6rem]"></span>
+                </div>
+                <div class="flex justify-between items-center text-gray-300 font-medium">
+                    <span title="攻擊力">⚔️ <span id="panel-atk" class="text-white"></span></span>
+                    <span title="移動力">👟 <span id="panel-move" class="text-white"></span></span>
+                    <span title="攻擊範圍">🏹 <span id="panel-range" class="text-white"></span></span>
+                </div>
+            </div>
+        </div>
+
+        <main class="flex-1 flex items-center justify-center p-2 overflow-hidden bg-gray-900 relative">
+            <div id="game-board"></div>
+            
+            <div id="battle-modal" class="absolute inset-0 bg-black bg-opacity-85 flex flex-col items-center justify-center z-50 hidden">
+                <h2 id="battle-result-title" class="text-5xl font-bold mb-4 drop-shadow-lg">勝利</h2>
+                <p id="battle-result-desc" class="text-gray-300 mb-2 text-[0.95rem] text-center px-4 leading-relaxed"></p>
+                <div class="flex flex-col items-center mb-8 gap-2 mt-4">
+                    <p id="battle-result-gold" class="text-yellow-400 font-bold text-xl drop-shadow">獲得金幣: 0G</p>
+                    <p id="battle-result-artifact" class="text-purple-400 font-bold text-lg drop-shadow hidden"></p>
+                </div>
+                <button onclick="returnToTown()" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 px-8 rounded-lg shadow-lg text-xl">返回城鎮</button>
+            </div>
+        </main>
+
+        <footer id="action-bar" class="bg-gray-800 p-2 h-16 flex justify-around items-center opacity-50 pointer-events-none transition-opacity z-20">
+            <button id="btn-cancel" class="bg-gray-600 text-white font-bold py-2 px-2 text-xs rounded-lg w-1/3 mx-1">取消選取</button>
+            <button id="btn-skill" class="bg-purple-600 text-white font-bold py-2 px-2 text-xs rounded-lg w-1/3 mx-1 flex flex-col items-center justify-center leading-tight">
+                使用技能 <span id="skill-cd" class="text-[0.6rem] text-purple-200">(CD:0)</span>
+            </button>
+            <button id="btn-wait" class="bg-blue-600 text-white font-bold py-2 px-2 text-xs rounded-lg w-1/3 mx-1">原地待命</button>
+        </footer>
+    </div>
+
+    <script>
+        const CLASS_MELEE = '近戰'; const CLASS_AGILE = '敏捷'; const CLASS_RANGED = '遠程';
+        const raceCounters = { '人類': ['怪物', '亡靈'], '獸人': ['人類', '矮人'], '精靈': ['獸人', '怪物'], '矮人': ['龍族', '魔族'], '魔族': ['人類', '精靈'], '亡靈': ['精靈', '獸人'], '龍族': [], '怪物': [] };
+        const classCounters = { [CLASS_MELEE]: [CLASS_AGILE], [CLASS_AGILE]: [CLASS_RANGED], [CLASS_RANGED]: [CLASS_MELEE] };
+
+        const levelThemes = [{ name: "迷霧森林", bg: "#22543d" }, { name: "亡靈墓園", bg: "#1a202c" }, { name: "廢棄要塞", bg: "#4a5568" }, { name: "獸人荒野", bg: "#7b341e" }];
+        const bossThemes = [{ name: "巨龍火山口", bg: "#742a2a" }, { name: "深淵祭壇", bg: "#4a148c" }];
+        
+        const TERRAIN_TREE = 'tree'; const TERRAIN_MOUNTAIN = 'mountain'; const TERRAIN_BUSH = 'bush';
+
+        const artifactPool = [
+            { id: 'a1', name: '吸血戒指', icon: '💍', desc: '攻擊時恢復造成傷害 30% 的生命值。' },
+            { id: 'a2', name: '神速之靴', icon: '👢', desc: '全體英雄戰鬥中的移動力 +1。' },
+            { id: 'a3', name: '巨人之心', icon: '❤️', desc: '全體英雄基礎最大生命值永久 +5！' },
+            { id: 'a4', name: '勇氣徽章', icon: '🎖️', desc: '全體英雄基礎攻擊力永久 +2！' },
+            { id: 'a5', name: '鷹眼面罩', icon: '🦅', desc: '遠程與敏捷系英雄，攻擊與技能範圍 +1。' }
+        ];
+
+        const classNames = {
+            '騎士': ['騎士', '聖騎士', '龍騎士'], '戰士': ['戰士', '狂戰士', '戰神'], '黑騎士': ['黑騎士', '死亡騎士', '深淵領主'], '狂戰士': ['狂戰士', '嗜血者', '戰神'],
+            '斥候': ['斥候', '遊俠', '風行者'], '刺客': ['刺客', '影舞者', '夜魔'], '劍舞者': ['劍舞者', '幻影劍客', '劍聖'],
+            '法師': ['法師', '大魔法師', '賢者'], '牧師': ['牧師', '大主教', '聖徒'], '火槍手': ['火槍手', '狙擊手', '神射手']
+        };
+
+        const baseHeroes = [
+            { id: 'h1', name: '亞瑟', race: '人類', classType: CLASS_MELEE, baseType: '騎士', icon: '🛡️', maxHp: 25, atk: 9, moveRange: 3, atkRange: 1, skill: { name: '聖光制裁', type: 'damage', power: 2.0, range: 1, maxCd: 3, desc: '造成200%巨額傷害'} },
+            { id: 'h4', name: '索林', race: '矮人', classType: CLASS_MELEE, baseType: '戰士', icon: '🪓', maxHp: 30, atk: 10, moveRange: 2, atkRange: 1, skill: { name: '碎岩擊', type: 'damage', power: 1.8, range: 1, maxCd: 3, desc: '造成180%傷害'} },
+            { id: 'h9', name: '傑恩', race: '魔族', classType: CLASS_MELEE, baseType: '黑騎士', icon: '🌑', maxHp: 28, atk: 11, moveRange: 3, atkRange: 1, skill: { name: '靈魂收割', type: 'lifesteal', power: 1.5, range: 1, maxCd: 4, desc: '造成150%傷害並回血'} },
+            { id: 'h10', name: '露娜', race: '獸人', classType: CLASS_MELEE, baseType: '狂戰士', icon: '🔥', maxHp: 26, atk: 12, moveRange: 3, atkRange: 1, skill: { name: '旋風斬', type: 'damage', power: 1.5, range: 2, maxCd: 3, desc: '中距離大劍氣'} },
+            { id: 'h3', name: '羅賓', race: '人類', classType: CLASS_AGILE, baseType: '斥候', icon: '🗡️', maxHp: 16, atk: 10, moveRange: 4, atkRange: 1, skill: { name: '致命投擲', type: 'damage', power: 1.5, range: 3, maxCd: 3, desc: '遠距離投擲造成傷害'} },
+            { id: 'h6', name: '影', race: '獸人', classType: CLASS_AGILE, baseType: '刺客', icon: '🥷', maxHp: 14, atk: 13, moveRange: 4, atkRange: 1, skill: { name: '暗殺', type: 'damage', power: 2.5, range: 1, maxCd: 4, desc: '造成250%超高傷害'} },
+            { id: 'h7', name: '希爾維', race: '精靈', classType: CLASS_AGILE, baseType: '劍舞者', icon: '⚔️', maxHp: 16, atk: 12, moveRange: 4, atkRange: 1, skill: { name: '幻影突刺', type: 'damage', power: 1.8, range: 2, maxCd: 3, desc: '中距離突刺傷害'} },
+            { id: 'h2', name: '伊芙', race: '精靈', classType: CLASS_RANGED, baseType: '法師', icon: '🧙‍♀️', maxHp: 12, atk: 12, moveRange: 2, atkRange: 3, skill: { name: '爆裂火球', type: 'damage', power: 1.8, range: 4, maxCd: 3, desc: '超遠距火球打擊'} },
+            { id: 'h5', name: '莉莉絲', race: '魔族', classType: CLASS_RANGED, baseType: '牧師', icon: '🪄', maxHp: 15, atk: 7, moveRange: 3, atkRange: 2, skill: { name: '聖光治癒', type: 'heal', power: 2.0, range: 3, maxCd: 3, desc: '恢復友軍大量生命'} },
+            { id: 'h8', name: '巴丁', race: '矮人', classType: CLASS_RANGED, baseType: '火槍手', icon: '🔫', maxHp: 20, atk: 13, moveRange: 2, atkRange: 3, skill: { name: '狙擊', type: 'damage', power: 2.0, range: 5, maxCd: 4, desc: '超遠程狙擊'} }
+        ];
+
+        const enemyPool = [
+            { name: '獸人步兵', race: '獸人', classType: CLASS_MELEE, type: '戰士', icon: '👹', maxHp: 20, atk: 7, moveRange: 2, atkRange: 1, gold: 10 },
+            { name: '哥布林', race: '怪物', classType: CLASS_AGILE, type: '盜賊', icon: '👺', maxHp: 10, atk: 5, moveRange: 4, atkRange: 1, gold: 8 },
+            { name: '骷髏弓手', race: '亡靈', classType: CLASS_RANGED, type: '射手', icon: '💀', maxHp: 14, atk: 8, moveRange: 2, atkRange: 3, gold: 12 },
+            { name: '石像鬼', race: '怪物', classType: CLASS_MELEE, type: '飛兵', icon: '🦇', maxHp: 25, atk: 9, moveRange: 4, atkRange: 1, gold: 15 },
+            { name: '巨怪', race: '怪物', classType: CLASS_MELEE, type: '坦克', icon: '🧌', maxHp: 35, atk: 9, moveRange: 2, atkRange: 1, gold: 20 },
+            { name: '黑暗精靈', race: '精靈', classType: CLASS_AGILE, type: '刺客', icon: '🧝‍♀️', maxHp: 15, atk: 11, moveRange: 4, atkRange: 1, gold: 15 },
+            { name: '吸血鬼', race: '亡靈', classType: CLASS_AGILE, type: '刺客', icon: '🧛', maxHp: 18, atk: 12, moveRange: 3, atkRange: 1, gold: 18 },
+            { name: '獸人術士', race: '獸人', classType: CLASS_RANGED, type: '法師', icon: '👁️', maxHp: 16, atk: 10, moveRange: 2, atkRange: 2, gold: 14 }
+        ];
+
+        const bossPool = [
+            { name: '巨龍幼崽', race: '龍族', classType: CLASS_MELEE, type: '首領', icon: '🐉', maxHp: 60, atk: 13, moveRange: 3, atkRange: 2, gold: 80 },
+            { name: '死靈法師', race: '亡靈', classType: CLASS_RANGED, type: '首領', icon: '🧟', maxHp: 50, atk: 15, moveRange: 2, atkRange: 3, gold: 80 },
+            { name: '深淵惡魔', race: '怪物', classType: CLASS_MELEE, type: '首領', icon: '👿', maxHp: 75, atk: 12, moveRange: 3, atkRange: 1, gold: 100 }
+        ];
+
+        const SAVE_KEY = 'sanctuary_tactics_v9';
+        const COLS = 6; const ROWS = 8;
+        const FACTION_PLAYER = 'player'; const FACTION_ENEMY = 'enemy';
+
+        let heroRuntime = []; 
+        let globalState = {};
+        let bState = { units: [], terrain: [], currentTurn: FACTION_PLAYER, selectedUnit: null, phase: 'IDLE', boardElement: document.getElementById('game-board'), highlightElements: [], earnedGold: 0 };
+
+        function initGlobalState() {
+            globalState = { currentLevel: 1, gold: 50, selectedHeroIds: ['h1', 'h2', 'h3', 'h4'], artifacts: [], currentLevelData: null };
+        }
+
+        function initHeroes() {
+            heroRuntime = baseHeroes.map(h => ({ ...h, hp: h.maxHp, tier: 0, type: classNames[h.baseType][0], currentCd: 0 }));
+        }
+
+        function saveGame() {
+            const saveData = {
+                level: globalState.currentLevel, gold: globalState.gold, roster: globalState.selectedHeroIds, artifacts: globalState.artifacts,
+                heroes: heroRuntime.map(h => ({ id: h.id, hp: h.hp, maxHp: h.maxHp, atk: h.atk, tier: h.tier, type: h.type, currentCd: h.currentCd })),
+                currentLevelData: globalState.currentLevelData
+            };
+            localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+        }
+
+        function loadGame() {
+            initHeroes();
+            initGlobalState();
+            const saved = localStorage.getItem(SAVE_KEY);
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    globalState.currentLevel = data.level || 1;
+                    globalState.gold = data.gold !== undefined ? data.gold : 50;
+                    globalState.selectedHeroIds = data.roster || ['h1', 'h2', 'h3', 'h4'];
+                    globalState.artifacts = data.artifacts || [];
+                    globalState.currentLevelData = data.currentLevelData || null;
+
+                    if (data.heroes) {
+                        data.heroes.forEach(sh => {
+                            let h = heroRuntime.find(x => x.id === sh.id);
+                            if (h) { h.hp = sh.hp; h.maxHp = sh.maxHp; h.atk = sh.atk; h.tier = sh.tier || 0; h.type = sh.type || h.type; h.currentCd = sh.currentCd || 0; }
+                        });
+                    }
+                    showToast("已載入冒險進度！");
+                } catch(e) { console.error("存檔讀取失敗"); }
+            }
+        }
+
+        // --- 無縫重置邏輯 ---
+        function confirmReset() {
+            document.getElementById('reset-modal').classList.remove('hidden');
+        }
+
+        function executeReset() {
+            // 1. 移除本機存檔
+            localStorage.removeItem(SAVE_KEY);
+            // 2. 隱藏彈窗
+            document.getElementById('reset-modal').classList.add('hidden');
+            // 3. 重新初始化狀態與英雄
+            initGlobalState();
+            initHeroes();
+            // 4. 重建關卡並儲存，然後切換畫面
+            globalState.currentLevelData = generateRandomLevel(globalState.currentLevel);
+            saveGame();
+            switchScreen('screen-town');
+            showToast("進度已重置，新的冒險開始！");
+        }
+
+        function toggleManual(show) {
+            const modal = document.getElementById('manual-modal');
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+
+        function showArtifactInfo(aid) {
+            let art = artifactPool.find(a => a.id === aid);
+            if(art) {
+                document.getElementById('art-info-icon').innerText = art.icon;
+                document.getElementById('art-info-name').innerText = art.name;
+                document.getElementById('art-info-desc').innerText = art.desc;
+                document.getElementById('artifact-info-modal').classList.remove('hidden');
+            }
+        }
+
+        function getArtifactBoosts() {
+            let boosts = { move: 0, rangeMod: false, lifesteal: false };
+            globalState.artifacts.forEach(aid => {
+                if(aid === 'a1') boosts.lifesteal = true;
+                if(aid === 'a2') boosts.move += 1;
+                if(aid === 'a5') boosts.rangeMod = true;
+            });
+            return boosts;
+        }
+
+        function generateRandomLevel(levelNum) {
+            let isBossLevel = (levelNum % 3 === 0);
+            let theme = isBossLevel ? bossThemes[Math.floor(Math.random() * bossThemes.length)] : levelThemes[Math.floor(Math.random() * levelThemes.length)];
+            let title = isBossLevel ? `第 ${levelNum} 關: ☠️ ${theme.name}` : `第 ${levelNum} 關: ${theme.name}`;
+            
+            let enemiesToSpawn = [];
+            let enemyCount = Math.min(2 + Math.floor(levelNum / 2), 4); 
+            if (isBossLevel) enemyCount = Math.min(2 + Math.floor(levelNum / 4), 4);
+
+            let usedPositions = new Set();
+            function getValidPos(minY, maxY) {
+                let x, y;
+                do { x = Math.floor(Math.random() * COLS); y = Math.floor(Math.random() * (maxY - minY + 1)) + minY; } while (usedPositions.has(`${x},${y}`));
+                usedPositions.add(`${x},${y}`); return [x, y];
+            }
+
+            let tutorInfo = null;
+
+            if (isBossLevel) {
+                let isTutor = Math.random() < 0.6; 
+                let bossDef;
+
+                if (isTutor) {
+                    let promotableHeroes = heroRuntime.filter(h => h.tier < 2);
+                    if (promotableHeroes.length > 0) {
+                        let ref = promotableHeroes[Math.floor(Math.random() * promotableHeroes.length)];
+                        let bType = ref.baseType;
+                        let tTier = ref.tier + 1; 
+                        let cName = classNames[bType][tTier];
+                        let hpBoost = Math.floor(levelNum * 2.0);
+
+                        bossDef = { 
+                            name: `[導師] ${cName}`, race: ref.race, classType: ref.classType, type: '導師', 
+                            icon: '🥋', maxHp: 65 + hpBoost, atk: 12 + Math.floor(levelNum*0.5), moveRange: ref.moveRange, atkRange: ref.atkRange, gold: 120 
+                        };
+                        tutorInfo = { baseType: bType, targetTier: tTier, className: cName };
+                        enemiesToSpawn.push({ id: `boss_${levelNum}`, ...bossDef, isBoss: true, isTutor: true, pos: getValidPos(0, 2) });
+                    } else {
+                        isTutor = false;
+                    }
+                }
+                
+                if (!isTutor) {
+                    let hpBoost = Math.floor(levelNum * 1.5);
+                    bossDef = bossPool[(levelNum/3 - 1) % bossPool.length] || bossPool[0];
+                    enemiesToSpawn.push({ id: `boss_${levelNum}`, ...bossDef, maxHp: bossDef.maxHp + hpBoost, isBoss: true, pos: getValidPos(0, 2) });
+                }
+                enemyCount--;
+            }
+
+            for(let i=0; i<enemyCount; i++) {
+                let enemyDef = enemyPool[Math.floor(Math.random() * enemyPool.length)];
+                enemiesToSpawn.push({ id: `e_${levelNum}_${i}`, ...enemyDef, maxHp: enemyDef.maxHp + levelNum, atk: enemyDef.atk + Math.floor(levelNum*0.3), isBoss: false, pos: getValidPos(0, 3) });
+            }
+
+            let terrainList = [];
+            let terrainCount = Math.floor(Math.random() * 3) + 3; 
+            for(let i=0; i<terrainCount; i++) {
+                let pos = getValidPos(2, 5);
+                let rand = Math.random();
+                let type = rand < 0.4 ? TERRAIN_TREE : (rand < 0.7 ? TERRAIN_MOUNTAIN : TERRAIN_BUSH);
+                terrainList.push({ x: pos[0], y: pos[1], type: type });
+            }
+
+            return { title, isBossLevel, theme, enemies: enemiesToSpawn, terrain: terrainList, tutorInfo: tutorInfo };
+        }
+
+        function switchScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            if (screenId === 'screen-town') { renderTown(); saveGame(); }
+            else if (screenId === 'screen-roster') renderRoster();
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg; toast.style.opacity = 1;
+            setTimeout(() => { toast.style.opacity = 0; }, 2500);
+        }
+
+        function renderTown() {
+            document.getElementById('town-level-num').innerText = globalState.currentLevel;
+            document.getElementById('town-gold-display').innerText = globalState.gold;
+            
+            const artContainer = document.getElementById('artifact-container');
+            artContainer.innerHTML = '';
+            if(globalState.artifacts.length === 0) artContainer.innerHTML = '<span class="text-gray-500 text-xs mt-2">尚未獲得任何神器</span>';
+            globalState.artifacts.forEach(aid => {
+                let art = artifactPool.find(a => a.id === aid);
+                if(art) {
+                    artContainer.innerHTML += `<div class="bg-gray-800 border border-purple-500 rounded p-1 text-xl shadow cursor-pointer hover:bg-gray-700 active:scale-95 transition-transform" onclick="showArtifactInfo('${art.id}')">${art.icon}</div>`;
+                }
+            });
+
+            if (!globalState.currentLevelData) { globalState.currentLevelData = generateRandomLevel(globalState.currentLevel); saveGame(); }
+            const lvl = globalState.currentLevelData;
+            document.getElementById('town-level-title').innerText = lvl.title;
+            document.getElementById('boss-warning').className = lvl.isBossLevel ? 'absolute top-0 left-0 w-full h-1 bg-red-500 animate-pulse' : 'hidden';
+
+            const intelContainer = document.getElementById('enemy-intel-list');
+            intelContainer.innerHTML = '';
+            const seen = new Set();
+            lvl.enemies.forEach(e => {
+                if(!seen.has(e.name)) {
+                    seen.add(e.name);
+                    let borderColor = e.isTutor ? 'border-purple-500' : (e.isBoss ? 'border-yellow-500' : 'border-gray-600');
+                    let nameColor = e.isTutor ? 'text-purple-400' : (e.isBoss ? 'text-yellow-400' : 'text-white');
+                    intelContainer.innerHTML += `
+                        <div class="bg-gray-700 border ${borderColor} rounded px-2 py-1 flex items-center text-xs shadow-sm">
+                            <span class="text-xl mr-1">${e.icon}</span>
+                            <div>
+                                <div class="${nameColor} font-bold">${e.name} ${e.isBoss && !e.isTutor ? '(首領)' : ''}</div>
+                                <div class="flex gap-1 mt-0.5"><span class="trait-badge bg-green-800 border-green-600">${e.race}</span><span class="trait-badge bg-red-800 border-red-600">${e.classType}</span></div>
+                            </div>
+                        </div>`;
+                }
+            });
+        }
+
+        function restAtInn() {
+            const cost = 30;
+            const isAllFull = heroRuntime.every(h => h.hp === h.maxHp);
+            if (isAllFull) { showToast("全體英雄已經是滿血狀態！"); return; }
+            if (globalState.gold >= cost) {
+                globalState.gold -= cost; heroRuntime.forEach(h => h.hp = h.maxHp);
+                document.getElementById('town-gold-display').innerText = globalState.gold;
+                saveGame(); showToast("全體英雄已恢復最大生命值！");
+            } else showToast("金幣不足！(需要 30G)");
+        }
+
+        function toggleHeroSelection(id) {
+            const index = globalState.selectedHeroIds.indexOf(id);
+            const hero = heroRuntime.find(h => h.id === id);
+            
+            if (index > -1) globalState.selectedHeroIds.splice(index, 1);
+            else {
+                if (globalState.selectedHeroIds.length >= 4) { showToast("最多選擇 4 名夥伴！"); return; }
+                if (hero.hp <= 1) showToast("警告：該英雄身受重傷 (1 HP)！");
+                globalState.selectedHeroIds.push(id);
+            }
+            saveGame(); renderRoster();
+        }
+
+        function renderRoster() {
+            const grid = document.getElementById('roster-grid'); grid.innerHTML = '';
+            document.getElementById('roster-count').innerText = `${globalState.selectedHeroIds.length}/4`;
+            const boosts = getArtifactBoosts();
+
+            heroRuntime.forEach(hero => {
+                const isSelected = globalState.selectedHeroIds.includes(hero.id);
+                const isLowHp = hero.hp <= 1;
+                const hpPercent = Math.max(0, (hero.hp / hero.maxHp) * 100);
+                const hpColor = hpPercent > 50 ? 'bg-green-500' : (hpPercent > 20 ? 'bg-yellow-500' : 'bg-red-500');
+
+                let dMove = hero.moveRange + boosts.move;
+                let dRange = hero.atkRange + ((boosts.rangeMod && (hero.classType === CLASS_RANGED || hero.classType === CLASS_AGILE)) ? 1 : 0);
+
+                const card = document.createElement('div');
+                card.className = `hero-card rounded-lg p-2 bg-gray-700 relative cursor-pointer ${isSelected ? 'selected' : ''} ${isLowHp ? 'low-hp' : ''}`;
+                card.onclick = () => toggleHeroSelection(hero.id);
+
+                let star = hero.tier > 0 ? `<span class="text-yellow-400">${'★'.repeat(hero.tier)}</span> ` : '';
+
+                card.innerHTML = `
+                    <div class="flex items-center mb-1">
+                        <div class="text-3xl mr-2 drop-shadow">${hero.icon}</div>
+                        <div>
+                            <div class="font-bold text-white text-sm">${star}${hero.name}</div>
+                            <div class="flex gap-1 mt-0.5">
+                                <span class="trait-badge bg-green-800 border-green-600" style="font-size:0.5rem">${hero.race}</span>
+                                <span class="trait-badge bg-red-800 border-red-600" style="font-size:0.5rem">${hero.classType}·${hero.type}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-[0.6rem] text-gray-300 grid grid-cols-3 gap-x-1 mb-1 mt-2 text-center">
+                        <span>⚔️ ${hero.atk}</span> <span>👟 ${dMove}</span> <span>🏹 ${dRange}</span>
+                    </div>
+                    <div class="w-full bg-gray-900 rounded-full h-1.5 border border-gray-600 relative">
+                        <div class="${hpColor} h-1.5 rounded-full" style="width: ${hpPercent}%"></div>
+                    </div>
+                    ${isSelected ? '<div class="absolute top-1 right-1 text-yellow-400 font-bold text-sm">✓</div>' : ''}
+                    ${isLowHp && !isSelected ? '<div class="absolute inset-0 flex items-center justify-center text-red-500 font-bold text-lg transform -rotate-12 bg-black bg-opacity-40 rounded">重傷</div>' : ''}
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // --- 戰鬥系統 ---
+        function startLevel() {
+            if (globalState.selectedHeroIds.length === 0) { showToast("請至少選擇一名夥伴！"); return; }
+            
+            const levelConfig = globalState.currentLevelData;
+            const boosts = getArtifactBoosts();
+
+            document.getElementById('battle-title').innerText = levelConfig.title;
+            document.getElementById('battle-modal').classList.add('hidden');
+            bState.boardElement.style.backgroundColor = levelConfig.theme.bg;
+            bState.boardElement.innerHTML = '';
+            bState.units = []; bState.highlightElements = [];
+            bState.currentTurn = FACTION_PLAYER; bState.phase = 'IDLE'; bState.selectedUnit = null;
+            bState.earnedGold = 0; bState.terrain = levelConfig.terrain || [];
+            
+            renderTerrain();
+
+            const playerStartPos = [[2, 7], [3, 7], [1, 6], [4, 6]];
+            globalState.selectedHeroIds.forEach((hId, index) => {
+                const heroDef = heroRuntime.find(h => h.id === hId);
+                let pos = playerStartPos[index] || [0, 7];
+                let bMove = heroDef.moveRange + boosts.move;
+                let bRange = heroDef.atkRange + ((boosts.rangeMod && (heroDef.classType === CLASS_RANGED || heroDef.classType === CLASS_AGILE)) ? 1 : 0);
+                
+                bState.units.push({ 
+                    ...heroDef, faction: FACTION_PLAYER, x: pos[0], y: pos[1], 
+                    moveRange: bMove, atkRange: bRange, hasActed: false, element: null 
+                });
+            });
+
+            levelConfig.enemies.forEach(e => {
+                bState.units.push({ ...e, faction: FACTION_ENEMY, x: e.pos[0], y: e.pos[1], hp: e.maxHp, hasActed: false, element: null });
+            });
+
+            switchScreen('screen-battle');
+            renderUnits(); updateUI(); showToast("戰鬥開始！");
+        }
+
+        function renderTerrain() {
+            bState.terrain.forEach(t => {
+                let el = document.createElement('div');
+                el.className = `terrain terrain-${t.type}`;
+                el.style.left = `${(t.x / COLS) * 100}%`; el.style.top = `${(t.y / ROWS) * 100}%`;
+                if(t.type === TERRAIN_TREE) el.innerHTML = '🌲';
+                if(t.type === TERRAIN_MOUNTAIN) el.innerHTML = '⛰️';
+                if(t.type === TERRAIN_BUSH) el.innerHTML = '🌿';
+                bState.boardElement.appendChild(el);
+            });
+        }
+
+        function renderUnits() {
+            bState.units.forEach(unit => {
+                if (!unit.element) {
+                    let el = document.createElement('div');
+                    el.className = `unit faction-${unit.faction} ${unit.isBoss ? 'is-boss' : ''} ${unit.isTutor ? 'is-tutor' : ''}`;
+                    el.id = `unit-${unit.id}`;
+                    let inner = document.createElement('div'); inner.className = 'unit-inner'; inner.innerHTML = unit.icon;
+                    let hpBg = document.createElement('div'); hpBg.className = 'hp-bar-bg';
+                    let hpFill = document.createElement('div'); hpFill.className = 'hp-bar-fill'; hpFill.id = `hp-${unit.id}`;
+                    hpBg.appendChild(hpFill); inner.appendChild(hpBg);
+                    el.appendChild(inner); bState.boardElement.appendChild(el);
+                    unit.element = el; el.addEventListener('click', (e) => handleUnitClick(unit, e));
+                }
+                unit.element.style.left = `${(unit.x / COLS) * 100}%`; unit.element.style.top = `${(unit.y / ROWS) * 100}%`;
+                
+                const hpPercent = Math.max(0, (unit.hp / unit.maxHp) * 100);
+                document.getElementById(`hp-${unit.id}`).style.width = `${hpPercent}%`;
+                if(hpPercent < 30) document.getElementById(`hp-${unit.id}`).style.backgroundColor = '#e53e3e';
+                else document.getElementById(`hp-${unit.id}`).style.backgroundColor = '#48bb78';
+
+                if (unit.hasActed) unit.element.classList.add('exhausted');
+                else unit.element.classList.remove('exhausted');
+            });
+        }
+
+        function clearHighlights() { bState.highlightElements.forEach(el => el.remove()); bState.highlightElements = []; }
+
+        function updateUI() {
+            const panel = document.getElementById('unit-panel');
+            const btnSkill = document.getElementById('btn-skill');
+            const skillCdSpan = document.getElementById('skill-cd');
+            const skillBadge = document.getElementById('panel-skill-name');
+
+            if (bState.selectedUnit) {
+                const u = bState.selectedUnit;
+                document.getElementById('panel-icon').innerText = u.icon;
+                let star = u.tier > 0 ? `<span class="text-yellow-400">${'★'.repeat(u.tier)}</span> ` : '';
+                document.getElementById('panel-name').innerHTML = `${star}${u.name} <span class="text-[0.65rem] text-gray-400">(${u.type})</span>`;
+                document.getElementById('panel-hp').innerText = `HP: ${u.hp}/${u.maxHp}`;
+                document.getElementById('panel-atk').innerText = u.atk || 0;
+                document.getElementById('panel-move').innerText = u.moveRange || 0;
+                document.getElementById('panel-range').innerText = u.atkRange || 0;
+                document.getElementById('panel-race').innerText = u.race;
+                document.getElementById('panel-class').innerText = u.classType;
+                
+                document.getElementById('panel-name').className = u.faction === FACTION_PLAYER ? 'text-blue-300 font-bold drop-shadow' : 'text-red-400 font-bold drop-shadow';
+                
+                if(u.faction === FACTION_PLAYER && u.skill) {
+                    skillBadge.innerText = u.skill.name; skillBadge.classList.remove('hidden');
+                    btnSkill.style.display = 'flex';
+                    if(u.currentCd > 0) {
+                        btnSkill.className = 'bg-gray-600 text-gray-400 font-bold py-2 px-2 text-xs rounded-lg w-1/3 mx-1 flex flex-col items-center justify-center leading-tight';
+                        skillCdSpan.innerText = `(CD:${u.currentCd})`; skillCdSpan.className = 'text-[0.6rem] text-gray-400';
+                    } else {
+                        btnSkill.className = 'bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-2 text-xs rounded-lg w-1/3 mx-1 flex flex-col items-center justify-center leading-tight';
+                        skillCdSpan.innerText = '(可使用)'; skillCdSpan.className = 'text-[0.6rem] text-purple-200';
+                    }
+                } else {
+                    skillBadge.classList.add('hidden'); btnSkill.style.display = 'none';
+                }
+                panel.classList.remove('opacity-0');
+            } else {
+                panel.classList.add('opacity-0');
+            }
+
+            const actionBar = document.getElementById('action-bar');
+            if (bState.phase !== 'IDLE' && bState.selectedUnit && bState.selectedUnit.faction === FACTION_PLAYER && !bState.selectedUnit.hasActed) {
+                actionBar.classList.remove('opacity-50', 'pointer-events-none');
+            } else {
+                actionBar.classList.add('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        // --- 核心邏輯與尋路 ---
+        function getUnitAt(x, y) { return bState.units.find(u => u.x === x && u.y === y && u.hp > 0); }
+        function getTerrainAt(x, y) { return bState.terrain.find(t => t.x === x && t.y === y); }
+        function getDistance(x1, y1, x2, y2) { return Math.abs(x1 - x2) + Math.abs(y1 - y2); }
+
+        function getMovableCells(unit) {
+            let cells = []; let visited = new Set(); let queue = [{x: unit.x, y: unit.y, dist: 0}];
+            while (queue.length > 0) {
+                let curr = queue.shift(); let key = `${curr.x},${curr.y}`;
+                if (visited.has(key)) continue; visited.add(key);
+                
+                let occupant = getUnitAt(curr.x, curr.y);
+                if (occupant && occupant.faction !== unit.faction && occupant.id !== unit.id) continue;
+                
+                let t = getTerrainAt(curr.x, curr.y);
+                if (t && t.type === TERRAIN_TREE && (curr.x !== unit.x || curr.y !== unit.y)) continue; // 樹木無法通行
+
+                if (curr.dist <= unit.moveRange) {
+                    if (!occupant || occupant.id === unit.id) cells.push({x: curr.x, y: curr.y});
+                    const dirs = [[0,1], [1,0], [0,-1], [-1,0]];
+                    for (let d of dirs) {
+                        let nx = curr.x + d[0]; let ny = curr.y + d[1];
+                        if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS) queue.push({x: nx, y: ny, dist: curr.dist + 1});
+                    }
+                }
+            }
+            return cells;
+        }
+
+        function getAttackableTargets(unit, rangeOverride = null, targetAlly = false) {
+            let targets = [];
+            let range = rangeOverride !== null ? rangeOverride : unit.atkRange;
+            bState.units.forEach(target => {
+                if (target.hp > 0 && getDistance(unit.x, unit.y, target.x, target.y) <= range) {
+                    if (targetAlly && target.faction === unit.faction) targets.push(target);
+                    else if (!targetAlly && target.faction !== unit.faction) targets.push(target);
+                }
+            });
+            return targets;
+        }
+
+        function showActionRanges(unit) {
+            clearHighlights();
+            getMovableCells(unit).forEach(cell => {
+                if (cell.x === unit.x && cell.y === unit.y) return;
+                let el = document.createElement('div'); el.className = 'cell-highlight highlight-move';
+                el.style.left = `${(cell.x / COLS) * 100}%`; el.style.top = `${(cell.y / ROWS) * 100}%`;
+                el.addEventListener('click', () => handleMoveClick(cell.x, cell.y));
+                bState.boardElement.appendChild(el); bState.highlightElements.push(el);
+            });
+
+            getAttackableTargets(unit).forEach(target => {
+                let el = document.createElement('div'); el.className = 'cell-highlight highlight-attack highlight-target pointer-events-none'; 
+                el.style.left = `${(target.x / COLS) * 100}%`; el.style.top = `${(target.y / ROWS) * 100}%`;
+                bState.boardElement.appendChild(el); bState.highlightElements.push(el);
+            });
+        }
+
+        function showAttackRangeOnly(unit) {
+            clearHighlights();
+            const targets = getAttackableTargets(unit);
+            if (targets.length === 0) { endUnitAction(unit); return; }
+            bState.phase = 'ACTION_SELECTION';
+            targets.forEach(target => {
+                let el = document.createElement('div'); el.className = 'cell-highlight highlight-attack highlight-target pointer-events-none';
+                el.style.left = `${(target.x / COLS) * 100}%`; el.style.top = `${(target.y / ROWS) * 100}%`;
+                bState.boardElement.appendChild(el); bState.highlightElements.push(el);
+            });
+        }
+
+        function handleSkillClick() {
+            const unit = bState.selectedUnit;
+            if(!unit || unit.currentCd > 0 || !unit.skill || bState.phase === 'SKILL_SELECTION') return;
+            
+            clearHighlights(); bState.phase = 'SKILL_SELECTION';
+            showToast(`選擇技能 [${unit.skill.name}] 的目標`);
+            
+            const isHeal = unit.skill.type === 'heal';
+            const targets = getAttackableTargets(unit, unit.skill.range, isHeal);
+            
+            if(targets.length === 0) { showToast("範圍內沒有可選目標"); setTimeout(() => { bState.phase = 'MOVE_SELECTION'; showActionRanges(unit); }, 1000); return; }
+
+            targets.forEach(target => {
+                let el = document.createElement('div');
+                el.className = `cell-highlight highlight-target pointer-events-none ${isHeal ? 'highlight-heal' : 'highlight-skill'}`;
+                el.style.left = `${(target.x / COLS) * 100}%`; el.style.top = `${(target.y / ROWS) * 100}%`;
+                bState.boardElement.appendChild(el); bState.highlightElements.push(el);
+            });
+        }
+
+        function handleUnitClick(unit, event) {
+            event.stopPropagation();
+            if (bState.currentTurn !== FACTION_PLAYER || bState.phase === 'ANIMATING') return;
+
+            if (bState.phase === 'SKILL_SELECTION') {
+                const sUnit = bState.selectedUnit;
+                const isHeal = sUnit.skill.type === 'heal';
+                const targets = getAttackableTargets(sUnit, sUnit.skill.range, isHeal);
+                if(targets.find(t => t.id === unit.id)) { executeSkill(sUnit, unit); return; } 
+                else { bState.phase = 'MOVE_SELECTION'; showActionRanges(sUnit); return; } 
+            }
+
+            if (unit.faction === FACTION_ENEMY) {
+                if (bState.selectedUnit && !bState.selectedUnit.hasActed) {
+                    if (getAttackableTargets(bState.selectedUnit).find(t => t.id === unit.id)) { executeAttack(bState.selectedUnit, unit); return; }
+                }
+                bState.selectedUnit = unit; updateUI(); clearHighlights(); return;
+            }
+
+            if (unit.faction === FACTION_PLAYER) {
+                if (bState.selectedUnit && bState.selectedUnit.id === unit.id && bState.phase === 'MOVE_SELECTION') {
+                    bState.selectedUnit = null; bState.phase = 'IDLE'; clearHighlights(); updateUI(); return;
+                }
+                if (!unit.hasActed) {
+                    bState.selectedUnit = unit; bState.phase = 'MOVE_SELECTION';
+                    updateUI(); showActionRanges(unit); unit.element.style.transform = 'scale(1.1)';
+                    setTimeout(() => { if(unit.element) unit.element.style.transform = 'scale(1)'; }, 200);
+                } else { bState.selectedUnit = unit; updateUI(); clearHighlights(); }
+            }
+        }
+
+        function handleMoveClick(x, y) {
+            if (bState.phase !== 'MOVE_SELECTION' || !bState.selectedUnit) return;
+            const unit = bState.selectedUnit; unit.x = x; unit.y = y; renderUnits(); showAttackRangeOnly(unit);
+        }
+
+        function calculateDamageMultiplier(atkUnit, defUnit) {
+            let multiplier = 1.0; let counterCount = 0; let weakCount = 0;
+            if (raceCounters[atkUnit.race]?.includes(defUnit.race)) { multiplier += 0.5; counterCount++; }
+            if (raceCounters[defUnit.race]?.includes(atkUnit.race)) { multiplier -= 0.3; weakCount++; }
+            if (classCounters[atkUnit.classType]?.includes(defUnit.classType)) { multiplier += 0.5; counterCount++; }
+            if (classCounters[defUnit.classType]?.includes(atkUnit.classType)) { multiplier -= 0.3; weakCount++; }
+            
+            // 地形影響
+            let atkT = getTerrainAt(atkUnit.x, atkUnit.y); let defT = getTerrainAt(defUnit.x, defUnit.y);
+            if(atkT && atkT.type === TERRAIN_MOUNTAIN) multiplier += 0.3; // 高地+攻
+            if(defT && defT.type === TERRAIN_BUSH) multiplier -= 0.3; // 草叢減傷
+
+            return { multiplier: Math.max(0.2, multiplier), counterCount, weakCount };
+        }
+
+        function executeSkill(attacker, defender) {
+            clearHighlights(); bState.phase = 'ANIMATING'; attacker.element.classList.add('anim-attack');
+            const skill = attacker.skill; attacker.currentCd = skill.maxCd;
+            
+            setTimeout(() => {
+                attacker.element.classList.remove('anim-attack');
+                
+                if(skill.type === 'heal') {
+                    let healAmt = Math.floor(attacker.atk * skill.power);
+                    defender.hp = Math.min(defender.maxHp, defender.hp + healAmt);
+                    if(defender.faction === FACTION_PLAYER) updateGlobalHeroHp(defender);
+                    showFloatingHtml(defender.x, defender.y, `<div class="text-heal">+${healAmt}</div>`);
+                    renderUnits(); setTimeout(() => endUnitAction(attacker), 600);
+                } else {
+                    const { multiplier, counterCount, weakCount } = calculateDamageMultiplier(attacker, defender);
+                    const baseDamage = Math.floor(attacker.atk * skill.power);
+                    const finalDamage = Math.max(1, Math.floor(baseDamage * multiplier));
+                    
+                    defender.hp -= finalDamage;
+                    if (defender.faction === FACTION_PLAYER) updateGlobalHeroHp(defender);
+                    defender.element.classList.add('anim-damage');
+                    
+                    let floatHtml = `<div class="text-dmg">-${finalDamage}</div><div class="text-purple-300 text-sm">${skill.name}</div>`;
+                    if (skill.type === 'lifesteal') {
+                        let heal = Math.floor(finalDamage * 0.5);
+                        attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal); updateGlobalHeroHp(attacker);
+                        showFloatingHtml(attacker.x, attacker.y, `<div class="text-heal">+${heal}</div>`);
+                    }
+                    showFloatingHtml(defender.x, defender.y, floatHtml);
+                    renderUnits(); setTimeout(() => checkKill(attacker, defender), 400);
+                }
+            }, 200);
+        }
+
+        function executeAttack(attacker, defender) {
+            clearHighlights(); bState.phase = 'ANIMATING'; attacker.element.classList.add('anim-attack');
+            
+            setTimeout(() => {
+                attacker.element.classList.remove('anim-attack');
+                
+                const { multiplier, counterCount, weakCount } = calculateDamageMultiplier(attacker, defender);
+                const variance = Math.floor(attacker.atk * 0.2);
+                const baseDamage = attacker.atk + Math.floor(Math.random() * (variance * 2 + 1)) - variance;
+                const finalDamage = Math.max(1, Math.floor(baseDamage * multiplier));
+                
+                defender.hp -= finalDamage;
+                if (defender.faction === FACTION_PLAYER) updateGlobalHeroHp(defender);
+                defender.element.classList.add('anim-damage');
+                
+                let floatHtml = `<div class="text-dmg">-${finalDamage}</div>`;
+                if (counterCount === 2) floatHtml += `<div class="text-counter font-black text-xl">大剋制!!</div>`;
+                else if (counterCount === 1) floatHtml += `<div class="text-counter">剋制!</div>`;
+                else if (weakCount > 0) floatHtml += `<div class="text-weak">抵抗</div>`;
+                
+                const boosts = getArtifactBoosts();
+                if(boosts.lifesteal && attacker.faction === FACTION_PLAYER) {
+                    let heal = Math.floor(finalDamage * 0.3);
+                    attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal); updateGlobalHeroHp(attacker);
+                    showFloatingHtml(attacker.x, attacker.y, `<div class="text-heal">+${heal}</div>`);
+                }
+
+                showFloatingHtml(defender.x, defender.y, floatHtml);
+                renderUnits(); setTimeout(() => checkKill(attacker, defender), 400);
+            }, 200);
+        }
+
+        function checkKill(attacker, defender) {
+            defender.element.classList.remove('anim-damage');
+            if (defender.hp <= 0) {
+                defender.element.style.opacity = '0'; defender.element.style.transform = 'scale(0)';
+                if (defender.faction === FACTION_ENEMY) {
+                    let dropGold = defender.gold || 10; bState.earnedGold += dropGold;
+                    showFloatingHtml(defender.x, defender.y, `<div class="text-gold">+${dropGold}G</div>`);
+                }
+                setTimeout(() => {
+                    defender.element.remove();
+                    bState.units = bState.units.filter(u => u.id !== defender.id);
+                    checkWinCondition(attacker);
+                }, 300);
+            } else {
+                endUnitAction(attacker);
+            }
+        }
+
+        function updateGlobalHeroHp(unit) {
+            let globalHero = heroRuntime.find(h => h.id === unit.id);
+            if (globalHero) globalHero.hp = unit.hp <= 0 ? 1 : unit.hp; 
+        }
+
+        function showFloatingHtml(x, y, htmlContent) {
+            const floatEl = document.createElement('div'); floatEl.className = 'floating-text'; floatEl.innerHTML = htmlContent;
+            floatEl.style.left = `calc(${(x / COLS) * 100}% + 5%)`; floatEl.style.top = `calc(${(y / ROWS) * 100}% - 5%)`;
+            bState.boardElement.appendChild(floatEl); setTimeout(() => floatEl.remove(), 1200);
+        }
+
+        function endUnitAction(unit) {
+            if(!unit) return;
+            unit.hasActed = true; bState.selectedUnit = null; bState.phase = 'IDLE';
+            clearHighlights(); renderUnits(); updateUI();
+            if (bState.units.filter(u => u.faction === FACTION_PLAYER).every(u => u.hasActed) && bState.currentTurn === FACTION_PLAYER) {
+                endPlayerTurn();
+            }
+        }
+
+        function checkWinCondition(lastAttacker) {
+            if (bState.units.filter(u => u.faction === FACTION_PLAYER).length === 0) {
+                showBattleResult("戰鬥失敗", "部隊撤退回城鎮...", "text-red-500", false);
+            } else if (bState.units.filter(u => u.faction === FACTION_ENEMY).length === 0) {
+                let isBoss = globalState.currentLevelData.isBossLevel;
+                let tInfo = globalState.currentLevelData.tutorInfo;
+                let desc = "成功肅清了該區域的敵人！";
+                
+                if (isBoss) {
+                    desc = "擊敗首領！全體英雄最大生命 +2，攻擊力 +1！";
+                    heroRuntime.forEach(h => { h.maxHp += 2; h.hp += 2; h.atk += 1; });
+                    
+                    if (tInfo) {
+                        let promoted = false;
+                        globalState.selectedHeroIds.forEach(hid => {
+                            let h = heroRuntime.find(x => x.id === hid);
+                            if (h && h.baseType === tInfo.baseType && h.tier === (tInfo.targetTier - 1)) {
+                                h.tier = tInfo.targetTier;
+                                h.type = classNames[h.baseType][h.tier];
+                                h.maxHp += 5 * tInfo.targetTier; h.hp += 5 * tInfo.targetTier; h.atk += 2 * tInfo.targetTier; 
+                                if (h.tier === 2) h.skill.power += 0.5;
+                                desc += `<br><br>🎉 <span class="text-blue-300 font-bold">${h.name}</span> 通過了指導，轉職為 <span class="text-yellow-400 font-bold">${h.type}</span>！`;
+                                promoted = true;
+                            }
+                        });
+                        if (!promoted) desc += `<br><br><span class="text-gray-400">（導師感嘆：可惜這支隊伍中，沒有適合繼承我衣缽的學徒...）</span>`;
+                    }
+                }
+                
+                globalState.currentLevel++; globalState.currentLevelData = null; globalState.gold += bState.earnedGold;
+                
+                document.getElementById('battle-result-gold').innerHTML = `獲得金幣: ${bState.earnedGold}G`;
+                
+                if (isBoss && !tInfo) { 
+                    let unowned = artifactPool.filter(a => !globalState.artifacts.includes(a.id));
+                    if (unowned.length > 0) {
+                        let newArt = unowned[Math.floor(Math.random() * unowned.length)];
+                        globalState.artifacts.push(newArt.id);
+                        document.getElementById('battle-result-artifact').innerHTML = `獲得神器: ${newArt.icon} ${newArt.name}`;
+                        document.getElementById('battle-result-artifact').classList.remove('hidden');
+                        
+                        if (newArt.id === 'a3') heroRuntime.forEach(h => { h.maxHp += 5; h.hp += 5; });
+                        if (newArt.id === 'a4') heroRuntime.forEach(h => { h.atk += 2; });
+                    } else {
+                        document.getElementById('battle-result-artifact').classList.add('hidden');
+                    }
+                } else {
+                    document.getElementById('battle-result-artifact').classList.add('hidden');
+                }
+                
+                showBattleResult("戰鬥勝利！", desc, "text-yellow-500", true);
+            } else endUnitAction(lastAttacker);
+        }
+
+        function showBattleResult(title, desc, titleClass, isWin) {
+            bState.phase = 'ANIMATING';
+            document.getElementById('battle-result-title').innerText = title; document.getElementById('battle-result-title').className = `text-5xl font-bold mb-4 ${titleClass} drop-shadow-lg`;
+            document.getElementById('battle-result-desc').innerHTML = desc;
+            
+            if (!isWin) { 
+                globalState.currentLevelData = null; 
+                document.getElementById('battle-result-gold').innerHTML = `<span class="text-gray-400">重傷撤退，一無所獲...</span>`; 
+                document.getElementById('battle-result-artifact').classList.add('hidden');
+            }
+            document.getElementById('battle-modal').classList.remove('hidden');
+        }
+
+        function returnToTown() {
+            bState.units.filter(u => u.faction === FACTION_PLAYER).forEach(u => {
+                let h = heroRuntime.find(x => x.id === u.id);
+                if (h) { h.hp = Math.max(1, u.hp); h.currentCd = Math.max(0, u.currentCd - 1); } 
+            });
+            switchScreen('screen-town');
+        }
+
+        function endPlayerTurn() {
+            if (bState.currentTurn !== FACTION_PLAYER) return;
+            bState.currentTurn = FACTION_ENEMY; bState.selectedUnit = null; bState.phase = 'IDLE'; clearHighlights(); updateUI();
+            document.getElementById('turn-indicator').innerText = "回合: 敵方階段"; document.getElementById('turn-indicator').className = "text-xs text-red-400 font-bold";
+            showToast("敵軍行動");
+            bState.units.filter(u => u.faction === FACTION_ENEMY).forEach(u => u.hasActed = false);
+            renderUnits(); setTimeout(executeEnemyTurn, 1000);
+        }
+
+        function startPlayerTurn() {
+            bState.currentTurn = FACTION_PLAYER;
+            document.getElementById('turn-indicator').innerText = "回合: 玩家階段"; document.getElementById('turn-indicator').className = "text-xs text-blue-300 font-bold";
+            showToast("你的回合");
+            bState.units.filter(u => u.faction === FACTION_PLAYER).forEach(u => {
+                u.hasActed = false; if(u.currentCd > 0) u.currentCd--; 
+            });
+            renderUnits();
+        }
+
+        async function executeEnemyTurn() {
+            let enemies = bState.units.filter(u => u.faction === FACTION_ENEMY);
+            for (let i = 0; i < enemies.length; i++) {
+                if (bState.units.filter(u => u.faction === FACTION_PLAYER).length === 0) break; 
+                
+                let enemy = enemies[i]; if (enemy.hp <= 0) continue;
+                bState.selectedUnit = enemy; updateUI();
+                let players = bState.units.filter(u => u.faction === FACTION_PLAYER);
+                
+                let targetPlayer = null; let highestScore = -999;
+                players.forEach(p => {
+                    let dist = getDistance(enemy.x, enemy.y, p.x, p.y);
+                    let { multiplier } = calculateDamageMultiplier(enemy, p);
+                    let score = (multiplier * 100) - (dist * 10) - (p.hp);
+                    if (score > highestScore) { highestScore = score; targetPlayer = p; }
+                });
+
+                let moveCells = getMovableCells(enemy); let bestCell = {x: enemy.x, y: enemy.y}; let minDist = getDistance(enemy.x, enemy.y, targetPlayer.x, targetPlayer.y);
+                let needMove = minDist > enemy.atkRange;
+                if (needMove) {
+                    moveCells.forEach(cell => { let d = getDistance(cell.x, cell.y, targetPlayer.x, targetPlayer.y); if (d < minDist) { minDist = d; bestCell = cell; } });
+                }
+
+                if (needMove && (bestCell.x !== enemy.x || bestCell.y !== enemy.y)) { enemy.x = bestCell.x; enemy.y = bestCell.y; renderUnits(); await new Promise(r => setTimeout(r, 600)); }
+
+                let possibleTargets = getAttackableTargets(enemy);
+                if (possibleTargets.length > 0) {
+                    possibleTargets.sort((a, b) => calculateDamageMultiplier(enemy, b).multiplier - calculateDamageMultiplier(enemy, a).multiplier);
+                    executeAttack(enemy, possibleTargets[0]); await new Promise(r => setTimeout(r, 1200)); 
+                } else { enemy.hasActed = true; renderUnits(); await new Promise(r => setTimeout(r, 300)); }
+            }
+            if (bState.units.filter(u => u.faction === FACTION_PLAYER).length > 0) startPlayerTurn();
+        }
+
+        document.getElementById('btn-cancel').addEventListener('click', () => { if (bState.phase === 'MOVE_SELECTION' || bState.phase === 'ACTION_SELECTION' || bState.phase === 'SKILL_SELECTION') { bState.selectedUnit = null; bState.phase = 'IDLE'; clearHighlights(); updateUI(); } });
+        document.getElementById('btn-wait').addEventListener('click', () => { if (bState.selectedUnit && bState.selectedUnit.faction === FACTION_PLAYER) endUnitAction(bState.selectedUnit); });
+        document.getElementById('end-turn-btn').addEventListener('click', () => { if (bState.currentTurn === FACTION_PLAYER && bState.phase !== 'ANIMATING') endPlayerTurn(); });
+        document.getElementById('btn-skill').addEventListener('click', handleSkillClick);
+
+        window.onload = () => { loadGame(); switchScreen('screen-town'); };
+    </script>
+</body>
+</html>
+
+
