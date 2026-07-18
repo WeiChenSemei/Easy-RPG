@@ -18,14 +18,21 @@
             background-size: calc(100% / 6) calc(100% / 8); border: 2px solid #4a5568; box-shadow: 0 10px 25px rgba(0,0,0,0.5) inset; margin: 0 auto; transition: background-color 0.5s ease;
         }
         .terrain {
-            position: absolute; width: calc(100% / 6); height: calc(100% / 8); display: flex; align-items: center; justify-content: center; font-size: 2rem; z-index: 1; opacity: 0.8; pointer-events: none;
+            position: absolute; width: calc(100% / 6); height: calc(100% / 8); display: flex; align-items: center; justify-content: center; font-size: 2rem; z-index: 1; opacity: 0.8; pointer-events: none; transition: background-color 0.3s;
         }
         .terrain-bush { background-color: rgba(72, 187, 120, 0.2); }
         .terrain-mountain { background-color: rgba(160, 174, 192, 0.2); }
         .terrain-escape { background-color: rgba(66, 153, 225, 0.4); border-bottom: 3px dashed #63b3ed; box-shadow: 0 0 15px rgba(66, 153, 225, 0.6) inset; animation: pulse 2s infinite; }
+        
+        /* 暗霧探索專用地形 */
+        .terrain-fog { background-color: rgba(26, 32, 44, 0.9); box-shadow: inset 0 0 15px #000; }
+        .terrain-trap { background-color: rgba(229, 62, 62, 0.2); }
+        .terrain-teleport { background-color: rgba(159, 122, 234, 0.3); animation: pulse 2s infinite; }
+        .terrain-slow { background-color: rgba(214, 158, 46, 0.2); }
+        .terrain-normal { background-color: rgba(255, 255, 255, 0.05); }
 
         /* 單位 */
-        .unit { position: absolute; width: calc(100% / 6); height: calc(100% / 8); transition: left 0.3s ease, top 0.3s ease, transform 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; z-index: 10; }
+        .unit { position: absolute; width: calc(100% / 6); height: calc(100% / 8); transition: left 0.3s ease, top 0.3s ease, transform 0.2s, opacity 0.3s; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; z-index: 10; }
         .unit-inner { width: 80%; height: 80%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.5); position: relative; }
         .faction-player .unit-inner { background: linear-gradient(135deg, #3182ce, #2b6cb0); border: 2px solid #63b3ed; }
         .faction-enemy .unit-inner { background: linear-gradient(135deg, #e53e3e, #c53030); border: 2px solid #fc8181; }
@@ -45,7 +52,6 @@
         .highlight-attack { background-color: #f56565; border: 2px solid #fed7d7; animation: attackPulse 1s infinite; z-index: 11;}
         .highlight-skill { background-color: #ecc94b; border: 2px solid #fef08a; animation: skillPulse 1s infinite; z-index: 11;}
         .highlight-heal { background-color: #48bb78; border: 2px solid #9ae6b4; animation: healPulse 1s infinite; z-index: 11;}
-        .highlight-clear { background-color: #ed8936; border: 2px solid #fbd38d; animation: skillPulse 1s infinite; z-index: 11;}
 
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 0.7; } 100% { opacity: 0.4; } }
         @keyframes attackPulse { 0% { opacity: 0.5; background-color: #f56565; } 50% { opacity: 0.8; background-color: #c53030; } 100% { opacity: 0.5; background-color: #f56565; } }
@@ -103,21 +109,24 @@
                 <section>
                     <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">🗺️ 關卡模式介紹</h3>
                     <ul class="space-y-3">
-                        <li>⚔️ <b class="text-yellow-400">一般戰鬥：</b> 最常見的遭遇戰，殲滅地圖上所有敵人即可獲勝。</li>
-                        <li>🏃‍♂️ <b class="text-blue-400">撤退戰：</b> 敵軍會無盡增援！不要戀戰，只要讓<span class="text-blue-300 font-bold">任一名英雄</span>安全抵達最上方的<span class="text-blue-400">藍色撤退點 🌀</span>即可帶領全隊獲勝。</li>
-                        <li>🧩 <b class="text-red-400">機關迷宮：</b> 隨機生成的多重防線，沒有敵人。你需要靠智慧與隊伍特長開路：
+                        <li>⚔️ <b class="text-yellow-400">一般戰鬥：</b> 殲滅地圖上所有敵人即可獲勝。</li>
+                        <li>🏃‍♂️ <b class="text-blue-400">撤退戰：</b> 敵軍會無盡增援！只要讓<span class="text-blue-300 font-bold">任一名英雄</span>抵達最上方的撤退點即可過關。</li>
+                        <li>⚙️ <b class="text-green-400">機關迷宮：</b> <br>
+                            - 牆壁與未開啟的結界堅不可摧，且<b class="text-red-400">無法被視線與攻擊穿透</b>。<br>
+                            - 必須指派隊員<b class="text-yellow-300">停留在魔法陣上</b>，對應結界才會敞開。一旦離開，結界會立刻重啟封鎖！<br>
+                            - 運用 3 人踩陣，1 人闖入核心單挑守門員（或引開它）並踏入出口獲勝。
+                        </li>
+                        <li>🌫️ <b class="text-purple-400">暗霧探索：</b> 場上沒有敵人，去路被濃霧覆蓋。
                             <ul class="list-disc pl-5 mt-2 text-gray-400 space-y-1">
-                                <li>🔴 <b>魔法陣：</b>派人踩踏，即可解除對應顏色的結界(🟥)。</li>
-                                <li>🪨 <b>巨石：</b>僅限 <span class="text-white">近戰 / 獸人 / 矮人</span> 可無傷破壞。</li>
-                                <li>🪤 <b>陷阱：</b>僅限 <span class="text-white">敏捷 / 人類 / 矮人</span> 可無傷拆除。</li>
-                                <li>🔮 <b>封印：</b>僅限 <span class="text-white">遠程 / 魔族 / 精靈</span> 可無傷解除。</li>
+                                <li>英雄<b>踩入濃霧</b>時會揭開地形：普通、<span class="text-red-400">陷阱🪤(扣除生命)</span>、<span class="text-purple-400">傳送陣🌀(傳回起點)</span>、<span class="text-yellow-500">泥沼🕸️(移動力-1)</span>。</li>
+                                <li>撤退點隱藏在最上面一排的濃霧中！</li>
                             </ul>
                         </li>
                     </ul>
                 </section>
                 <section>
                     <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">⚔️ 戰鬥剋制系統</h3>
-                    <p class="mb-2">攻擊時觸發剋制，傷害提升 50%！若同時觸發種族與職業雙剋制，將引發<span class="text-yellow-400 font-bold">「大剋制!!」</span>，造成毀滅性打擊。</p>
+                    <p class="mb-2">攻擊觸發剋制，傷害提升 50%！若同時觸發種族與職業雙剋制，將引發<span class="text-yellow-400 font-bold">「大剋制!!」</span>。</p>
                     <div class="bg-gray-900 p-3 rounded border border-gray-700">
                         <p class="text-red-400 font-bold mb-1">【職業剋制】</p>
                         <p class="mb-3">⚔️ 近戰 ＞ 🥷 敏捷 ＞ 🏹 遠程 ＞ ⚔️ 近戰</p>
@@ -130,21 +139,11 @@
                             <li><span class="text-white font-bold">魔族</span>＞人類/精靈</li>
                             <li><span class="text-white font-bold">亡靈</span>＞精靈/獸人</li>
                         </ul>
-                        <p class="mt-2 text-gray-400 text-[0.65rem]">*龍族與怪物無主動剋制，但基礎數值較高。</p>
                     </div>
                 </section>
                 <section>
-                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">✨ 特殊地形效果</h3>
-                    <ul class="space-y-2">
-                        <li><span class="text-xl">🌲</span> <b>樹林：</b> 障礙物，無法通行與停留。</li>
-                        <li><span class="text-xl">⛰️</span> <b>高地：</b> 居高臨下，站在上方攻擊時<span class="text-red-400 font-bold">傷害 +30%</span>。</li>
-                        <li><span class="text-xl">🌿</span> <b>草叢：</b> 隱蔽身形，站在上方受擊時<span class="text-green-400 font-bold">受到傷害 -30%</span>。</li>
-                    </ul>
-                </section>
-                <section>
-                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">🎓 轉職與神器</h3>
-                    <p class="mb-2">在每 3 關的首領戰中，有 60% 機率遭遇敵方的<span class="text-purple-400 font-bold">「職業導師」</span>。只要您的出戰隊伍中有<span class="text-yellow-400">剛好低一階的對應職業</span>學徒，戰勝後該英雄即可當場<b>進階轉職</b>，全能力巨幅提升！</p>
-                    <p>若遭遇一般首領，擊敗後則會隨機掉落全隊共用的<span class="text-purple-400 font-bold">「神器」</span>。神器效果為永久且全隊共享。</p>
+                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">🎓 滿星轉職與神器</h3>
+                    <p class="mb-2">在每 3 關的首領戰中，有 60% 機率遭遇敵方<span class="text-purple-400 font-bold">「職業導師」</span>。戰勝後可讓學徒<b>進階轉職</b>，最高可達 <span class="text-yellow-400">★★★ 三星滿階</span>，解鎖終極職業與威力！</p>
                 </section>
             </div>
             <div class="p-3 bg-gray-900 border-t border-gray-700">
@@ -161,6 +160,18 @@
             <div class="flex justify-between gap-4">
                 <button onclick="document.getElementById('reset-modal').classList.add('hidden')" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg w-1/2">取消</button>
                 <button onclick="executeReset()" class="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg w-1/2">確認重置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 撤退確認彈窗 -->
+    <div id="retreat-modal" class="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-[80] hidden">
+        <div class="bg-gray-800 border-2 border-yellow-500 rounded-xl p-6 max-w-[80%] text-center shadow-2xl">
+            <h3 class="text-2xl text-yellow-400 font-bold mb-4">🏳️ 確認撤退</h3>
+            <p class="text-gray-300 text-sm mb-6">陷入僵局了嗎？確定要放棄這場戰鬥嗎？<br>部隊將會保留目前血量撤退回城鎮。<br><span class="text-red-400 font-bold">撤退後，本關卡地圖將會重新生成。</span></p>
+            <div class="flex justify-between gap-4">
+                <button onclick="document.getElementById('retreat-modal').classList.add('hidden')" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg w-1/2">取消</button>
+                <button onclick="executeRetreat()" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg w-1/2">確認撤退</button>
             </div>
         </div>
     </div>
@@ -235,7 +246,8 @@
     <!-- ==================== 戰鬥介面 ==================== -->
     <div id="screen-battle" class="screen">
         <header class="bg-gray-800 p-2 shadow-md flex justify-between items-center z-20">
-            <div>
+            <button onclick="confirmRetreat()" class="bg-gray-600 border border-gray-500 hover:bg-red-600 text-white font-bold py-1 px-2 text-xs rounded shadow mr-2">🏳️ 撤退</button>
+            <div class="flex-1">
                 <h1 class="text-md font-bold text-yellow-500" id="battle-title">⚔️ 關卡</h1>
                 <p id="turn-indicator" class="text-xs text-blue-300 font-semibold">回合: 玩家階段</p>
             </div>
@@ -292,7 +304,8 @@
         const ROWS = 8;
 
         const CLASS_MELEE = '近戰'; const CLASS_AGILE = '敏捷'; const CLASS_RANGED = '遠程';
-        const MODE_NORMAL = 'NORMAL'; const MODE_ESCAPE = 'ESCAPE'; const MODE_OBSTACLE = 'OBSTACLE';
+        const MODE_NORMAL = 'NORMAL'; const MODE_ESCAPE = 'ESCAPE'; 
+        const MODE_PUZZLE = 'PUZZLE'; const MODE_FOG = 'FOG';
         
         const raceCounters = { '人類': ['怪物', '亡靈'], '獸人': ['人類', '矮人'], '精靈': ['獸人', '怪物'], '矮人': ['龍族', '魔族'], '魔族': ['人類', '精靈'], '亡靈': ['精靈', '獸人'], '龍族': [], '怪物': [] };
         const classCounters = { [CLASS_MELEE]: [CLASS_AGILE], [CLASS_AGILE]: [CLASS_RANGED], [CLASS_RANGED]: [CLASS_MELEE] };
@@ -308,13 +321,28 @@
             { id: 'a5', name: '鷹眼面罩', icon: '🦅', desc: '遠程與敏捷系英雄，攻擊與技能範圍 +1。' }, { id: 'a6', name: '守護者之盾', icon: '🛡️', desc: '全體英雄基礎最大生命值永久 +10！' },
             { id: 'a7', name: '狂戰士手環', icon: '💪', desc: '全體英雄基礎攻擊力永久 +4！' }, { id: 'a8', name: '刺客袖劍', icon: '🗡️', desc: '全體「敏捷」英雄基礎攻擊力永久 +3！' },
             { id: 'a9', name: '法師之書', icon: '📖', desc: '全體「遠程」英雄基礎攻擊力永久 +3！' }, { id: 'a10', name: '騎士榮耀', icon: '👑', desc: '全體「近戰」英雄基礎最大生命值永久 +8！' },
-            { id: 'a11', name: '再生墜飾', icon: '🍀', desc: '每回合開始時，全體英雄自動恢復 2 點生命。' }, { id: 'a12', name: '戰神之刃', icon: '⚔️', desc: '全體英雄基礎攻擊力 +3、最大生命值 +3！' }
+            { id: 'a11', name: '再生墜飾', icon: '🍀', desc: '每回合開始時，全體英雄自動恢復 2 點生命。' }, { id: 'a12', name: '戰神之刃', icon: '⚔️', desc: '全體英雄基礎攻擊力 +3、最大生命值 +3！' },
+            { id: 'a13', name: '賢者之石', icon: '💎', desc: '全體英雄使用「技能」時造成的傷害與恢復量增加 30%。' },
+            { id: 'a14', name: '荊棘鎧甲', icon: '🦔', desc: '受到敵人近戰攻擊時，反彈 30% 傷害給攻擊者！' },
+            { id: 'a15', name: '風暴之翼', icon: '🪽', desc: '全體「敏捷」英雄戰鬥中的移動力 +1。' },
+            { id: 'a16', name: '聖光十字', icon: '✝️', desc: '全體英雄基礎最大生命值永久 +15！' },
+            { id: 'a17', name: '龍血結晶', icon: '🩸', desc: '全體英雄基礎攻擊力永久 +5！' },
+            { id: 'a18', name: '狙擊護目鏡', icon: '👓', desc: '全體「遠程」英雄基礎攻擊力永久 +4！' },
+            { id: 'a19', name: '不屈戰旗', icon: '🚩', desc: '全體「近戰」英雄基礎攻擊力永久 +4！' },
+            { id: 'a20', name: '貪婪權杖', icon: '🔱', desc: '戰鬥中擊敗敵人所獲得的金幣增加 50%。' }
         ];
 
         const classNames = {
-            '騎士': ['騎士', '聖騎士', '龍騎士'], '戰士': ['戰士', '狂戰士', '戰神'], '黑騎士': ['黑騎士', '死亡騎士', '深淵領主'], '狂戰士': ['狂戰士', '嗜血者', '戰神'],
-            '斥候': ['斥候', '遊俠', '風行者'], '刺客': ['刺客', '影舞者', '夜魔'], '劍舞者': ['劍舞者', '幻影劍客', '劍聖'],
-            '法師': ['法師', '大魔法師', '賢者'], '牧師': ['牧師', '大主教', '聖徒'], '火槍手': ['火槍手', '狙擊手', '神射手']
+            '騎士': ['騎士', '聖騎士', '龍騎士', '天穹龍騎'],
+            '戰士': ['戰士', '狂戰士', '戰神', '破星霸主'],
+            '黑騎士': ['黑騎士', '死亡騎士', '深淵領主', '冥界魔君'],
+            '狂戰士': ['狂戰士', '嗜血者', '修羅', '血怒狂尊'],
+            '斥候': ['斥候', '遊俠', '風行者', '天際巡林者'],
+            '刺客': ['刺客', '影舞者', '夜魔', '幽冥闇殺者'],
+            '劍舞者': ['劍舞者', '幻影劍客', '劍聖', '無極劍尊'],
+            '法師': ['法師', '大魔法師', '賢者', '真理法神'],
+            '牧師': ['牧師', '大主教', '聖徒', '耀光神官'],
+            '火槍手': ['火槍手', '狙擊手', '神射手', '幻影重砲手']
         };
 
         const baseHeroes = [
@@ -331,27 +359,57 @@
         ];
 
         const enemyPool = [
+            // 人類 (Melee, Agile, Ranged)
             { name: '叛軍步兵', race: '人類', classType: CLASS_MELEE, type: '戰士', icon: '💂', maxHp: 20, atk: 7, moveRange: 2, atkRange: 1, gold: 10 }, { name: '盜賊團刺客', race: '人類', classType: CLASS_AGILE, type: '盜賊', icon: '🦹', maxHp: 12, atk: 9, moveRange: 4, atkRange: 1, gold: 8 }, { name: '叛軍弩手', race: '人類', classType: CLASS_RANGED, type: '射手', icon: '🏹', maxHp: 14, atk: 8, moveRange: 2, atkRange: 3, gold: 12 },
+            // 獸人 (Melee, Agile, Ranged)
             { name: '獸人步兵', race: '獸人', classType: CLASS_MELEE, type: '戰士', icon: '👹', maxHp: 22, atk: 8, moveRange: 2, atkRange: 1, gold: 10 }, { name: '獸人獵手', race: '獸人', classType: CLASS_AGILE, type: '刺客', icon: '👺', maxHp: 14, atk: 10, moveRange: 3, atkRange: 1, gold: 9 }, { name: '獸人術士', race: '獸人', classType: CLASS_RANGED, type: '法師', icon: '👁️', maxHp: 16, atk: 9, moveRange: 2, atkRange: 2, gold: 12 },
+            // 精靈 (Melee, Agile, Ranged)
             { name: '墮落衛士', race: '精靈', classType: CLASS_MELEE, type: '騎士', icon: '🛡️', maxHp: 18, atk: 7, moveRange: 3, atkRange: 1, gold: 11 }, { name: '黑暗精靈', race: '精靈', classType: CLASS_AGILE, type: '刺客', icon: '🧝‍♀️', maxHp: 12, atk: 11, moveRange: 4, atkRange: 1, gold: 15 }, { name: '墮落遊俠', race: '精靈', classType: CLASS_RANGED, type: '射手', icon: '🏹', maxHp: 14, atk: 9, moveRange: 3, atkRange: 2, gold: 13 },
+            // 矮人 (Melee, Agile, Ranged)
             { name: '黑鐵守衛', race: '矮人', classType: CLASS_MELEE, type: '戰士', icon: '🛡️', maxHp: 25, atk: 6, moveRange: 2, atkRange: 1, gold: 12 }, { name: '黑鐵潛行者', race: '矮人', classType: CLASS_AGILE, type: '盜賊', icon: '🥷', maxHp: 15, atk: 8, moveRange: 3, atkRange: 1, gold: 10 }, { name: '黑鐵火槍手', race: '矮人', classType: CLASS_RANGED, type: '射手', icon: '🔫', maxHp: 18, atk: 10, moveRange: 2, atkRange: 3, gold: 14 },
+            // 魔族 (Melee, Agile, Ranged)
             { name: '劣魔', race: '魔族', classType: CLASS_MELEE, type: '戰士', icon: '👿', maxHp: 18, atk: 9, moveRange: 3, atkRange: 1, gold: 10 }, { name: '魅魔', race: '魔族', classType: CLASS_AGILE, type: '刺客', icon: '💃', maxHp: 14, atk: 11, moveRange: 4, atkRange: 1, gold: 14 }, { name: '邪能法師', race: '魔族', classType: CLASS_RANGED, type: '法師', icon: '🔮', maxHp: 15, atk: 10, moveRange: 2, atkRange: 3, gold: 15 },
+            // 亡靈 (Melee, Agile, Ranged)
             { name: '骷髏戰士', race: '亡靈', classType: CLASS_MELEE, type: '戰士', icon: '💀', maxHp: 15, atk: 6, moveRange: 2, atkRange: 1, gold: 8 }, { name: '吸血鬼', race: '亡靈', classType: CLASS_AGILE, type: '刺客', icon: '🧛', maxHp: 18, atk: 12, moveRange: 3, atkRange: 1, gold: 18 }, { name: '骷髏弓手', race: '亡靈', classType: CLASS_RANGED, type: '射手', icon: '🦴', maxHp: 12, atk: 8, moveRange: 2, atkRange: 3, gold: 12 },
+            // 龍族 (Melee, Agile, Ranged)
             { name: '龍人守衛', race: '龍族', classType: CLASS_MELEE, type: '戰士', icon: '🦎', maxHp: 25, atk: 9, moveRange: 2, atkRange: 1, gold: 15 }, { name: '幼翼龍', race: '龍族', classType: CLASS_AGILE, type: '飛兵', icon: '🦇', maxHp: 18, atk: 10, moveRange: 4, atkRange: 1, gold: 14 }, { name: '龍炎噴吐者', race: '龍族', classType: CLASS_RANGED, type: '法師', icon: '🔥', maxHp: 20, atk: 11, moveRange: 2, atkRange: 2, gold: 16 },
+            // 怪物 (Melee, Agile, Ranged)
             { name: '巨怪', race: '怪物', classType: CLASS_MELEE, type: '坦克', icon: '🧌', maxHp: 35, atk: 8, moveRange: 2, atkRange: 1, gold: 20 }, { name: '哥布林', race: '怪物', classType: CLASS_AGILE, type: '盜賊', icon: '👺', maxHp: 10, atk: 5, moveRange: 4, atkRange: 1, gold: 8 }, { name: '毒史萊姆', race: '怪物', classType: CLASS_RANGED, type: '法師', icon: '🦠', maxHp: 15, atk: 6, moveRange: 2, atkRange: 2, gold: 10 }
         ];
 
-        // 升級 V21: 新增三層密集機關迷宮防線與嚴密的防錯儲存
-        const SAVE_KEY = 'sanctuary_tactics_v21'; 
+        // 擴充至 16 名專屬 Boss（每種族 2 名，涵蓋不同職業特徵）
+        const bossPool = [
+            // 人類
+            { name: '帝國叛將', race: '人類', classType: CLASS_MELEE, type: '首領', icon: '⚔️', maxHp: 65, atk: 12, moveRange: 3, atkRange: 1, gold: 80 },
+            { name: '大魔導師', race: '人類', classType: CLASS_RANGED, type: '首領', icon: '🧙‍♂️', maxHp: 55, atk: 15, moveRange: 2, atkRange: 3, gold: 90 },
+            // 獸人
+            { name: '碎骨大酋長', race: '獸人', classType: CLASS_MELEE, type: '首領', icon: '👹', maxHp: 80, atk: 14, moveRange: 2, atkRange: 1, gold: 90 },
+            { name: '薩滿祭司', race: '獸人', classType: CLASS_RANGED, type: '首領', icon: '📿', maxHp: 60, atk: 13, moveRange: 2, atkRange: 2, gold: 85 },
+            // 精靈
+            { name: '幻影劍聖', race: '精靈', classType: CLASS_AGILE, type: '首領', icon: '🤺', maxHp: 60, atk: 16, moveRange: 4, atkRange: 1, gold: 100 },
+            { name: '墮落精靈王', race: '精靈', classType: CLASS_RANGED, type: '首領', icon: '🧝‍♂️', maxHp: 70, atk: 15, moveRange: 3, atkRange: 3, gold: 110 },
+            // 矮人
+            { name: '熔爐機甲王', race: '矮人', classType: CLASS_MELEE, type: '首領', icon: '🤖', maxHp: 90, atk: 11, moveRange: 2, atkRange: 1, gold: 105 },
+            { name: '爆破大師', race: '矮人', classType: CLASS_RANGED, type: '首領', icon: '💣', maxHp: 65, atk: 14, moveRange: 2, atkRange: 3, gold: 95 },
+            // 魔族
+            { name: '深淵炎魔', race: '魔族', classType: CLASS_MELEE, type: '首領', icon: '🌋', maxHp: 85, atk: 15, moveRange: 2, atkRange: 1, gold: 100 },
+            { name: '恐懼魔王', race: '魔族', classType: CLASS_AGILE, type: '首領', icon: '🦇', maxHp: 70, atk: 17, moveRange: 4, atkRange: 1, gold: 115 },
+            // 亡靈
+            { name: '骸骨巨龍', race: '亡靈', classType: CLASS_MELEE, type: '首領', icon: '🐉', maxHp: 100, atk: 12, moveRange: 3, atkRange: 2, gold: 120 },
+            { name: '巫妖王', race: '亡靈', classType: CLASS_RANGED, type: '首領', icon: '👑', maxHp: 60, atk: 16, moveRange: 2, atkRange: 3, gold: 110 },
+            // 龍族
+            { name: '遠古紅龍', race: '龍族', classType: CLASS_MELEE, type: '首領', icon: '🐲', maxHp: 110, atk: 14, moveRange: 2, atkRange: 2, gold: 130 },
+            { name: '風暴雷龍', race: '龍族', classType: CLASS_RANGED, type: '首領', icon: '⚡', maxHp: 80, atk: 16, moveRange: 3, atkRange: 3, gold: 125 },
+            // 怪物
+            { name: '變異食人魔', race: '怪物', classType: CLASS_MELEE, type: '首領', icon: '🧟', maxHp: 95, atk: 13, moveRange: 2, atkRange: 1, gold: 80 },
+            { name: '深海巨蟲', race: '怪物', classType: CLASS_AGILE, type: '首領', icon: '🐛', maxHp: 75, atk: 15, moveRange: 3, atkRange: 2, gold: 90 }
+        ];
+
+        // 升級 V31: 新增神器，擴充 Boss 陣列，增加 Artifact 效果掛鉤
+        const SAVE_KEY = 'sanctuary_tactics_v31'; 
         let heroRuntime = []; 
         let globalState = {};
         let bState = { units: [], terrain: [], currentTurn: FACTION_PLAYER, selectedUnit: null, phase: 'IDLE', boardElement: document.getElementById('game-board'), highlightElements: [], earnedGold: 0 };
-
-        const obstaclePool = [
-            { id: 'o1', name: '巨石', race: '障礙物', classType: '障礙物', type: '障礙物', icon: '🪨', reqDesc: '近戰/獸/矮', maxHp: 1, atk: 0, moveRange: 0, atkRange: 0, gold: 0 },
-            { id: 'o2', name: '陷阱', race: '障礙物', classType: '障礙物', type: '障礙物', icon: '🪤', reqDesc: '敏捷/人/矮', maxHp: 1, atk: 0, moveRange: 0, atkRange: 0, gold: 0 },
-            { id: 'o3', name: '結界', race: '障礙物', classType: '障礙物', type: '障礙物', icon: '🔮', reqDesc: '遠程/魔/精', maxHp: 1, atk: 0, moveRange: 0, atkRange: 0, gold: 0 }
-        ];
 
         function initGlobalState() { globalState = { currentLevel: 1, gold: 50, selectedHeroIds: ['h1', 'h2', 'h3', 'h4'], artifacts: [], currentLevelData: null }; }
         function initHeroes() { heroRuntime = baseHeroes.map(h => ({ ...h, hp: h.maxHp, tier: 0, type: classNames[h.baseType][0], currentCd: 0 })); }
@@ -365,7 +423,7 @@
                 };
                 localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
             } catch(e) {
-                console.warn("本機存儲失敗 (可能是安全設定阻擋)，但不影響單次遊玩", e);
+                console.warn("本機存儲失敗，可能是瀏覽器隱私設定限制。遊戲仍可繼續。");
             }
         }
 
@@ -380,7 +438,7 @@
                     globalState.selectedHeroIds = (data.roster && data.roster.length > 0) ? data.roster : ['h1', 'h2', 'h3', 'h4']; 
                     globalState.artifacts = data.artifacts || [];
                     
-                    if (data.currentLevelData && data.currentLevelData.enemies && Array.isArray(data.currentLevelData.enemies) && data.currentLevelData.mode) {
+                    if (data.currentLevelData && data.currentLevelData.mode) {
                         globalState.currentLevelData = data.currentLevelData;
                     } else {
                         globalState.currentLevelData = null; 
@@ -392,10 +450,8 @@
                             if (h) { h.hp = sh.hp; h.maxHp = sh.maxHp; h.atk = sh.atk; h.tier = sh.tier || 0; h.type = sh.type || h.type; h.currentCd = sh.currentCd || 0; }
                         });
                     }
-                    showToast("已載入冒險進度！");
                 }
             } catch(e) { 
-                console.error("存檔讀取失敗", e);
                 initGlobalState(); initHeroes(); 
             }
         }
@@ -409,6 +465,15 @@
             saveGame(); switchScreen('screen-town'); showToast("進度已重置，新的冒險開始！");
         }
 
+        function confirmRetreat() { document.getElementById('retreat-modal').classList.remove('hidden'); }
+        function executeRetreat() {
+            document.getElementById('retreat-modal').classList.add('hidden');
+            // 撤退：強制重置並寫入目前 Level 的新關卡
+            globalState.currentLevelData = generateRandomLevel(globalState.currentLevel);
+            saveGame();
+            showBattleResult("戰術撤退", "部隊保留血量撤退回城鎮。<br>戰術失敗，本關卡將會重新生成佈局...", "text-gray-400", false);
+        }
+
         function toggleManual(show) { const modal = document.getElementById('manual-modal'); if (show) modal.classList.remove('hidden'); else modal.classList.add('hidden'); }
         function showArtifactInfo(aid) {
             let art = artifactPool.find(a => a.id === aid);
@@ -419,42 +484,54 @@
         }
 
         function getArtifactBoosts() {
-            let boosts = { move: 0, rangeMod: false, lifesteal: false };
-            globalState.artifacts.forEach(aid => { if(aid === 'a1') boosts.lifesteal = true; if(aid === 'a2') boosts.move += 1; if(aid === 'a5') boosts.rangeMod = true; });
+            let boosts = { move: 0, rangeMod: false, lifesteal: false, skillPower: false, thorns: false, agileMove: false, goldBonus: false };
+            globalState.artifacts.forEach(aid => { 
+                if(aid === 'a1') boosts.lifesteal = true; 
+                if(aid === 'a2') boosts.move += 1; 
+                if(aid === 'a5') boosts.rangeMod = true; 
+                if(aid === 'a13') boosts.skillPower = true;
+                if(aid === 'a14') boosts.thorns = true;
+                if(aid === 'a15') boosts.agileMove = true;
+                if(aid === 'a20') boosts.goldBonus = true;
+            });
             return boosts;
-        }
-
-        function canClearObstacle(unit, obsName) {
-            if (obsName === '巨石') return unit.classType === '近戰' || unit.race === '獸人' || unit.race === '矮人';
-            if (obsName === '陷阱') return unit.classType === '敏捷' || unit.race === '人類' || unit.race === '矮人';
-            if (obsName === '結界') return unit.classType === '遠程' || unit.race === '魔族' || unit.race === '精靈';
-            return false;
         }
 
         function createGate(id, x, y, color) {
             let icon = color === 'red' ? '🟥' : color === 'blue' ? '🟦' : color === 'green' ? '🟩' : '🟨';
             let name = color === 'red' ? '紅結界' : color === 'blue' ? '藍結界' : color === 'green' ? '綠結界' : '黃結界';
-            return { id, name, race: '機關', classType: '結界', type: '門', icon, maxHp: 9999, hp: 9999, atk: 0, moveRange: 0, atkRange: 0, faction: 'obstacle', isPuzzleGate: true, gateColor: color, pos: [x,y], hasActed: false };
+            return { id, name, race: '機關', classType: '結界', type: '門', icon, maxHp: 9999, hp: 9999, atk: 0, moveRange: 0, atkRange: 0, faction: 'obstacle', isPuzzleGate: true, isOpen: false, gateColor: color, pos: [x,y], hasActed: false };
         }
         
         function createWall(id, x, y) {
             return { id, name: '堅硬石牆', race: '地形', classType: '牆壁', type: '牆', icon: '🧱', maxHp: 9999, hp: 9999, atk: 0, moveRange: 0, atkRange: 0, faction: 'obstacle', isWall: true, pos: [x,y], hasActed: false };
         }
 
+        // ==================== 關卡生成核心 ====================
         function generateRandomLevel(levelNum) {
             let isBossLevel = (levelNum % 3 === 0);
             let mode = MODE_NORMAL;
-            if (!isBossLevel && levelNum > 1) {
+            
+            if (levelNum === 1) {
+                mode = MODE_FOG;
+                isBossLevel = false;
+            } else if (levelNum === 2) {
+                mode = MODE_PUZZLE;
+                isBossLevel = false;
+            } else if (!isBossLevel) {
                 let r = Math.random();
-                if (r < 0.25) mode = MODE_ESCAPE;
-                else if (r < 0.50) mode = MODE_OBSTACLE;
+                if (r < 0.3) mode = MODE_NORMAL;
+                else if (r < 0.5) mode = MODE_ESCAPE;
+                else if (r < 0.75) mode = MODE_PUZZLE;
+                else mode = MODE_FOG;
             }
 
             let theme = isBossLevel ? bossThemes[Math.floor(Math.random() * bossThemes.length)] : levelThemes[Math.floor(Math.random() * levelThemes.length)];
             let title = `第 ${levelNum} 關: ${theme.name}`;
             if (isBossLevel) title = `第 ${levelNum} 關: ☠️ ${theme.name}`;
             else if (mode === MODE_ESCAPE) title += ` (撤退戰)`;
-            else if (mode === MODE_OBSTACLE) title += ` (機關迷宮)`;
+            else if (mode === MODE_PUZZLE) title += ` (機關迷宮)`;
+            else if (mode === MODE_FOG) title += ` (暗霧探索)`;
             
             let enemiesToSpawn = [];
             let terrainList = [];
@@ -467,58 +544,68 @@
                 usedPositions.add(`${x},${y}`); return [x, y];
             }
 
-            if (mode === MODE_ESCAPE || mode === MODE_OBSTACLE) {
+            if (mode === MODE_ESCAPE) {
                 terrainList.push({ x: 2, y: 0, type: TERRAIN_ESCAPE }, { x: 3, y: 0, type: TERRAIN_ESCAPE });
                 usedPositions.add('2,0'); usedPositions.add('3,0');
             }
 
-            // === 隨機三層迷宮引擎 ===
-            if (mode === MODE_OBSTACLE) {
-                let colors = ['red', 'blue', 'green', 'yellow'].sort(() => Math.random() - 0.5);
+            if (mode === MODE_FOG) {
+                let exitX = Math.floor(Math.random() * COLS);
+                for (let y = 0; y <= 5; y++) {
+                    for (let x = 0; x < COLS; x++) {
+                        terrainList.push({ x: x, y: y, type: 'fog', isExit: (y === 0 && x === exitX) });
+                    }
+                }
+            } 
+            else if (mode === MODE_PUZZLE) {
                 let obsIndex = 0;
-
-                function addLineDefense(yBlock, switchY, colorStr) {
-                    // 打亂 0~5 的 X 軸位置來安插障礙
-                    let xs = [0,1,2,3,4,5].sort(() => Math.random() - 0.5);
-                    
-                    // 1. 保底路線 A：一扇同色機關門
-                    enemiesToSpawn.push(createGate(`g_${levelNum}_${obsIndex++}`, xs[0], yBlock, colorStr));
-                    
-                    // 2. 保底路線 B：一個特長障礙物 (需要對應職業/種族)
-                    let spDef = obstaclePool[Math.floor(Math.random() * obstaclePool.length)];
-                    enemiesToSpawn.push({ id: `o_${levelNum}_${obsIndex++}`, ...spDef, faction: 'obstacle', hp: 1, maxHp: 1, hasActed: false, pos: [xs[1], yBlock] });
-                    
-                    // 3. 隨機路線 C：多一個隨機門或隨機障礙
-                    if(Math.random() > 0.5) {
-                        let spDef2 = obstaclePool[Math.floor(Math.random() * obstaclePool.length)];
-                        enemiesToSpawn.push({ id: `o_${levelNum}_${obsIndex++}`, ...spDef2, faction: 'obstacle', hp: 1, maxHp: 1, hasActed: false, pos: [xs[2], yBlock] });
-                    } else {
-                        enemiesToSpawn.push(createGate(`g_${levelNum}_${obsIndex++}`, xs[2], yBlock, colorStr));
+                
+                let isExitLeft = Math.random() > 0.5;
+                let exitX = isExitLeft ? 0 : 5;
+                let guardX = isExitLeft ? 1 : 4;
+                
+                terrainList.push({ x: exitX, y: 0, type: TERRAIN_ESCAPE });
+                
+                let guardDef = enemyPool[Math.floor(Math.random() * enemyPool.length)];
+                enemiesToSpawn.push({ id: `e_guard_${levelNum}`, ...guardDef, maxHp: guardDef.maxHp + levelNum, hp: guardDef.maxHp + levelNum, atk: guardDef.atk + Math.floor(levelNum*0.3), isBoss: false, pos: [guardX, 0] });
+                
+                for (let x = 0; x < COLS; x++) {
+                    if (x !== exitX && x !== guardX) {
+                        enemiesToSpawn.push(createWall(`w_${levelNum}_${obsIndex++}`, x, 0));
                     }
-
-                    // 4. 將剩下的 3 個格子全部填滿無法破壞的石牆
-                    for(let i=3; i<6; i++) {
-                        enemiesToSpawn.push(createWall(`w_${levelNum}_${obsIndex++}`, xs[i], yBlock));
-                    }
-
-                    // 5. 在防線下方的走廊 (switchY) 隨機放置對應的魔法陣開關
-                    let swX = Math.floor(Math.random() * 6);
-                    terrainList.push({ x: swX, y: switchY, type: `switch_${colorStr}`, activated: false });
                 }
 
-                // 建立 3 道防線，佔滿 Y=1 到 Y=6 的空間，構成密集的解謎迷宮
-                addLineDefense(5, 6, colors[0]); // 防線1 (Y=5)，開關在玩家面前 (Y=6)
-                addLineDefense(3, 4, colors[1]); // 防線2 (Y=3)，開關在中間走廊 (Y=4)
-                addLineDefense(1, 2, colors[2]); // 防線3 (Y=1)，開關在中間走廊 (Y=2)
+                let gateColors = ['red', 'blue', 'green'].sort(() => Math.random() - 0.5);
 
-            } else {
+                function buildMazeLayer(gateY, switchY, colorStr, forcedGateX = null) {
+                    let gateX = (forcedGateX !== null) ? forcedGateX : Math.floor(Math.random() * COLS);
+                    enemiesToSpawn.push(createGate(`g_${levelNum}_${obsIndex++}`, gateX, gateY, colorStr));
+                    
+                    for (let x = 0; x < COLS; x++) {
+                        if (x !== gateX) enemiesToSpawn.push(createWall(`w_${levelNum}_${obsIndex++}`, x, gateY));
+                    }
+                    
+                    let switchCandidates = [];
+                    for(let x = 0; x < COLS; x++) {
+                        if(x !== gateX) switchCandidates.push(x);
+                    }
+                    let switchX = switchCandidates[Math.floor(Math.random() * switchCandidates.length)];
+                    terrainList.push({ x: switchX, y: switchY, type: `switch_${colorStr}`, activated: false });
+                }
+
+                buildMazeLayer(5, 6, gateColors[0]); 
+                buildMazeLayer(3, 4, gateColors[1]); 
+                buildMazeLayer(1, 2, gateColors[2], guardX); 
+            }
+
+            if (mode !== MODE_FOG && mode !== MODE_PUZZLE) {
                 let enemyCount = mode === MODE_ESCAPE ? 3 : Math.min(2 + Math.floor(levelNum / 2), 4); 
                 if (isBossLevel) enemyCount = Math.min(2 + Math.floor(levelNum / 4), 4);
 
                 if (isBossLevel) {
                     let isTutor = Math.random() < 0.6; let bossDef;
                     if (isTutor) {
-                        let promotableHeroes = heroRuntime.filter(h => h.tier < 2);
+                        let promotableHeroes = heroRuntime.filter(h => h.tier < 3);
                         if (promotableHeroes.length > 0) {
                             let ref = promotableHeroes[Math.floor(Math.random() * promotableHeroes.length)];
                             let bType = ref.baseType; let tTier = ref.tier + 1; let cName = classNames[bType][tTier]; let hpBoost = Math.floor(levelNum * 2.0);
@@ -556,7 +643,7 @@
         function switchScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
-            if (screenId === 'screen-town') { renderTown(); saveGame(); }
+            if (screenId === 'screen-town') { renderTown(); }
             else if (screenId === 'screen-roster') renderRoster();
         }
 
@@ -588,7 +675,8 @@
             let descHtml = "";
             if (lvl.mode === MODE_NORMAL) descHtml = "一般戰鬥：殲滅所有敵人即可獲勝。";
             else if (lvl.mode === MODE_ESCAPE) descHtml = "撤退戰：敵軍將無盡增援，請盡速抵達最上方撤退點！";
-            else if (lvl.mode === MODE_OBSTACLE) descHtml = "🧩 機關迷宮：找出捷徑與機關，妥善分兵互相開路抵達撤退點！<br><span class='text-gray-400 font-normal'>(點擊迷宮中不同障礙物可查看突破提示)</span>";
+            else if (lvl.mode === MODE_PUZZLE) descHtml = "⚙️ 機關迷宮：需要 3 名隊員負責【停留在】魔法陣解鎖錯開的結界，指派 1 名主力單挑守衛抵達撤退點！<br><span class='text-gray-400 font-normal'>(牆壁不可破壞。離開陣法結界即會關閉。牆壁與結界會阻擋遠程視線)</span>";
+            else if (lvl.mode === MODE_FOG) descHtml = "🌫️ 暗霧探索：四周被濃霧籠罩，撤退點隱藏在最上方的一格。步步為營，避開陷阱與傳送陣，為隊伍開拓生路！";
             
             let descEl = document.getElementById('town-level-desc');
             if(descEl) descEl.innerHTML = descHtml;
@@ -602,7 +690,7 @@
                         let isObs = e.faction === 'obstacle';
                         let borderColor = e.isTutor ? 'border-purple-500' : (e.isBoss ? 'border-yellow-500' : (isObs ? 'border-gray-500' : 'border-gray-600'));
                         let nameColor = e.isTutor ? 'text-purple-400' : (e.isBoss ? 'text-yellow-400' : (isObs ? 'text-gray-300' : 'text-white'));
-                        let badge = isObs ? `<span class="trait-badge bg-gray-600 border-gray-500">機關障礙</span>` : `<span class="trait-badge bg-green-800 border-green-600">${e.race}</span><span class="trait-badge bg-red-800 border-red-600">${e.classType}</span>`;
+                        let badge = isObs ? `<span class="trait-badge bg-gray-600 border-gray-500">機關牆壁</span>` : `<span class="trait-badge bg-green-800 border-green-600">${e.race}</span><span class="trait-badge bg-red-800 border-red-600">${e.classType}</span>`;
                         
                         intelContainer.innerHTML += `
                             <div class="bg-gray-700 border ${borderColor} rounded px-2 py-1 flex items-center text-xs shadow-sm">
@@ -649,6 +737,7 @@
                 const hpColor = hpPercent > 50 ? 'bg-green-500' : (hpPercent > 20 ? 'bg-yellow-500' : 'bg-red-500');
 
                 let dMove = hero.moveRange + boosts.move;
+                if (boosts.agileMove && hero.classType === CLASS_AGILE) dMove += 1;
                 let dRange = hero.atkRange + ((boosts.rangeMod && (hero.classType === CLASS_RANGED || hero.classType === CLASS_AGILE)) ? 1 : 0);
 
                 const card = document.createElement('div');
@@ -696,12 +785,12 @@
             
             renderTerrain();
 
-            // 確保玩家必定從最後一排 (Y=7) 進入迷宮
             const playerStartPos = [[2, 7], [3, 7], [1, 7], [4, 7]];
             globalState.selectedHeroIds.forEach((hId, index) => {
                 const heroDef = heroRuntime.find(h => h.id === hId);
                 let pos = playerStartPos[index] || [0, 7];
                 let bMove = heroDef.moveRange + boosts.move;
+                if (boosts.agileMove && heroDef.classType === CLASS_AGILE) bMove += 1;
                 let bRange = heroDef.atkRange + ((boosts.rangeMod && (heroDef.classType === CLASS_RANGED || heroDef.classType === CLASS_AGILE)) ? 1 : 0);
                 
                 bState.units.push({ ...heroDef, faction: FACTION_PLAYER, x: pos[0], y: pos[1], moveRange: bMove, atkRange: bRange, hasActed: false, element: null });
@@ -712,19 +801,32 @@
                 bState.units.push({ ...e, faction: faction, x: e.pos[0], y: e.pos[1], hp: e.maxHp, hasActed: false, element: null });
             });
 
-            switchScreen('screen-battle'); renderUnits(); updateUI(); showToast("戰鬥開始！");
+            switchScreen('screen-battle'); renderUnits(); 
+            updatePuzzleState(); 
+            updateUI(); showToast("戰鬥開始！");
+        }
+
+        function updateTerrainDOM(t) {
+            if (!t.element) return;
+            t.element.className = `terrain terrain-${t.type}`;
+            if(t.type === 'fog') t.element.innerHTML = '<span class="text-gray-500 text-3xl opacity-50 font-bold">?</span>';
+            else if(t.type === 'trap') t.element.innerHTML = '🪤';
+            else if(t.type === 'teleport') t.element.innerHTML = '🌀';
+            else if(t.type === 'slow') t.element.innerHTML = '🕸️';
+            else if(t.type === 'normal') t.element.innerHTML = '';
+            else if(t.type === TERRAIN_ESCAPE) t.element.innerHTML = '<div class="animate-pulse drop-shadow-[0_0_15px_rgba(66,153,225,1)]">🚪</div>';
         }
 
         function renderTerrain() {
             bState.terrain.forEach(t => {
                 let el = document.createElement('div');
-                el.className = `terrain terrain-${t.type}`;
                 el.style.left = `${(t.x / COLS) * 100}%`; el.style.top = `${(t.y / ROWS) * 100}%`;
+                t.element = el;
+                updateTerrainDOM(t);
                 
-                if(t.type === TERRAIN_TREE) el.innerHTML = '🌲';
-                else if(t.type === TERRAIN_MOUNTAIN) el.innerHTML = '⛰️';
-                else if(t.type === TERRAIN_BUSH) el.innerHTML = '🌿';
-                else if(t.type === TERRAIN_ESCAPE) el.innerHTML = '🌀';
+                if(t.type === TERRAIN_TREE) { el.className = `terrain terrain-tree`; el.innerHTML = '🌲'; }
+                else if(t.type === TERRAIN_MOUNTAIN) { el.className = `terrain terrain-mountain`; el.innerHTML = '⛰️'; }
+                else if(t.type === TERRAIN_BUSH) { el.className = `terrain terrain-bush`; el.innerHTML = '🌿'; }
                 else if(t.type.startsWith('switch_')) {
                     let color = t.type.split('_')[1];
                     let emoji = color === 'red' ? '🔴' : color === 'blue' ? '🔵' : color === 'green' ? '🟢' : '🟡';
@@ -733,7 +835,6 @@
                     } else {
                         el.innerHTML = `<div class="animate-pulse drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] text-2xl">${emoji}</div>`;
                     }
-                    t.element = el; 
                 }
                 bState.boardElement.appendChild(el);
             });
@@ -772,6 +873,44 @@
             });
         }
 
+        function updatePuzzleState() {
+            if (globalState.currentLevelData.mode !== MODE_PUZZLE) return;
+            
+            let switchStates = {};
+            bState.terrain.forEach(t => {
+                if (t.type.startsWith('switch_')) {
+                    let color = t.type.split('_')[1];
+                    let isPressed = bState.units.some(u => u.faction === FACTION_PLAYER && u.x === t.x && u.y === t.y && u.hp > 0);
+                    t.activated = isPressed;
+                    switchStates[color] = isPressed;
+                    
+                    let emoji = color === 'red' ? '🔴' : color === 'blue' ? '🔵' : color === 'green' ? '🟢' : '🟡';
+                    if(t.activated) {
+                        t.element.innerHTML = `<div class="opacity-30 grayscale">${emoji}</div>`;
+                    } else {
+                        t.element.innerHTML = `<div class="animate-pulse drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] text-2xl">${emoji}</div>`;
+                    }
+                }
+            });
+
+            bState.units.forEach(u => {
+                if (u.isPuzzleGate) {
+                    u.isOpen = switchStates[u.gateColor] === true;
+                    if (u.element) {
+                        if (u.isOpen) {
+                            u.element.style.opacity = '0.2';
+                            u.element.style.pointerEvents = 'none';
+                            u.element.style.transform = 'scale(0.8)';
+                        } else {
+                            u.element.style.opacity = '1';
+                            u.element.style.pointerEvents = 'auto';
+                            u.element.style.transform = 'scale(1)';
+                        }
+                    }
+                }
+            });
+        }
+
         function clearHighlights() { bState.highlightElements.forEach(el => el.remove()); bState.highlightElements = []; }
 
         function updateUI() {
@@ -793,11 +932,7 @@
                     } else if (u.isPuzzleGate) {
                         document.getElementById('panel-hp').innerText = `魔法封印`;
                         document.getElementById('panel-race').innerText = "尋找機關";
-                        document.getElementById('panel-class').innerText = "踩踏解除";
-                    } else {
-                        document.getElementById('panel-hp').innerText = `特殊障礙`;
-                        document.getElementById('panel-race').innerText = "專屬破壞";
-                        document.getElementById('panel-class').innerText = u.reqDesc;
+                        document.getElementById('panel-class').innerText = "停留解除";
                     }
                     document.getElementById('panel-atk').innerText = "-";
                     document.getElementById('panel-move').innerText = "-";
@@ -836,19 +971,27 @@
             }
 
             const actionBar = document.getElementById('action-bar');
-            if (bState.phase !== 'IDLE' && bState.selectedUnit && bState.selectedUnit.faction === FACTION_PLAYER && !bState.selectedUnit.hasActed) {
+            if (bState.phase !== 'IDLE' && bState.phase !== 'ANIMATING' && bState.selectedUnit && bState.selectedUnit.faction === FACTION_PLAYER && !bState.selectedUnit.hasActed) {
                 actionBar.classList.remove('opacity-50', 'pointer-events-none');
             } else {
                 actionBar.classList.add('opacity-50', 'pointer-events-none');
             }
         }
 
-        function getUnitAt(x, y) { return bState.units.find(u => u.x === x && u.y === y && u.hp > 0); }
+        // 開啟狀態的大門將不會阻擋行走與視線
+        function getUnitAt(x, y) { return bState.units.find(u => u.x === x && u.y === y && u.hp > 0 && !u.isOpen); }
         function getTerrainAt(x, y) { return bState.terrain.find(t => t.x === x && t.y === y); }
         function getDistance(x1, y1, x2, y2) { return Math.abs(x1 - x2) + Math.abs(y1 - y2); }
 
         function getMovableCells(unit) {
             let cells = []; let visited = new Set(); let queue = [{x: unit.x, y: unit.y, dist: 0}];
+            
+            let currentT = getTerrainAt(unit.x, unit.y);
+            let moveLimit = unit.moveRange;
+            if (currentT && currentT.type === 'slow') {
+                moveLimit = Math.max(1, moveLimit - 1);
+            }
+
             while (queue.length > 0) {
                 let curr = queue.shift(); let key = `${curr.x},${curr.y}`;
                 if (visited.has(key)) continue; visited.add(key);
@@ -859,8 +1002,11 @@
                 let t = getTerrainAt(curr.x, curr.y);
                 if (t && t.type === TERRAIN_TREE && (curr.x !== unit.x || curr.y !== unit.y)) continue; 
 
-                if (curr.dist <= unit.moveRange) {
+                if (curr.dist <= moveLimit) {
                     if (!occupant || occupant.id === unit.id) cells.push({x: curr.x, y: curr.y});
+                    
+                    if (t && t.type === 'fog' && (curr.x !== unit.x || curr.y !== unit.y)) continue;
+
                     const dirs = [[0,1], [1,0], [0,-1], [-1,0]];
                     for (let d of dirs) {
                         let nx = curr.x + d[0]; let ny = curr.y + d[1];
@@ -871,21 +1017,42 @@
             return cells;
         }
 
+        // === 視線判定演算法 (Bresenham's Line) ===
+        function hasLineOfSight(x0, y0, x1, y1) {
+            let dx = Math.abs(x1 - x0);
+            let dy = Math.abs(y1 - y0);
+            let sx = (x0 < x1) ? 1 : -1;
+            let sy = (y0 < y1) ? 1 : -1;
+            let err = dx - dy;
+
+            let cx = x0;
+            let cy = y0;
+
+            let maxIters = 100; // 防無窮迴圈保護
+            while (maxIters-- > 0) {
+                if (cx === x1 && cy === y1) return true;
+                if ((cx !== x0 || cy !== y0) && (cx !== x1 || cy !== y1)) {
+                    let blocker = bState.units.find(u => u.x === cx && u.y === cy && u.hp > 0 && (u.isWall || (u.isPuzzleGate && !u.isOpen)));
+                    if (blocker) return false;
+                }
+                let e2 = 2 * err;
+                if (e2 > -dy) { err -= dy; cx += sx; }
+                if (e2 < dx) { err += dx; cy += sy; }
+            }
+            return true;
+        }
+
         function getAttackableTargets(unit, rangeOverride = null, targetAlly = false) {
             let targets = [];
             let range = rangeOverride !== null ? rangeOverride : unit.atkRange;
 
             bState.units.forEach(target => {
                 if (target.hp > 0 && getDistance(unit.x, unit.y, target.x, target.y) <= range) {
-                    // 解謎用的閘門與牆壁無法成為技能或攻擊目標
                     if (target.isWall || target.isPuzzleGate) return;
                     
-                    if (target.faction === 'obstacle') {
-                        // 判定是否符合清除條件且距離為 1 (相鄰)
-                        if (getDistance(unit.x, unit.y, target.x, target.y) === 1 && canClearObstacle(unit, target.name)) {
-                            targets.push(target);
-                        }
-                    } else if (targetAlly && target.faction === unit.faction) {
+                    if (!hasLineOfSight(unit.x, unit.y, target.x, target.y)) return;
+                    
+                    if (targetAlly && target.faction === unit.faction) {
                         targets.push(target);
                     } else if (!targetAlly && target.faction !== unit.faction) {
                         targets.push(target);
@@ -907,7 +1074,7 @@
 
             getAttackableTargets(unit).forEach(target => {
                 let el = document.createElement('div'); 
-                el.className = `cell-highlight ${target.faction === 'obstacle' ? 'highlight-clear' : 'highlight-attack'} highlight-target pointer-events-none`; 
+                el.className = `cell-highlight highlight-attack highlight-target pointer-events-none`; 
                 el.style.left = `${(target.x / COLS) * 100}%`; el.style.top = `${(target.y / ROWS) * 100}%`;
                 bState.boardElement.appendChild(el); bState.highlightElements.push(el);
             });
@@ -920,10 +1087,11 @@
             bState.phase = 'ACTION_SELECTION';
             targets.forEach(target => {
                 let el = document.createElement('div'); 
-                el.className = `cell-highlight ${target.faction === 'obstacle' ? 'highlight-clear' : 'highlight-attack'} highlight-target pointer-events-none`;
+                el.className = `cell-highlight highlight-attack highlight-target pointer-events-none`;
                 el.style.left = `${(target.x / COLS) * 100}%`; el.style.top = `${(target.y / ROWS) * 100}%`;
                 bState.boardElement.appendChild(el); bState.highlightElements.push(el);
             });
+            updateUI();
         }
 
         function handleSkillClick() {
@@ -936,7 +1104,7 @@
             const isHeal = unit.skill.type === 'heal';
             const targets = getAttackableTargets(unit, unit.skill.range, isHeal);
             
-            if(targets.length === 0) { showToast("範圍內沒有可選目標"); setTimeout(() => { bState.phase = 'MOVE_SELECTION'; showActionRanges(unit); }, 1000); return; }
+            if(targets.length === 0) { showToast("範圍內沒有可選目標，可能被牆壁阻擋視線"); setTimeout(() => { bState.phase = 'MOVE_SELECTION'; showActionRanges(unit); }, 1500); return; }
 
             targets.forEach(target => {
                 let el = document.createElement('div');
@@ -957,24 +1125,18 @@
                 else { bState.phase = 'MOVE_SELECTION'; showActionRanges(sUnit); return; } 
             }
 
-            // 在行動或移動選擇階段，嘗試進行突破或攻擊
             if (unit.faction === FACTION_ENEMY || unit.faction === 'obstacle') {
                 if (bState.selectedUnit && !bState.selectedUnit.hasActed && (bState.phase === 'ACTION_SELECTION' || bState.phase === 'MOVE_SELECTION')) {
-                    
                     let isValidTarget = getAttackableTargets(bState.selectedUnit).find(t => t.id === unit.id);
                     if (isValidTarget) { 
-                        if (unit.faction === 'obstacle') executeClear(bState.selectedUnit, unit);
-                        else executeAttack(bState.selectedUnit, unit); 
+                        executeAttack(bState.selectedUnit, unit); 
                         return; 
                     } else if (getDistance(bState.selectedUnit.x, bState.selectedUnit.y, unit.x, unit.y) === 1) {
-                        // 相鄰但不在可攻擊目標內 -> 提示使用者條件不符
                         if (unit.isWall) showToast("堅硬石牆無法破壞，請繞道尋找生路！");
                         else if (unit.isPuzzleGate) showToast("魔法結界堅不可摧，請尋找同色魔法陣解除！");
-                        else showToast(`突破失敗！需要：${unit.reqDesc}`);
                         return;
                     }
                 }
-                // 單純查看屬性
                 bState.selectedUnit = unit; updateUI(); clearHighlights(); return;
             }
 
@@ -990,57 +1152,92 @@
             }
         }
 
-        function handleMoveClick(x, y) {
+        async function applyTileEffect(unit, t) {
+            if (t.type === 'fog') {
+                if (t.isExit) {
+                    t.type = 'escape';
+                } else {
+                    let r = Math.random();
+                    if (r < 0.40) t.type = 'normal';         
+                    else if (r < 0.60) t.type = 'trap';      
+                    else if (r < 0.80) t.type = 'teleport';  
+                    else t.type = 'slow';                    
+                }
+                updateTerrainDOM(t);
+                await new Promise(res => setTimeout(res, 200));
+            }
+
+            if (t.type === 'escape') {
+                checkWinCondition(unit, true);
+                return;
+            } else if (t.type === 'trap') {
+                let dmg = Math.max(1, Math.floor(unit.maxHp * 0.15));
+                unit.hp -= dmg;
+                updateGlobalHeroHp(unit);
+                unit.element.classList.add('anim-damage');
+                showFloatingHtml(unit.x, unit.y, `<div class="text-dmg">-${dmg}</div>`);
+                updateUI();
+                await new Promise(res => setTimeout(res, 400));
+                unit.element.classList.remove('anim-damage');
+
+                if (unit.hp <= 0) {
+                    unit.element.style.opacity = '0';
+                    await new Promise(res => setTimeout(res, 300));
+                    unit.element.remove();
+                    bState.units = bState.units.filter(u => u.id !== unit.id);
+                    updatePuzzleState(); 
+                    checkWinCondition(null);
+                    return; 
+                }
+            } else if (t.type === 'teleport') {
+                showFloatingHtml(unit.x, unit.y, `<div class="text-purple-400 font-bold">傳送!</div>`);
+                await new Promise(res => setTimeout(res, 400));
+                
+                let nx = -1, ny = -1;
+                for(let r = 7; r >= 6; r--) {
+                    let cols = [0,1,2,3,4,5].sort(() => Math.random() - 0.5);
+                    for(let c of cols) {
+                        if(!getUnitAt(c, r)) { nx = c; ny = r; break; }
+                    }
+                    if(nx !== -1) break;
+                }
+                if(nx !== -1) {
+                    unit.x = nx; unit.y = ny;
+                    renderUnits();
+                }
+            } else if (t.type === 'slow') {
+                showFloatingHtml(unit.x, unit.y, `<div class="text-yellow-500 font-bold">遲緩</div>`);
+                await new Promise(res => setTimeout(res, 200));
+            }
+
+            updatePuzzleState(); 
+
+            if (unit.hp > 0 && bState.units.find(u => u.id === unit.id)) {
+                showAttackRangeOnly(unit);
+            }
+        }
+
+        async function handleMoveClick(x, y) {
             if (bState.phase !== 'MOVE_SELECTION' || !bState.selectedUnit) return;
-            const unit = bState.selectedUnit; unit.x = x; unit.y = y; renderUnits(); 
+            const unit = bState.selectedUnit; 
+            clearHighlights();
+            bState.phase = 'ANIMATING'; 
+
+            unit.x = x; unit.y = y; 
+            renderUnits(); 
             
             let t = getTerrainAt(x, y);
 
-            // 觸發踩踏魔法陣機關
-            if (t && t.type.startsWith('switch_') && !t.activated) {
-                let color = t.type.split('_')[1];
-                t.activated = true;
-                
-                let emoji = color === 'red' ? '🔴' : color === 'blue' ? '🔵' : color === 'green' ? '🟢' : '🟡';
-                t.element.innerHTML = `<div class="opacity-30 grayscale">${emoji}</div>`;
-                showFloatingHtml(x, y, `<div class="font-bold text-xl drop-shadow text-white">結界解除!</div>`);
-                
-                // 摧毀同色結界
-                let gates = bState.units.filter(u => u.isPuzzleGate && u.gateColor === color);
-                gates.forEach(g => {
-                    g.hp = 0; g.element.classList.add('anim-damage');
-                    setTimeout(() => {
-                       g.element.classList.add('anim-fade-out');
-                       setTimeout(() => { g.element.remove(); }, 400);
-                    }, 400);
-                });
-                setTimeout(() => { bState.units = bState.units.filter(u => !(u.isPuzzleGate && u.gateColor === color)); }, 800);
-            }
+            updatePuzzleState();
 
-            // 【重要修復】抵達撤退點，確保過關計數運作
-            if (t && t.type === TERRAIN_ESCAPE) {
+            if (t && (t.type === 'fog' || t.type === 'trap' || t.type === 'teleport' || t.type === 'slow' || t.type === 'escape')) {
+                await applyTileEffect(unit, t);
+            } else if (t && t.type === TERRAIN_ESCAPE) {
                 checkWinCondition(unit, true);
                 return;
+            } else {
+                showAttackRangeOnly(unit);
             }
-            showAttackRangeOnly(unit);
-        }
-
-        function executeClear(attacker, obstacle) {
-            clearHighlights(); bState.phase = 'ANIMATING'; attacker.element.classList.add('anim-attack');
-            setTimeout(() => {
-                attacker.element.classList.remove('anim-attack');
-                
-                // 無傷突破特長障礙物！
-                obstacle.hp = 0; obstacle.element.style.opacity = '0'; obstacle.element.style.transform = 'scale(0)';
-                showFloatingHtml(obstacle.x, obstacle.y, `<div class="text-yellow-400 font-bold text-xl">突破成功!</div>`);
-                
-                renderUnits();
-                setTimeout(() => {
-                    obstacle.element.remove();
-                    bState.units = bState.units.filter(u => u.id !== obstacle.id);
-                    endUnitAction(attacker);
-                }, 400);
-            }, 200);
         }
 
         function calculateDamageMultiplier(atkUnit, defUnit) {
@@ -1060,17 +1257,21 @@
         function executeSkill(attacker, defender) {
             clearHighlights(); bState.phase = 'ANIMATING'; attacker.element.classList.add('anim-attack');
             const skill = attacker.skill; attacker.currentCd = skill.maxCd;
+            const boosts = getArtifactBoosts();
+            
             setTimeout(() => {
                 attacker.element.classList.remove('anim-attack');
+                let skillMult = (boosts.skillPower && attacker.faction === FACTION_PLAYER) ? 1.3 : 1.0;
+
                 if(skill.type === 'heal') {
-                    let healAmt = Math.floor(attacker.atk * skill.power);
+                    let healAmt = Math.floor(attacker.atk * skill.power * skillMult);
                     defender.hp = Math.min(defender.maxHp, defender.hp + healAmt);
                     if(defender.faction === FACTION_PLAYER) updateGlobalHeroHp(defender);
                     showFloatingHtml(defender.x, defender.y, `<div class="text-heal">+${healAmt}</div>`);
                     renderUnits(); setTimeout(() => endUnitAction(attacker), 600);
                 } else {
                     const { multiplier, counterCount, weakCount } = calculateDamageMultiplier(attacker, defender);
-                    const baseDamage = Math.floor(attacker.atk * skill.power);
+                    const baseDamage = Math.floor(attacker.atk * skill.power * skillMult);
                     const finalDamage = Math.max(1, Math.floor(baseDamage * multiplier));
                     
                     defender.hp -= finalDamage;
@@ -1114,6 +1315,15 @@
                     showFloatingHtml(attacker.x, attacker.y, `<div class="text-heal">+${heal}</div>`);
                 }
 
+                // 神器: 荊棘鎧甲 (受到近戰攻擊時反彈傷害)
+                if(boosts.thorns && defender.faction === FACTION_PLAYER && attacker.faction === FACTION_ENEMY && getDistance(attacker.x, attacker.y, defender.x, defender.y) === 1) {
+                    let thornDmg = Math.floor(finalDamage * 0.3);
+                    if(thornDmg > 0) {
+                        attacker.hp -= thornDmg;
+                        showFloatingHtml(attacker.x, attacker.y, `<div class="text-dmg" style="font-size:1rem; color:#f6ad55">-${thornDmg}</div><div class="text-purple-300 text-[0.6rem]">反彈</div>`);
+                    }
+                }
+
                 showFloatingHtml(defender.x, defender.y, floatHtml);
                 renderUnits(); setTimeout(() => checkKill(attacker, defender), 400);
             }, 200);
@@ -1121,18 +1331,36 @@
 
         function checkKill(attacker, defender) {
             defender.element.classList.remove('anim-damage');
+            
+            // 如果攻擊者被反彈傷害致死，也要一併處理
+            if (attacker && attacker.hp <= 0 && attacker.faction === FACTION_ENEMY) {
+                attacker.element.style.opacity = '0'; attacker.element.style.transform = 'scale(0)';
+                let dropGoldA = attacker.gold || 10;
+                if(getArtifactBoosts().goldBonus) dropGoldA = Math.floor(dropGoldA * 1.5);
+                bState.earnedGold += dropGoldA;
+                setTimeout(() => { attacker.element.remove(); bState.units = bState.units.filter(u => u.id !== attacker.id); }, 300);
+            }
+
             if (defender.hp <= 0) {
                 defender.element.style.opacity = '0'; defender.element.style.transform = 'scale(0)';
                 if (defender.faction === FACTION_ENEMY) {
-                    let dropGold = defender.gold || 10; bState.earnedGold += dropGold;
+                    let dropGold = defender.gold || 10; 
+                    if(getArtifactBoosts().goldBonus) dropGold = Math.floor(dropGold * 1.5);
+                    bState.earnedGold += dropGold;
                     showFloatingHtml(defender.x, defender.y, `<div class="text-gold">+${dropGold}G</div>`);
                 }
                 setTimeout(() => {
-                    defender.element.remove();
+                    if(defender.element) defender.element.remove();
                     bState.units = bState.units.filter(u => u.id !== defender.id);
+                    updatePuzzleState(); 
                     checkWinCondition(attacker);
                 }, 300);
-            } else endUnitAction(attacker);
+            } else if (attacker && attacker.hp > 0) {
+                endUnitAction(attacker);
+            } else {
+                // 如果攻擊者死於反傷，且防禦者沒死，直接進入判定
+                checkWinCondition(null);
+            }
         }
 
         function updateGlobalHeroHp(unit) {
@@ -1157,6 +1385,7 @@
             }
         }
 
+        // ==================== 強化勝利與情報同步寫入邏輯 ====================
         function checkWinCondition(lastAttacker, forceWin = false) {
             let mode = globalState.currentLevelData.mode;
             let isBoss = globalState.currentLevelData.isBossLevel;
@@ -1169,12 +1398,13 @@
             else if (isBoss && eCount === 0) isClear = true;
 
             if (pCount === 0) {
-                showBattleResult("戰鬥失敗", "部隊撤退回城鎮...", "text-red-500", false);
+                showBattleResult("戰鬥失敗", "全軍覆沒，撤退回城鎮...", "text-red-500", false);
             } else if (isClear) {
                 let tInfo = globalState.currentLevelData.tutorInfo;
                 let desc = "成功肅清了該區域的敵人！";
                 if (mode === MODE_ESCAPE) desc = "成功抵達撤退點，脫離險境！";
-                if (mode === MODE_OBSTACLE) desc = "機關解鎖，成功抵達撤退點！";
+                if (mode === MODE_PUZZLE) desc = "機關解鎖，戰勝守衛，全隊成功抵達撤退點！";
+                if (mode === MODE_FOG) desc = "成功尋得撤退點，全隊安全脫離濃霧！";
                 
                 if (isBoss) {
                     desc = "擊敗首領！全體英雄最大生命 +2，攻擊力 +1！";
@@ -1185,8 +1415,13 @@
                             let h = heroRuntime.find(x => x.id === hid);
                             if (h && h.baseType === tInfo.baseType && h.tier === (tInfo.targetTier - 1)) {
                                 h.tier = tInfo.targetTier; h.type = classNames[h.baseType][h.tier];
-                                h.maxHp += 5 * tInfo.targetTier; h.hp += 5 * tInfo.targetTier; h.atk += 2 * tInfo.targetTier; 
+                                
+                                h.maxHp += 5 * tInfo.targetTier; 
+                                h.hp += 5 * tInfo.targetTier; 
+                                h.atk += 2 * tInfo.targetTier; 
                                 if (h.tier === 2) h.skill.power += 0.5;
+                                if (h.tier === 3) h.skill.power += 1.0; 
+                                
                                 desc += `<br><br>🎉 <span class="text-blue-300 font-bold">${h.name}</span> 通過了指導，轉職為 <span class="text-yellow-400 font-bold">${h.type}</span>！`;
                                 promoted = true;
                             }
@@ -1195,34 +1430,45 @@
                     }
                 }
                 
-                // 【修復核心】確保數值確實推進且資料清空
-                globalState.currentLevel++; 
-                globalState.currentLevelData = null; 
-                globalState.gold += bState.earnedGold;
-                document.getElementById('battle-result-gold').innerHTML = `獲得金幣: ${bState.earnedGold}G`;
-                
-                if (isBoss && !tInfo) { 
-                    let unowned = artifactPool.filter(a => !globalState.artifacts.includes(a.id));
-                    if (unowned.length > 0) {
-                        let newArt = unowned[Math.floor(Math.random() * unowned.length)];
-                        globalState.artifacts.push(newArt.id);
-                        document.getElementById('battle-result-artifact').innerHTML = `獲得神器: ${newArt.icon} ${newArt.name}`;
-                        document.getElementById('battle-result-artifact').classList.remove('hidden');
-                        
-                        if (newArt.id === 'a3') heroRuntime.forEach(h => { h.maxHp += 5; h.hp += 5; });
-                        if (newArt.id === 'a4') heroRuntime.forEach(h => { h.atk += 2; });
-                        if (newArt.id === 'a6') heroRuntime.forEach(h => { h.maxHp += 10; h.hp += 10; });
-                        if (newArt.id === 'a7') heroRuntime.forEach(h => { h.atk += 4; });
-                        if (newArt.id === 'a8') heroRuntime.forEach(h => { if(h.classType === CLASS_AGILE) h.atk += 3; });
-                        if (newArt.id === 'a9') heroRuntime.forEach(h => { if(h.classType === CLASS_RANGED) h.atk += 3; });
-                        if (newArt.id === 'a10') heroRuntime.forEach(h => { if(h.classType === CLASS_MELEE) { h.maxHp += 8; h.hp += 8; } });
-                        if (newArt.id === 'a12') heroRuntime.forEach(h => { h.atk += 3; h.maxHp += 3; h.hp += 3; });
+                try {
+                    globalState.currentLevel++; 
+                    globalState.gold += bState.earnedGold;
+                    
+                    globalState.currentLevelData = generateRandomLevel(globalState.currentLevel); 
+                    saveGame();
+
+                    document.getElementById('battle-result-gold').innerHTML = `獲得金幣: ${bState.earnedGold}G`;
+                    
+                    if (isBoss && !tInfo) { 
+                        let unowned = artifactPool.filter(a => !globalState.artifacts.includes(a.id));
+                        if (unowned.length > 0) {
+                            let newArt = unowned[Math.floor(Math.random() * unowned.length)];
+                            globalState.artifacts.push(newArt.id);
+                            document.getElementById('battle-result-artifact').innerHTML = `獲得神器: ${newArt.icon} ${newArt.name}`;
+                            document.getElementById('battle-result-artifact').classList.remove('hidden');
+                            
+                            // Apply new artifact persistent stats instantly
+                            if (newArt.id === 'a3') heroRuntime.forEach(h => { h.maxHp += 5; h.hp += 5; });
+                            if (newArt.id === 'a4') heroRuntime.forEach(h => { h.atk += 2; });
+                            if (newArt.id === 'a6') heroRuntime.forEach(h => { h.maxHp += 10; h.hp += 10; });
+                            if (newArt.id === 'a7') heroRuntime.forEach(h => { h.atk += 4; });
+                            if (newArt.id === 'a8') heroRuntime.forEach(h => { if(h.classType === CLASS_AGILE) h.atk += 3; });
+                            if (newArt.id === 'a9') heroRuntime.forEach(h => { if(h.classType === CLASS_RANGED) h.atk += 3; });
+                            if (newArt.id === 'a10') heroRuntime.forEach(h => { if(h.classType === CLASS_MELEE) { h.maxHp += 8; h.hp += 8; } });
+                            if (newArt.id === 'a12') heroRuntime.forEach(h => { h.atk += 3; h.maxHp += 3; h.hp += 3; });
+                            if (newArt.id === 'a16') heroRuntime.forEach(h => { h.maxHp += 15; h.hp += 15; });
+                            if (newArt.id === 'a17') heroRuntime.forEach(h => { h.atk += 5; });
+                            if (newArt.id === 'a18') heroRuntime.forEach(h => { if(h.classType === CLASS_RANGED) h.atk += 4; });
+                            if (newArt.id === 'a19') heroRuntime.forEach(h => { if(h.classType === CLASS_MELEE) h.atk += 4; });
+                            
+                            saveGame(); 
+                        } else document.getElementById('battle-result-artifact').classList.add('hidden');
                     } else document.getElementById('battle-result-artifact').classList.add('hidden');
-                } else document.getElementById('battle-result-artifact').classList.add('hidden');
+                } catch(e) { console.error("過關結算存檔異常:", e); }
                 
                 showBattleResult("戰鬥勝利！", desc, "text-yellow-500", true);
             } else {
-                if (lastAttacker) endUnitAction(lastAttacker);
+                if (lastAttacker && lastAttacker.hp > 0) endUnitAction(lastAttacker);
             }
         }
 
@@ -1230,9 +1476,11 @@
             bState.phase = 'ANIMATING';
             document.getElementById('battle-result-title').innerText = title; document.getElementById('battle-result-title').className = `text-5xl font-bold mb-4 ${titleClass} drop-shadow-lg`;
             document.getElementById('battle-result-desc').innerHTML = desc;
+            
             if (!isWin) { 
-                globalState.currentLevelData = null; 
-                document.getElementById('battle-result-gold').innerHTML = `<span class="text-gray-400">重傷撤退，一無所獲...</span>`; 
+                globalState.currentLevelData = generateRandomLevel(globalState.currentLevel); 
+                saveGame();
+                document.getElementById('battle-result-gold').innerHTML = `<span class="text-gray-400">全軍覆沒，一無所獲...</span>`; 
                 document.getElementById('battle-result-artifact').classList.add('hidden');
             }
             document.getElementById('battle-modal').classList.remove('hidden');
@@ -1250,8 +1498,7 @@
             if (bState.currentTurn !== FACTION_PLAYER) return;
             bState.currentTurn = FACTION_ENEMY; bState.selectedUnit = null; bState.phase = 'IDLE'; clearHighlights(); updateUI();
             
-            // 機關迷宮模式沒有敵人，直接跳過敵軍行動
-            if(globalState.currentLevelData.mode === MODE_OBSTACLE) {
+            if(globalState.currentLevelData.mode === MODE_FOG) {
                 setTimeout(startPlayerTurn, 300);
                 return;
             }
@@ -1312,19 +1559,37 @@
                 
                 let targetPlayer = null; let highestScore = -999;
                 players.forEach(p => {
+                    // 視線被阻擋時，AI 也不應將其列為最佳目標
+                    if (!hasLineOfSight(enemy.x, enemy.y, p.x, p.y)) return;
+
                     let dist = getDistance(enemy.x, enemy.y, p.x, p.y);
                     let { multiplier } = calculateDamageMultiplier(enemy, p);
                     let score = (multiplier * 100) - (dist * 10) - (p.hp);
                     if (score > highestScore) { highestScore = score; targetPlayer = p; }
                 });
 
-                let moveCells = getMovableCells(enemy); let bestCell = {x: enemy.x, y: enemy.y}; let minDist = getDistance(enemy.x, enemy.y, targetPlayer.x, targetPlayer.y);
-                let needMove = minDist > enemy.atkRange;
-                if (needMove) {
-                    moveCells.forEach(cell => { let d = getDistance(cell.x, cell.y, targetPlayer.x, targetPlayer.y); if (d < minDist) { minDist = d; bestCell = cell; } });
+                if(!targetPlayer) {
+                    enemy.hasActed = true; renderUnits(); await new Promise(r => setTimeout(r, 300));
+                    continue;
                 }
 
-                if (needMove && (bestCell.x !== enemy.x || bestCell.y !== enemy.y)) { enemy.x = bestCell.x; enemy.y = bestCell.y; renderUnits(); await new Promise(r => setTimeout(r, 600)); }
+                let moveCells = getMovableCells(enemy); let bestCell = {x: enemy.x, y: enemy.y}; let minDist = getDistance(enemy.x, enemy.y, targetPlayer.x, targetPlayer.y);
+                let needMove = minDist > enemy.atkRange || !hasLineOfSight(enemy.x, enemy.y, targetPlayer.x, targetPlayer.y);
+                if (needMove) {
+                    moveCells.forEach(cell => { 
+                        let d = getDistance(cell.x, cell.y, targetPlayer.x, targetPlayer.y); 
+                        if (d < minDist || (d <= enemy.atkRange && hasLineOfSight(cell.x, cell.y, targetPlayer.x, targetPlayer.y))) { 
+                            minDist = d; bestCell = cell; 
+                        } 
+                    });
+                }
+
+                if (needMove && (bestCell.x !== enemy.x || bestCell.y !== enemy.y)) { 
+                    enemy.x = bestCell.x; enemy.y = bestCell.y; 
+                    updatePuzzleState(); 
+                    renderUnits(); 
+                    await new Promise(r => setTimeout(r, 600)); 
+                }
 
                 let possibleTargets = getAttackableTargets(enemy);
                 if (possibleTargets.length > 0) {
