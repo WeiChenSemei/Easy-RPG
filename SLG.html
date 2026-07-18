@@ -341,8 +341,8 @@
             { name: '巨怪', race: '怪物', classType: CLASS_MELEE, type: '坦克', icon: '🧌', maxHp: 35, atk: 8, moveRange: 2, atkRange: 1, gold: 20 }, { name: '哥布林', race: '怪物', classType: CLASS_AGILE, type: '盜賊', icon: '👺', maxHp: 10, atk: 5, moveRange: 4, atkRange: 1, gold: 8 }, { name: '毒史萊姆', race: '怪物', classType: CLASS_RANGED, type: '法師', icon: '🦠', maxHp: 15, atk: 6, moveRange: 2, atkRange: 2, gold: 10 }
         ];
 
-        // 升級 V20: 隨機生成的程序化機關迷宮引擎
-        const SAVE_KEY = 'sanctuary_tactics_v20'; 
+        // 升級 V21: 新增三層密集機關迷宮防線與嚴密的防錯儲存
+        const SAVE_KEY = 'sanctuary_tactics_v21'; 
         let heroRuntime = []; 
         let globalState = {};
         let bState = { units: [], terrain: [], currentTurn: FACTION_PLAYER, selectedUnit: null, phase: 'IDLE', boardElement: document.getElementById('game-board'), highlightElements: [], earnedGold: 0 };
@@ -357,19 +357,23 @@
         function initHeroes() { heroRuntime = baseHeroes.map(h => ({ ...h, hp: h.maxHp, tier: 0, type: classNames[h.baseType][0], currentCd: 0 })); }
 
         function saveGame() {
-            const saveData = {
-                level: globalState.currentLevel, gold: globalState.gold, roster: globalState.selectedHeroIds, artifacts: globalState.artifacts,
-                heroes: heroRuntime.map(h => ({ id: h.id, hp: h.hp, maxHp: h.maxHp, atk: h.atk, tier: h.tier, type: h.type, currentCd: h.currentCd })),
-                currentLevelData: globalState.currentLevelData
-            };
-            localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+            try {
+                const saveData = {
+                    level: globalState.currentLevel, gold: globalState.gold, roster: globalState.selectedHeroIds, artifacts: globalState.artifacts,
+                    heroes: heroRuntime.map(h => ({ id: h.id, hp: h.hp, maxHp: h.maxHp, atk: h.atk, tier: h.tier, type: h.type, currentCd: h.currentCd })),
+                    currentLevelData: globalState.currentLevelData
+                };
+                localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+            } catch(e) {
+                console.warn("本機存儲失敗 (可能是安全設定阻擋)，但不影響單次遊玩", e);
+            }
         }
 
         function loadGame() {
             initHeroes(); initGlobalState();
-            const saved = localStorage.getItem(SAVE_KEY);
-            if (saved) {
-                try {
+            try {
+                const saved = localStorage.getItem(SAVE_KEY);
+                if (saved) {
                     const data = JSON.parse(saved);
                     globalState.currentLevel = data.level || 1; 
                     globalState.gold = data.gold !== undefined ? data.gold : 50;
@@ -389,16 +393,17 @@
                         });
                     }
                     showToast("已載入冒險進度！");
-                } catch(e) { 
-                    console.error("存檔讀取失敗", e);
-                    initGlobalState(); initHeroes(); 
                 }
+            } catch(e) { 
+                console.error("存檔讀取失敗", e);
+                initGlobalState(); initHeroes(); 
             }
         }
 
         function confirmReset() { document.getElementById('reset-modal').classList.remove('hidden'); }
         function executeReset() {
-            localStorage.removeItem(SAVE_KEY); document.getElementById('reset-modal').classList.add('hidden');
+            try { localStorage.removeItem(SAVE_KEY); } catch(e){} 
+            document.getElementById('reset-modal').classList.add('hidden');
             initGlobalState(); initHeroes(); 
             globalState.currentLevelData = generateRandomLevel(globalState.currentLevel);
             saveGame(); switchScreen('screen-town'); showToast("進度已重置，新的冒險開始！");
@@ -467,42 +472,44 @@
                 usedPositions.add('2,0'); usedPositions.add('3,0');
             }
 
+            // === 隨機三層迷宮引擎 ===
             if (mode === MODE_OBSTACLE) {
                 let colors = ['red', 'blue', 'green', 'yellow'].sort(() => Math.random() - 0.5);
                 let obsIndex = 0;
 
-                // 產生防守橫線：每條防線上會有一扇顏色門、一個種族/職業特長障礙物，還有一半機率多一個隨機路線
                 function addLineDefense(yBlock, switchY, colorStr) {
+                    // 打亂 0~5 的 X 軸位置來安插障礙
                     let xs = [0,1,2,3,4,5].sort(() => Math.random() - 0.5);
                     
-                    // 1. 保底路線A：機關門
+                    // 1. 保底路線 A：一扇同色機關門
                     enemiesToSpawn.push(createGate(`g_${levelNum}_${obsIndex++}`, xs[0], yBlock, colorStr));
                     
-                    // 2. 保底路線B：種族/職業特長障礙
+                    // 2. 保底路線 B：一個特長障礙物 (需要對應職業/種族)
                     let spDef = obstaclePool[Math.floor(Math.random() * obstaclePool.length)];
                     enemiesToSpawn.push({ id: `o_${levelNum}_${obsIndex++}`, ...spDef, faction: 'obstacle', hp: 1, maxHp: 1, hasActed: false, pos: [xs[1], yBlock] });
                     
-                    // 3. 隨機路線C：50%機率多一個門 或 多一個特長障礙
-                    if (Math.random() < 0.5) {
-                        enemiesToSpawn.push(createGate(`g_${levelNum}_${obsIndex++}`, xs[2], yBlock, colorStr));
-                    } else {
+                    // 3. 隨機路線 C：多一個隨機門或隨機障礙
+                    if(Math.random() > 0.5) {
                         let spDef2 = obstaclePool[Math.floor(Math.random() * obstaclePool.length)];
                         enemiesToSpawn.push({ id: `o_${levelNum}_${obsIndex++}`, ...spDef2, faction: 'obstacle', hp: 1, maxHp: 1, hasActed: false, pos: [xs[2], yBlock] });
+                    } else {
+                        enemiesToSpawn.push(createGate(`g_${levelNum}_${obsIndex++}`, xs[2], yBlock, colorStr));
                     }
-                    
-                    // 剩下的格子全部填滿無法破壞的石牆
+
+                    // 4. 將剩下的 3 個格子全部填滿無法破壞的石牆
                     for(let i=3; i<6; i++) {
                         enemiesToSpawn.push(createWall(`w_${levelNum}_${obsIndex++}`, xs[i], yBlock));
                     }
 
-                    // 放置對應顏色的解鎖開關 (放置在橫線下方的空地走廊)
+                    // 5. 在防線下方的走廊 (switchY) 隨機放置對應的魔法陣開關
                     let swX = Math.floor(Math.random() * 6);
                     terrainList.push({ x: swX, y: switchY, type: `switch_${colorStr}`, activated: false });
                 }
 
-                // 生成 2 道主要防線，完美契合 6x8 格局，保證不卡關
-                addLineDefense(4, 5, colors[0]); // 防線 Y=4，開關在下方空地 Y=5
-                addLineDefense(2, 3, colors[1]); // 防線 Y=2，開關在下方空地 Y=3
+                // 建立 3 道防線，佔滿 Y=1 到 Y=6 的空間，構成密集的解謎迷宮
+                addLineDefense(5, 6, colors[0]); // 防線1 (Y=5)，開關在玩家面前 (Y=6)
+                addLineDefense(3, 4, colors[1]); // 防線2 (Y=3)，開關在中間走廊 (Y=4)
+                addLineDefense(1, 2, colors[2]); // 防線3 (Y=1)，開關在中間走廊 (Y=2)
 
             } else {
                 let enemyCount = mode === MODE_ESCAPE ? 3 : Math.min(2 + Math.floor(levelNum / 2), 4); 
@@ -689,7 +696,8 @@
             
             renderTerrain();
 
-            const playerStartPos = [[2, 7], [3, 7], [1, 6], [4, 6]];
+            // 確保玩家必定從最後一排 (Y=7) 進入迷宮
+            const playerStartPos = [[2, 7], [3, 7], [1, 7], [4, 7]];
             globalState.selectedHeroIds.forEach((hId, index) => {
                 const heroDef = heroRuntime.find(h => h.id === hId);
                 let pos = playerStartPos[index] || [0, 7];
@@ -1009,6 +1017,7 @@
                 setTimeout(() => { bState.units = bState.units.filter(u => !(u.isPuzzleGate && u.gateColor === color)); }, 800);
             }
 
+            // 【重要修復】抵達撤退點，確保過關計數運作
             if (t && t.type === TERRAIN_ESCAPE) {
                 checkWinCondition(unit, true);
                 return;
@@ -1186,7 +1195,10 @@
                     }
                 }
                 
-                globalState.currentLevel++; globalState.currentLevelData = null; globalState.gold += bState.earnedGold;
+                // 【修復核心】確保數值確實推進且資料清空
+                globalState.currentLevel++; 
+                globalState.currentLevelData = null; 
+                globalState.gold += bState.earnedGold;
                 document.getElementById('battle-result-gold').innerHTML = `獲得金幣: ${bState.earnedGold}G`;
                 
                 if (isBoss && !tInfo) { 
