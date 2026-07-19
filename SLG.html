@@ -121,11 +121,11 @@
                 <section>
                     <h3 class="text-md text-white font-bold border-b border-gray-600 pb-1 mb-2">⏱️ 最速通關時間</h3>
                     <div class="grid grid-cols-2 gap-2 text-xs">
-                        <div class="bg-gray-700 p-2 rounded">一般戰鬥: <span class="text-yellow-300 block text-lg font-bold" id="stat-fast-normal">--</span></div>
-                        <div class="bg-gray-700 p-2 rounded">首領戰: <span class="text-red-400 block text-lg font-bold" id="stat-fast-boss">--</span></div>
-                        <div class="bg-gray-700 p-2 rounded">迷霧探索: <span class="text-purple-300 block text-lg font-bold" id="stat-fast-fog">--</span></div>
-                        <div class="bg-gray-700 p-2 rounded">機關迷宮: <span class="text-green-300 block text-lg font-bold" id="stat-fast-puzzle">--</span></div>
-                        <div class="bg-gray-700 p-2 rounded col-span-2 text-center">撤離戰: <span class="text-blue-300 block text-lg font-bold" id="stat-fast-escape">--</span></div>
+                        <div class="bg-gray-700 p-2 rounded">一般戰鬥 <span class="text-gray-400" id="stat-count-normal">0場</span>: <span class="text-yellow-300 block text-lg font-bold" id="stat-fast-normal">--</span></div>
+                        <div class="bg-gray-700 p-2 rounded">首領戰 <span class="text-gray-400" id="stat-count-boss">0場</span>: <span class="text-red-400 block text-lg font-bold" id="stat-fast-boss">--</span></div>
+                        <div class="bg-gray-700 p-2 rounded">迷霧探索 <span class="text-gray-400" id="stat-count-fog">0場</span>: <span class="text-purple-300 block text-lg font-bold" id="stat-fast-fog">--</span></div>
+                        <div class="bg-gray-700 p-2 rounded">機關迷宮 <span class="text-gray-400" id="stat-count-puzzle">0場</span>: <span class="text-green-300 block text-lg font-bold" id="stat-fast-puzzle">--</span></div>
+                        <div class="bg-gray-700 p-2 rounded col-span-2 text-center">撤離戰 <span class="text-gray-400" id="stat-count-escape">0場</span>: <span class="text-blue-300 block text-lg font-bold" id="stat-fast-escape">--</span></div>
                     </div>
                 </section>
 
@@ -519,8 +519,8 @@
             { name: '變異食人魔', race: '怪物', classType: CLASS_MELEE, type: '首領', icon: '🧟', maxHp: 95, atk: 13, moveRange: 2, atkRange: 1 }, { name: '深海巨蟲', race: '怪物', classType: CLASS_AGILE, type: '首領', icon: '🐛', maxHp: 75, atk: 15, moveRange: 3, atkRange: 2 }
         ];
 
-        // 升級 V40: UI與紀錄擴充版
-        const SAVE_KEY = 'sanctuary_tactics_v40'; 
+        // 升級 V41: 最速通關時間加入通關場數統計
+        const SAVE_KEY = 'sanctuary_tactics_v41'; 
         let heroRuntime = []; 
         let globalState = {};
         let bState = { units: [], terrain: [], currentTurn: FACTION_PLAYER, selectedUnit: null, phase: 'IDLE', boardElement: document.getElementById('game-board'), highlightElements: [], reviveUsed: false, startTime: 0 };
@@ -528,7 +528,7 @@
         function initGlobalState() { 
             globalState = { 
                 currentLevel: 1, selectedHeroIds: ['h1', 'h2', 'h3', 'h4'], artifacts: [], currentLevelData: null, unlockedHiddenHeroes: [],
-                stats: { totalPlaytime: 0, fastestClears: {}, flawlessVictories: 0, heroUsage: {}, bossKills: {}, artifactsCount: {}, weatherCount: {}, altarTouches: 0, teamWipes: 0, successfulEscapes: 0, retreats: 0, innRests: 0 }
+                stats: { totalPlaytime: 0, fastestClears: {}, clearCounts: {}, flawlessVictories: 0, heroUsage: {}, bossKills: {}, artifactsCount: {}, weatherCount: {}, altarTouches: 0, teamWipes: 0, successfulEscapes: 0, retreats: 0, innRests: 0 }
             }; 
         }
         function initHeroes() { heroRuntime = allHeroes.map(h => ({ ...h, hp: h.maxHp, tier: 0, type: classNames[h.baseType][0], currentCd: 0 })); }
@@ -563,7 +563,7 @@
                     globalState.selectedHeroIds = (data.roster && data.roster.length > 0) ? data.roster : ['h1', 'h2', 'h3', 'h4']; 
                     globalState.artifacts = data.artifacts || [];
                     globalState.unlockedHiddenHeroes = data.unlockedHiddenHeroes || [];
-                    globalState.stats = data.stats || { totalPlaytime: 0, fastestClears: {}, flawlessVictories: 0, heroUsage: {}, bossKills: {}, artifactsCount: {}, weatherCount: {}, altarTouches: 0, teamWipes: 0, successfulEscapes: 0, retreats: 0, innRests: 0 };
+                    globalState.stats = data.stats || { totalPlaytime: 0, fastestClears: {}, clearCounts: {}, flawlessVictories: 0, heroUsage: {}, bossKills: {}, artifactsCount: {}, weatherCount: {}, altarTouches: 0, teamWipes: 0, successfulEscapes: 0, retreats: 0, innRests: 0 };
                     
                     if (data.currentLevelData && data.currentLevelData.mode) { globalState.currentLevelData = data.currentLevelData; } 
                     else { globalState.currentLevelData = null; }
@@ -608,6 +608,13 @@
             document.getElementById('stat-fast-fog').innerText = formatTime(st.fastestClears['FOG']);
             document.getElementById('stat-fast-puzzle').innerText = formatTime(st.fastestClears['PUZZLE']);
             document.getElementById('stat-fast-escape').innerText = formatTime(st.fastestClears['ESCAPE']);
+
+            document.getElementById('stat-count-normal').innerText = `${st.clearCounts?.['NORMAL'] || 0}場`;
+            document.getElementById('stat-count-boss').innerText = `${st.clearCounts?.['BOSS'] || 0}場`;
+            document.getElementById('stat-count-fog').innerText = `${st.clearCounts?.['FOG'] || 0}場`;
+            document.getElementById('stat-count-puzzle').innerText = `${st.clearCounts?.['PUZZLE'] || 0}場`;
+            document.getElementById('stat-count-escape').innerText = `${st.clearCounts?.['ESCAPE'] || 0}場`;
+
             document.getElementById('stat-flawless').innerText = st.flawlessVictories || 0;
             document.getElementById('stat-altar').innerText = st.altarTouches || 0;
             document.getElementById('stat-wipes').innerText = st.teamWipes || 0;
@@ -1412,9 +1419,14 @@
             } else if (isClear) {
                 let duration = Math.floor((Date.now() - bState.startTime) / 1000);
                 let tMode = isBoss ? 'BOSS' : mode;
+                
                 if (!globalState.stats.fastestClears[tMode] || duration < globalState.stats.fastestClears[tMode]) {
                     globalState.stats.fastestClears[tMode] = duration;
                 }
+                
+                globalState.stats.clearCounts = globalState.stats.clearCounts || {};
+                globalState.stats.clearCounts[tMode] = (globalState.stats.clearCounts[tMode] || 0) + 1;
+
                 if (['NORMAL', 'ESCAPE'].includes(mode) || isBoss) {
                     if (pCount === globalState.selectedHeroIds.length) globalState.stats.flawlessVictories++;
                 }
