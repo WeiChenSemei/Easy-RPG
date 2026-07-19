@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>聖域之戰 - 完美情報修復版</title>
+    <title>聖域之戰 - 完整說明書版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #1a202c; color: #e2e8f0; touch-action: manipulation; font-family: 'Segoe UI', sans-serif; overflow: hidden; user-select: none; -webkit-user-select: none; }
@@ -24,12 +24,13 @@
         .terrain-mountain { background-color: rgba(160, 174, 192, 0.2); }
         .terrain-escape { background-color: rgba(66, 153, 225, 0.4); border-bottom: 3px dashed #63b3ed; box-shadow: 0 0 15px rgba(66, 153, 225, 0.6) inset; animation: pulse 2s infinite; }
         
-        /* 暗霧探索專用地形 */
+        /* 祭壇與暗霧探索專用地形 */
         .terrain-fog { background-color: rgba(26, 32, 44, 0.9); box-shadow: inset 0 0 15px #000; }
         .terrain-trap { background-color: rgba(229, 62, 62, 0.2); }
         .terrain-teleport { background-color: rgba(159, 122, 234, 0.3); animation: pulse 2s infinite; }
         .terrain-slow { background-color: rgba(214, 158, 46, 0.2); }
         .terrain-normal { background-color: rgba(255, 255, 255, 0.05); }
+        .terrain-altar { pointer-events: auto; background-color: rgba(236, 201, 75, 0.15); box-shadow: inset 0 0 10px rgba(236, 201, 75, 0.4); cursor: pointer; }
 
         /* 單位 */
         .unit { position: absolute; width: calc(100% / 6); height: calc(100% / 8); transition: left 0.3s ease, top 0.3s ease, transform 0.2s, opacity 0.3s; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; z-index: 10; }
@@ -37,6 +38,12 @@
         .faction-player .unit-inner { background: linear-gradient(135deg, #3182ce, #2b6cb0); border: 2px solid #63b3ed; }
         .faction-enemy .unit-inner { background: linear-gradient(135deg, #e53e3e, #c53030); border: 2px solid #fc8181; }
         .faction-obstacle .unit-inner { background: linear-gradient(135deg, #718096, #4a5568); border: 2px solid #a0aec0; border-radius: 8px; }
+        
+        /* 環境異象專用樣式 */
+        .faction-environment { pointer-events: none; z-index: 15; }
+        .faction-environment .unit-inner { background: transparent; border: none; box-shadow: none; font-size: 2.5rem; animation: floatEnv 2s ease-in-out infinite; }
+        @keyframes floatEnv { 0% { transform: translateY(0) scale(1); } 50% { transform: translateY(-8px) scale(1.1); filter: drop-shadow(0 0 10px rgba(255,255,255,0.8)); } 100% { transform: translateY(0) scale(1); } }
+
         .unit.exhausted { filter: grayscale(80%) brightness(0.6); }
         .unit.is-boss .unit-inner { border: 3px solid #ecc94b; box-shadow: 0 0 12px #ecc94b; transform: scale(1.2); }
         .unit.is-tutor .unit-inner { border: 3px solid #9f7aea; box-shadow: 0 0 12px #9f7aea; transform: scale(1.2); }
@@ -70,7 +77,6 @@
         .text-heal { color: #48bb78; font-size: 1.5rem; }
         .text-counter { color: #f6e05e; font-size: 1rem; }
         .text-weak { color: #a0aec0; font-size: 1rem; }
-        .text-gold { color: #ecc94b; font-size: 1.2rem; }
         @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-40px) scale(1.2); opacity: 0; } }
 
         #toast { position: absolute; top: 15%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(0, 0, 0, 0.85); color: #ecc94b; padding: 12px 24px; border-radius: 8px; font-weight: bold; z-index: 100; opacity: 0; transition: opacity 0.3s; pointer-events: none; text-align: center; white-space: nowrap; }
@@ -105,47 +111,72 @@
                 <h2 class="text-xl font-bold text-yellow-400">📖 遊戲說明書</h2>
                 <button onclick="toggleManual(false)" class="text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
             </div>
+            
             <div class="p-4 overflow-y-auto flex-1 text-sm text-gray-300 leading-relaxed space-y-6">
+                <!-- 1. 關卡類型 -->
                 <section>
-                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">🗺️ 關卡模式介紹</h3>
-                    <ul class="space-y-3">
-                        <li>⚔️ <b class="text-yellow-400">一般戰鬥：</b> 殲滅地圖上所有敵人即可獲勝。</li>
-                        <li>🏃‍♂️ <b class="text-blue-400">撤退戰：</b> 敵軍會無盡增援！只要讓<span class="text-blue-300 font-bold">任一名英雄</span>抵達最上方的撤退點即可過關。</li>
-                        <li>⚙️ <b class="text-green-400">機關迷宮：</b> <br>
-                            - 牆壁與未開啟的結界堅不可摧，且<b class="text-red-400">無法被視線與攻擊穿透</b>。<br>
-                            - 必須指派隊員<b class="text-yellow-300">停留在魔法陣上</b>，對應結界才會敞開。一旦離開，結界會立刻重啟封鎖！<br>
-                            - 運用 3 人踩陣，1 人闖入核心單挑守門員（或引開它）並踏入出口獲勝。
-                        </li>
-                        <li>🌫️ <b class="text-purple-400">暗霧探索：</b> 場上沒有敵人，去路被濃霧覆蓋。
-                            <ul class="list-disc pl-5 mt-2 text-gray-400 space-y-1">
-                                <li>英雄<b>踩入濃霧</b>時會揭開地形：普通、<span class="text-red-400">陷阱🪤(扣除生命)</span>、<span class="text-purple-400">傳送陣🌀(傳回起點)</span>、<span class="text-yellow-500">泥沼🕸️(移動力-1)</span>。</li>
-                                <li>撤退點隱藏在最上面一排的濃霧中！</li>
-                            </ul>
-                        </li>
+                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">🗺️ 關卡類型</h3>
+                    <ul class="space-y-2 list-disc pl-5">
+                        <li><b class="text-yellow-400">一般戰鬥：</b> 殲滅地圖上所有敵人即可獲勝。</li>
+                        <li><b class="text-blue-400">撤退戰：</b> 敵軍會無盡增援！只要讓<span class="text-blue-300 font-bold">任一名英雄</span>抵達最上方的撤退點即可過關。</li>
+                        <li><b class="text-green-400">機關迷宮：</b> 派人停留在對應顏色的魔法陣以解除結界，掩護主力抵達出口。<span class="text-gray-400">(離開陣法結界會關閉)</span></li>
+                        <li><b class="text-purple-400">暗霧探索：</b> 場上無敵人，踩入濃霧會揭開隨機地形（陷阱、泥沼或傳送陣）。撤退點隱藏在最上方！</li>
                     </ul>
                 </section>
+
+                <!-- 2. 氣候類型 -->
                 <section>
-                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">⚔️ 戰鬥剋制系統</h3>
-                    <p class="mb-2">攻擊觸發剋制，傷害提升 50%！若同時觸發種族與職業雙剋制，將引發<span class="text-yellow-400 font-bold">「大剋制!!」</span>。</p>
+                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">☁️ 氣象變化</h3>
+                    <p class="mb-2 text-xs text-gray-400">戰鬥中會遭遇隨機氣候（迷霧與機關迷宮不受天氣影響）：</p>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div>☀️ <b class="text-white">晴朗：</b>無特別效果</div>
+                        <div>🌧️ <b class="text-blue-300">暴雨：</b>全體移動力 -1</div>
+                        <div>⛈️ <b class="text-yellow-300">雷雨：</b>機率落雷，電擊場上生物</div>
+                        <div>💨 <b class="text-gray-300">狂風：</b>龍捲風會強迫接觸目標位移</div>
+                        <div>🏜️ <b class="text-red-400">乾旱：</b>機率出現火焰，燒傷目標</div>
+                        <div>🌊 <b class="text-blue-500">洪水：</b>移動力剩1，漩渦隨機傳送</div>
+                        <div class="col-span-2">🌨️ <b class="text-blue-200">冰雹：</b>每回合對隨機目標造成傷害</div>
+                    </div>
+                </section>
+
+                <!-- 3. 祭壇 -->
+                <section>
+                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">🗿 神秘祭壇</h3>
+                    <p>地圖上會隨機出現祭壇，點擊可查看其隱藏能力。當<b>任何人（包含敵人）</b>踩上去時，會立刻觸發強大的全圖範圍效果！可能包含：<span class="text-yellow-400 font-bold">強化/弱化特定種族</span>、<span class="text-green-400 font-bold">恢復生命</span>或<span class="text-red-400 font-bold">造成傷害</span>。善用祭壇來逆轉戰局！</p>
+                </section>
+
+                <!-- 4. 職業種族 -->
+                <section>
+                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">⚔️ 職業與種族剋制</h3>
+                    <p class="mb-2">攻擊觸發剋制時，傷害提升 50%！若同時觸發種族與職業雙剋制，將引發<span class="text-yellow-400 font-bold">「大剋制!!」</span>，造成毀滅性傷害。反之若被抵抗則傷害降低 30%。</p>
                     <div class="bg-gray-900 p-3 rounded border border-gray-700">
                         <p class="text-red-400 font-bold mb-1">【職業剋制】</p>
-                        <p class="mb-3">⚔️ 近戰 ＞ 🥷 敏捷 ＞ 🏹 遠程 ＞ ⚔️ 近戰</p>
+                        <p class="mb-3 text-xs">⚔️ 近戰 ＞ 🥷 敏捷 ＞ 🏹 遠程 ＞ ⚔️ 近戰</p>
                         <p class="text-green-400 font-bold mb-1">【種族剋制】</p>
-                        <ul class="grid grid-cols-2 gap-2 text-xs">
-                            <li><span class="text-white font-bold">人類</span>＞怪物/亡靈</li>
-                            <li><span class="text-white font-bold">獸人</span>＞人類/矮人</li>
-                            <li><span class="text-white font-bold">精靈</span>＞獸人/怪物</li>
-                            <li><span class="text-white font-bold">矮人</span>＞龍族/魔族</li>
-                            <li><span class="text-white font-bold">魔族</span>＞人類/精靈</li>
-                            <li><span class="text-white font-bold">亡靈</span>＞精靈/獸人</li>
+                        <ul class="grid grid-cols-2 gap-1 text-xs">
+                            <li><span class="text-white font-bold">人類</span> ＞ 怪物/亡靈</li>
+                            <li><span class="text-white font-bold">獸人</span> ＞ 人類/矮人</li>
+                            <li><span class="text-white font-bold">精靈</span> ＞ 獸人/怪物</li>
+                            <li><span class="text-white font-bold">矮人</span> ＞ 龍族/魔族</li>
+                            <li><span class="text-white font-bold">魔族</span> ＞ 人類/精靈</li>
+                            <li><span class="text-white font-bold">亡靈</span> ＞ 精靈/獸人</li>
                         </ul>
                     </div>
                 </section>
+
+                <!-- 5. 進階轉職 -->
                 <section>
-                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">🎓 滿星轉職與神器</h3>
-                    <p class="mb-2">在每 3 關的首領戰中，有 60% 機率遭遇敵方<span class="text-purple-400 font-bold">「職業導師」</span>。戰勝後可讓學徒<b>進階轉職</b>，最高可達 <span class="text-yellow-400">★★★ 三星滿階</span>，解鎖終極職業與威力！</p>
+                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">🎓 進階轉職</h3>
+                    <p>在每 3 關的首領戰中，有 60% 機率遭遇敵方<span class="text-purple-400 font-bold">「職業導師」</span>。若隊伍中有對應基礎職業的英雄，只要成功戰勝導師，該名學徒便會<b>進階轉職</b>！最高可達 <span class="text-yellow-400 font-bold">★★★ 三星</span>，大幅提升基礎屬性與技能威力。</p>
+                </section>
+
+                <!-- 6. 神器 -->
+                <section>
+                    <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">💍 神器系統</h3>
+                    <p>擊敗一般的關卡首領（非導師）後，必定會獲得一件隨機的<span class="text-yellow-400 font-bold">史詩神器</span>。目前遊戲中共有 20 種不同的神器，它們能為全體英雄提供強大的被動增益，包含各項屬性加成、專屬種族加強，以及極其珍貴的保命復活道具！</p>
                 </section>
             </div>
+            
             <div class="p-3 bg-gray-900 border-t border-gray-700">
                 <button onclick="toggleManual(false)" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded shadow">我準備好了</button>
             </div>
@@ -156,7 +187,7 @@
     <div id="reset-modal" class="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-[80] hidden">
         <div class="bg-gray-800 border-2 border-red-500 rounded-xl p-6 max-w-[80%] text-center shadow-2xl">
             <h3 class="text-2xl text-red-400 font-bold mb-4">⚠️ 警告</h3>
-            <p class="text-gray-300 text-sm mb-6">確定要放棄當前進度，重新開始冒險嗎？<br>這將會無縫清除您的所有金幣與神器。</p>
+            <p class="text-gray-300 text-sm mb-6">確定要放棄當前進度，重新開始冒險嗎？<br>這將會無縫清除您的隊伍狀態與神器。</p>
             <div class="flex justify-between gap-4">
                 <button onclick="document.getElementById('reset-modal').classList.add('hidden')" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg w-1/2">取消</button>
                 <button onclick="executeReset()" class="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg w-1/2">確認重置</button>
@@ -185,9 +216,6 @@
                 <button onclick="confirmReset()" class="text-xs text-gray-500 hover:text-red-400 underline">重新開始</button>
                 <div class="flex gap-2">
                     <button onclick="toggleManual(true)" class="bg-gray-800 text-white border border-gray-600 px-3 py-1 rounded-full shadow text-sm hover:bg-gray-700">📖 說明書</button>
-                    <div class="bg-gray-800 px-3 py-1 rounded-full border border-yellow-600 text-yellow-400 font-bold shadow flex items-center">
-                        💰 <span id="town-gold-display">50</span>
-                    </div>
                 </div>
             </div>
 
@@ -198,7 +226,10 @@
 
             <div class="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 mb-4 shadow-lg relative overflow-hidden">
                 <div id="boss-warning" class="hidden absolute top-0 left-0 w-full h-1 bg-red-500 animate-pulse"></div>
-                <h2 class="text-yellow-400 font-bold border-b border-gray-600 pb-1 mb-2">📜 情報: <span id="town-level-title" class="text-white"></span></h2>
+                <h2 class="text-yellow-400 font-bold border-b border-gray-600 pb-1 mb-2 flex items-center justify-between">
+                    <span class="flex items-center truncate">📜 情報: <span id="town-level-title" class="text-white ml-1 truncate"></span></span>
+                    <span id="town-weather-badge" class="bg-gray-700 border border-gray-500 px-1 rounded text-xs text-white cursor-help whitespace-nowrap ml-1 flex-shrink-0" style="display:none;"></span>
+                </h2>
                 <p id="town-level-desc" class="text-xs text-blue-300 font-bold mb-3 pb-2 border-b border-gray-700 leading-relaxed"></p>
                 <div id="enemy-intel-list" class="flex flex-wrap gap-2"></div>
             </div>
@@ -207,7 +238,7 @@
                 <button onclick="restAtInn()" class="bg-green-700 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-xl shadow border-b-4 border-green-900 active:border-b-0 active:translate-y-1 flex items-center">
                     <span class="text-2xl mr-3">⛺</span> 
                     <span class="flex-1 text-left">客棧休息 <span class="text-xs font-normal text-green-200 block">全體恢復生命</span></span>
-                    <span class="bg-green-900 px-2 py-1 rounded text-sm text-yellow-400 border border-green-800">30G</span>
+                    <span class="bg-green-900 px-2 py-1 rounded text-sm text-yellow-400 border border-green-800">免費</span>
                 </button>
                 <button onclick="switchScreen('screen-roster')" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow border-b-4 border-blue-900 active:border-b-0 active:translate-y-1 flex items-center">
                     <span class="text-2xl mr-3">🍻</span> <span class="flex-1 text-left">酒館編隊 <span class="text-xs font-normal text-blue-200 block">管理英雄與技能</span></span>
@@ -246,12 +277,15 @@
     <!-- ==================== 戰鬥介面 ==================== -->
     <div id="screen-battle" class="screen">
         <header class="bg-gray-800 p-2 shadow-md flex justify-between items-center z-20">
-            <button onclick="confirmRetreat()" class="bg-gray-600 border border-gray-500 hover:bg-red-600 text-white font-bold py-1 px-2 text-xs rounded shadow mr-2">🏳️ 撤退</button>
-            <div class="flex-1">
-                <h1 class="text-md font-bold text-yellow-500" id="battle-title">⚔️ 關卡</h1>
-                <p id="turn-indicator" class="text-xs text-blue-300 font-semibold">回合: 玩家階段</p>
+            <button onclick="confirmRetreat()" class="bg-gray-600 border border-gray-500 hover:bg-red-600 text-white font-bold py-1 px-2 text-xs rounded shadow mr-2 flex-shrink-0">🏳️ 撤退</button>
+            <div class="flex-1 flex flex-col justify-center px-2 min-w-0">
+                <div class="flex items-center gap-1 mb-0.5">
+                    <h1 class="text-md font-bold text-yellow-500 leading-tight truncate" id="battle-title">⚔️ 關卡</h1>
+                    <span id="battle-weather" class="bg-gray-700 border border-gray-500 px-1 rounded text-[0.65rem] text-white cursor-help leading-tight whitespace-nowrap flex-shrink-0" style="display:none;" title="氣候"></span>
+                </div>
+                <p id="turn-indicator" class="text-[0.65rem] text-blue-300 font-semibold leading-tight truncate">回合: 玩家階段</p>
             </div>
-            <button id="end-turn-btn" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-1 px-3 text-sm rounded shadow">結束回合</button>
+            <button id="end-turn-btn" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-1 px-3 text-sm rounded shadow ml-1 flex-shrink-0">結束回合</button>
         </header>
 
         <div id="unit-panel" class="bg-gray-700 h-24 flex items-center px-3 shadow-inner text-sm transition-opacity duration-200 opacity-0 z-20">
@@ -281,7 +315,6 @@
                 <h2 id="battle-result-title" class="text-5xl font-bold mb-4 drop-shadow-lg">勝利</h2>
                 <p id="battle-result-desc" class="text-gray-300 mb-2 text-[0.95rem] text-center px-4 leading-relaxed"></p>
                 <div class="flex flex-col items-center mb-8 gap-2 mt-4">
-                    <p id="battle-result-gold" class="text-yellow-400 font-bold text-xl drop-shadow">獲得金幣: 0G</p>
                     <p id="battle-result-artifact" class="text-purple-400 font-bold text-lg drop-shadow hidden"></p>
                 </div>
                 <button onclick="returnToTown()" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 px-8 rounded-lg shadow-lg text-xl">返回城鎮</button>
@@ -310,6 +343,16 @@
         const raceCounters = { '人類': ['怪物', '亡靈'], '獸人': ['人類', '矮人'], '精靈': ['獸人', '怪物'], '矮人': ['龍族', '魔族'], '魔族': ['人類', '精靈'], '亡靈': ['精靈', '獸人'], '龍族': [], '怪物': [] };
         const classCounters = { [CLASS_MELEE]: [CLASS_AGILE], [CLASS_AGILE]: [CLASS_RANGED], [CLASS_RANGED]: [CLASS_MELEE] };
 
+        const WEATHERS = [
+            { name: '晴朗', icon: '☀️', desc: '無特別效果' },
+            { name: '暴雨', icon: '🌧️', desc: '所有角色移動力 -1' },
+            { name: '雷雨', icon: '⛈️', desc: '機率出現閃電(移動2)，接近並電擊目標' },
+            { name: '狂風', icon: '💨', desc: '機率出現龍捲風(移動3)，強迫接觸的目標位移' },
+            { name: '乾旱', icon: '🏜️', desc: '機率出現火焰(移動1)，燒傷接觸的目標' },
+            { name: '洪水', icon: '🌊', desc: '全體移動力剩1。機率出現漩渦(移動1)傳送目標' },
+            { name: '冰雹', icon: '🌨️', desc: '每回合對隨機目標造成傷害' }
+        ];
+
         const levelThemes = [{ name: "迷霧森林", bg: "#22543d" }, { name: "亡靈墓園", bg: "#1a202c" }, { name: "廢棄要塞", bg: "#4a5568" }, { name: "獸人荒野", bg: "#7b341e" }, { name: "靜謐綠洲", bg: "#276749" }, { name: "幽暗洞穴", bg: "#2d3748" }, { name: "冰雪凍原", bg: "#2b6cb0" }, { name: "腐化沼澤", bg: "#285e61" }, { name: "遠古遺跡", bg: "#744210" }, { name: "龍骨荒野", bg: "#975a16" }];
         const bossThemes = [{ name: "巨龍火山口", bg: "#742a2a" }, { name: "深淵祭壇", bg: "#4a148c" }, { name: "黑暗王座", bg: "#1a202c" }, { name: "混沌裂隙", bg: "#553c9a" }];
         
@@ -329,7 +372,7 @@
             { id: 'a17', name: '龍血結晶', icon: '🩸', desc: '全體英雄基礎攻擊力永久 +5！' },
             { id: 'a18', name: '狙擊護目鏡', icon: '👓', desc: '全體「遠程」英雄基礎攻擊力永久 +4！' },
             { id: 'a19', name: '不屈戰旗', icon: '🚩', desc: '全體「近戰」英雄基礎攻擊力永久 +4！' },
-            { id: 'a20', name: '貪婪權杖', icon: '🔱', desc: '戰鬥中擊敗敵人所獲得的金幣增加 50%。' }
+            { id: 'a20', name: '神聖靈藥', icon: '🍾', desc: '戰鬥中英雄生命降至 0 時，立即復活並恢復 15 點生命（每場戰鬥限一次）。' }
         ];
 
         const classNames = {
@@ -338,7 +381,7 @@
             '黑騎士': ['黑騎士', '死亡騎士', '深淵領主', '冥界魔君'],
             '狂戰士': ['狂戰士', '嗜血者', '修羅', '血怒狂尊'],
             '斥候': ['斥候', '遊俠', '風行者', '天際巡林者'],
-            '刺客': ['刺客', '影武者', '夜魔', '幽冥闇殺者'],
+            '刺客': ['刺客', '影忍', '夜魔', '幽冥闇殺者'],
             '劍舞者': ['劍舞者', '幻影劍客', '劍聖', '無極劍尊'],
             '法師': ['法師', '大魔法師', '賢者', '真理法神'],
             '牧師': ['牧師', '大主教', '聖徒', '耀光神官'],
@@ -359,72 +402,45 @@
         ];
 
         const enemyPool = [
-            // 人類 (Melee, Agile, Ranged)
-            { name: '叛軍步兵', race: '人類', classType: CLASS_MELEE, type: '戰士', icon: '💂', maxHp: 20, atk: 7, moveRange: 2, atkRange: 1, gold: 10 }, { name: '盜賊團刺客', race: '人類', classType: CLASS_AGILE, type: '盜賊', icon: '🦹', maxHp: 12, atk: 9, moveRange: 4, atkRange: 1, gold: 8 }, { name: '叛軍弩手', race: '人類', classType: CLASS_RANGED, type: '射手', icon: '🏹', maxHp: 14, atk: 8, moveRange: 2, atkRange: 3, gold: 12 },
-            // 獸人 (Melee, Agile, Ranged)
-            { name: '獸人步兵', race: '獸人', classType: CLASS_MELEE, type: '戰士', icon: '👹', maxHp: 22, atk: 8, moveRange: 2, atkRange: 1, gold: 10 }, { name: '獸人獵手', race: '獸人', classType: CLASS_AGILE, type: '刺客', icon: '👺', maxHp: 14, atk: 10, moveRange: 3, atkRange: 1, gold: 9 }, { name: '獸人術士', race: '獸人', classType: CLASS_RANGED, type: '法師', icon: '👁️', maxHp: 16, atk: 9, moveRange: 2, atkRange: 2, gold: 12 },
-            // 精靈 (Melee, Agile, Ranged)
-            { name: '墮落衛士', race: '精靈', classType: CLASS_MELEE, type: '騎士', icon: '🛡️', maxHp: 18, atk: 7, moveRange: 3, atkRange: 1, gold: 11 }, { name: '黑暗精靈', race: '精靈', classType: CLASS_AGILE, type: '刺客', icon: '🧝‍♀️', maxHp: 12, atk: 11, moveRange: 4, atkRange: 1, gold: 15 }, { name: '墮落遊俠', race: '精靈', classType: CLASS_RANGED, type: '射手', icon: '🏹', maxHp: 14, atk: 9, moveRange: 3, atkRange: 2, gold: 13 },
-            // 矮人 (Melee, Agile, Ranged)
-            { name: '黑鐵守衛', race: '矮人', classType: CLASS_MELEE, type: '戰士', icon: '🛡️', maxHp: 25, atk: 6, moveRange: 2, atkRange: 1, gold: 12 }, { name: '黑鐵潛行者', race: '矮人', classType: CLASS_AGILE, type: '盜賊', icon: '🥷', maxHp: 15, atk: 8, moveRange: 3, atkRange: 1, gold: 10 }, { name: '黑鐵火槍手', race: '矮人', classType: CLASS_RANGED, type: '射手', icon: '🔫', maxHp: 18, atk: 10, moveRange: 2, atkRange: 3, gold: 14 },
-            // 魔族 (Melee, Agile, Ranged)
-            { name: '劣魔', race: '魔族', classType: CLASS_MELEE, type: '戰士', icon: '👿', maxHp: 18, atk: 9, moveRange: 3, atkRange: 1, gold: 10 }, { name: '魅魔', race: '魔族', classType: CLASS_AGILE, type: '刺客', icon: '💃', maxHp: 14, atk: 11, moveRange: 4, atkRange: 1, gold: 14 }, { name: '邪能法師', race: '魔族', classType: CLASS_RANGED, type: '法師', icon: '🔮', maxHp: 15, atk: 10, moveRange: 2, atkRange: 3, gold: 15 },
-            // 亡靈 (Melee, Agile, Ranged)
-            { name: '骷髏戰士', race: '亡靈', classType: CLASS_MELEE, type: '戰士', icon: '💀', maxHp: 15, atk: 6, moveRange: 2, atkRange: 1, gold: 8 }, { name: '吸血鬼', race: '亡靈', classType: CLASS_AGILE, type: '刺客', icon: '🧛', maxHp: 18, atk: 12, moveRange: 3, atkRange: 1, gold: 18 }, { name: '骷髏弓手', race: '亡靈', classType: CLASS_RANGED, type: '射手', icon: '🦴', maxHp: 12, atk: 8, moveRange: 2, atkRange: 3, gold: 12 },
-            // 龍族 (Melee, Agile, Ranged)
-            { name: '龍人守衛', race: '龍族', classType: CLASS_MELEE, type: '戰士', icon: '🦎', maxHp: 25, atk: 9, moveRange: 2, atkRange: 1, gold: 15 }, { name: '幼翼龍', race: '龍族', classType: CLASS_AGILE, type: '飛兵', icon: '🦇', maxHp: 18, atk: 10, moveRange: 4, atkRange: 1, gold: 14 }, { name: '龍炎噴吐者', race: '龍族', classType: CLASS_RANGED, type: '法師', icon: '🔥', maxHp: 20, atk: 11, moveRange: 2, atkRange: 2, gold: 16 },
-            // 怪物 (Melee, Agile, Ranged)
-            { name: '巨怪', race: '怪物', classType: CLASS_MELEE, type: '坦克', icon: '🧌', maxHp: 35, atk: 8, moveRange: 2, atkRange: 1, gold: 20 }, { name: '哥布林', race: '怪物', classType: CLASS_AGILE, type: '盜賊', icon: '👺', maxHp: 10, atk: 5, moveRange: 4, atkRange: 1, gold: 8 }, { name: '毒史萊姆', race: '怪物', classType: CLASS_RANGED, type: '法師', icon: '🦠', maxHp: 15, atk: 6, moveRange: 2, atkRange: 2, gold: 10 }
+            { name: '叛軍步兵', race: '人類', classType: CLASS_MELEE, type: '戰士', icon: '💂', maxHp: 20, atk: 7, moveRange: 2, atkRange: 1 }, { name: '盜賊團刺客', race: '人類', classType: CLASS_AGILE, type: '盜賊', icon: '🦹', maxHp: 12, atk: 9, moveRange: 4, atkRange: 1 }, { name: '叛軍弩手', race: '人類', classType: CLASS_RANGED, type: '射手', icon: '🏹', maxHp: 14, atk: 8, moveRange: 2, atkRange: 3 },
+            { name: '獸人步兵', race: '獸人', classType: CLASS_MELEE, type: '戰士', icon: '👹', maxHp: 22, atk: 8, moveRange: 2, atkRange: 1 }, { name: '獸人獵手', race: '獸人', classType: CLASS_AGILE, type: '刺客', icon: '👺', maxHp: 14, atk: 10, moveRange: 3, atkRange: 1 }, { name: '獸人術士', race: '獸人', classType: CLASS_RANGED, type: '法師', icon: '👁️', maxHp: 16, atk: 9, moveRange: 2, atkRange: 2 },
+            { name: '墮落衛士', race: '精靈', classType: CLASS_MELEE, type: '騎士', icon: '🛡️', maxHp: 18, atk: 7, moveRange: 3, atkRange: 1 }, { name: '黑暗精靈', race: '精靈', classType: CLASS_AGILE, type: '刺客', icon: '🧝‍♀️', maxHp: 12, atk: 11, moveRange: 4, atkRange: 1 }, { name: '墮落遊俠', race: '精靈', classType: CLASS_RANGED, type: '射手', icon: '🏹', maxHp: 14, atk: 9, moveRange: 3, atkRange: 2 },
+            { name: '黑鐵守衛', race: '矮人', classType: CLASS_MELEE, type: '戰士', icon: '🛡️', maxHp: 25, atk: 6, moveRange: 2, atkRange: 1 }, { name: '黑鐵潛行者', race: '矮人', classType: CLASS_AGILE, type: '盜賊', icon: '🥷', maxHp: 15, atk: 8, moveRange: 3, atkRange: 1 }, { name: '黑鐵火槍手', race: '矮人', classType: CLASS_RANGED, type: '射手', icon: '🔫', maxHp: 18, atk: 10, moveRange: 2, atkRange: 3 },
+            { name: '劣魔', race: '魔族', classType: CLASS_MELEE, type: '戰士', icon: '👿', maxHp: 18, atk: 9, moveRange: 3, atkRange: 1 }, { name: '魅魔', race: '魔族', classType: CLASS_AGILE, type: '刺客', icon: '💃', maxHp: 14, atk: 11, moveRange: 4, atkRange: 1 }, { name: '邪能法師', race: '魔族', classType: CLASS_RANGED, type: '法師', icon: '🔮', maxHp: 15, atk: 10, moveRange: 2, atkRange: 3 },
+            { name: '骷髏戰士', race: '亡靈', classType: CLASS_MELEE, type: '戰士', icon: '💀', maxHp: 15, atk: 6, moveRange: 2, atkRange: 1 }, { name: '吸血鬼', race: '亡靈', classType: CLASS_AGILE, type: '刺客', icon: '🧛', maxHp: 18, atk: 12, moveRange: 3, atkRange: 1 }, { name: '骷髏弓手', race: '亡靈', classType: CLASS_RANGED, type: '射手', icon: '🦴', maxHp: 12, atk: 8, moveRange: 2, atkRange: 3 },
+            { name: '龍人守衛', race: '龍族', classType: CLASS_MELEE, type: '戰士', icon: '🦎', maxHp: 25, atk: 9, moveRange: 2, atkRange: 1 }, { name: '幼翼龍', race: '龍族', classType: CLASS_AGILE, type: '飛兵', icon: '🦇', maxHp: 18, atk: 10, moveRange: 4, atkRange: 1 }, { name: '龍炎噴吐者', race: '龍族', classType: CLASS_RANGED, type: '法師', icon: '🔥', maxHp: 20, atk: 11, moveRange: 2, atkRange: 2 },
+            { name: '巨怪', race: '怪物', classType: CLASS_MELEE, type: '坦克', icon: '🧌', maxHp: 35, atk: 8, moveRange: 2, atkRange: 1 }, { name: '哥布林', race: '怪物', classType: CLASS_AGILE, type: '盜賊', icon: '👺', maxHp: 10, atk: 5, moveRange: 4, atkRange: 1 }, { name: '毒史萊姆', race: '怪物', classType: CLASS_RANGED, type: '法師', icon: '🦠', maxHp: 15, atk: 6, moveRange: 2, atkRange: 2 }
         ];
 
-        // 擴充至 16 名專屬 Boss（每種族 2 名，涵蓋不同職業特徵）
         const bossPool = [
-            // 人類
-            { name: '帝國叛將', race: '人類', classType: CLASS_MELEE, type: '首領', icon: '⚔️', maxHp: 65, atk: 12, moveRange: 3, atkRange: 1, gold: 80 },
-            { name: '大魔導師', race: '人類', classType: CLASS_RANGED, type: '首領', icon: '🧙‍♂️', maxHp: 55, atk: 15, moveRange: 2, atkRange: 3, gold: 90 },
-            // 獸人
-            { name: '碎骨大酋長', race: '獸人', classType: CLASS_MELEE, type: '首領', icon: '👹', maxHp: 80, atk: 14, moveRange: 2, atkRange: 1, gold: 90 },
-            { name: '薩滿祭司', race: '獸人', classType: CLASS_RANGED, type: '首領', icon: '📿', maxHp: 60, atk: 13, moveRange: 2, atkRange: 2, gold: 85 },
-            // 精靈
-            { name: '幻影劍聖', race: '精靈', classType: CLASS_AGILE, type: '首領', icon: '🤺', maxHp: 60, atk: 16, moveRange: 4, atkRange: 1, gold: 100 },
-            { name: '墮落精靈王', race: '精靈', classType: CLASS_RANGED, type: '首領', icon: '🧝‍♂️', maxHp: 70, atk: 15, moveRange: 3, atkRange: 3, gold: 110 },
-            // 矮人
-            { name: '熔爐機甲王', race: '矮人', classType: CLASS_MELEE, type: '首領', icon: '🤖', maxHp: 90, atk: 11, moveRange: 2, atkRange: 1, gold: 105 },
-            { name: '爆破大師', race: '矮人', classType: CLASS_RANGED, type: '首領', icon: '💣', maxHp: 65, atk: 14, moveRange: 2, atkRange: 3, gold: 95 },
-            // 魔族
-            { name: '深淵炎魔', race: '魔族', classType: CLASS_MELEE, type: '首領', icon: '🌋', maxHp: 85, atk: 15, moveRange: 2, atkRange: 1, gold: 100 },
-            { name: '恐懼魔王', race: '魔族', classType: CLASS_AGILE, type: '首領', icon: '🦇', maxHp: 70, atk: 17, moveRange: 4, atkRange: 1, gold: 115 },
-            // 亡靈
-            { name: '骸骨巨龍', race: '亡靈', classType: CLASS_MELEE, type: '首領', icon: '🐉', maxHp: 100, atk: 12, moveRange: 3, atkRange: 2, gold: 120 },
-            { name: '巫妖王', race: '亡靈', classType: CLASS_RANGED, type: '首領', icon: '👑', maxHp: 60, atk: 16, moveRange: 2, atkRange: 3, gold: 110 },
-            // 龍族
-            { name: '遠古紅龍', race: '龍族', classType: CLASS_MELEE, type: '首領', icon: '🐲', maxHp: 110, atk: 14, moveRange: 2, atkRange: 2, gold: 130 },
-            { name: '風暴雷龍', race: '龍族', classType: CLASS_RANGED, type: '首領', icon: '⚡', maxHp: 80, atk: 16, moveRange: 3, atkRange: 3, gold: 125 },
-            // 怪物
-            { name: '變異食人魔', race: '怪物', classType: CLASS_MELEE, type: '首領', icon: '🧟', maxHp: 95, atk: 13, moveRange: 2, atkRange: 1, gold: 80 },
-            { name: '深海巨蟲', race: '怪物', classType: CLASS_AGILE, type: '首領', icon: '🐛', maxHp: 75, atk: 15, moveRange: 3, atkRange: 2, gold: 90 }
+            { name: '帝國叛將', race: '人類', classType: CLASS_MELEE, type: '首領', icon: '⚔️', maxHp: 65, atk: 12, moveRange: 3, atkRange: 1 }, { name: '大魔導師', race: '人類', classType: CLASS_RANGED, type: '首領', icon: '🧙‍♂️', maxHp: 55, atk: 15, moveRange: 2, atkRange: 3 },
+            { name: '碎骨大酋長', race: '獸人', classType: CLASS_MELEE, type: '首領', icon: '👹', maxHp: 80, atk: 14, moveRange: 2, atkRange: 1 }, { name: '薩滿祭司', race: '獸人', classType: CLASS_RANGED, type: '首領', icon: '📿', maxHp: 60, atk: 13, moveRange: 2, atkRange: 2 },
+            { name: '幻影劍聖', race: '精靈', classType: CLASS_AGILE, type: '首領', icon: '🤺', maxHp: 60, atk: 16, moveRange: 4, atkRange: 1 }, { name: '墮落精靈王', race: '精靈', classType: CLASS_RANGED, type: '首領', icon: '🧝‍♂️', maxHp: 70, atk: 15, moveRange: 3, atkRange: 3 },
+            { name: '熔爐機甲王', race: '矮人', classType: CLASS_MELEE, type: '首領', icon: '🤖', maxHp: 90, atk: 11, moveRange: 2, atkRange: 1 }, { name: '爆破大師', race: '矮人', classType: CLASS_RANGED, type: '首領', icon: '💣', maxHp: 65, atk: 14, moveRange: 2, atkRange: 3 },
+            { name: '深淵炎魔', race: '魔族', classType: CLASS_MELEE, type: '首領', icon: '🌋', maxHp: 85, atk: 15, moveRange: 2, atkRange: 1 }, { name: '恐懼魔王', race: '魔族', classType: CLASS_AGILE, type: '首領', icon: '🦇', maxHp: 70, atk: 17, moveRange: 4, atkRange: 1 },
+            { name: '骸骨巨龍', race: '亡靈', classType: CLASS_MELEE, type: '首領', icon: '🐉', maxHp: 100, atk: 12, moveRange: 3, atkRange: 2 }, { name: '巫妖王', race: '亡靈', classType: CLASS_RANGED, type: '首領', icon: '👑', maxHp: 60, atk: 16, moveRange: 2, atkRange: 3 },
+            { name: '遠古紅龍', race: '龍族', classType: CLASS_MELEE, type: '首領', icon: '🐲', maxHp: 110, atk: 14, moveRange: 2, atkRange: 2 }, { name: '風暴雷龍', race: '龍族', classType: CLASS_RANGED, type: '首領', icon: '⚡', maxHp: 80, atk: 16, moveRange: 3, atkRange: 3 },
+            { name: '變異食人魔', race: '怪物', classType: CLASS_MELEE, type: '首領', icon: '🧟', maxHp: 95, atk: 13, moveRange: 2, atkRange: 1 }, { name: '深海巨蟲', race: '怪物', classType: CLASS_AGILE, type: '首領', icon: '🐛', maxHp: 75, atk: 15, moveRange: 3, atkRange: 2 }
         ];
 
-        // 升級 V31: 新增神器，擴充 Boss 陣列，增加 Artifact 效果掛鉤
-        const SAVE_KEY = 'sanctuary_tactics_v31'; 
+        // 升級 V37: a20 神聖靈藥改為戰鬥中單次復活，並整合所有死亡判定
+        const SAVE_KEY = 'sanctuary_tactics_v37'; 
         let heroRuntime = []; 
         let globalState = {};
-        let bState = { units: [], terrain: [], currentTurn: FACTION_PLAYER, selectedUnit: null, phase: 'IDLE', boardElement: document.getElementById('game-board'), highlightElements: [], earnedGold: 0 };
+        let bState = { units: [], terrain: [], currentTurn: FACTION_PLAYER, selectedUnit: null, phase: 'IDLE', boardElement: document.getElementById('game-board'), highlightElements: [], reviveUsed: false };
 
-        function initGlobalState() { globalState = { currentLevel: 1, gold: 50, selectedHeroIds: ['h1', 'h2', 'h3', 'h4'], artifacts: [], currentLevelData: null }; }
+        function initGlobalState() { globalState = { currentLevel: 1, selectedHeroIds: ['h1', 'h2', 'h3', 'h4'], artifacts: [], currentLevelData: null }; }
         function initHeroes() { heroRuntime = baseHeroes.map(h => ({ ...h, hp: h.maxHp, tier: 0, type: classNames[h.baseType][0], currentCd: 0 })); }
 
         function saveGame() {
             try {
                 const saveData = {
-                    level: globalState.currentLevel, gold: globalState.gold, roster: globalState.selectedHeroIds, artifacts: globalState.artifacts,
+                    level: globalState.currentLevel, roster: globalState.selectedHeroIds, artifacts: globalState.artifacts,
                     heroes: heroRuntime.map(h => ({ id: h.id, hp: h.hp, maxHp: h.maxHp, atk: h.atk, tier: h.tier, type: h.type, currentCd: h.currentCd })),
                     currentLevelData: globalState.currentLevelData
                 };
                 localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
-            } catch(e) {
-                console.warn("本機存儲失敗，可能是瀏覽器隱私設定限制。遊戲仍可繼續。");
-            }
+            } catch(e) { console.warn("本機存儲失敗，可能是瀏覽器隱私設定限制。遊戲仍可繼續。"); }
         }
 
         function loadGame() {
@@ -434,15 +450,11 @@
                 if (saved) {
                     const data = JSON.parse(saved);
                     globalState.currentLevel = data.level || 1; 
-                    globalState.gold = data.gold !== undefined ? data.gold : 50;
                     globalState.selectedHeroIds = (data.roster && data.roster.length > 0) ? data.roster : ['h1', 'h2', 'h3', 'h4']; 
                     globalState.artifacts = data.artifacts || [];
                     
-                    if (data.currentLevelData && data.currentLevelData.mode) {
-                        globalState.currentLevelData = data.currentLevelData;
-                    } else {
-                        globalState.currentLevelData = null; 
-                    }
+                    if (data.currentLevelData && data.currentLevelData.mode) { globalState.currentLevelData = data.currentLevelData; } 
+                    else { globalState.currentLevelData = null; }
 
                     if (data.heroes && data.heroes.length > 0) {
                         data.heroes.forEach(sh => {
@@ -451,9 +463,7 @@
                         });
                     }
                 }
-            } catch(e) { 
-                initGlobalState(); initHeroes(); 
-            }
+            } catch(e) { initGlobalState(); initHeroes(); }
         }
 
         function confirmReset() { document.getElementById('reset-modal').classList.remove('hidden'); }
@@ -468,10 +478,8 @@
         function confirmRetreat() { document.getElementById('retreat-modal').classList.remove('hidden'); }
         function executeRetreat() {
             document.getElementById('retreat-modal').classList.add('hidden');
-            // 撤退：強制重置並寫入目前 Level 的新關卡
             globalState.currentLevelData = generateRandomLevel(globalState.currentLevel);
-            saveGame();
-            showBattleResult("戰術撤退", "部隊保留血量撤退回城鎮。<br>戰術失敗，本關卡將會重新生成佈局...", "text-gray-400", false);
+            saveGame(); showBattleResult("戰術撤退", "部隊保留血量撤退回城鎮。<br>戰術失敗，本關卡將會重新生成佈局...", "text-gray-400", false);
         }
 
         function toggleManual(show) { const modal = document.getElementById('manual-modal'); if (show) modal.classList.remove('hidden'); else modal.classList.add('hidden'); }
@@ -484,59 +492,43 @@
         }
 
         function getArtifactBoosts() {
-            let boosts = { move: 0, rangeMod: false, lifesteal: false, skillPower: false, thorns: false, agileMove: false, goldBonus: false };
+            let boosts = { move: 0, rangeMod: false, lifesteal: false, skillPower: false, thorns: false, agileMove: false };
             globalState.artifacts.forEach(aid => { 
-                if(aid === 'a1') boosts.lifesteal = true; 
-                if(aid === 'a2') boosts.move += 1; 
-                if(aid === 'a5') boosts.rangeMod = true; 
-                if(aid === 'a13') boosts.skillPower = true;
-                if(aid === 'a14') boosts.thorns = true;
-                if(aid === 'a15') boosts.agileMove = true;
-                if(aid === 'a20') boosts.goldBonus = true;
+                if(aid === 'a1') boosts.lifesteal = true; if(aid === 'a2') boosts.move += 1; if(aid === 'a5') boosts.rangeMod = true; 
+                if(aid === 'a13') boosts.skillPower = true; if(aid === 'a14') boosts.thorns = true; if(aid === 'a15') boosts.agileMove = true;
             });
             return boosts;
         }
 
         function createGate(id, x, y, color) {
-            let icon = color === 'red' ? '🟥' : color === 'blue' ? '🟦' : color === 'green' ? '🟩' : '🟨';
-            let name = color === 'red' ? '紅結界' : color === 'blue' ? '藍結界' : color === 'green' ? '綠結界' : '黃結界';
+            let icon = color === 'red' ? '🟥' : color === 'blue' ? '🟦' : color === 'green' ? '🟩' : '🟨'; let name = color === 'red' ? '紅結界' : color === 'blue' ? '藍結界' : color === 'green' ? '綠結界' : '黃結界';
             return { id, name, race: '機關', classType: '結界', type: '門', icon, maxHp: 9999, hp: 9999, atk: 0, moveRange: 0, atkRange: 0, faction: 'obstacle', isPuzzleGate: true, isOpen: false, gateColor: color, pos: [x,y], hasActed: false };
         }
-        
-        function createWall(id, x, y) {
-            return { id, name: '堅硬石牆', race: '地形', classType: '牆壁', type: '牆', icon: '🧱', maxHp: 9999, hp: 9999, atk: 0, moveRange: 0, atkRange: 0, faction: 'obstacle', isWall: true, pos: [x,y], hasActed: false };
-        }
+        function createWall(id, x, y) { return { id, name: '堅硬石牆', race: '地形', classType: '牆壁', type: '牆', icon: '🧱', maxHp: 9999, hp: 9999, atk: 0, moveRange: 0, atkRange: 0, faction: 'obstacle', isWall: true, pos: [x,y], hasActed: false }; }
 
         // ==================== 關卡生成核心 ====================
         function generateRandomLevel(levelNum) {
             let isBossLevel = (levelNum % 3 === 0);
             let mode = MODE_NORMAL;
             
-            if (levelNum === 1) {
-                mode = MODE_FOG;
-                isBossLevel = false;
-            } else if (levelNum === 2) {
-                mode = MODE_PUZZLE;
-                isBossLevel = false;
-            } else if (!isBossLevel) {
+            if (levelNum === 1) { mode = MODE_FOG; isBossLevel = false; } 
+            else if (levelNum === 2) { mode = MODE_PUZZLE; isBossLevel = false; } 
+            else if (!isBossLevel) {
                 let r = Math.random();
-                if (r < 0.3) mode = MODE_NORMAL;
-                else if (r < 0.5) mode = MODE_ESCAPE;
-                else if (r < 0.75) mode = MODE_PUZZLE;
-                else mode = MODE_FOG;
+                if (r < 0.3) mode = MODE_NORMAL; else if (r < 0.5) mode = MODE_ESCAPE; else if (r < 0.75) mode = MODE_PUZZLE; else mode = MODE_FOG;
             }
 
             let theme = isBossLevel ? bossThemes[Math.floor(Math.random() * bossThemes.length)] : levelThemes[Math.floor(Math.random() * levelThemes.length)];
             let title = `第 ${levelNum} 關: ${theme.name}`;
             if (isBossLevel) title = `第 ${levelNum} 關: ☠️ ${theme.name}`;
-            else if (mode === MODE_ESCAPE) title += ` (撤退戰)`;
-            else if (mode === MODE_PUZZLE) title += ` (機關迷宮)`;
-            else if (mode === MODE_FOG) title += ` (暗霧探索)`;
+            else if (mode === MODE_ESCAPE) title += ` (撤退戰)`; else if (mode === MODE_PUZZLE) title += ` (機關迷宮)`; else if (mode === MODE_FOG) title += ` (暗霧探索)`;
             
-            let enemiesToSpawn = [];
-            let terrainList = [];
-            let tutorInfo = null;
-            let usedPositions = new Set();
+            let weather = null;
+            if (mode !== MODE_FOG && mode !== MODE_PUZZLE) {
+                weather = WEATHERS[Math.floor(Math.random() * WEATHERS.length)];
+            }
+            
+            let enemiesToSpawn = []; let terrainList = []; let tutorInfo = null; let usedPositions = new Set();
             
             function getValidPos(minY, maxY) {
                 let x, y, attempts = 0;
@@ -545,57 +537,31 @@
             }
 
             if (mode === MODE_ESCAPE) {
-                terrainList.push({ x: 2, y: 0, type: TERRAIN_ESCAPE }, { x: 3, y: 0, type: TERRAIN_ESCAPE });
-                usedPositions.add('2,0'); usedPositions.add('3,0');
+                terrainList.push({ x: 2, y: 0, type: TERRAIN_ESCAPE }, { x: 3, y: 0, type: TERRAIN_ESCAPE }); usedPositions.add('2,0'); usedPositions.add('3,0');
             }
 
             if (mode === MODE_FOG) {
                 let exitX = Math.floor(Math.random() * COLS);
-                for (let y = 0; y <= 5; y++) {
-                    for (let x = 0; x < COLS; x++) {
-                        terrainList.push({ x: x, y: y, type: 'fog', isExit: (y === 0 && x === exitX) });
-                    }
-                }
-            } 
-            else if (mode === MODE_PUZZLE) {
-                let obsIndex = 0;
-                
-                let isExitLeft = Math.random() > 0.5;
-                let exitX = isExitLeft ? 0 : 5;
-                let guardX = isExitLeft ? 1 : 4;
-                
+                for (let y = 0; y <= 5; y++) { for (let x = 0; x < COLS; x++) { terrainList.push({ x: x, y: y, type: 'fog', isExit: (y === 0 && x === exitX) }); } }
+            } else if (mode === MODE_PUZZLE) {
+                let obsIndex = 0; let isExitLeft = Math.random() > 0.5; let exitX = isExitLeft ? 0 : 5; let guardX = isExitLeft ? 1 : 4;
                 terrainList.push({ x: exitX, y: 0, type: TERRAIN_ESCAPE });
                 
                 let guardDef = enemyPool[Math.floor(Math.random() * enemyPool.length)];
                 enemiesToSpawn.push({ id: `e_guard_${levelNum}`, ...guardDef, maxHp: guardDef.maxHp + levelNum, hp: guardDef.maxHp + levelNum, atk: guardDef.atk + Math.floor(levelNum*0.3), isBoss: false, pos: [guardX, 0] });
                 
-                for (let x = 0; x < COLS; x++) {
-                    if (x !== exitX && x !== guardX) {
-                        enemiesToSpawn.push(createWall(`w_${levelNum}_${obsIndex++}`, x, 0));
-                    }
-                }
-
+                for (let x = 0; x < COLS; x++) { if (x !== exitX && x !== guardX) enemiesToSpawn.push(createWall(`w_${levelNum}_${obsIndex++}`, x, 0)); }
                 let gateColors = ['red', 'blue', 'green'].sort(() => Math.random() - 0.5);
 
                 function buildMazeLayer(gateY, switchY, colorStr, forcedGateX = null) {
                     let gateX = (forcedGateX !== null) ? forcedGateX : Math.floor(Math.random() * COLS);
                     enemiesToSpawn.push(createGate(`g_${levelNum}_${obsIndex++}`, gateX, gateY, colorStr));
-                    
-                    for (let x = 0; x < COLS; x++) {
-                        if (x !== gateX) enemiesToSpawn.push(createWall(`w_${levelNum}_${obsIndex++}`, x, gateY));
-                    }
-                    
-                    let switchCandidates = [];
-                    for(let x = 0; x < COLS; x++) {
-                        if(x !== gateX) switchCandidates.push(x);
-                    }
+                    for (let x = 0; x < COLS; x++) { if (x !== gateX) enemiesToSpawn.push(createWall(`w_${levelNum}_${obsIndex++}`, x, gateY)); }
+                    let switchCandidates = []; for(let x = 0; x < COLS; x++) { if(x !== gateX) switchCandidates.push(x); }
                     let switchX = switchCandidates[Math.floor(Math.random() * switchCandidates.length)];
                     terrainList.push({ x: switchX, y: switchY, type: `switch_${colorStr}`, activated: false });
                 }
-
-                buildMazeLayer(5, 6, gateColors[0]); 
-                buildMazeLayer(3, 4, gateColors[1]); 
-                buildMazeLayer(1, 2, gateColors[2], guardX); 
+                buildMazeLayer(5, 6, gateColors[0]); buildMazeLayer(3, 4, gateColors[1]); buildMazeLayer(1, 2, gateColors[2], guardX); 
             }
 
             if (mode !== MODE_FOG && mode !== MODE_PUZZLE) {
@@ -609,14 +575,13 @@
                         if (promotableHeroes.length > 0) {
                             let ref = promotableHeroes[Math.floor(Math.random() * promotableHeroes.length)];
                             let bType = ref.baseType; let tTier = ref.tier + 1; let cName = classNames[bType][tTier]; let hpBoost = Math.floor(levelNum * 2.0);
-                            bossDef = { name: `[導師] ${cName}`, race: ref.race, classType: ref.classType, type: '導師', icon: '🥋', maxHp: 65 + hpBoost, atk: 12 + Math.floor(levelNum*0.5), moveRange: ref.moveRange, atkRange: ref.atkRange, gold: 150 };
+                            bossDef = { name: `[導師] ${cName}`, race: ref.race, classType: ref.classType, type: '導師', icon: '🥋', maxHp: 65 + hpBoost, atk: 12 + Math.floor(levelNum*0.5), moveRange: ref.moveRange, atkRange: ref.atkRange };
                             tutorInfo = { baseType: bType, targetTier: tTier, className: cName };
                             enemiesToSpawn.push({ id: `boss_${levelNum}`, ...bossDef, hp: bossDef.maxHp, isBoss: true, isTutor: true, pos: getValidPos(0, 2) });
                         } else isTutor = false;
                     }
                     if (!isTutor) {
-                        let hpBoost = Math.floor(levelNum * 1.5);
-                        bossDef = bossPool[Math.floor(Math.random() * bossPool.length)];
+                        let hpBoost = Math.floor(levelNum * 1.5); bossDef = bossPool[Math.floor(Math.random() * bossPool.length)];
                         enemiesToSpawn.push({ id: `boss_${levelNum}`, ...bossDef, maxHp: bossDef.maxHp + hpBoost, hp: bossDef.maxHp + hpBoost, isBoss: true, pos: getValidPos(0, 2) });
                     }
                     enemyCount--;
@@ -630,21 +595,36 @@
                 if (mode !== MODE_ESCAPE) {
                     let terrainCount = Math.floor(Math.random() * 3) + 2; 
                     for(let i=0; i<terrainCount; i++) {
-                        let pos = getValidPos(2, 5);
-                        let type = Math.random() < 0.4 ? TERRAIN_TREE : (Math.random() < 0.7 ? TERRAIN_MOUNTAIN : TERRAIN_BUSH);
+                        let pos = getValidPos(2, 5); let type = Math.random() < 0.4 ? TERRAIN_TREE : (Math.random() < 0.7 ? TERRAIN_MOUNTAIN : TERRAIN_BUSH);
                         terrainList.push({ x: pos[0], y: pos[1], type: type });
                     }
                 }
+                
+                let altarCount = Math.floor(Math.random() * 2) + 1; // 1~2座祭壇
+                for(let i=0; i<altarCount; i++) {
+                    let pos = getValidPos(2, 6);
+                    let effectType = Math.floor(Math.random() * 6) + 1;
+                    let races = ['人類', '獸人', '精靈', '矮人', '魔族', '亡靈', '龍族', '怪物'];
+                    let targetRace = races[Math.floor(Math.random() * races.length)];
+                    let desc = '';
+                    if (effectType === 1) desc = `強化地圖上所有【${targetRace}】的力量`;
+                    else if (effectType === 2) desc = `恢復地圖上所有【${targetRace}】的生命`;
+                    else if (effectType === 3) desc = `對地圖上所有【${targetRace}】造成傷害`;
+                    else if (effectType === 4) desc = `弱化地圖上所有【${targetRace}】的力量`;
+                    else if (effectType === 5) desc = `地圖上所有生物生命全滿`;
+                    else if (effectType === 6) desc = `地圖上所有生物受到傷害`;
+                    
+                    terrainList.push({ x: pos[0], y: pos[1], type: 'altar', effectType, targetRace, desc });
+                }
             }
 
-            return { title, mode, isBossLevel, theme, enemies: enemiesToSpawn, terrain: terrainList, tutorInfo: tutorInfo };
+            return { title, mode, isBossLevel, theme, enemies: enemiesToSpawn, terrain: terrainList, tutorInfo: tutorInfo, weather: weather };
         }
 
         function switchScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(screenId).classList.add('active');
-            if (screenId === 'screen-town') { renderTown(); }
-            else if (screenId === 'screen-roster') renderRoster();
+            if (screenId === 'screen-town') { renderTown(); } else if (screenId === 'screen-roster') renderRoster();
         }
 
         function showToast(msg) {
@@ -653,14 +633,8 @@
         }
 
         function renderTown() {
-            if (!globalState.currentLevelData || !globalState.currentLevelData.mode) { 
-                globalState.currentLevelData = generateRandomLevel(globalState.currentLevel); 
-                saveGame(); 
-            }
-
+            if (!globalState.currentLevelData || !globalState.currentLevelData.mode) { globalState.currentLevelData = generateRandomLevel(globalState.currentLevel); saveGame(); }
             document.getElementById('town-level-num').innerText = globalState.currentLevel;
-            document.getElementById('town-gold-display').innerText = globalState.gold;
-            
             const artContainer = document.getElementById('artifact-container'); artContainer.innerHTML = '';
             if(globalState.artifacts.length === 0) artContainer.innerHTML = '<span class="text-gray-500 text-xs mt-2">尚未獲得任何神器</span>';
             globalState.artifacts.forEach(aid => {
@@ -670,6 +644,16 @@
 
             const lvl = globalState.currentLevelData;
             document.getElementById('town-level-title').innerText = lvl.title;
+            
+            const townWeatherBadge = document.getElementById('town-weather-badge');
+            if(lvl.weather && lvl.weather.name !== '晴朗') {
+                townWeatherBadge.innerText = `${lvl.weather.icon} ${lvl.weather.name}`;
+                townWeatherBadge.title = lvl.weather.desc;
+                townWeatherBadge.style.display = 'inline-block';
+            } else {
+                townWeatherBadge.style.display = 'none';
+            }
+            
             document.getElementById('boss-warning').className = lvl.isBossLevel ? 'absolute top-0 left-0 w-full h-1 bg-red-500 animate-pulse' : 'hidden';
 
             let descHtml = "";
@@ -678,41 +662,26 @@
             else if (lvl.mode === MODE_PUZZLE) descHtml = "⚙️ 機關迷宮：需要 3 名隊員負責【停留在】魔法陣解鎖錯開的結界，指派 1 名主力單挑守衛抵達撤退點！<br><span class='text-gray-400 font-normal'>(牆壁不可破壞。離開陣法結界即會關閉。牆壁與結界會阻擋遠程視線)</span>";
             else if (lvl.mode === MODE_FOG) descHtml = "🌫️ 暗霧探索：四周被濃霧籠罩，撤退點隱藏在最上方的一格。步步為營，避開陷阱與傳送陣，為隊伍開拓生路！";
             
-            let descEl = document.getElementById('town-level-desc');
-            if(descEl) descEl.innerHTML = descHtml;
-
-            const intelContainer = document.getElementById('enemy-intel-list'); intelContainer.innerHTML = '';
-            const seen = new Set();
+            let descEl = document.getElementById('town-level-desc'); if(descEl) descEl.innerHTML = descHtml;
+            const intelContainer = document.getElementById('enemy-intel-list'); intelContainer.innerHTML = ''; const seen = new Set();
             if (lvl.enemies && Array.isArray(lvl.enemies)) {
                 lvl.enemies.forEach(e => {
                     if(!seen.has(e.name)) {
-                        seen.add(e.name);
-                        let isObs = e.faction === 'obstacle';
+                        seen.add(e.name); let isObs = e.faction === 'obstacle';
                         let borderColor = e.isTutor ? 'border-purple-500' : (e.isBoss ? 'border-yellow-500' : (isObs ? 'border-gray-500' : 'border-gray-600'));
                         let nameColor = e.isTutor ? 'text-purple-400' : (e.isBoss ? 'text-yellow-400' : (isObs ? 'text-gray-300' : 'text-white'));
                         let badge = isObs ? `<span class="trait-badge bg-gray-600 border-gray-500">機關牆壁</span>` : `<span class="trait-badge bg-green-800 border-green-600">${e.race}</span><span class="trait-badge bg-red-800 border-red-600">${e.classType}</span>`;
-                        
-                        intelContainer.innerHTML += `
-                            <div class="bg-gray-700 border ${borderColor} rounded px-2 py-1 flex items-center text-xs shadow-sm">
-                                <span class="text-xl mr-1">${e.icon}</span>
-                                <div>
-                                    <div class="${nameColor} font-bold">${e.name} ${e.isBoss && !e.isTutor ? '(首領)' : ''}</div>
-                                    <div class="flex gap-1 mt-0.5">${badge}</div>
-                                </div>
-                            </div>`;
+                        intelContainer.innerHTML += `<div class="bg-gray-700 border ${borderColor} rounded px-2 py-1 flex items-center text-xs shadow-sm"><span class="text-xl mr-1">${e.icon}</span><div><div class="${nameColor} font-bold">${e.name} ${e.isBoss && !e.isTutor ? '(首領)' : ''}</div><div class="flex gap-1 mt-0.5">${badge}</div></div></div>`;
                     }
                 });
             }
         }
 
         function restAtInn() {
-            const cost = 30; const isAllFull = heroRuntime.every(h => h.hp === h.maxHp);
+            const isAllFull = heroRuntime.every(h => h.hp === h.maxHp);
             if (isAllFull) { showToast("全體英雄已經是滿血狀態！"); return; }
-            if (globalState.gold >= cost) {
-                globalState.gold -= cost; heroRuntime.forEach(h => h.hp = h.maxHp);
-                document.getElementById('town-gold-display').innerText = globalState.gold;
-                saveGame(); showToast("全體英雄已恢復最大生命值！");
-            } else showToast("金幣不足！(需要 30G)");
+            heroRuntime.forEach(h => h.hp = h.maxHp);
+            saveGame(); showToast("全體英雄已恢復最大生命值！");
         }
 
         function toggleHeroSelection(id) {
@@ -735,37 +704,23 @@
                 const isSelected = globalState.selectedHeroIds.includes(hero.id); const isLowHp = hero.hp <= 1;
                 const hpPercent = Math.max(0, (hero.hp / hero.maxHp) * 100);
                 const hpColor = hpPercent > 50 ? 'bg-green-500' : (hpPercent > 20 ? 'bg-yellow-500' : 'bg-red-500');
-
-                let dMove = hero.moveRange + boosts.move;
-                if (boosts.agileMove && hero.classType === CLASS_AGILE) dMove += 1;
+                let dMove = hero.moveRange + boosts.move; if (boosts.agileMove && hero.classType === CLASS_AGILE) dMove += 1;
                 let dRange = hero.atkRange + ((boosts.rangeMod && (hero.classType === CLASS_RANGED || hero.classType === CLASS_AGILE)) ? 1 : 0);
 
                 const card = document.createElement('div');
                 card.className = `hero-card rounded-lg p-2 bg-gray-700 relative cursor-pointer ${isSelected ? 'selected' : ''} ${isLowHp ? 'low-hp' : ''}`;
                 card.onclick = () => toggleHeroSelection(hero.id);
-
                 let star = hero.tier > 0 ? `<span class="text-yellow-400">${'★'.repeat(hero.tier)}</span> ` : '';
 
                 card.innerHTML = `
                     <div class="flex items-center mb-1">
                         <div class="text-3xl mr-2 drop-shadow">${hero.icon}</div>
-                        <div>
-                            <div class="font-bold text-white text-sm">${star}${hero.name}</div>
-                            <div class="flex gap-1 mt-0.5">
-                                <span class="trait-badge bg-green-800 border-green-600" style="font-size:0.5rem">${hero.race}</span>
-                                <span class="trait-badge bg-red-800 border-red-600" style="font-size:0.5rem">${hero.classType}·${hero.type}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="text-[0.6rem] text-gray-300 grid grid-cols-3 gap-x-1 mb-1 mt-2 text-center">
-                        <span>⚔️ ${hero.atk}</span> <span>👟 ${dMove}</span> <span>🏹 ${dRange}</span>
-                    </div>
-                    <div class="w-full bg-gray-900 rounded-full h-1.5 border border-gray-600 relative">
-                        <div class="${hpColor} h-1.5 rounded-full" style="width: ${hpPercent}%"></div>
-                    </div>
+                        <div><div class="font-bold text-white text-sm">${star}${hero.name}</div>
+                        <div class="flex gap-1 mt-0.5"><span class="trait-badge bg-green-800 border-green-600" style="font-size:0.5rem">${hero.race}</span><span class="trait-badge bg-red-800 border-red-600" style="font-size:0.5rem">${hero.classType}·${hero.type}</span></div></div></div>
+                    <div class="text-[0.6rem] text-gray-300 grid grid-cols-3 gap-x-1 mb-1 mt-2 text-center"><span>⚔️ ${hero.atk}</span> <span>👟 ${dMove}</span> <span>🏹 ${dRange}</span></div>
+                    <div class="w-full bg-gray-900 rounded-full h-1.5 border border-gray-600 relative"><div class="${hpColor} h-1.5 rounded-full" style="width: ${hpPercent}%"></div></div>
                     ${isSelected ? '<div class="absolute top-1 right-1 text-yellow-400 font-bold text-sm">✓</div>' : ''}
-                    ${isLowHp && !isSelected ? '<div class="absolute inset-0 flex items-center justify-center text-red-500 font-bold text-lg transform -rotate-12 bg-black bg-opacity-40 rounded">重傷</div>' : ''}
-                `;
+                    ${isLowHp && !isSelected ? '<div class="absolute inset-0 flex items-center justify-center text-red-500 font-bold text-lg transform -rotate-12 bg-black bg-opacity-40 rounded">重傷</div>' : ''}`;
                 grid.appendChild(card);
             });
         }
@@ -775,35 +730,51 @@
             if (globalState.selectedHeroIds.length === 0) { showToast("請至少選擇一名夥伴！"); return; }
             
             const levelConfig = globalState.currentLevelData; const boosts = getArtifactBoosts();
-            document.getElementById('battle-title').innerText = levelConfig.title;
+            let weather = levelConfig.weather;
+            
+            document.getElementById('battle-title').innerText = levelConfig.title; 
+            
+            const battleWeatherEl = document.getElementById('battle-weather');
+            if (weather && weather.name !== '晴朗') {
+                battleWeatherEl.innerHTML = `${weather.icon} ${weather.name}`;
+                battleWeatherEl.title = weather.desc;
+                battleWeatherEl.style.display = 'inline-block';
+            } else {
+                battleWeatherEl.style.display = 'none';
+            }
+            
             document.getElementById('battle-modal').classList.add('hidden');
-            bState.boardElement.style.backgroundColor = levelConfig.theme.bg;
-            bState.boardElement.innerHTML = '';
-            bState.units = []; bState.highlightElements = [];
-            bState.currentTurn = FACTION_PLAYER; bState.phase = 'IDLE'; bState.selectedUnit = null;
-            bState.earnedGold = 0; bState.terrain = levelConfig.terrain || [];
+            bState.boardElement.style.backgroundColor = levelConfig.theme.bg; bState.boardElement.innerHTML = '';
+            bState.units = []; bState.highlightElements = []; bState.currentTurn = FACTION_PLAYER; bState.phase = 'IDLE'; bState.selectedUnit = null; bState.terrain = levelConfig.terrain || [];
+            bState.reviveUsed = false; // 新回合重置復活標記
             
             renderTerrain();
-
             const playerStartPos = [[2, 7], [3, 7], [1, 7], [4, 7]];
             globalState.selectedHeroIds.forEach((hId, index) => {
-                const heroDef = heroRuntime.find(h => h.id === hId);
-                let pos = playerStartPos[index] || [0, 7];
-                let bMove = heroDef.moveRange + boosts.move;
-                if (boosts.agileMove && heroDef.classType === CLASS_AGILE) bMove += 1;
-                let bRange = heroDef.atkRange + ((boosts.rangeMod && (heroDef.classType === CLASS_RANGED || heroDef.classType === CLASS_AGILE)) ? 1 : 0);
+                const heroDef = heroRuntime.find(h => h.id === hId); let pos = playerStartPos[index] || [0, 7];
+                let bMove = heroDef.moveRange + boosts.move; if (boosts.agileMove && heroDef.classType === CLASS_AGILE) bMove += 1;
                 
+                // 套用天氣移動限制
+                if (weather) {
+                    if (weather.name === '洪水') bMove = 1;
+                    else if (weather.name === '暴雨') bMove = Math.max(1, bMove - 1);
+                }
+
+                let bRange = heroDef.atkRange + ((boosts.rangeMod && (heroDef.classType === CLASS_RANGED || heroDef.classType === CLASS_AGILE)) ? 1 : 0);
                 bState.units.push({ ...heroDef, faction: FACTION_PLAYER, x: pos[0], y: pos[1], moveRange: bMove, atkRange: bRange, hasActed: false, element: null });
             });
 
-            levelConfig.enemies.forEach(e => {
+            levelConfig.enemies.forEach(e => { 
                 let faction = e.faction || FACTION_ENEMY; 
-                bState.units.push({ ...e, faction: faction, x: e.pos[0], y: e.pos[1], hp: e.maxHp, hasActed: false, element: null });
+                let eMove = e.moveRange || 2;
+                if (weather) {
+                    if (weather.name === '洪水') eMove = 1;
+                    else if (weather.name === '暴雨') eMove = Math.max(1, eMove - 1);
+                }
+                
+                bState.units.push({ ...e, faction: faction, x: e.pos[0], y: e.pos[1], hp: e.maxHp, moveRange: eMove, hasActed: false, element: null }); 
             });
-
-            switchScreen('screen-battle'); renderUnits(); 
-            updatePuzzleState(); 
-            updateUI(); showToast("戰鬥開始！");
+            switchScreen('screen-battle'); renderUnits(); updatePuzzleState(); updateUI(); showToast("戰鬥開始！");
         }
 
         function updateTerrainDOM(t) {
@@ -815,26 +786,27 @@
             else if(t.type === 'slow') t.element.innerHTML = '🕸️';
             else if(t.type === 'normal') t.element.innerHTML = '';
             else if(t.type === TERRAIN_ESCAPE) t.element.innerHTML = '<div class="animate-pulse drop-shadow-[0_0_15px_rgba(66,153,225,1)]">🚪</div>';
+            else if(t.type === 'altar') t.element.innerHTML = '<div class="animate-pulse drop-shadow-[0_0_15px_rgba(236,201,75,0.8)]">🗿</div>';
         }
 
         function renderTerrain() {
             bState.terrain.forEach(t => {
-                let el = document.createElement('div');
-                el.style.left = `${(t.x / COLS) * 100}%`; el.style.top = `${(t.y / ROWS) * 100}%`;
-                t.element = el;
+                let el = document.createElement('div'); el.style.left = `${(t.x / COLS) * 100}%`; el.style.top = `${(t.y / ROWS) * 100}%`; t.element = el;
                 updateTerrainDOM(t);
                 
                 if(t.type === TERRAIN_TREE) { el.className = `terrain terrain-tree`; el.innerHTML = '🌲'; }
                 else if(t.type === TERRAIN_MOUNTAIN) { el.className = `terrain terrain-mountain`; el.innerHTML = '⛰️'; }
                 else if(t.type === TERRAIN_BUSH) { el.className = `terrain terrain-bush`; el.innerHTML = '🌿'; }
+                else if(t.type === 'altar') {
+                    el.className = `terrain terrain-altar cursor-pointer`;
+                    el.addEventListener('click', (e) => {
+                        if (bState.phase === 'IDLE') { showToast(`[祭壇] ${t.desc}`); e.stopPropagation(); }
+                    });
+                }
                 else if(t.type.startsWith('switch_')) {
-                    let color = t.type.split('_')[1];
-                    let emoji = color === 'red' ? '🔴' : color === 'blue' ? '🔵' : color === 'green' ? '🟢' : '🟡';
-                    if(t.activated) {
-                        el.innerHTML = `<div class="opacity-30 grayscale">${emoji}</div>`;
-                    } else {
-                        el.innerHTML = `<div class="animate-pulse drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] text-2xl">${emoji}</div>`;
-                    }
+                    let color = t.type.split('_')[1]; let emoji = color === 'red' ? '🔴' : color === 'blue' ? '🔵' : color === 'green' ? '🟢' : '🟡';
+                    if(t.activated) { el.innerHTML = `<div class="opacity-30 grayscale">${emoji}</div>`; } 
+                    else { el.innerHTML = `<div class="animate-pulse drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] text-2xl">${emoji}</div>`; }
                 }
                 bState.boardElement.appendChild(el);
             });
@@ -843,69 +815,44 @@
         function renderUnits() {
             bState.units.forEach(unit => {
                 if (!unit.element) {
-                    let el = document.createElement('div');
-                    el.className = `unit faction-${unit.faction} ${unit.isBoss ? 'is-boss' : ''} ${unit.isTutor ? 'is-tutor' : ''}`;
-                    el.id = `unit-${unit.id}`;
+                    let el = document.createElement('div'); el.className = `unit faction-${unit.faction} ${unit.isBoss ? 'is-boss' : ''} ${unit.isTutor ? 'is-tutor' : ''}`; el.id = `unit-${unit.id}`;
                     let inner = document.createElement('div'); inner.className = 'unit-inner'; inner.innerHTML = unit.icon;
-                    
-                    if (unit.faction !== 'obstacle') {
+                    if (unit.faction !== 'obstacle' && unit.faction !== 'environment') {
                         let hpBg = document.createElement('div'); hpBg.className = 'hp-bar-bg';
                         let hpFill = document.createElement('div'); hpFill.className = 'hp-bar-fill'; hpFill.id = `hp-${unit.id}`;
                         hpBg.appendChild(hpFill); inner.appendChild(hpBg);
-                    } else if (unit.isWall || unit.isPuzzleGate) {
-                        inner.style.borderRadius = '4px';
-                        inner.style.borderWidth = '1px';
-                    }
+                    } else if (unit.isWall || unit.isPuzzleGate) { inner.style.borderRadius = '4px'; inner.style.borderWidth = '1px'; }
                     el.appendChild(inner); bState.boardElement.appendChild(el);
                     unit.element = el; el.addEventListener('click', (e) => handleUnitClick(unit, e));
                 }
                 unit.element.style.left = `${(unit.x / COLS) * 100}%`; unit.element.style.top = `${(unit.y / ROWS) * 100}%`;
                 
-                if (unit.faction !== 'obstacle') {
+                if (unit.faction !== 'obstacle' && unit.faction !== 'environment') {
                     const hpPercent = Math.max(0, (unit.hp / unit.maxHp) * 100);
                     document.getElementById(`hp-${unit.id}`).style.width = `${hpPercent}%`;
-                    if(hpPercent < 30) document.getElementById(`hp-${unit.id}`).style.backgroundColor = '#e53e3e';
-                    else document.getElementById(`hp-${unit.id}`).style.backgroundColor = '#48bb78';
+                    if(hpPercent < 30) document.getElementById(`hp-${unit.id}`).style.backgroundColor = '#e53e3e'; else document.getElementById(`hp-${unit.id}`).style.backgroundColor = '#48bb78';
                 }
-
-                if (unit.hasActed) unit.element.classList.add('exhausted');
-                else unit.element.classList.remove('exhausted');
+                if (unit.hasActed) unit.element.classList.add('exhausted'); else unit.element.classList.remove('exhausted');
             });
         }
 
         function updatePuzzleState() {
             if (globalState.currentLevelData.mode !== MODE_PUZZLE) return;
-            
             let switchStates = {};
             bState.terrain.forEach(t => {
                 if (t.type.startsWith('switch_')) {
-                    let color = t.type.split('_')[1];
-                    let isPressed = bState.units.some(u => u.faction === FACTION_PLAYER && u.x === t.x && u.y === t.y && u.hp > 0);
-                    t.activated = isPressed;
-                    switchStates[color] = isPressed;
-                    
+                    let color = t.type.split('_')[1]; let isPressed = bState.units.some(u => u.faction === FACTION_PLAYER && u.x === t.x && u.y === t.y && u.hp > 0);
+                    t.activated = isPressed; switchStates[color] = isPressed;
                     let emoji = color === 'red' ? '🔴' : color === 'blue' ? '🔵' : color === 'green' ? '🟢' : '🟡';
-                    if(t.activated) {
-                        t.element.innerHTML = `<div class="opacity-30 grayscale">${emoji}</div>`;
-                    } else {
-                        t.element.innerHTML = `<div class="animate-pulse drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] text-2xl">${emoji}</div>`;
-                    }
+                    if(t.activated) { t.element.innerHTML = `<div class="opacity-30 grayscale">${emoji}</div>`; } else { t.element.innerHTML = `<div class="animate-pulse drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] text-2xl">${emoji}</div>`; }
                 }
             });
-
             bState.units.forEach(u => {
                 if (u.isPuzzleGate) {
                     u.isOpen = switchStates[u.gateColor] === true;
                     if (u.element) {
-                        if (u.isOpen) {
-                            u.element.style.opacity = '0.2';
-                            u.element.style.pointerEvents = 'none';
-                            u.element.style.transform = 'scale(0.8)';
-                        } else {
-                            u.element.style.opacity = '1';
-                            u.element.style.pointerEvents = 'auto';
-                            u.element.style.transform = 'scale(1)';
-                        }
+                        if (u.isOpen) { u.element.style.opacity = '0.2'; u.element.style.pointerEvents = 'none'; u.element.style.transform = 'scale(0.8)'; } 
+                        else { u.element.style.opacity = '1'; u.element.style.pointerEvents = 'auto'; u.element.style.transform = 'scale(1)'; }
                     }
                 }
             });
@@ -914,99 +861,56 @@
         function clearHighlights() { bState.highlightElements.forEach(el => el.remove()); bState.highlightElements = []; }
 
         function updateUI() {
-            const panel = document.getElementById('unit-panel');
-            const btnSkill = document.getElementById('btn-skill');
-            const skillCdSpan = document.getElementById('skill-cd');
-            const skillBadge = document.getElementById('panel-skill-name');
-
-            if (bState.selectedUnit) {
-                const u = bState.selectedUnit;
-                document.getElementById('panel-icon').innerText = u.icon;
-                
+            const panel = document.getElementById('unit-panel'); const btnSkill = document.getElementById('btn-skill'); const skillCdSpan = document.getElementById('skill-cd'); const skillBadge = document.getElementById('panel-skill-name');
+            if (bState.selectedUnit && bState.selectedUnit.faction !== 'environment') {
+                const u = bState.selectedUnit; document.getElementById('panel-icon').innerText = u.icon;
                 if (u.faction === 'obstacle') {
                     document.getElementById('panel-name').innerHTML = `${u.name}`;
-                    if (u.isWall) {
-                        document.getElementById('panel-hp').innerText = `堅不可摧`;
-                        document.getElementById('panel-race').innerText = "無法破壞";
-                        document.getElementById('panel-class').innerText = "繞道而行";
-                    } else if (u.isPuzzleGate) {
-                        document.getElementById('panel-hp').innerText = `魔法封印`;
-                        document.getElementById('panel-race').innerText = "尋找機關";
-                        document.getElementById('panel-class').innerText = "停留解除";
-                    }
-                    document.getElementById('panel-atk').innerText = "-";
-                    document.getElementById('panel-move').innerText = "-";
-                    document.getElementById('panel-range').innerText = "-";
-                    document.getElementById('panel-name').className = 'text-gray-300 font-bold drop-shadow';
-                    skillBadge.classList.add('hidden'); btnSkill.style.display = 'none';
+                    if (u.isWall) { document.getElementById('panel-hp').innerText = `堅不可摧`; document.getElementById('panel-race').innerText = "無法破壞"; document.getElementById('panel-class').innerText = "繞道而行"; } 
+                    else if (u.isPuzzleGate) { document.getElementById('panel-hp').innerText = `魔法封印`; document.getElementById('panel-race').innerText = "尋找機關"; document.getElementById('panel-class').innerText = "停留解除"; }
+                    document.getElementById('panel-atk').innerText = "-"; document.getElementById('panel-move').innerText = "-"; document.getElementById('panel-range').innerText = "-";
+                    document.getElementById('panel-name').className = 'text-gray-300 font-bold drop-shadow'; skillBadge.classList.add('hidden'); btnSkill.style.display = 'none';
                 } else {
                     let star = u.tier > 0 ? `<span class="text-yellow-400">${'★'.repeat(u.tier)}</span> ` : '';
                     document.getElementById('panel-name').innerHTML = `${star}${u.name} <span class="text-[0.65rem] text-gray-400">(${u.type})</span>`;
-                    document.getElementById('panel-hp').innerText = `HP: ${u.hp}/${u.maxHp}`;
-                    document.getElementById('panel-atk').innerText = u.atk || 0;
-                    document.getElementById('panel-move').innerText = u.moveRange || 0;
-                    document.getElementById('panel-range').innerText = u.atkRange || 0;
-                    document.getElementById('panel-race').innerText = u.race;
-                    document.getElementById('panel-class').innerText = u.classType;
-                    
+                    document.getElementById('panel-hp').innerText = `HP: ${u.hp}/${u.maxHp}`; document.getElementById('panel-atk').innerText = u.atk || 0; document.getElementById('panel-move').innerText = u.moveRange || 0; document.getElementById('panel-range').innerText = u.atkRange || 0;
+                    document.getElementById('panel-race').innerText = u.race; document.getElementById('panel-class').innerText = u.classType;
                     document.getElementById('panel-name').className = u.faction === FACTION_PLAYER ? 'text-blue-300 font-bold drop-shadow' : 'text-red-400 font-bold drop-shadow';
                     
                     if(u.faction === FACTION_PLAYER && u.skill) {
-                        skillBadge.innerText = u.skill.name; skillBadge.classList.remove('hidden');
-                        btnSkill.style.display = 'flex';
-                        if(u.currentCd > 0) {
-                            btnSkill.className = 'bg-gray-600 text-gray-400 font-bold py-2 px-2 text-xs rounded-lg w-1/3 mx-1 flex flex-col items-center justify-center leading-tight';
-                            skillCdSpan.innerText = `(CD:${u.currentCd})`; skillCdSpan.className = 'text-[0.6rem] text-gray-400';
-                        } else {
-                            btnSkill.className = 'bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-2 text-xs rounded-lg w-1/3 mx-1 flex flex-col items-center justify-center leading-tight';
-                            skillCdSpan.innerText = '(可使用)'; skillCdSpan.className = 'text-[0.6rem] text-purple-200';
-                        }
-                    } else {
-                        skillBadge.classList.add('hidden'); btnSkill.style.display = 'none';
-                    }
+                        skillBadge.innerText = u.skill.name; skillBadge.classList.remove('hidden'); btnSkill.style.display = 'flex';
+                        if(u.currentCd > 0) { btnSkill.className = 'bg-gray-600 text-gray-400 font-bold py-2 px-2 text-xs rounded-lg w-1/3 mx-1 flex flex-col items-center justify-center leading-tight'; skillCdSpan.innerText = `(CD:${u.currentCd})`; skillCdSpan.className = 'text-[0.6rem] text-gray-400'; } 
+                        else { btnSkill.className = 'bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-2 text-xs rounded-lg w-1/3 mx-1 flex flex-col items-center justify-center leading-tight'; skillCdSpan.innerText = '(可使用)'; skillCdSpan.className = 'text-[0.6rem] text-purple-200'; }
+                    } else { skillBadge.classList.add('hidden'); btnSkill.style.display = 'none'; }
                 }
                 panel.classList.remove('opacity-0');
-            } else {
-                panel.classList.add('opacity-0');
-            }
+            } else { panel.classList.add('opacity-0'); }
 
             const actionBar = document.getElementById('action-bar');
-            if (bState.phase !== 'IDLE' && bState.phase !== 'ANIMATING' && bState.selectedUnit && bState.selectedUnit.faction === FACTION_PLAYER && !bState.selectedUnit.hasActed) {
-                actionBar.classList.remove('opacity-50', 'pointer-events-none');
-            } else {
-                actionBar.classList.add('opacity-50', 'pointer-events-none');
-            }
+            if (bState.phase !== 'IDLE' && bState.phase !== 'ANIMATING' && bState.selectedUnit && bState.selectedUnit.faction === FACTION_PLAYER && !bState.selectedUnit.hasActed) { actionBar.classList.remove('opacity-50', 'pointer-events-none'); } 
+            else { actionBar.classList.add('opacity-50', 'pointer-events-none'); }
         }
 
-        // 開啟狀態的大門將不會阻擋行走與視線
         function getUnitAt(x, y) { return bState.units.find(u => u.x === x && u.y === y && u.hp > 0 && !u.isOpen); }
         function getTerrainAt(x, y) { return bState.terrain.find(t => t.x === x && t.y === y); }
         function getDistance(x1, y1, x2, y2) { return Math.abs(x1 - x2) + Math.abs(y1 - y2); }
 
         function getMovableCells(unit) {
             let cells = []; let visited = new Set(); let queue = [{x: unit.x, y: unit.y, dist: 0}];
-            
-            let currentT = getTerrainAt(unit.x, unit.y);
-            let moveLimit = unit.moveRange;
-            if (currentT && currentT.type === 'slow') {
-                moveLimit = Math.max(1, moveLimit - 1);
-            }
+            let currentT = getTerrainAt(unit.x, unit.y); let moveLimit = unit.moveRange;
+            if (currentT && currentT.type === 'slow') moveLimit = Math.max(1, moveLimit - 1);
 
             while (queue.length > 0) {
                 let curr = queue.shift(); let key = `${curr.x},${curr.y}`;
                 if (visited.has(key)) continue; visited.add(key);
-                
                 let occupant = getUnitAt(curr.x, curr.y);
                 if (occupant && occupant.id !== unit.id) continue;
-                
                 let t = getTerrainAt(curr.x, curr.y);
                 if (t && t.type === TERRAIN_TREE && (curr.x !== unit.x || curr.y !== unit.y)) continue; 
 
                 if (curr.dist <= moveLimit) {
                     if (!occupant || occupant.id === unit.id) cells.push({x: curr.x, y: curr.y});
-                    
                     if (t && t.type === 'fog' && (curr.x !== unit.x || curr.y !== unit.y)) continue;
-
                     const dirs = [[0,1], [1,0], [0,-1], [-1,0]];
                     for (let d of dirs) {
                         let nx = curr.x + d[0]; let ny = curr.y + d[1];
@@ -1017,18 +921,9 @@
             return cells;
         }
 
-        // === 視線判定演算法 (Bresenham's Line) ===
         function hasLineOfSight(x0, y0, x1, y1) {
-            let dx = Math.abs(x1 - x0);
-            let dy = Math.abs(y1 - y0);
-            let sx = (x0 < x1) ? 1 : -1;
-            let sy = (y0 < y1) ? 1 : -1;
-            let err = dx - dy;
-
-            let cx = x0;
-            let cy = y0;
-
-            let maxIters = 100; // 防無窮迴圈保護
+            let dx = Math.abs(x1 - x0); let dy = Math.abs(y1 - y0); let sx = (x0 < x1) ? 1 : -1; let sy = (y0 < y1) ? 1 : -1; let err = dx - dy;
+            let cx = x0; let cy = y0; let maxIters = 100;
             while (maxIters-- > 0) {
                 if (cx === x1 && cy === y1) return true;
                 if ((cx !== x0 || cy !== y0) && (cx !== x1 || cy !== y1)) {
@@ -1043,20 +938,13 @@
         }
 
         function getAttackableTargets(unit, rangeOverride = null, targetAlly = false) {
-            let targets = [];
-            let range = rangeOverride !== null ? rangeOverride : unit.atkRange;
-
+            let targets = []; let range = rangeOverride !== null ? rangeOverride : unit.atkRange;
             bState.units.forEach(target => {
                 if (target.hp > 0 && getDistance(unit.x, unit.y, target.x, target.y) <= range) {
-                    if (target.isWall || target.isPuzzleGate) return;
-                    
+                    if (target.isWall || target.isPuzzleGate || target.faction === 'environment') return; // 不能鎖定環境與牆壁
                     if (!hasLineOfSight(unit.x, unit.y, target.x, target.y)) return;
-                    
-                    if (targetAlly && target.faction === unit.faction) {
-                        targets.push(target);
-                    } else if (!targetAlly && target.faction !== unit.faction) {
-                        targets.push(target);
-                    }
+                    if (targetAlly && target.faction === unit.faction) { targets.push(target); } 
+                    else if (!targetAlly && target.faction !== unit.faction) { targets.push(target); }
                 }
             });
             return targets;
@@ -1066,49 +954,35 @@
             clearHighlights();
             getMovableCells(unit).forEach(cell => {
                 if (cell.x === unit.x && cell.y === unit.y) return;
-                let el = document.createElement('div'); el.className = 'cell-highlight highlight-move';
-                el.style.left = `${(cell.x / COLS) * 100}%`; el.style.top = `${(cell.y / ROWS) * 100}%`;
+                let el = document.createElement('div'); el.className = 'cell-highlight highlight-move'; el.style.left = `${(cell.x / COLS) * 100}%`; el.style.top = `${(cell.y / ROWS) * 100}%`;
                 el.addEventListener('click', () => handleMoveClick(cell.x, cell.y));
                 bState.boardElement.appendChild(el); bState.highlightElements.push(el);
             });
-
             getAttackableTargets(unit).forEach(target => {
-                let el = document.createElement('div'); 
-                el.className = `cell-highlight highlight-attack highlight-target pointer-events-none`; 
-                el.style.left = `${(target.x / COLS) * 100}%`; el.style.top = `${(target.y / ROWS) * 100}%`;
+                let el = document.createElement('div'); el.className = `cell-highlight highlight-attack highlight-target pointer-events-none`; el.style.left = `${(target.x / COLS) * 100}%`; el.style.top = `${(target.y / ROWS) * 100}%`;
                 bState.boardElement.appendChild(el); bState.highlightElements.push(el);
             });
         }
 
         function showAttackRangeOnly(unit) {
-            clearHighlights();
-            const targets = getAttackableTargets(unit);
+            clearHighlights(); const targets = getAttackableTargets(unit);
             if (targets.length === 0) { endUnitAction(unit); return; }
             bState.phase = 'ACTION_SELECTION';
             targets.forEach(target => {
-                let el = document.createElement('div'); 
-                el.className = `cell-highlight highlight-attack highlight-target pointer-events-none`;
-                el.style.left = `${(target.x / COLS) * 100}%`; el.style.top = `${(target.y / ROWS) * 100}%`;
+                let el = document.createElement('div'); el.className = `cell-highlight highlight-attack highlight-target pointer-events-none`; el.style.left = `${(target.x / COLS) * 100}%`; el.style.top = `${(target.y / ROWS) * 100}%`;
                 bState.boardElement.appendChild(el); bState.highlightElements.push(el);
             });
             updateUI();
         }
 
         function handleSkillClick() {
-            const unit = bState.selectedUnit;
-            if(!unit || unit.currentCd > 0 || !unit.skill || bState.phase === 'SKILL_SELECTION') return;
-            
-            clearHighlights(); bState.phase = 'SKILL_SELECTION';
-            showToast(`選擇技能 [${unit.skill.name}] 的目標`);
-            
-            const isHeal = unit.skill.type === 'heal';
-            const targets = getAttackableTargets(unit, unit.skill.range, isHeal);
+            const unit = bState.selectedUnit; if(!unit || unit.currentCd > 0 || !unit.skill || bState.phase === 'SKILL_SELECTION') return;
+            clearHighlights(); bState.phase = 'SKILL_SELECTION'; showToast(`選擇技能 [${unit.skill.name}] 的目標`);
+            const isHeal = unit.skill.type === 'heal'; const targets = getAttackableTargets(unit, unit.skill.range, isHeal);
             
             if(targets.length === 0) { showToast("範圍內沒有可選目標，可能被牆壁阻擋視線"); setTimeout(() => { bState.phase = 'MOVE_SELECTION'; showActionRanges(unit); }, 1500); return; }
-
             targets.forEach(target => {
-                let el = document.createElement('div');
-                el.className = `cell-highlight highlight-target pointer-events-none ${isHeal ? 'highlight-heal' : 'highlight-skill'}`;
+                let el = document.createElement('div'); el.className = `cell-highlight highlight-target pointer-events-none ${isHeal ? 'highlight-heal' : 'highlight-skill'}`;
                 el.style.left = `${(target.x / COLS) * 100}%`; el.style.top = `${(target.y / ROWS) * 100}%`;
                 bState.boardElement.appendChild(el); bState.highlightElements.push(el);
             });
@@ -1116,11 +990,10 @@
 
         function handleUnitClick(unit, event) {
             event.stopPropagation();
-            if (bState.currentTurn !== FACTION_PLAYER || bState.phase === 'ANIMATING') return;
+            if (bState.currentTurn !== FACTION_PLAYER || bState.phase === 'ANIMATING' || unit.faction === 'environment') return;
 
             if (bState.phase === 'SKILL_SELECTION') {
-                const sUnit = bState.selectedUnit; const isHeal = sUnit.skill.type === 'heal';
-                const targets = getAttackableTargets(sUnit, sUnit.skill.range, isHeal);
+                const sUnit = bState.selectedUnit; const isHeal = sUnit.skill.type === 'heal'; const targets = getAttackableTargets(sUnit, sUnit.skill.range, isHeal);
                 if(targets.find(t => t.id === unit.id)) { executeSkill(sUnit, unit); return; } 
                 else { bState.phase = 'MOVE_SELECTION'; showActionRanges(sUnit); return; } 
             }
@@ -1128,12 +1001,9 @@
             if (unit.faction === FACTION_ENEMY || unit.faction === 'obstacle') {
                 if (bState.selectedUnit && !bState.selectedUnit.hasActed && (bState.phase === 'ACTION_SELECTION' || bState.phase === 'MOVE_SELECTION')) {
                     let isValidTarget = getAttackableTargets(bState.selectedUnit).find(t => t.id === unit.id);
-                    if (isValidTarget) { 
-                        executeAttack(bState.selectedUnit, unit); 
-                        return; 
-                    } else if (getDistance(bState.selectedUnit.x, bState.selectedUnit.y, unit.x, unit.y) === 1) {
-                        if (unit.isWall) showToast("堅硬石牆無法破壞，請繞道尋找生路！");
-                        else if (unit.isPuzzleGate) showToast("魔法結界堅不可摧，請尋找同色魔法陣解除！");
+                    if (isValidTarget) { executeAttack(bState.selectedUnit, unit); return; } 
+                    else if (getDistance(bState.selectedUnit.x, bState.selectedUnit.y, unit.x, unit.y) === 1) {
+                        if (unit.isWall) showToast("堅硬石牆無法破壞，請繞道尋找生路！"); else if (unit.isPuzzleGate) showToast("魔法結界堅不可摧，請尋找同色魔法陣解除！");
                         return;
                     }
                 }
@@ -1141,100 +1011,117 @@
             }
 
             if (unit.faction === FACTION_PLAYER) {
-                if (bState.selectedUnit && bState.selectedUnit.id === unit.id && bState.phase === 'MOVE_SELECTION') {
-                    bState.selectedUnit = null; bState.phase = 'IDLE'; clearHighlights(); updateUI(); return;
-                }
+                if (bState.selectedUnit && bState.selectedUnit.id === unit.id && bState.phase === 'MOVE_SELECTION') { bState.selectedUnit = null; bState.phase = 'IDLE'; clearHighlights(); updateUI(); return; }
                 if (!unit.hasActed) {
-                    bState.selectedUnit = unit; bState.phase = 'MOVE_SELECTION';
-                    updateUI(); showActionRanges(unit); unit.element.style.transform = 'scale(1.1)';
+                    bState.selectedUnit = unit; bState.phase = 'MOVE_SELECTION'; updateUI(); showActionRanges(unit); unit.element.style.transform = 'scale(1.1)';
                     setTimeout(() => { if(unit.element) unit.element.style.transform = 'scale(1)'; }, 200);
                 } else { bState.selectedUnit = unit; updateUI(); clearHighlights(); }
             }
         }
 
-        async function applyTileEffect(unit, t) {
-            if (t.type === 'fog') {
-                if (t.isExit) {
-                    t.type = 'escape';
-                } else {
-                    let r = Math.random();
-                    if (r < 0.40) t.type = 'normal';         
-                    else if (r < 0.60) t.type = 'trap';      
-                    else if (r < 0.80) t.type = 'teleport';  
-                    else t.type = 'slow';                    
-                }
-                updateTerrainDOM(t);
-                await new Promise(res => setTimeout(res, 200));
+        // ====== 神器 a20 靈藥復活攔截 ======
+        function tryRevive(unit) {
+            if (unit.faction === FACTION_PLAYER && unit.hp <= 0 && globalState.artifacts.includes('a20') && !bState.reviveUsed) {
+                bState.reviveUsed = true;
+                unit.hp = 15;
+                updateGlobalHeroHp(unit);
+                showFloatingHtml(unit.x, unit.y, `<div class="text-green-400 font-bold text-xl drop-shadow">靈藥復活!</div>`);
+                renderUnits();
+                return true;
+            }
+            return false;
+        }
+
+        // 執行祭壇效果邏輯
+        async function executeAltarEffect(t) {
+            let targets = [];
+            bState.units.forEach(u => {
+                if (u.hp <= 0 || u.faction === 'obstacle' || u.faction === 'environment') return;
+                if (t.effectType === 5 || t.effectType === 6) targets.push(u);
+                else if (u.race === t.targetRace) targets.push(u);
+            });
+
+            if (targets.length === 0) { showToast("沒有目標受到祭壇影響！"); return; }
+
+            for (let u of targets) {
+                if (t.effectType === 1) { u.atk += 3; showFloatingHtml(u.x, u.y, `<div class="text-yellow-400 font-bold">+3 攻擊</div>`); }
+                else if (t.effectType === 2) { let heal = Math.floor(u.maxHp * 0.5); u.hp = Math.min(u.maxHp, u.hp + heal); if(u.faction===FACTION_PLAYER) updateGlobalHeroHp(u); showFloatingHtml(u.x, u.y, `<div class="text-heal">+${heal}</div>`); }
+                else if (t.effectType === 3) { let dmg = Math.floor(u.maxHp * 0.3); u.hp -= dmg; if(u.faction===FACTION_PLAYER) updateGlobalHeroHp(u); u.element.classList.add('anim-damage'); showFloatingHtml(u.x, u.y, `<div class="text-dmg">-${dmg}</div>`); }
+                else if (t.effectType === 4) { u.atk = Math.max(1, u.atk - 2); showFloatingHtml(u.x, u.y, `<div class="text-purple-400 font-bold">攻擊下降</div>`); }
+                else if (t.effectType === 5) { u.hp = u.maxHp; if(u.faction===FACTION_PLAYER) updateGlobalHeroHp(u); showFloatingHtml(u.x, u.y, `<div class="text-heal">生命全滿</div>`); }
+                else if (t.effectType === 6) { let dmg = Math.floor(u.maxHp * 0.25); u.hp -= dmg; if(u.faction===FACTION_PLAYER) updateGlobalHeroHp(u); u.element.classList.add('anim-damage'); showFloatingHtml(u.x, u.y, `<div class="text-dmg">-${dmg}</div>`); }
             }
 
-            if (t.type === 'escape') {
-                checkWinCondition(unit, true);
-                return;
-            } else if (t.type === 'trap') {
-                let dmg = Math.max(1, Math.floor(unit.maxHp * 0.15));
-                unit.hp -= dmg;
-                updateGlobalHeroHp(unit);
-                unit.element.classList.add('anim-damage');
-                showFloatingHtml(unit.x, unit.y, `<div class="text-dmg">-${dmg}</div>`);
-                updateUI();
-                await new Promise(res => setTimeout(res, 400));
-                unit.element.classList.remove('anim-damage');
+            await new Promise(r => setTimeout(r, 600));
+            targets.forEach(u => { if(u.element) u.element.classList.remove('anim-damage'); });
+            renderUnits();
 
-                if (unit.hp <= 0) {
-                    unit.element.style.opacity = '0';
-                    await new Promise(res => setTimeout(res, 300));
-                    unit.element.remove();
-                    bState.units = bState.units.filter(u => u.id !== unit.id);
-                    updatePuzzleState(); 
-                    checkWinCondition(null);
-                    return; 
+            if ([3, 6].includes(t.effectType)) {
+                let killed = targets.filter(u => u.hp <= 0);
+                if (killed.length > 0) {
+                    for (let i = killed.length - 1; i >= 0; i--) {
+                        if (tryRevive(killed[i])) { killed.splice(i, 1); }
+                    }
+                    if (killed.length > 0) {
+                        for (let u of killed) { if(u.element) { u.element.style.opacity = '0'; u.element.style.transform = 'scale(0)'; } }
+                        await new Promise(r => setTimeout(r, 300));
+                        killed.forEach(u => { if(u.element) u.element.remove(); });
+                        bState.units = bState.units.filter(u => u.hp > 0);
+                        updatePuzzleState();
+                        checkWinCondition(null); // 通用觸發擊殺判定
+                    }
                 }
+            }
+        }
+
+        async function applyTileEffect(unit, t) {
+            if (t.type === 'fog') {
+                if (t.isExit) { t.type = 'escape'; } else {
+                    let r = Math.random();
+                    if (r < 0.40) t.type = 'normal'; else if (r < 0.60) t.type = 'trap'; else if (r < 0.80) t.type = 'teleport'; else t.type = 'slow';                    
+                }
+                updateTerrainDOM(t); await new Promise(res => setTimeout(res, 200));
+            }
+
+            if (t.type === 'escape') { checkWinCondition(unit, true); return; } 
+            else if (t.type === 'trap') {
+                let dmg = Math.max(1, Math.floor(unit.maxHp * 0.15)); unit.hp -= dmg; updateGlobalHeroHp(unit); unit.element.classList.add('anim-damage');
+                showFloatingHtml(unit.x, unit.y, `<div class="text-dmg">-${dmg}</div>`); updateUI(); await new Promise(res => setTimeout(res, 400)); unit.element.classList.remove('anim-damage');
+                if (unit.hp <= 0) {
+                    if (tryRevive(unit)) return;
+                    unit.element.style.opacity = '0'; await new Promise(res => setTimeout(res, 300));
+                    unit.element.remove(); bState.units = bState.units.filter(u => u.id !== unit.id); updatePuzzleState(); checkWinCondition(null); return; 
+                }
+            } else if (t.type === 'altar') {
+                showFloatingHtml(unit.x, unit.y, `<div class="text-yellow-400 font-bold text-xl drop-shadow">祭壇啟動!</div>`);
+                await new Promise(res => setTimeout(res, 600)); await executeAltarEffect(t);
+                t.type = 'normal'; updateTerrainDOM(t);
+                if (unit.hp <= 0) return; // 生死由 executeAltarEffect 接管
             } else if (t.type === 'teleport') {
-                showFloatingHtml(unit.x, unit.y, `<div class="text-purple-400 font-bold">傳送!</div>`);
-                await new Promise(res => setTimeout(res, 400));
-                
+                showFloatingHtml(unit.x, unit.y, `<div class="text-purple-400 font-bold">傳送!</div>`); await new Promise(res => setTimeout(res, 400));
                 let nx = -1, ny = -1;
                 for(let r = 7; r >= 6; r--) {
                     let cols = [0,1,2,3,4,5].sort(() => Math.random() - 0.5);
-                    for(let c of cols) {
-                        if(!getUnitAt(c, r)) { nx = c; ny = r; break; }
-                    }
+                    for(let c of cols) { if(!getUnitAt(c, r)) { nx = c; ny = r; break; } }
                     if(nx !== -1) break;
                 }
-                if(nx !== -1) {
-                    unit.x = nx; unit.y = ny;
-                    renderUnits();
-                }
+                if(nx !== -1) { unit.x = nx; unit.y = ny; renderUnits(); }
             } else if (t.type === 'slow') {
-                showFloatingHtml(unit.x, unit.y, `<div class="text-yellow-500 font-bold">遲緩</div>`);
-                await new Promise(res => setTimeout(res, 200));
+                showFloatingHtml(unit.x, unit.y, `<div class="text-yellow-500 font-bold">遲緩</div>`); await new Promise(res => setTimeout(res, 200));
             }
-
             updatePuzzleState(); 
-
-            if (unit.hp > 0 && bState.units.find(u => u.id === unit.id)) {
-                showAttackRangeOnly(unit);
-            }
+            if (unit.hp > 0 && bState.units.find(u => u.id === unit.id) && unit.faction === FACTION_PLAYER) { showAttackRangeOnly(unit); }
         }
 
         async function handleMoveClick(x, y) {
             if (bState.phase !== 'MOVE_SELECTION' || !bState.selectedUnit) return;
-            const unit = bState.selectedUnit; 
-            clearHighlights();
-            bState.phase = 'ANIMATING'; 
+            const unit = bState.selectedUnit; clearHighlights(); bState.phase = 'ANIMATING'; 
+            unit.x = x; unit.y = y; renderUnits(); let t = getTerrainAt(x, y); updatePuzzleState();
 
-            unit.x = x; unit.y = y; 
-            renderUnits(); 
-            
-            let t = getTerrainAt(x, y);
-
-            updatePuzzleState();
-
-            if (t && (t.type === 'fog' || t.type === 'trap' || t.type === 'teleport' || t.type === 'slow' || t.type === 'escape')) {
+            if (t && (t.type === 'fog' || t.type === 'trap' || t.type === 'teleport' || t.type === 'slow' || t.type === 'escape' || t.type === 'altar')) {
                 await applyTileEffect(unit, t);
             } else if (t && t.type === TERRAIN_ESCAPE) {
-                checkWinCondition(unit, true);
-                return;
+                checkWinCondition(unit, true); return;
             } else {
                 showAttackRangeOnly(unit);
             }
@@ -1248,40 +1135,32 @@
             if (classCounters[defUnit.classType]?.includes(atkUnit.classType)) { multiplier -= 0.3; weakCount++; }
             
             let atkT = getTerrainAt(atkUnit.x, atkUnit.y); let defT = getTerrainAt(defUnit.x, defUnit.y);
-            if(atkT && atkT.type === TERRAIN_MOUNTAIN) multiplier += 0.3; 
-            if(defT && defT.type === TERRAIN_BUSH) multiplier -= 0.3; 
-
+            if(atkT && atkT.type === TERRAIN_MOUNTAIN) multiplier += 0.3; if(defT && defT.type === TERRAIN_BUSH) multiplier -= 0.3; 
             return { multiplier: Math.max(0.2, multiplier), counterCount, weakCount };
         }
 
         function executeSkill(attacker, defender) {
             clearHighlights(); bState.phase = 'ANIMATING'; attacker.element.classList.add('anim-attack');
-            const skill = attacker.skill; attacker.currentCd = skill.maxCd;
-            const boosts = getArtifactBoosts();
+            const skill = attacker.skill; attacker.currentCd = skill.maxCd; const boosts = getArtifactBoosts();
             
             setTimeout(() => {
                 attacker.element.classList.remove('anim-attack');
                 let skillMult = (boosts.skillPower && attacker.faction === FACTION_PLAYER) ? 1.3 : 1.0;
 
                 if(skill.type === 'heal') {
-                    let healAmt = Math.floor(attacker.atk * skill.power * skillMult);
-                    defender.hp = Math.min(defender.maxHp, defender.hp + healAmt);
+                    let healAmt = Math.floor(attacker.atk * skill.power * skillMult); defender.hp = Math.min(defender.maxHp, defender.hp + healAmt);
                     if(defender.faction === FACTION_PLAYER) updateGlobalHeroHp(defender);
-                    showFloatingHtml(defender.x, defender.y, `<div class="text-heal">+${healAmt}</div>`);
-                    renderUnits(); setTimeout(() => endUnitAction(attacker), 600);
+                    showFloatingHtml(defender.x, defender.y, `<div class="text-heal">+${healAmt}</div>`); renderUnits(); setTimeout(() => endUnitAction(attacker), 600);
                 } else {
                     const { multiplier, counterCount, weakCount } = calculateDamageMultiplier(attacker, defender);
-                    const baseDamage = Math.floor(attacker.atk * skill.power * skillMult);
-                    const finalDamage = Math.max(1, Math.floor(baseDamage * multiplier));
+                    const baseDamage = Math.floor(attacker.atk * skill.power * skillMult); const finalDamage = Math.max(1, Math.floor(baseDamage * multiplier));
                     
-                    defender.hp -= finalDamage;
-                    if (defender.faction === FACTION_PLAYER) updateGlobalHeroHp(defender);
+                    defender.hp -= finalDamage; if (defender.faction === FACTION_PLAYER) updateGlobalHeroHp(defender);
                     defender.element.classList.add('anim-damage');
                     
                     let floatHtml = `<div class="text-dmg">-${finalDamage}</div><div class="text-purple-300 text-sm">${skill.name}</div>`;
                     if (skill.type === 'lifesteal') {
-                        let heal = Math.floor(finalDamage * 0.5);
-                        attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal); updateGlobalHeroHp(attacker);
+                        let heal = Math.floor(finalDamage * 0.5); attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal); updateGlobalHeroHp(attacker);
                         showFloatingHtml(attacker.x, attacker.y, `<div class="text-heal">+${heal}</div>`);
                     }
                     showFloatingHtml(defender.x, defender.y, floatHtml);
@@ -1295,12 +1174,10 @@
             setTimeout(() => {
                 attacker.element.classList.remove('anim-attack');
                 const { multiplier, counterCount, weakCount } = calculateDamageMultiplier(attacker, defender);
-                const variance = Math.floor(attacker.atk * 0.2);
-                const baseDamage = attacker.atk + Math.floor(Math.random() * (variance * 2 + 1)) - variance;
+                const variance = Math.floor(attacker.atk * 0.2); const baseDamage = attacker.atk + Math.floor(Math.random() * (variance * 2 + 1)) - variance;
                 const finalDamage = Math.max(1, Math.floor(baseDamage * multiplier));
                 
-                defender.hp -= finalDamage;
-                if (defender.faction === FACTION_PLAYER) updateGlobalHeroHp(defender);
+                defender.hp -= finalDamage; if (defender.faction === FACTION_PLAYER) updateGlobalHeroHp(defender);
                 defender.element.classList.add('anim-damage');
                 
                 let floatHtml = `<div class="text-dmg">-${finalDamage}</div>`;
@@ -1310,18 +1187,13 @@
                 
                 const boosts = getArtifactBoosts();
                 if(boosts.lifesteal && attacker.faction === FACTION_PLAYER) {
-                    let heal = Math.floor(finalDamage * 0.3);
-                    attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal); updateGlobalHeroHp(attacker);
+                    let heal = Math.floor(finalDamage * 0.3); attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal); updateGlobalHeroHp(attacker);
                     showFloatingHtml(attacker.x, attacker.y, `<div class="text-heal">+${heal}</div>`);
                 }
 
-                // 神器: 荊棘鎧甲 (受到近戰攻擊時反彈傷害)
                 if(boosts.thorns && defender.faction === FACTION_PLAYER && attacker.faction === FACTION_ENEMY && getDistance(attacker.x, attacker.y, defender.x, defender.y) === 1) {
                     let thornDmg = Math.floor(finalDamage * 0.3);
-                    if(thornDmg > 0) {
-                        attacker.hp -= thornDmg;
-                        showFloatingHtml(attacker.x, attacker.y, `<div class="text-dmg" style="font-size:1rem; color:#f6ad55">-${thornDmg}</div><div class="text-purple-300 text-[0.6rem]">反彈</div>`);
-                    }
+                    if(thornDmg > 0) { attacker.hp -= thornDmg; showFloatingHtml(attacker.x, attacker.y, `<div class="text-dmg" style="font-size:1rem; color:#f6ad55">-${thornDmg}</div><div class="text-purple-300 text-[0.6rem]">反彈</div>`); }
                 }
 
                 showFloatingHtml(defender.x, defender.y, floatHtml);
@@ -1332,41 +1204,29 @@
         function checkKill(attacker, defender) {
             defender.element.classList.remove('anim-damage');
             
-            // 如果攻擊者被反彈傷害致死，也要一併處理
             if (attacker && attacker.hp <= 0 && attacker.faction === FACTION_ENEMY) {
                 attacker.element.style.opacity = '0'; attacker.element.style.transform = 'scale(0)';
-                let dropGoldA = attacker.gold || 10;
-                if(getArtifactBoosts().goldBonus) dropGoldA = Math.floor(dropGoldA * 1.5);
-                bState.earnedGold += dropGoldA;
                 setTimeout(() => { attacker.element.remove(); bState.units = bState.units.filter(u => u.id !== attacker.id); }, 300);
             }
 
             if (defender.hp <= 0) {
-                defender.element.style.opacity = '0'; defender.element.style.transform = 'scale(0)';
-                if (defender.faction === FACTION_ENEMY) {
-                    let dropGold = defender.gold || 10; 
-                    if(getArtifactBoosts().goldBonus) dropGold = Math.floor(dropGold * 1.5);
-                    bState.earnedGold += dropGold;
-                    showFloatingHtml(defender.x, defender.y, `<div class="text-gold">+${dropGold}G</div>`);
+                if (tryRevive(defender)) {
+                    if (attacker && attacker.hp > 0) { endUnitAction(attacker); } 
+                    else { checkWinCondition(null); }
+                    return;
                 }
+
+                defender.element.style.opacity = '0'; defender.element.style.transform = 'scale(0)';
                 setTimeout(() => {
                     if(defender.element) defender.element.remove();
                     bState.units = bState.units.filter(u => u.id !== defender.id);
-                    updatePuzzleState(); 
-                    checkWinCondition(attacker);
+                    updatePuzzleState(); checkWinCondition(attacker);
                 }, 300);
-            } else if (attacker && attacker.hp > 0) {
-                endUnitAction(attacker);
-            } else {
-                // 如果攻擊者死於反傷，且防禦者沒死，直接進入判定
-                checkWinCondition(null);
-            }
+            } else if (attacker && attacker.hp > 0) { endUnitAction(attacker); } 
+            else { checkWinCondition(null); }
         }
 
-        function updateGlobalHeroHp(unit) {
-            let globalHero = heroRuntime.find(h => h.id === unit.id);
-            if (globalHero) globalHero.hp = unit.hp <= 0 ? 1 : unit.hp; 
-        }
+        function updateGlobalHeroHp(unit) { let globalHero = heroRuntime.find(h => h.id === unit.id); if (globalHero) globalHero.hp = unit.hp <= 0 ? 1 : unit.hp; }
 
         function showFloatingHtml(x, y, htmlContent) {
             const floatEl = document.createElement('div'); floatEl.className = 'floating-text'; floatEl.innerHTML = htmlContent;
@@ -1375,55 +1235,38 @@
         }
 
         function endUnitAction(unit) {
-            if(!unit) return;
-            unit.hasActed = true; bState.selectedUnit = null; bState.phase = 'IDLE';
+            if(!unit) return; unit.hasActed = true; bState.selectedUnit = null; bState.phase = 'IDLE';
             clearHighlights(); renderUnits(); updateUI();
-            
             let unactedPlayers = bState.units.filter(u => u.faction === FACTION_PLAYER && !u.hasActed);
-            if (unactedPlayers.length === 0 && bState.currentTurn === FACTION_PLAYER) {
-                endPlayerTurn();
-            }
+            if (unactedPlayers.length === 0 && bState.currentTurn === FACTION_PLAYER) { endPlayerTurn(); }
         }
 
         // ==================== 強化勝利與情報同步寫入邏輯 ====================
         function checkWinCondition(lastAttacker, forceWin = false) {
-            let mode = globalState.currentLevelData.mode;
-            let isBoss = globalState.currentLevelData.isBossLevel;
-            let pCount = bState.units.filter(u => u.faction === FACTION_PLAYER).length;
-            let eCount = bState.units.filter(u => u.faction === FACTION_ENEMY).length;
+            let mode = globalState.currentLevelData.mode; let isBoss = globalState.currentLevelData.isBossLevel;
+            let pCount = bState.units.filter(u => u.faction === FACTION_PLAYER).length; let eCount = bState.units.filter(u => u.faction === FACTION_ENEMY).length;
 
             let isClear = false;
-            if (forceWin) isClear = true;
-            else if (mode === MODE_NORMAL && eCount === 0) isClear = true;
-            else if (isBoss && eCount === 0) isClear = true;
+            if (forceWin) isClear = true; else if (mode === MODE_NORMAL && eCount === 0) isClear = true; else if (isBoss && eCount === 0) isClear = true;
 
             if (pCount === 0) {
                 showBattleResult("戰鬥失敗", "全軍覆沒，撤退回城鎮...", "text-red-500", false);
             } else if (isClear) {
-                let tInfo = globalState.currentLevelData.tutorInfo;
-                let desc = "成功肅清了該區域的敵人！";
+                let tInfo = globalState.currentLevelData.tutorInfo; let desc = "成功肅清了該區域的敵人！";
                 if (mode === MODE_ESCAPE) desc = "成功抵達撤退點，脫離險境！";
                 if (mode === MODE_PUZZLE) desc = "機關解鎖，戰勝守衛，全隊成功抵達撤退點！";
                 if (mode === MODE_FOG) desc = "成功尋得撤退點，全隊安全脫離濃霧！";
                 
                 if (isBoss) {
-                    desc = "擊敗首領！全體英雄最大生命 +2，攻擊力 +1！";
-                    heroRuntime.forEach(h => { h.maxHp += 2; h.hp += 2; h.atk += 1; });
+                    desc = "擊敗首領！全體英雄最大生命 +2，攻擊力 +1！"; heroRuntime.forEach(h => { h.maxHp += 2; h.hp += 2; h.atk += 1; });
                     if (tInfo) {
                         let promoted = false;
                         globalState.selectedHeroIds.forEach(hid => {
                             let h = heroRuntime.find(x => x.id === hid);
                             if (h && h.baseType === tInfo.baseType && h.tier === (tInfo.targetTier - 1)) {
-                                h.tier = tInfo.targetTier; h.type = classNames[h.baseType][h.tier];
-                                
-                                h.maxHp += 5 * tInfo.targetTier; 
-                                h.hp += 5 * tInfo.targetTier; 
-                                h.atk += 2 * tInfo.targetTier; 
-                                if (h.tier === 2) h.skill.power += 0.5;
-                                if (h.tier === 3) h.skill.power += 1.0; 
-                                
-                                desc += `<br><br>🎉 <span class="text-blue-300 font-bold">${h.name}</span> 通過了指導，轉職為 <span class="text-yellow-400 font-bold">${h.type}</span>！`;
-                                promoted = true;
+                                h.tier = tInfo.targetTier; h.type = classNames[h.baseType][h.tier]; h.maxHp += 5 * tInfo.targetTier; h.hp += 5 * tInfo.targetTier; h.atk += 2 * tInfo.targetTier; 
+                                if (h.tier === 2) h.skill.power += 0.5; if (h.tier === 3) h.skill.power += 1.0; 
+                                desc += `<br><br>🎉 <span class="text-blue-300 font-bold">${h.name}</span> 通過了指導，轉職為 <span class="text-yellow-400 font-bold">${h.type}</span>！`; promoted = true;
                             }
                         });
                         if (!promoted) desc += `<br><br><span class="text-gray-400">（導師感嘆：可惜這支隊伍中，沒有適合繼承我衣缽的學徒...）</span>`;
@@ -1431,173 +1274,228 @@
                 }
                 
                 try {
-                    globalState.currentLevel++; 
-                    globalState.gold += bState.earnedGold;
-                    
-                    globalState.currentLevelData = generateRandomLevel(globalState.currentLevel); 
-                    saveGame();
-
-                    document.getElementById('battle-result-gold').innerHTML = `獲得金幣: ${bState.earnedGold}G`;
+                    globalState.currentLevel++; globalState.currentLevelData = generateRandomLevel(globalState.currentLevel); saveGame();
                     
                     if (isBoss && !tInfo) { 
                         let unowned = artifactPool.filter(a => !globalState.artifacts.includes(a.id));
                         if (unowned.length > 0) {
-                            let newArt = unowned[Math.floor(Math.random() * unowned.length)];
-                            globalState.artifacts.push(newArt.id);
-                            document.getElementById('battle-result-artifact').innerHTML = `獲得神器: ${newArt.icon} ${newArt.name}`;
-                            document.getElementById('battle-result-artifact').classList.remove('hidden');
-                            
-                            // Apply new artifact persistent stats instantly
-                            if (newArt.id === 'a3') heroRuntime.forEach(h => { h.maxHp += 5; h.hp += 5; });
-                            if (newArt.id === 'a4') heroRuntime.forEach(h => { h.atk += 2; });
-                            if (newArt.id === 'a6') heroRuntime.forEach(h => { h.maxHp += 10; h.hp += 10; });
-                            if (newArt.id === 'a7') heroRuntime.forEach(h => { h.atk += 4; });
-                            if (newArt.id === 'a8') heroRuntime.forEach(h => { if(h.classType === CLASS_AGILE) h.atk += 3; });
-                            if (newArt.id === 'a9') heroRuntime.forEach(h => { if(h.classType === CLASS_RANGED) h.atk += 3; });
-                            if (newArt.id === 'a10') heroRuntime.forEach(h => { if(h.classType === CLASS_MELEE) { h.maxHp += 8; h.hp += 8; } });
-                            if (newArt.id === 'a12') heroRuntime.forEach(h => { h.atk += 3; h.maxHp += 3; h.hp += 3; });
-                            if (newArt.id === 'a16') heroRuntime.forEach(h => { h.maxHp += 15; h.hp += 15; });
-                            if (newArt.id === 'a17') heroRuntime.forEach(h => { h.atk += 5; });
-                            if (newArt.id === 'a18') heroRuntime.forEach(h => { if(h.classType === CLASS_RANGED) h.atk += 4; });
-                            if (newArt.id === 'a19') heroRuntime.forEach(h => { if(h.classType === CLASS_MELEE) h.atk += 4; });
-                            
+                            let newArt = unowned[Math.floor(Math.random() * unowned.length)]; globalState.artifacts.push(newArt.id);
+                            document.getElementById('battle-result-artifact').innerHTML = `獲得神器: ${newArt.icon} ${newArt.name}`; document.getElementById('battle-result-artifact').classList.remove('hidden');
+                            if (newArt.id === 'a3') heroRuntime.forEach(h => { h.maxHp += 5; h.hp += 5; }); if (newArt.id === 'a4') heroRuntime.forEach(h => { h.atk += 2; });
+                            if (newArt.id === 'a6') heroRuntime.forEach(h => { h.maxHp += 10; h.hp += 10; }); if (newArt.id === 'a7') heroRuntime.forEach(h => { h.atk += 4; });
+                            if (newArt.id === 'a8') heroRuntime.forEach(h => { if(h.classType === CLASS_AGILE) h.atk += 3; }); if (newArt.id === 'a9') heroRuntime.forEach(h => { if(h.classType === CLASS_RANGED) h.atk += 3; });
+                            if (newArt.id === 'a10') heroRuntime.forEach(h => { if(h.classType === CLASS_MELEE) { h.maxHp += 8; h.hp += 8; } }); if (newArt.id === 'a12') heroRuntime.forEach(h => { h.atk += 3; h.maxHp += 3; h.hp += 3; });
+                            if (newArt.id === 'a16') heroRuntime.forEach(h => { h.maxHp += 15; h.hp += 15; }); if (newArt.id === 'a17') heroRuntime.forEach(h => { h.atk += 5; });
+                            if (newArt.id === 'a18') heroRuntime.forEach(h => { if(h.classType === CLASS_RANGED) h.atk += 4; }); if (newArt.id === 'a19') heroRuntime.forEach(h => { if(h.classType === CLASS_MELEE) h.atk += 4; });
                             saveGame(); 
                         } else document.getElementById('battle-result-artifact').classList.add('hidden');
                     } else document.getElementById('battle-result-artifact').classList.add('hidden');
                 } catch(e) { console.error("過關結算存檔異常:", e); }
                 
                 showBattleResult("戰鬥勝利！", desc, "text-yellow-500", true);
-            } else {
-                if (lastAttacker && lastAttacker.hp > 0) endUnitAction(lastAttacker);
-            }
+            } else { if (lastAttacker && lastAttacker.hp > 0) endUnitAction(lastAttacker); }
         }
 
         function showBattleResult(title, desc, titleClass, isWin) {
-            bState.phase = 'ANIMATING';
-            document.getElementById('battle-result-title').innerText = title; document.getElementById('battle-result-title').className = `text-5xl font-bold mb-4 ${titleClass} drop-shadow-lg`;
+            bState.phase = 'ANIMATING'; document.getElementById('battle-result-title').innerText = title; document.getElementById('battle-result-title').className = `text-5xl font-bold mb-4 ${titleClass} drop-shadow-lg`;
             document.getElementById('battle-result-desc').innerHTML = desc;
-            
             if (!isWin) { 
-                globalState.currentLevelData = generateRandomLevel(globalState.currentLevel); 
-                saveGame();
-                document.getElementById('battle-result-gold').innerHTML = `<span class="text-gray-400">全軍覆沒，一無所獲...</span>`; 
+                globalState.currentLevelData = generateRandomLevel(globalState.currentLevel); saveGame();
                 document.getElementById('battle-result-artifact').classList.add('hidden');
             }
             document.getElementById('battle-modal').classList.remove('hidden');
         }
 
         function returnToTown() {
-            bState.units.filter(u => u.faction === FACTION_PLAYER).forEach(u => {
-                let h = heroRuntime.find(x => x.id === u.id);
-                if (h) { h.hp = Math.max(1, u.hp); h.currentCd = Math.max(0, u.currentCd - 1); } 
-            });
+            bState.units.filter(u => u.faction === FACTION_PLAYER).forEach(u => { let h = heroRuntime.find(x => x.id === u.id); if (h) { h.hp = Math.max(1, u.hp); h.currentCd = Math.max(0, u.currentCd - 1); } });
             switchScreen('screen-town');
         }
 
         function endPlayerTurn() {
             if (bState.currentTurn !== FACTION_PLAYER) return;
             bState.currentTurn = FACTION_ENEMY; bState.selectedUnit = null; bState.phase = 'IDLE'; clearHighlights(); updateUI();
-            
-            if(globalState.currentLevelData.mode === MODE_FOG) {
-                setTimeout(startPlayerTurn, 300);
-                return;
-            }
-
-            document.getElementById('turn-indicator').innerText = "回合: 敵方階段"; document.getElementById('turn-indicator').className = "text-xs text-red-400 font-bold";
-            showToast("敵軍行動");
-            bState.units.filter(u => u.faction === FACTION_ENEMY).forEach(u => u.hasActed = false);
-            renderUnits(); setTimeout(executeEnemyTurn, 1000);
+            if(globalState.currentLevelData.mode === MODE_FOG) { setTimeout(startPlayerTurn, 300); return; }
+            document.getElementById('turn-indicator').innerText = "回合: 敵方階段"; document.getElementById('turn-indicator').className = "text-[0.65rem] text-red-400 font-bold leading-tight truncate";
+            showToast("敵軍行動"); bState.units.filter(u => u.faction === FACTION_ENEMY).forEach(u => u.hasActed = false); renderUnits(); setTimeout(executeEnemyTurn, 1000);
         }
 
         function startPlayerTurn() {
-            bState.currentTurn = FACTION_PLAYER;
-            document.getElementById('turn-indicator').innerText = "回合: 玩家階段"; document.getElementById('turn-indicator').className = "text-xs text-blue-300 font-bold";
+            bState.currentTurn = FACTION_PLAYER; document.getElementById('turn-indicator').innerText = "回合: 玩家階段"; document.getElementById('turn-indicator').className = "text-[0.65rem] text-blue-300 font-bold leading-tight truncate";
             showToast("你的回合");
-            
             let hasRegen = globalState.artifacts.includes('a11');
             bState.units.filter(u => u.faction === FACTION_PLAYER).forEach(u => {
                 u.hasActed = false; if(u.currentCd > 0) u.currentCd--; 
-                if (hasRegen && u.hp < u.maxHp) {
-                    u.hp = Math.min(u.maxHp, u.hp + 2); updateGlobalHeroHp(u); showFloatingHtml(u.x, u.y, `<div class="text-heal">+2</div>`);
-                }
+                if (hasRegen && u.hp < u.maxHp) { u.hp = Math.min(u.maxHp, u.hp + 2); updateGlobalHeroHp(u); showFloatingHtml(u.x, u.y, `<div class="text-heal">+2</div>`); }
             });
             renderUnits();
         }
 
         async function executeEnemyTurn() {
-            let mode = globalState.currentLevelData.mode;
-
+            let mode = globalState.currentLevelData.mode; let weather = globalState.currentLevelData.weather;
             if (mode === MODE_ESCAPE) {
                 let enemies = bState.units.filter(u => u.faction === FACTION_ENEMY);
                 if (enemies.length < 4) {
                     let emptySpawnPoints = [];
-                    for(let c = 0; c < COLS; c++) {
-                        if (c !== 2 && c !== 3 && !getUnitAt(c, 0)) emptySpawnPoints.push({x: c, y: 0});
-                        if (!getUnitAt(c, 1)) emptySpawnPoints.push({x: c, y: 1});
-                    }
+                    for(let c = 0; c < COLS; c++) { if (c !== 2 && c !== 3 && !getUnitAt(c, 0)) emptySpawnPoints.push({x: c, y: 0}); if (!getUnitAt(c, 1)) emptySpawnPoints.push({x: c, y: 1}); }
                     if (emptySpawnPoints.length > 0) {
-                        let spawnPos = emptySpawnPoints[Math.floor(Math.random() * emptySpawnPoints.length)];
-                        let enemyDef = enemyPool[Math.floor(Math.random() * enemyPool.length)];
-                        let levelNum = globalState.currentLevel;
-                        let newEnemy = { id: `e_spawn_${Date.now()}`, ...enemyDef, faction: FACTION_ENEMY, x: spawnPos.x, y: spawnPos.y, maxHp: enemyDef.maxHp + levelNum, hp: enemyDef.maxHp + levelNum, atk: enemyDef.atk + Math.floor(levelNum*0.3), hasActed: false, element: null };
-                        bState.units.push(newEnemy); renderUnits();
-                        showFloatingHtml(spawnPos.x, spawnPos.y, `<div class="text-red-500 font-bold text-sm">增援!</div>`);
-                        await new Promise(r => setTimeout(r, 600));
+                        let spawnPos = emptySpawnPoints[Math.floor(Math.random() * emptySpawnPoints.length)]; let enemyDef = enemyPool[Math.floor(Math.random() * enemyPool.length)]; let levelNum = globalState.currentLevel;
+                        let eMove = enemyDef.moveRange || 2; if (weather && weather.name === '洪水') eMove = 1; else if (weather && weather.name === '暴雨') eMove = Math.max(1, eMove - 1);
+                        let newEnemy = { id: `e_spawn_${Date.now()}`, ...enemyDef, faction: FACTION_ENEMY, x: spawnPos.x, y: spawnPos.y, maxHp: enemyDef.maxHp + levelNum, hp: enemyDef.maxHp + levelNum, atk: enemyDef.atk + Math.floor(levelNum*0.3), moveRange: eMove, hasActed: false, element: null };
+                        bState.units.push(newEnemy); renderUnits(); showFloatingHtml(spawnPos.x, spawnPos.y, `<div class="text-red-500 font-bold text-sm">增援!</div>`); await new Promise(r => setTimeout(r, 600));
                     }
                 }
             }
 
             let enemies = bState.units.filter(u => u.faction === FACTION_ENEMY);
-            if (enemies.length === 0) { startPlayerTurn(); return; } 
+            if (enemies.length === 0) { await executeWeatherTurn(); return; } 
 
             for (let i = 0; i < enemies.length; i++) {
                 if (bState.units.filter(u => u.faction === FACTION_PLAYER).length === 0) break; 
-                
-                let enemy = enemies[i]; if (enemy.hp <= 0) continue;
-                bState.selectedUnit = enemy; updateUI();
-                let players = bState.units.filter(u => u.faction === FACTION_PLAYER);
-                
+                let enemy = enemies[i]; if (enemy.hp <= 0) continue; bState.selectedUnit = enemy; updateUI(); let players = bState.units.filter(u => u.faction === FACTION_PLAYER);
                 let targetPlayer = null; let highestScore = -999;
                 players.forEach(p => {
-                    // 視線被阻擋時，AI 也不應將其列為最佳目標
                     if (!hasLineOfSight(enemy.x, enemy.y, p.x, p.y)) return;
-
-                    let dist = getDistance(enemy.x, enemy.y, p.x, p.y);
-                    let { multiplier } = calculateDamageMultiplier(enemy, p);
-                    let score = (multiplier * 100) - (dist * 10) - (p.hp);
+                    let dist = getDistance(enemy.x, enemy.y, p.x, p.y); let { multiplier } = calculateDamageMultiplier(enemy, p); let score = (multiplier * 100) - (dist * 10) - (p.hp);
                     if (score > highestScore) { highestScore = score; targetPlayer = p; }
                 });
 
-                if(!targetPlayer) {
-                    enemy.hasActed = true; renderUnits(); await new Promise(r => setTimeout(r, 300));
-                    continue;
-                }
+                if(!targetPlayer) { enemy.hasActed = true; renderUnits(); await new Promise(r => setTimeout(r, 300)); continue; }
 
                 let moveCells = getMovableCells(enemy); let bestCell = {x: enemy.x, y: enemy.y}; let minDist = getDistance(enemy.x, enemy.y, targetPlayer.x, targetPlayer.y);
                 let needMove = minDist > enemy.atkRange || !hasLineOfSight(enemy.x, enemy.y, targetPlayer.x, targetPlayer.y);
-                if (needMove) {
-                    moveCells.forEach(cell => { 
-                        let d = getDistance(cell.x, cell.y, targetPlayer.x, targetPlayer.y); 
-                        if (d < minDist || (d <= enemy.atkRange && hasLineOfSight(cell.x, cell.y, targetPlayer.x, targetPlayer.y))) { 
-                            minDist = d; bestCell = cell; 
-                        } 
-                    });
-                }
+                if (needMove) { moveCells.forEach(cell => { let d = getDistance(cell.x, cell.y, targetPlayer.x, targetPlayer.y); if (d < minDist || (d <= enemy.atkRange && hasLineOfSight(cell.x, cell.y, targetPlayer.x, targetPlayer.y))) { minDist = d; bestCell = cell; } }); }
 
                 if (needMove && (bestCell.x !== enemy.x || bestCell.y !== enemy.y)) { 
-                    enemy.x = bestCell.x; enemy.y = bestCell.y; 
-                    updatePuzzleState(); 
-                    renderUnits(); 
-                    await new Promise(r => setTimeout(r, 600)); 
+                    enemy.x = bestCell.x; enemy.y = bestCell.y; let t = getTerrainAt(enemy.x, enemy.y); updatePuzzleState(); renderUnits(); await new Promise(r => setTimeout(r, 600)); 
+                    if (t && ['fog', 'trap', 'teleport', 'slow', 'altar'].includes(t.type)) { await applyTileEffect(enemy, t); if (enemy.hp <= 0) continue; }
                 }
 
                 let possibleTargets = getAttackableTargets(enemy);
                 if (possibleTargets.length > 0) {
-                    possibleTargets.sort((a, b) => calculateDamageMultiplier(enemy, b).multiplier - calculateDamageMultiplier(enemy, a).multiplier);
-                    executeAttack(enemy, possibleTargets[0]); await new Promise(r => setTimeout(r, 1200)); 
+                    possibleTargets.sort((a, b) => calculateDamageMultiplier(enemy, b).multiplier - calculateDamageMultiplier(enemy, a).multiplier); executeAttack(enemy, possibleTargets[0]); await new Promise(r => setTimeout(r, 1200)); 
                 } else { enemy.hasActed = true; renderUnits(); await new Promise(r => setTimeout(r, 300)); }
             }
-            if (bState.units.filter(u => u.faction === FACTION_PLAYER).length > 0) startPlayerTurn();
+            if (bState.units.filter(u => u.faction === FACTION_PLAYER).length > 0) { await executeWeatherTurn(); }
+        }
+
+        // ==================== 氣候回合處理 ====================
+        async function executeWeatherTurn() {
+            let weather = globalState.currentLevelData.weather;
+            if (!weather || weather.name === '晴朗' || weather.name === '暴雨') { startPlayerTurn(); return; }
+
+            document.getElementById('turn-indicator').innerText = "回合: 氣候影響"; document.getElementById('turn-indicator').className = "text-[0.65rem] text-gray-400 font-bold leading-tight truncate";
+
+            let players = bState.units.filter(u => u.faction === FACTION_PLAYER);
+            let enemies = bState.units.filter(u => u.faction === FACTION_ENEMY);
+            let allTargets = [...players, ...enemies];
+            if (allTargets.length === 0) { checkWinCondition(null); return; }
+
+            // 1. 冰雹砸落
+            if (weather.name === '冰雹') {
+                let target = allTargets[Math.floor(Math.random() * allTargets.length)];
+                let dmg = Math.max(1, Math.floor(target.maxHp * 0.15));
+                target.hp -= dmg; if(target.faction === FACTION_PLAYER) updateGlobalHeroHp(target);
+                target.element.classList.add('anim-damage');
+                showFloatingHtml(target.x, target.y, `<div class="text-dmg">-${dmg}</div><div class="text-blue-200 text-sm drop-shadow">冰雹</div>`);
+                await new Promise(r => setTimeout(r, 500));
+                target.element.classList.remove('anim-damage');
+                if (target.hp <= 0) {
+                    if (!tryRevive(target)) {
+                        target.element.style.opacity = '0'; await new Promise(r => setTimeout(r, 300));
+                        target.element.remove(); bState.units = bState.units.filter(u => u.id !== target.id); updatePuzzleState();
+                    }
+                }
+            }
+
+            // 2. 隨機產生異象實體 (50%機率)
+            let spawnType = null;
+            if (Math.random() < 0.5) {
+                if (weather.name === '雷雨') spawnType = { name: '閃電', icon: '⚡️', move: 2, effect: 'shock' };
+                if (weather.name === '狂風') spawnType = { name: '龍捲風', icon: '🌪️', move: 3, effect: 'push' };
+                if (weather.name === '乾旱') spawnType = { name: '火焰', icon: '🔥', move: 1, effect: 'burn' };
+                if (weather.name === '洪水') spawnType = { name: '漩渦', icon: '🌀', move: 1, effect: 'teleport' };
+            }
+
+            if (spawnType) {
+                let emptySpots = [];
+                for(let x=0; x<COLS; x++) {
+                    for(let y=0; y<ROWS; y++) {
+                        if (!getUnitAt(x, y) && !bState.terrain.find(t => t.x===x && t.y===y && t.type===TERRAIN_ESCAPE)) emptySpots.push({x,y});
+                    }
+                }
+                if (emptySpots.length > 0) {
+                    let spot = emptySpots[Math.floor(Math.random() * emptySpots.length)];
+                    let newEntity = { id: `env_${Date.now()}`, name: spawnType.name, race: '自然', classType: '環境', type: '環境', icon: spawnType.icon, maxHp: 999, hp: 999, atk: 0, moveRange: spawnType.move, atkRange: 1, faction: 'environment', x: spot.x, y: spot.y, effect: spawnType.effect, hasActed: false, element: null };
+                    bState.units.push(newEntity); renderUnits();
+                    showFloatingHtml(spot.x, spot.y, `<div class="text-white font-bold text-sm drop-shadow">氣候異象</div>`);
+                    await new Promise(r => setTimeout(r, 400));
+                }
+            }
+
+            // 3. 移動並觸發異象
+            let envUnits = bState.units.filter(u => u.faction === 'environment');
+            for (let env of envUnits) {
+                let currentTargets = bState.units.filter(u => u.faction === FACTION_PLAYER || u.faction === FACTION_ENEMY);
+                if (currentTargets.length === 0) continue;
+
+                let nearestTarget = null; let minDist = 999;
+                currentTargets.forEach(t => { let d = getDistance(env.x, env.y, t.x, t.y); if (d < minDist) { minDist = d; nearestTarget = t; } });
+
+                if (nearestTarget) {
+                    if (minDist > 1) {
+                        let moveCells = getMovableCells(env); let bestCell = {x: env.x, y: env.y}; let bestDist = minDist;
+                        moveCells.forEach(cell => { let d = getDistance(cell.x, cell.y, nearestTarget.x, nearestTarget.y); if (d < bestDist) { bestDist = d; bestCell = cell; } });
+                        env.x = bestCell.x; env.y = bestCell.y; renderUnits(); await new Promise(r => setTimeout(r, 300));
+                        minDist = getDistance(env.x, env.y, nearestTarget.x, nearestTarget.y);
+                    }
+
+                    if (minDist <= 1) {
+                        env.element.classList.add('anim-attack'); await new Promise(r => setTimeout(r, 200)); env.element.classList.remove('anim-attack');
+                        
+                        if (env.effect === 'shock') {
+                            let dmg = Math.max(1, Math.floor(nearestTarget.maxHp * 0.2)); nearestTarget.hp -= dmg;
+                            showFloatingHtml(nearestTarget.x, nearestTarget.y, `<div class="text-dmg">-${dmg}</div><div class="text-yellow-300 text-sm drop-shadow">電擊</div>`);
+                        } else if (env.effect === 'burn') {
+                            let dmg = Math.max(1, Math.floor(nearestTarget.maxHp * 0.15)); nearestTarget.hp -= dmg;
+                            showFloatingHtml(nearestTarget.x, nearestTarget.y, `<div class="text-dmg">-${dmg}</div><div class="text-red-400 text-sm drop-shadow">燒傷</div>`);
+                        } else if (env.effect === 'push') {
+                            let dx = nearestTarget.x - env.x; let dy = nearestTarget.y - env.y;
+                            if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0;
+                            dx = dx > 0 ? 1 : (dx < 0 ? -1 : 0); dy = dy > 0 ? 1 : (dy < 0 ? -1 : 0);
+                            if(dx===0 && dy===0) dx=1; 
+                            let nx = nearestTarget.x + dx; let ny = nearestTarget.y + dy;
+                            if (nx>=0 && nx<COLS && ny>=0 && ny<ROWS && !getUnitAt(nx, ny)) {
+                                nearestTarget.x = nx; nearestTarget.y = ny; showFloatingHtml(nearestTarget.x, nearestTarget.y, `<div class="text-white font-bold drop-shadow">吹飛!</div>`);
+                            } else showFloatingHtml(nearestTarget.x, nearestTarget.y, `<div class="text-gray-400 font-bold drop-shadow">抵抗位移</div>`);
+                        } else if (env.effect === 'teleport') {
+                            let emptySpots = [];
+                            for(let x=0; x<COLS; x++) { for(let y=0; y<ROWS; y++) { if(!getUnitAt(x,y)) emptySpots.push({x,y}); } }
+                            if(emptySpots.length > 0) {
+                                let spot = emptySpots[Math.floor(Math.random() * emptySpots.length)];
+                                nearestTarget.x = spot.x; nearestTarget.y = spot.y; showFloatingHtml(nearestTarget.x, nearestTarget.y, `<div class="text-purple-400 font-bold drop-shadow">漩渦傳送!</div>`);
+                            }
+                        }
+
+                        if (['shock', 'burn'].includes(env.effect)) {
+                            if(nearestTarget.faction === FACTION_PLAYER) updateGlobalHeroHp(nearestTarget);
+                            nearestTarget.element.classList.add('anim-damage'); await new Promise(r => setTimeout(r, 400)); nearestTarget.element.classList.remove('anim-damage');
+                            if(nearestTarget.hp <= 0) {
+                                if (!tryRevive(nearestTarget)) {
+                                    nearestTarget.element.style.opacity = '0'; await new Promise(r => setTimeout(r, 300));
+                                    nearestTarget.element.remove(); bState.units = bState.units.filter(u => u.id !== nearestTarget.id);
+                                }
+                            }
+                        } else { renderUnits(); await new Promise(r => setTimeout(r, 400)); }
+
+                        env.element.style.opacity = '0'; await new Promise(r => setTimeout(r, 300)); env.element.remove(); bState.units = bState.units.filter(u => u.id !== env.id); updatePuzzleState();
+                    }
+                }
+            }
+
+            let alivePlayers = bState.units.filter(u => u.faction === FACTION_PLAYER).length;
+            let aliveEnemies = bState.units.filter(u => u.faction === FACTION_ENEMY).length;
+            if (alivePlayers === 0 || (globalState.currentLevelData.mode === MODE_NORMAL && aliveEnemies === 0)) checkWinCondition(null);
+            else startPlayerTurn();
         }
 
         document.getElementById('btn-cancel').addEventListener('click', () => { if (bState.phase === 'MOVE_SELECTION' || bState.phase === 'ACTION_SELECTION' || bState.phase === 'SKILL_SELECTION') { bState.selectedUnit = null; bState.phase = 'IDLE'; clearHighlights(); updateUI(); } });
