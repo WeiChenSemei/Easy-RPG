@@ -1392,7 +1392,7 @@
         }
 
         function endUnitAction(unit) {
-            if(!unit) return; unit.hasActed = true; bState.selectedUnit = null; bState.phase = 'IDLE';
+            if(unit) unit.hasActed = true; bState.selectedUnit = null; bState.phase = 'IDLE';
             clearHighlights(); renderUnits(); updateUI();
             let unactedPlayers = bState.units.filter(u => u.faction === FACTION_PLAYER && !u.hasActed);
             if (unactedPlayers.length === 0 && bState.currentTurn === FACTION_PLAYER) { endPlayerTurn(); }
@@ -1480,7 +1480,10 @@
                 } catch(e) { console.error("過關結算存檔異常:", e); }
                 
                 showBattleResult("戰鬥勝利！", desc, "text-yellow-500", true);
-            } else { if (lastAttacker && lastAttacker.hp > 0) endUnitAction(lastAttacker); }
+            } else { 
+                if (lastAttacker && lastAttacker.hp > 0) endUnitAction(lastAttacker); 
+                else endUnitAction(null);
+            }
         }
 
         function showBattleResult(title, desc, titleClass, isWin) {
@@ -1507,7 +1510,7 @@
         }
 
         function startPlayerTurn() {
-            bState.currentTurn = FACTION_PLAYER; document.getElementById('turn-indicator').innerText = "回合: 玩家階段"; document.getElementById('turn-indicator').className = "text-[0.65rem] text-blue-300 font-bold leading-tight truncate";
+            bState.currentTurn = FACTION_PLAYER; bState.phase = 'IDLE'; document.getElementById('turn-indicator').innerText = "回合: 玩家階段"; document.getElementById('turn-indicator').className = "text-[0.65rem] text-blue-300 font-bold leading-tight truncate";
             showToast("你的回合");
             let hasRegen = globalState.artifacts.includes('a11');
             bState.units.filter(u => u.faction === FACTION_PLAYER).forEach(u => {
@@ -1694,5 +1697,3 @@
     </script>
 </body>
 </html>
-
-
