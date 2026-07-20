@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>聖域之戰 - 介面優化版</title>
+    <title>聖域之戰 - 防護與優化版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #1a202c; color: #e2e8f0; touch-action: manipulation; font-family: 'Segoe UI', sans-serif; overflow: hidden; user-select: none; -webkit-user-select: none; }
@@ -356,7 +356,7 @@
                 <p class="text-gray-300 text-sm">選擇 4 名夥伴 (重傷者 1 HP)</p>
                 <span class="text-sm font-bold text-yellow-400 bg-gray-700 px-2 py-1 rounded" id="roster-count">0/4</span>
             </div>
-            <div id="roster-grid" class="grid grid-cols-2 gap-2 pb-6"></div>
+            <div id="roster-grid" class="grid grid-cols-3 gap-2 pb-6"></div>
         </div>
     </div>
 
@@ -374,35 +374,38 @@
             <button id="end-turn-btn" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-1 px-3 text-sm rounded shadow ml-1 flex-shrink-0">結束回合</button>
         </header>
 
-        <div id="unit-panel" class="bg-gray-700 h-24 flex items-center px-3 shadow-inner text-sm transition-opacity duration-200 opacity-0 z-20 relative">
-            <div id="panel-icon" class="text-4xl mr-3 drop-shadow-md">🛡️</div>
-            <div class="flex-1 text-xs flex flex-col justify-center">
-                <div class="flex justify-between font-bold text-[1rem] mb-1">
-                    <span id="panel-name" class="text-blue-300 drop-shadow"></span>
-                    <span id="panel-hp" class="text-green-400 bg-gray-800 px-2 rounded"></span>
+        <!-- 變薄的戰鬥面板 -->
+        <div id="unit-panel" class="bg-gray-700 h-10 flex items-center px-2 shadow-inner text-sm transition-opacity duration-200 opacity-0 z-20 relative border-b border-gray-600 shrink-0">
+            <div id="panel-icon" class="text-xl mr-2 drop-shadow-md">🛡️</div>
+            <div class="flex-1 flex items-center justify-between text-xs whitespace-nowrap overflow-hidden">
+                <div class="flex items-center gap-2">
+                    <span id="panel-name" class="font-bold drop-shadow truncate max-w-[80px]"></span>
+                    <span id="panel-hp" class="text-green-400 bg-gray-800 px-1.5 py-0.5 rounded font-bold"></span>
+                    <span class="text-gray-300 flex items-center gap-1">
+                        <span title="攻擊力">⚔️<span id="panel-atk" class="text-white"></span></span>
+                        <span title="移動力">👟<span id="panel-move" class="text-white"></span></span>
+                        <span title="攻擊範圍">🏹<span id="panel-range" class="text-white"></span></span>
+                    </span>
                 </div>
-                <div class="flex gap-1 mb-1 items-center">
+                <div class="flex items-center gap-1 ml-2 shrink-0">
                     <span id="panel-race" class="trait-badge bg-green-800 border-green-600"></span>
                     <span id="panel-class" class="trait-badge bg-red-800 border-red-600"></span>
-                    <span id="panel-skill-name" class="trait-badge bg-purple-800 border-purple-600 ml-auto hidden text-[0.6rem]"></span>
-                </div>
-                <div class="flex justify-between items-center text-gray-300 font-medium">
-                    <span title="攻擊力">⚔️ <span id="panel-atk" class="text-white"></span></span>
-                    <span title="移動力">👟 <span id="panel-move" class="text-white"></span></span>
-                    <span title="攻擊範圍">🏹 <span id="panel-range" class="text-white"></span></span>
                 </div>
             </div>
         </div>
 
-        <div id="action-bar" class="bg-gray-800 p-2 h-14 flex justify-around items-center opacity-50 pointer-events-none transition-opacity z-20 shadow-md">
-            <button id="btn-cancel" class="bg-gray-600 text-white font-bold py-1.5 px-2 text-xs rounded-lg w-1/3 mx-1">取消選取</button>
-            <button id="btn-skill" class="bg-purple-600 text-white font-bold py-1.5 px-2 text-xs rounded-lg w-1/3 mx-1 flex flex-col items-center justify-center leading-tight">
-                使用技能 <span id="skill-cd" class="text-[0.6rem] text-purple-200">(CD:0)</span>
+        <!-- 移到這裡的指令列 -->
+        <div id="action-bar" class="bg-gray-800 p-1.5 h-12 flex justify-around items-center opacity-50 pointer-events-none transition-opacity z-20 shadow-md shrink-0">
+            <button id="btn-cancel" class="bg-gray-600 text-white font-bold py-1 px-2 text-xs rounded w-1/3 mx-1 shadow-sm active:translate-y-0.5">取消選取</button>
+            <button id="btn-skill" class="bg-purple-600 text-white font-bold py-1 px-2 text-xs rounded w-1/3 mx-1 shadow-sm flex flex-col items-center justify-center leading-none active:translate-y-0.5">
+                <span id="panel-skill-name" class="truncate w-full text-center">使用技能</span>
+                <span id="skill-cd" class="text-[0.55rem] text-purple-200 mt-0.5">(CD:0)</span>
             </button>
-            <button id="btn-wait" class="bg-blue-600 text-white font-bold py-1.5 px-2 text-xs rounded-lg w-1/3 mx-1">原地待命</button>
+            <button id="btn-wait" class="bg-blue-600 text-white font-bold py-1 px-2 text-xs rounded w-1/3 mx-1 shadow-sm active:translate-y-0.5">原地待命</button>
         </div>
 
-        <main class="flex-1 flex items-center justify-center p-2 overflow-hidden bg-gray-900 relative">
+        <!-- 增加底部 padding 避開原生地部導航列 -->
+        <main class="flex-1 flex items-center justify-center p-2 pb-8 overflow-hidden bg-gray-900 relative">
             <div id="game-board"></div>
             
             <div id="battle-modal" class="absolute inset-0 bg-black bg-opacity-85 flex flex-col items-center justify-center z-50 hidden">
@@ -526,8 +529,8 @@
             { name: '變異食人魔', race: '怪物', classType: CLASS_MELEE, type: '首領', icon: '🧟', maxHp: 95, atk: 13, moveRange: 2, atkRange: 1 }, { name: '深海巨蟲', race: '怪物', classType: CLASS_AGILE, type: '首領', icon: '🐛', maxHp: 75, atk: 15, moveRange: 3, atkRange: 2 }
         ];
 
-        // 升級 V41: 戰鬥指令列位置調整、紀錄文字更新
-        const SAVE_KEY = 'sanctuary_tactics_v41'; 
+        // 升級 V42: 修復移動軌跡Bug，重新排版單行狀態列與置底按鈕區
+        const SAVE_KEY = 'sanctuary_tactics_v42'; 
         let heroRuntime = []; 
         let globalState = {};
         let bState = { units: [], terrain: [], currentTurn: FACTION_PLAYER, selectedUnit: null, phase: 'IDLE', boardElement: document.getElementById('game-board'), highlightElements: [], reviveUsed: false, startTime: 0 };
@@ -883,27 +886,43 @@
             const boosts = getArtifactBoosts();
             const availableHeroes = heroRuntime.filter(h => !h.isHidden || globalState.unlockedHiddenHeroes.includes(h.id));
 
+            // 按照種族排序，讓相同種族的英雄排在一起
+            availableHeroes.sort((a, b) => a.race.localeCompare(b.race, 'zh-TW'));
+
             availableHeroes.forEach(hero => {
                 const isSelected = globalState.selectedHeroIds.includes(hero.id); const isLowHp = hero.hp <= 1;
                 const hpPercent = Math.max(0, (hero.hp / hero.maxHp) * 100);
-                const hpColor = hpPercent > 50 ? 'bg-green-500' : (hpPercent > 20 ? 'bg-yellow-500' : 'bg-red-500');
+                const hpTextColor = hpPercent > 50 ? 'text-green-400' : (hpPercent > 20 ? 'text-yellow-400' : 'text-red-500');
+                
                 let dMove = hero.moveRange + boosts.move; if (boosts.agileMove && hero.classType === CLASS_AGILE) dMove += 1;
                 let dRange = hero.atkRange + ((boosts.rangeMod && (hero.classType === CLASS_RANGED || hero.classType === CLASS_AGILE)) ? 1 : 0);
 
                 const card = document.createElement('div');
-                card.className = `hero-card rounded-lg p-2 bg-gray-700 relative cursor-pointer ${isSelected ? 'selected' : ''} ${isLowHp ? 'low-hp' : ''}`;
+                card.className = `hero-card rounded-lg p-2 bg-gray-700 relative cursor-pointer flex flex-col items-center text-center shadow-md ${isSelected ? 'selected' : ''} ${isLowHp ? 'low-hp' : ''}`;
                 card.onclick = () => toggleHeroSelection(hero.id);
-                let star = hero.tier > 0 ? `<span class="text-yellow-400">${'★'.repeat(hero.tier)}</span> ` : '';
+                
+                let star = hero.tier > 0 ? `<span class="text-yellow-400 text-[0.65rem] leading-none mb-0.5">${'★'.repeat(hero.tier)}</span>` : '';
 
                 card.innerHTML = `
-                    <div class="flex items-center mb-1">
-                        <div class="text-3xl mr-2 drop-shadow">${hero.icon}</div>
-                        <div><div class="font-bold text-white text-sm">${star}${hero.name}</div>
-                        <div class="flex gap-1 mt-0.5"><span class="trait-badge bg-green-800 border-green-600" style="font-size:0.5rem">${hero.race}</span><span class="trait-badge bg-red-800 border-red-600" style="font-size:0.5rem">${hero.classType}·${hero.type}</span></div></div></div>
-                    <div class="text-[0.6rem] text-gray-300 grid grid-cols-3 gap-x-1 mb-1 mt-2 text-center"><span>⚔️ ${hero.atk}</span> <span>👟 ${dMove}</span> <span>🏹 ${dRange}</span></div>
-                    <div class="w-full bg-gray-900 rounded-full h-1.5 border border-gray-600 relative"><div class="${hpColor} h-1.5 rounded-full" style="width: ${hpPercent}%"></div></div>
-                    ${isSelected ? '<div class="absolute top-1 right-1 text-yellow-400 font-bold text-sm">✓</div>' : ''}
-                    ${isLowHp && !isSelected ? '<div class="absolute inset-0 flex items-center justify-center text-red-500 font-bold text-lg transform -rotate-12 bg-black bg-opacity-40 rounded">重傷</div>' : ''}`;
+                    <div class="text-3xl drop-shadow mb-1">${hero.icon}</div>
+                    <div class="font-bold text-white text-[0.85rem] mb-2 leading-tight min-h-[2rem] flex flex-col justify-end">${star}<span>${hero.name}</span></div>
+                    
+                    <div class="flex flex-col gap-1 w-full mb-2">
+                        <span class="trait-badge bg-green-800 border-green-600 text-xs py-0.5">${hero.race}</span>
+                        <span class="trait-badge bg-red-800 border-red-600 text-[0.6rem] py-0.5 truncate" title="${hero.classType}·${hero.type}">${hero.classType}·${hero.type}</span>
+                    </div>
+                    
+                    <div class="text-[0.65rem] text-gray-300 flex justify-between w-full px-1 mb-2">
+                        <span title="攻擊力">⚔️${hero.atk}</span> <span title="移動力">👟${dMove}</span> <span title="攻擊範圍">🏹${dRange}</span>
+                    </div>
+                    
+                    <div class="text-xs font-black ${hpTextColor} bg-gray-900 w-full rounded py-1 border border-gray-600 shadow-inner tracking-wider">
+                        HP ${hero.hp}/${hero.maxHp}
+                    </div>
+                    
+                    ${isSelected ? '<div class="absolute top-0.5 right-1.5 text-yellow-400 font-bold text-lg drop-shadow-md z-10">✓</div>' : ''}
+                    ${isLowHp && !isSelected ? '<div class="absolute inset-0 flex items-center justify-center text-red-500 font-bold text-lg transform -rotate-12 bg-black bg-opacity-60 rounded-lg z-10">重傷</div>' : ''}`;
+                
                 grid.appendChild(card);
             });
         }
@@ -1030,34 +1049,72 @@
         function clearHighlights() { bState.highlightElements.forEach(el => el.remove()); bState.highlightElements = []; }
 
         function updateUI() {
-            const panel = document.getElementById('unit-panel'); const btnSkill = document.getElementById('btn-skill'); const skillCdSpan = document.getElementById('skill-cd'); const skillBadge = document.getElementById('panel-skill-name');
+            const panel = document.getElementById('unit-panel'); 
+            const btnSkill = document.getElementById('btn-skill'); 
+            const skillCdSpan = document.getElementById('skill-cd'); 
+            const skillBadge = document.getElementById('panel-skill-name');
+            
             if (bState.selectedUnit && bState.selectedUnit.faction !== 'environment') {
-                const u = bState.selectedUnit; document.getElementById('panel-icon').innerText = u.icon;
+                const u = bState.selectedUnit; 
+                document.getElementById('panel-icon').innerText = u.icon;
+                
                 if (u.faction === 'obstacle') {
                     document.getElementById('panel-name').innerHTML = `${u.name}`;
-                    if (u.isWall) { document.getElementById('panel-hp').innerText = `堅不可摧`; document.getElementById('panel-race').innerText = "無法破壞"; document.getElementById('panel-class').innerText = "繞道而行"; } 
-                    else if (u.isPuzzleGate) { document.getElementById('panel-hp').innerText = `魔法封印`; document.getElementById('panel-race').innerText = "尋找機關"; document.getElementById('panel-class').innerText = "停留解除"; }
-                    document.getElementById('panel-atk').innerText = "-"; document.getElementById('panel-move').innerText = "-"; document.getElementById('panel-range').innerText = "-";
-                    document.getElementById('panel-name').className = 'text-gray-300 font-bold drop-shadow'; skillBadge.classList.add('hidden'); btnSkill.style.display = 'none';
+                    if (u.isWall) { 
+                        document.getElementById('panel-hp').innerText = `堅不可摧`; 
+                        document.getElementById('panel-race').innerText = "無法破壞"; 
+                        document.getElementById('panel-class').innerText = "繞道而行"; 
+                    } else if (u.isPuzzleGate) { 
+                        document.getElementById('panel-hp').innerText = `魔法封印`; 
+                        document.getElementById('panel-race').innerText = "尋找機關"; 
+                        document.getElementById('panel-class').innerText = "停留解除"; 
+                    }
+                    document.getElementById('panel-atk').innerText = "-"; 
+                    document.getElementById('panel-move').innerText = "-"; 
+                    document.getElementById('panel-range').innerText = "-";
+                    document.getElementById('panel-name').className = 'font-bold drop-shadow text-gray-300 truncate max-w-[80px]'; 
+                    skillBadge.classList.add('hidden'); 
+                    btnSkill.style.display = 'none';
                 } else {
-                    let star = u.tier > 0 ? `<span class="text-yellow-400">${'★'.repeat(u.tier)}</span> ` : '';
-                    document.getElementById('panel-name').innerHTML = `${star}${u.name} <span class="text-[0.65rem] text-gray-400">(${u.type})</span>`;
-                    document.getElementById('panel-hp').innerText = `HP: ${u.hp}/${u.maxHp}`; document.getElementById('panel-atk').innerText = u.atk || 0; document.getElementById('panel-move').innerText = u.moveRange || 0; document.getElementById('panel-range').innerText = u.atkRange || 0;
-                    document.getElementById('panel-race').innerText = u.race; document.getElementById('panel-class').innerText = u.classType;
-                    document.getElementById('panel-name').className = u.faction === FACTION_PLAYER ? 'text-blue-300 font-bold drop-shadow' : 'text-red-400 font-bold drop-shadow';
+                    let star = u.tier > 0 ? `<span class="text-yellow-400">${'★'.repeat(u.tier)}</span>` : '';
+                    document.getElementById('panel-name').innerHTML = `${star}${u.name}`;
+                    document.getElementById('panel-hp').innerText = `HP: ${u.hp}/${u.maxHp}`; 
+                    document.getElementById('panel-atk').innerText = u.atk || 0; 
+                    document.getElementById('panel-move').innerText = u.moveRange || 0; 
+                    document.getElementById('panel-range').innerText = u.atkRange || 0;
+                    document.getElementById('panel-race').innerText = u.race; 
+                    document.getElementById('panel-class').innerText = u.classType;
+                    document.getElementById('panel-name').className = `font-bold drop-shadow truncate max-w-[80px] ${u.faction === FACTION_PLAYER ? 'text-blue-300' : 'text-red-400'}`;
                     
                     if(u.faction === FACTION_PLAYER && u.skill) {
-                        skillBadge.innerText = u.skill.name; skillBadge.classList.remove('hidden'); btnSkill.style.display = 'flex';
-                        if(u.currentCd > 0) { btnSkill.className = 'bg-gray-600 text-gray-400 font-bold py-1.5 px-2 text-xs rounded-lg w-1/3 mx-1 flex flex-col items-center justify-center leading-tight'; skillCdSpan.innerText = `(CD:${u.currentCd})`; skillCdSpan.className = 'text-[0.6rem] text-gray-400'; } 
-                        else { btnSkill.className = 'bg-purple-600 hover:bg-purple-500 text-white font-bold py-1.5 px-2 text-xs rounded-lg w-1/3 mx-1 flex flex-col items-center justify-center leading-tight'; skillCdSpan.innerText = '(可使用)'; skillCdSpan.className = 'text-[0.6rem] text-purple-200'; }
-                    } else { skillBadge.classList.add('hidden'); btnSkill.style.display = 'none'; }
+                        skillBadge.innerText = u.skill.name; 
+                        skillBadge.classList.remove('hidden'); 
+                        btnSkill.style.display = 'flex';
+                        if(u.currentCd > 0) { 
+                            btnSkill.className = 'bg-gray-600 text-gray-400 font-bold py-1 px-2 text-xs rounded w-1/3 mx-1 shadow-sm flex flex-col items-center justify-center leading-none active:translate-y-0.5'; 
+                            skillCdSpan.innerText = `(CD:${u.currentCd})`; 
+                            skillCdSpan.className = 'text-[0.55rem] text-gray-400 mt-0.5'; 
+                        } else { 
+                            btnSkill.className = 'bg-purple-600 hover:bg-purple-500 text-white font-bold py-1 px-2 text-xs rounded w-1/3 mx-1 shadow-sm flex flex-col items-center justify-center leading-none active:translate-y-0.5'; 
+                            skillCdSpan.innerText = '(可使用)'; 
+                            skillCdSpan.className = 'text-[0.55rem] text-purple-200 mt-0.5'; 
+                        }
+                    } else { 
+                        skillBadge.classList.add('hidden'); 
+                        btnSkill.style.display = 'none'; 
+                    }
                 }
                 panel.classList.remove('opacity-0');
-            } else { panel.classList.add('opacity-0'); }
+            } else { 
+                panel.classList.add('opacity-0'); 
+            }
 
             const actionBar = document.getElementById('action-bar');
-            if (bState.phase !== 'IDLE' && bState.phase !== 'ANIMATING' && bState.selectedUnit && bState.selectedUnit.faction === FACTION_PLAYER && !bState.selectedUnit.hasActed) { actionBar.classList.remove('opacity-50', 'pointer-events-none'); } 
-            else { actionBar.classList.add('opacity-50', 'pointer-events-none'); }
+            if (bState.phase !== 'IDLE' && bState.phase !== 'ANIMATING' && bState.selectedUnit && bState.selectedUnit.faction === FACTION_PLAYER && !bState.selectedUnit.hasActed) { 
+                actionBar.classList.remove('opacity-50', 'pointer-events-none'); 
+            } else { 
+                actionBar.classList.add('opacity-50', 'pointer-events-none'); 
+            }
         }
 
         function getUnitAt(x, y) { return bState.units.find(u => u.x === x && u.y === y && u.hp > 0 && !u.isOpen); }
@@ -1182,7 +1239,10 @@
             if (unit.faction === FACTION_PLAYER) {
                 if (bState.selectedUnit && bState.selectedUnit.id === unit.id && bState.phase === 'MOVE_SELECTION') { bState.selectedUnit = null; bState.phase = 'IDLE'; clearHighlights(); updateUI(); return; }
                 if (!unit.hasActed) {
-                    bState.selectedUnit = unit; bState.phase = 'MOVE_SELECTION'; updateUI(); showActionRanges(unit); unit.element.style.transform = 'scale(1.1)';
+                    bState.selectedUnit = unit;
+                    unit.originalX = unit.x; // 記錄原始位置
+                    unit.originalY = unit.y; 
+                    bState.phase = 'MOVE_SELECTION'; updateUI(); showActionRanges(unit); unit.element.style.transform = 'scale(1.1)';
                     setTimeout(() => { if(unit.element) unit.element.style.transform = 'scale(1)'; }, 200);
                 } else { bState.selectedUnit = unit; updateUI(); clearHighlights(); }
             }
@@ -1238,7 +1298,7 @@
                         killed.forEach(u => { if(u.element) u.element.remove(); });
                         bState.units = bState.units.filter(u => u.hp > 0);
                         updatePuzzleState();
-                        checkWinCondition(null);
+                        checkWinCondition(null); // 通用觸發擊殺判定
                     }
                 }
             }
@@ -1708,7 +1768,21 @@
             else startPlayerTurn();
         }
 
-        document.getElementById('btn-cancel').addEventListener('click', () => { if (bState.phase === 'MOVE_SELECTION' || bState.phase === 'ACTION_SELECTION' || bState.phase === 'SKILL_SELECTION') { bState.selectedUnit = null; bState.phase = 'IDLE'; clearHighlights(); updateUI(); } });
+        document.getElementById('btn-cancel').addEventListener('click', () => {
+            if (bState.phase === 'MOVE_SELECTION' || bState.phase === 'ACTION_SELECTION' || bState.phase === 'SKILL_SELECTION') {
+                const u = bState.selectedUnit;
+                if (bState.phase === 'MOVE_SELECTION' && u.originalX !== undefined) {
+                    u.x = u.originalX;
+                    u.y = u.originalY;
+                    renderUnits();
+                }
+                bState.selectedUnit = null; 
+                bState.phase = 'IDLE'; 
+                clearHighlights(); 
+                updateUI(); 
+            } 
+        });
+
         document.getElementById('btn-wait').addEventListener('click', () => { if (bState.selectedUnit && bState.selectedUnit.faction === FACTION_PLAYER) endUnitAction(bState.selectedUnit); });
         document.getElementById('end-turn-btn').addEventListener('click', () => { if (bState.currentTurn === FACTION_PLAYER && bState.phase !== 'ANIMATING') endPlayerTurn(); });
         document.getElementById('btn-skill').addEventListener('click', handleSkillClick);
