@@ -674,7 +674,7 @@
         }
 
         function createGate(id, x, y, color) {
-            let icon = color === 'red' ? '🟥' : color === 'blue' ? '🟦' : color === 'green' ? '🟩' : '🟨'; let name = color === 'red' ? '紅結界' : color === 'blue' ? '藍結界' : color === 'green' ? '綠結界' : '黃結界';
+            let icon = color === 'red' ? '🟥' : color === 'blue' ? '🟦' : color === 'green' ? '🟩' : '🟨'; let name = color === 'red' ? '紅結界' : color === 'blue' ? '藍結界' : color === 'green' ? '黃結界' : '黃結界';
             return { id, name, race: '機關', classType: '結界', type: '門', icon, maxHp: 9999, hp: 9999, atk: 0, moveRange: 0, atkRange: 0, faction: 'obstacle', isPuzzleGate: true, isOpen: false, gateColor: color, pos: [x,y], hasActed: false };
         }
         function createWall(id, x, y) { return { id, name: '堅硬石牆', race: '地形', classType: '牆壁', type: '牆', icon: '🧱', maxHp: 9999, hp: 9999, atk: 0, moveRange: 0, atkRange: 0, faction: 'obstacle', isWall: true, pos: [x,y], hasActed: false }; }
@@ -1768,14 +1768,23 @@
             else startPlayerTurn();
         }
 
+        // ===================================
+        // 修正點：重構 btn-cancel 事件監聽器
+        // ===================================
         document.getElementById('btn-cancel').addEventListener('click', () => {
             if (bState.phase === 'MOVE_SELECTION' || bState.phase === 'ACTION_SELECTION' || bState.phase === 'SKILL_SELECTION') {
                 const u = bState.selectedUnit;
-                if (bState.phase === 'MOVE_SELECTION' && u.originalX !== undefined) {
+                
+                // 只要角色有紀錄原點，不論在哪個階段取消，都會退回原本的位置。
+                if (u && u.originalX !== undefined && u.originalY !== undefined) {
                     u.x = u.originalX;
                     u.y = u.originalY;
                     renderUnits();
+                    
+                    // 如果角色離開了機關陣法，需同步還原機關的封印狀態
+                    updatePuzzleState(); 
                 }
+                
                 bState.selectedUnit = null; 
                 bState.phase = 'IDLE'; 
                 clearHighlights(); 
@@ -1791,3 +1800,4 @@
     </script>
 </body>
 </html>
+
