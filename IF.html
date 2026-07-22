@@ -193,7 +193,6 @@
 <script>
 const SAVE_KEY = 'awaken_survivor_save';
 
-// --- 防呆與同步變數 ---
 let GAME_WIDTH = 800;
 let GAME_HEIGHT = 600;
 
@@ -203,25 +202,17 @@ const ctx = canvas.getContext('2d');
 function resizeCanvas() {
     let w = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth || 800;
     let h = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight || 600;
-    if(w <= 0) w = 800;
-    if(h <= 0) h = 600;
-    GAME_WIDTH = w;
-    GAME_HEIGHT = h;
+    if(w <= 0) w = 800; if(h <= 0) h = 600;
+    GAME_WIDTH = w; GAME_HEIGHT = h;
     if(canvas) { canvas.width = GAME_WIDTH; canvas.height = GAME_HEIGHT; }
 }
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas(); 
+window.addEventListener('resize', resizeCanvas); resizeCanvas(); 
 
-// ----------------------------------------------------
-// 資料驅動資料庫 (Data-Driven DB)
-// ----------------------------------------------------
 const DB = {
     EMOJIS: ['🧟','🦇','👹','💀','🐺','🦠','👻','👺','🕷️','🦂','🐍','🦖','🦍','🧌','🦹','🧛','🧟‍♂️','🧞','🧜‍♂️','🧚','🧝','🧙','🥷','💂','🕵️','👽','🤖','🎃','👿','🦊','🐯','🦁','🐻','🐼','🐨','🐸','🐊','🐢','🦎','🐙','🦑','🦞','🦀','🐡','🦈','🐅','🐆','🦓','🦏','🦛'],
     AI_TYPES: ['chase', 'ranged', 'dash', 'wander'],
     MONSTERS: [],
-    // 隨機 Boss 的外型庫 (超過30種)
     BOSS_EMOJIS: ['👹','👺','💀','👽','👾','🎃','👿','🧌','🧟','🧛','🐉','🦖','🐙','🦑','🕷️','🦂','🐍','🦍','🦏','🐘','🐻‍❄️','🐺','🦇','🦅','🐊','🦈','🧞','🧜‍♂️','🧙','👁️','🗿','🌋','🌪️'],
-    // 隨機 Boss 的原型庫
     BOSS_ARCHETYPES: [
         { id: 'boss_summoner', name: '召喚者', radius: 30, speed: 50, hp: 700, dmg: 30, xp: 150, skillCD: 2.5 },
         { id: 'boss_shooter', name: '狙擊者', radius: 35, speed: 45, hp: 800, dmg: 40, xp: 150, skillCD: 2.0 },
@@ -275,7 +266,6 @@ const DB = {
     }
 };
 
-// 隨機生成 50 種一般怪物
 for (let i = 0; i < 50; i++) {
     DB.MONSTERS.push({
         type: `mob_${i}`, emoji: DB.EMOJIS[i % DB.EMOJIS.length],
@@ -288,25 +278,18 @@ for (let i = 0; i < 50; i++) {
 const Behaviors = {
     'chase': (e, t, d, dt, px, py) => ({ x: px + e.dirX * e.speed * e.speedMod * dt, y: py + e.dirY * e.speed * e.speedMod * dt }),
     'wander': (e, t, d, dt, px, py) => {
-        e.stateTimer -= dt; if(e.stateTimer <= 0) { e.wanderDir = Math.random()*Math.PI*2; e.stateTimer = 2.0; }
+        e.stateTimer -= dt; 
+        if(e.stateTimer <= 0 || e.wanderDir === undefined) { e.wanderDir = Math.random()*Math.PI*2; e.stateTimer = 2.0; }
         return { x: px + Math.cos(e.wanderDir) * e.speed * 0.5 * e.speedMod * dt, y: py + Math.sin(e.wanderDir) * e.speed * 0.5 * e.speedMod * dt };
     },
     'ranged': (e, t, d, dt, px, py) => {
-        e.stateTimer -= dt; 
-        // 核心 AI 修改：保持移動以防卡死
-        let s = e.speed;
-        if (d < 150) s = -e.speed * 0.5; // 太近：往後退拉開距離
-        else if (d < 250) s = e.speed * 0.2; // 射程內：極緩慢移動(繞行逼近)
-
-        if(e.stateTimer <= 0 && d < 300) { 
-            Engine.projectiles.push(new Projectile(e.x, e.y, e.dirX, e.dirY, 200, e.dmg, 1, 'enemy_magic', '#d1d5db', 'enemy')); 
-            e.stateTimer = 2.0; 
-        }
+        e.stateTimer -= dt; let s = e.speed;
+        if (d < 150) s = -e.speed * 0.5; else if (d < 250) s = e.speed * 0.2; 
+        if(e.stateTimer <= 0 && d < 300) { Engine.projectiles.push(new Projectile(e.x, e.y, e.dirX, e.dirY, 200, e.dmg, 1, 'enemy_magic', '#d1d5db', 'enemy')); e.stateTimer = 2.0; }
         return { x: px + e.dirX * s * e.speedMod * dt, y: py + e.dirY * s * e.speedMod * dt };
     },
     'dash': (e, t, d, dt, px, py) => {
         e.stateTimer -= dt; if(e.stateTimer <= 0) e.stateTimer = 3.0;
-        // 核心 AI 修改：蓄力期間依然保持 40% 的緩慢移動，爆發時 4 倍速
         let s = e.stateTimer > 2.5 ? e.speed * 4 : e.speed * 0.4;
         return { x: px + e.dirX * s * e.speedMod * dt, y: py + e.dirY * s * e.speedMod * dt };
     }
@@ -315,24 +298,56 @@ const Behaviors = {
 const SkillRegistry = {
     'magic_missile': { cooldown: 1.5, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t){ let d = Math.hypot(t.x-c.x, t.y-c.y)||1; let p = new Projectile(c.x, c.y, (t.x-c.x)/d, (t.y-c.y)/d, 300, c.getMagicDmg()*(1+(lvl-1)*0.4), c.getAoeMult(), 'magic', '#a855f7', c.faction); p.life = GAME_HEIGHT*c.getAoeMult()/p.speed; Engine.projectiles.push(p); } } },
     'fireball': { cooldown: 3.0, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t){ let d = Math.hypot(t.x-c.x, t.y-c.y)||1; let p = new Projectile(c.x, c.y, (t.x-c.x)/d, (t.y-c.y)/d, 250, c.getMagicDmg()*2*(1+(lvl-1)*0.5), c.getAoeMult()*(1+(lvl-1)*0.15), 'magic_explosive', '#ef4444', c.faction); p.radius = 8*p.aoeMult; Engine.projectiles.push(p); } } },
-    'frost_nova': { cooldown: 4.0, cast: (c, lvl) => { let aoe=c.getAoeMult()*(1+(lvl-1)*0.1), r=100*aoe, dmg=c.getMagicDmg()*0.8*(1+(lvl-1)*0.4); createRingExplosion(c.x, c.y, '#60a5fa', r); Engine.getAllTargets(c.faction).forEach(e => { if(Math.hypot(e.x-c.x, e.y-c.y)<=r){ Engine.applyDamage(e, dmg, 'magic', c.faction); if(e.speedMod!==undefined){ e.speedMod=0.5; e.speedTimer=2.0+(lvl-1)*0.5; } else e.buffs.slow=2.0+(lvl-1)*0.5; } }); } },
-    'chain_lightning': { cooldown: 2.5, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(!t)return; let jumps=4+Math.floor((lvl-1)/2), dmg=c.getMagicDmg()*1.2*(1+(lvl-1)*0.3), hit=new Set(), sx=c.x, sy=c.y; while(jumps>0 && t){ hit.add(t); Engine.applyDamage(t, dmg, 'magic', c.faction); Engine.particles.push({type:'line', x:sx, y:sy, tx:t.x, ty:t.y, life:0.2, maxLife:0.2, color:'#fef08a'}); sx=t.x; sy=t.y; dmg*=0.8; jumps--; let next=null, md=GAME_HEIGHT*0.3*c.getAoeMult(); Engine.getAllTargets(c.faction).forEach(e=>{ if(!hit.has(e)){ let d=Math.hypot(e.x-sx,e.y-sy); if(d<md){md=d;next=e;} } }); t=next; } } },
-    'black_hole': { cooldown: 8.0, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t) Engine.projectiles.push(new PersistentAoe({x:t.x,y:t.y}, 120*c.getAoeMult()*(1+(lvl-1)*0.1), 3.0, c.getMagicDmg()*0.4*(1+(lvl-1)*0.3), 'magic', '#7c3aed', c.faction, true)); } },
-    'meteor_strike': { cooldown: 6.0, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t){ let tx=t.x, ty=t.y; addFloatingText('⚠️', tx, ty, '#ef4444', 30); setTimeout(()=>{ if(!Engine.isGameRunning||Engine.isPaused)return; let r=150*c.getAoeMult()*(1+(lvl-1)*0.2); createRingExplosion(tx, ty, '#f97316', r); Engine.getAllTargets(c.faction).forEach(e=>{ if(Math.hypot(e.x-tx, e.y-ty)<=r){ Engine.applyDamage(e, c.getMagicDmg()*4*(1+(lvl-1)*0.5), 'magic', c.faction); if(e.speedMod!==undefined){e.speedMod=0;e.speedTimer=1.5;}else e.buffs.slow=1.5; } }); }, 1000); } } },
-    'heavy_strike': { cooldown: 1.0, cast: (c, lvl) => { let r=100*c.getAoeMult()*(1+(lvl-1)*0.1), t=Engine.getClosestTarget(c.x, c.y, c.faction, r), pa=t?Math.atan2(t.y-c.y,t.x-c.x):Math.atan2(c.dirY,c.dirX); Engine.projectiles.push(new MeleeArcVisual(c.x, c.y, pa, r, Math.PI/1.5, 'rgba(239, 68, 68, 0.4)')); Engine.getAllTargets(c.faction).forEach(e=>{ let d=Math.hypot(e.x-c.x,e.y-c.y); if(d<=r){ let ad=Math.abs(Math.atan2(e.y-c.y, e.x-c.x)-pa); if(ad>Math.PI)ad=2*Math.PI-ad; if(ad<=Math.PI/3) Engine.applyDamage(e, c.getMeleeDmg()*(1+(lvl-1)*0.5), 'melee', c.faction); } }); } },
-    'whirlwind': { cooldown: 2.0, cast: (c, lvl) => Engine.projectiles.push(new PersistentAoe(c, 90*c.getAoeMult()*(1+(lvl-1)*0.1), 1.0, c.getMeleeDmg()*0.5*(1+(lvl-1)*0.3), 'melee', '#fca5a5', c.faction)) },
-    'earthquake': { cooldown: 3.5, cast: (c, lvl) => { let r=120*c.getAoeMult()*(1+(lvl-1)*0.1); createRingExplosion(c.x, c.y, '#a16207', r); Engine.getAllTargets(c.faction).forEach(e=>{ if(Math.hypot(e.x-c.x, e.y-c.y)<=r){ Engine.applyDamage(e, c.getMeleeDmg()*1.5*(1+(lvl-1)*0.6), 'melee', c.faction); if(e.speedMod!==undefined){e.speedMod=0.2;e.speedTimer=1;}else e.buffs.slow=1; } }); } },
-    'dash_attack': { cooldown: 4.0, cast: (c, lvl) => { let t=Engine.getClosestTarget(c.x, c.y, c.faction, 300*c.getAoeMult()); if(!t)return; let dx=t.x-c.x, dy=t.y-c.y, i=0; let dash=setInterval(()=>{ if(!Engine.isGameRunning||Engine.isPaused||c.isDead||i>=10){clearInterval(dash);return;} c.x+=dx/10; c.y+=dy/10; createRingExplosion(c.x,c.y,'#f87171',40); Engine.getAllTargets(c.faction).forEach(e=>{ if(Math.hypot(e.x-c.x,e.y-c.y)<=50){ Engine.applyDamage(e, c.getMeleeDmg()*2*(1+(lvl-1)*0.4), 'melee', c.faction); e.x+=dx/5; e.y+=dy/5; } }); i++; },20); } },
-    'warcry': { cooldown: 12.0, cast: (c, lvl) => { let r=200*c.getAoeMult(); createRingExplosion(c.x, c.y, '#dc2626', r); addFloatingText('WAAAGH!', c.x, c.y-30, '#ef4444', 24); c.buffs.frenzy=3+(lvl-1)*1; c.hasShield=true; Engine.getAllTargets(c.faction).forEach(e=>{ if(Math.hypot(e.x-c.x, e.y-c.y)<=r && e.speedMod!==undefined){ e.speedMod=0.3; e.speedTimer=2.0; } }); } },
+    'frost_nova': { cooldown: 4.0, cast: (c, lvl) => { let aoe=c.getAoeMult()*(1+(lvl-1)*0.1), r=100*aoe, dmg=c.getMagicDmg()*0.8*(1+(lvl-1)*0.4); createRingExplosion(c.x, c.y, '#60a5fa', r, 0.5); addParticle(c.x, c.y, '#bfdbfe', 20, 3); Engine.getAllTargets(c.faction).forEach(e => { if(Math.hypot(e.x-c.x, e.y-c.y)<=r){ Engine.applyDamage(e, dmg, 'magic', c.faction); if(e.speedMod!==undefined){ e.speedMod=0.5; e.speedTimer=2.0+(lvl-1)*0.5; } else e.buffs.slow=2.0+(lvl-1)*0.5; } }); } },
+    'chain_lightning': { cooldown: 2.5, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(!t)return; let jumps=4+Math.floor((lvl-1)/2), dmg=c.getMagicDmg()*1.2*(1+(lvl-1)*0.3), hit=new Set(), sx=c.x, sy=c.y; while(jumps>0 && t){ hit.add(t); Engine.applyDamage(t, dmg, 'magic', c.faction); let points = []; for(let k=1; k<4; k++) points.push({x: sx + (t.x-sx)*(k/4) + (Math.random()-0.5)*30, y: sy + (t.y-sy)*(k/4) + (Math.random()-0.5)*30}); Engine.particles.push({type:'lightning', x:sx, y:sy, tx:t.x, ty:t.y, pts: points, life:0.3, maxLife:0.3, color:'#fef08a'}); sx=t.x; sy=t.y; dmg*=0.8; jumps--; let next=null, md=GAME_HEIGHT*0.3*c.getAoeMult(); Engine.getAllTargets(c.faction).forEach(e=>{ if(!hit.has(e)){ let d=Math.hypot(e.x-sx,e.y-sy); if(d<md){md=d;next=e;} } }); t=next; } } },
+    'black_hole': { cooldown: 8.0, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t) { let p = new PersistentAoe({x:t.x,y:t.y}, 120*c.getAoeMult()*(1+(lvl-1)*0.1), 3.0, c.getMagicDmg()*0.4*(1+(lvl-1)*0.3), 'magic', '#7c3aed', c.faction, true); p.isBlackHole = true; Engine.projectiles.push(p); } } },
+    'meteor_strike': { cooldown: 6.0, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t){ let tx=t.x, ty=t.y; addFloatingText('⚠️', tx, ty, '#ef4444', 30); Engine.particles.push({ type: 'ring_collapse', x: tx, y: ty, color: '#ef4444', radius: 150*c.getAoeMult()*(1+(lvl-1)*0.2), maxRadius: 150*c.getAoeMult()*(1+(lvl-1)*0.2), life: 1.0, maxLife: 1.0 }); setTimeout(()=>{ if(!Engine.isGameRunning||Engine.isPaused)return; let r=150*c.getAoeMult()*(1+(lvl-1)*0.2); createRingExplosion(tx, ty, '#f97316', r, 0.5); addParticle(tx, ty, '#f59e0b', 30, 4); Engine.getAllTargets(c.faction).forEach(e=>{ if(Math.hypot(e.x-tx, e.y-ty)<=r){ Engine.applyDamage(e, c.getMagicDmg()*4*(1+(lvl-1)*0.5), 'magic', c.faction); if(e.speedMod!==undefined){e.speedMod=0;e.speedTimer=1.5;}else e.buffs.slow=1.5; } }); }, 1000); } } },
+    'heavy_strike': { cooldown: 1.0, cast: (c, lvl) => { let r=100*c.getAoeMult()*(1+(lvl-1)*0.1), t=Engine.getClosestTarget(c.x, c.y, c.faction, r), pa=t?Math.atan2(t.y-c.y,t.x-c.x):Math.atan2(c.dirY,c.dirX); Engine.projectiles.push(new MeleeArcVisual(c.x, c.y, pa, r, Math.PI/1.5, 'rgba(239, 68, 68, 0.5)')); Engine.getAllTargets(c.faction).forEach(e=>{ let d=Math.hypot(e.x-c.x,e.y-c.y); if(d<=r){ let ad=Math.abs(Math.atan2(e.y-c.y, e.x-c.x)-pa); if(ad>Math.PI)ad=2*Math.PI-ad; if(ad<=Math.PI/3) Engine.applyDamage(e, c.getMeleeDmg()*(1+(lvl-1)*0.5), 'melee', c.faction); } }); } },
+    'whirlwind': { cooldown: 2.0, cast: (c, lvl) => { let p = new PersistentAoe(c, 90*c.getAoeMult()*(1+(lvl-1)*0.1), 1.0, c.getMeleeDmg()*0.5*(1+(lvl-1)*0.3), 'melee', '#fca5a5', c.faction); p.isWhirlwind = true; Engine.projectiles.push(p); } },
+    'earthquake': { cooldown: 3.5, cast: (c, lvl) => { let r=120*c.getAoeMult()*(1+(lvl-1)*0.1); createRingExplosion(c.x, c.y, '#a16207', r, 0.6); createRingExplosion(c.x, c.y, '#78350f', r*0.6, 0.4); addParticle(c.x, c.y, '#92400e', 15, 2); Engine.getAllTargets(c.faction).forEach(e=>{ if(Math.hypot(e.x-c.x, e.y-c.y)<=r){ Engine.applyDamage(e, c.getMeleeDmg()*1.5*(1+(lvl-1)*0.6), 'melee', c.faction); if(e.speedMod!==undefined){e.speedMod=0.2;e.speedTimer=1;}else e.buffs.slow=1; } }); } },
+    
+    // 【完美修復】：完全捨棄 setInterval，改用強迫物理位移系統
+    'dash_attack': { cooldown: 4.0, cast: (c, lvl) => { 
+        let t = Engine.getClosestTarget(c.x, c.y, c.faction, 350 * c.getAoeMult());
+        let a = t ? Math.atan2(t.y - c.y, t.x - c.x) : Math.atan2(c.dirY, c.dirX);
+        if(!t && c.dirX === 0 && c.dirY === 0) a = 0; // 若連動都沒動，預設向右衝
+        
+        // 設定強制位移狀態，將由角色的 update() 進行平滑處理
+        c.forcedMove = { 
+            time: 0.2, maxTime: 0.2, 
+            dx: Math.cos(a) * 1200 * c.getAoeMult(), // 極高速衝刺
+            dy: Math.sin(a) * 1200 * c.getAoeMult(), 
+            dmg: c.getMeleeDmg() * 2 * (1 + (lvl - 1) * 0.4) 
+        };
+        addFloatingText('衝鋒!', c.x, c.y - 20, '#f87171', 20);
+    }},
+    
+    'warcry': { cooldown: 12.0, cast: (c, lvl) => { let r=200*c.getAoeMult(); createRingExplosion(c.x, c.y, '#dc2626', r, 0.6); addFloatingText('WAAAGH!', c.x, c.y-30, '#ef4444', 24); c.buffs.frenzy=3+(lvl-1)*1; c.hasShield=true; Engine.getAllTargets(c.faction).forEach(e=>{ if(Math.hypot(e.x-c.x, e.y-c.y)<=r && e.speedMod!==undefined){ e.speedMod=0.3; e.speedTimer=2.0; } }); } },
     'throwing_knife': { cooldown: 0.8, cast: (c, lvl) => { let t=Engine.getClosestTarget(c.x, c.y, c.faction, GAME_WIDTH*c.getAoeMult()); if(!t)return; let cnt=(c.mods.passive_multishot?3:1)+Math.floor((lvl-1)/2), ba=Math.atan2(t.y-c.y, t.x-c.x); for(let i=0;i<cnt;i++){ let a=ba+(i-(cnt-1)/2)*0.3; let p=new Projectile(c.x, c.y, Math.cos(a), Math.sin(a), 400, c.getAssassinationDmg()*(1+(lvl-1)*0.3), c.getAoeMult(), 'assassination', '#10b981', c.faction); p.isKnife=true; p.life=GAME_WIDTH*c.getAoeMult()/p.speed; if(c.mods.passive_pierce)p.pierce=2; Engine.projectiles.push(p); } } },
     'shuriken_ring': { cooldown: 3.0, cast: (c, lvl) => { let cnt=8+(lvl-1)*2; for(let i=0;i<cnt;i++){ let a=(Math.PI*2/cnt)*i; let p=new Projectile(c.x, c.y, Math.cos(a), Math.sin(a), 350, c.getAssassinationDmg()*(1+(lvl-1)*0.4), c.getAoeMult(), 'assassination', '#14b8a6', c.faction); p.isKnife=true; p.life=GAME_WIDTH*c.getAoeMult()/p.speed; if(c.mods.passive_pierce)p.pierce=2; Engine.projectiles.push(p); } } },
-    'shadow_strike': { cooldown: 5.0, cast: (c, lvl) => { let t=Engine.getClosestTarget(c.x, c.y, c.faction, GAME_WIDTH*0.4); if(!t)return; Engine.projectiles.push(new PersistentAoe({x:c.x,y:c.y}, 60, 2.0, c.getAssassinationDmg()*0.5, 'assassination', 'rgba(16, 185, 129, 0.4)', c.faction)); let a=Math.atan2(c.y-t.y, c.x-t.x), sx=t.x+Math.cos(a)*30, sy=t.y+Math.sin(a)*30; if(!isNaN(sx)){ c.x=sx; c.y=sy; Engine.applyDamage(t, c.getAssassinationDmg()*3*(1+(lvl-1)*0.5), 'assassination', c.faction); createRingExplosion(c.x, c.y, '#34d399', 50); } } },
+    
+    // 【完美修復】：同樣支援無目標方向位移
+    'shadow_strike': { cooldown: 5.0, cast: (c, lvl) => { 
+        let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_WIDTH * 0.4);
+        let a = t ? Math.atan2(t.y - c.y, t.x - c.x) : Math.atan2(c.dirY, c.dirX);
+        if(!t && c.dirX === 0 && c.dirY === 0) a = 0;
+        
+        let tx = t ? (t.x + Math.cos(a + Math.PI)*30) : (c.x + Math.cos(a)*200);
+        let ty = t ? (t.y + Math.sin(a + Math.PI)*30) : (c.y + Math.sin(a)*200);
+
+        Engine.projectiles.push(new PersistentAoe({x:c.x, y:c.y}, 60, 2.0, c.getAssassinationDmg()*0.5, 'assassination', 'rgba(16, 185, 129, 0.4)', c.faction)); 
+        
+        if(!isNaN(tx) && !isNaN(ty)){ 
+            c.x = tx; c.y = ty; 
+            addParticle(c.x, c.y, '#34d399', 15, 2); 
+            if(t) Engine.applyDamage(t, c.getAssassinationDmg()*3*(1+(lvl-1)*0.5), 'assassination', c.faction); 
+            createRingExplosion(c.x, c.y, '#34d399', 50, 0.4); 
+        } 
+    }},
+    
     'boomerang_blade': { cooldown: 4.0, cast: (c, lvl) => { let t=Engine.getClosestTarget(c.x, c.y, c.faction, GAME_WIDTH*0.8*c.getAoeMult()); if(!t)return; let cnt=c.mods.passive_multishot?3:1, ba=Math.atan2(t.y-c.y, t.x-c.x); for(let i=0;i<cnt;i++){ let a=ba+(i-(cnt-1)/2)*0.3; let p=new Projectile(c.x, c.y, Math.cos(a), Math.sin(a), 500, c.getAssassinationDmg()*1.5*(1+(lvl-1)*0.4), c.getAoeMult(), 'assassination', '#059669', c.faction); p.isKnife=true; p.pierce=999; p.life=GAME_WIDTH*0.8*c.getAoeMult()/p.speed*2; p.boomerang=true; p.owner=c; p.returnTime=p.life/2; Engine.projectiles.push(p); } } }
 };
 
-// ----------------------------------------------------
-// 核心引擎 (Engine)
-// ----------------------------------------------------
 const Engine = {
     isGameRunning: false, isPaused: false, frameCount: 0, lastTime: performance.now(), autoSaveTimer: 0,
     camera: { x: 0, y: 0 },
@@ -346,8 +361,7 @@ const Engine = {
     init: function() {
         window.addEventListener('keydown', e => Engine.keys[e.key.toLowerCase()] = true);
         window.addEventListener('keyup', e => Engine.keys[e.key.toLowerCase()] = false);
-        SaveSystem.checkLocal();
-        requestAnimationFrame((t) => Engine.loop(t));
+        SaveSystem.checkLocal(); requestAnimationFrame((t) => Engine.loop(t));
     },
     startGame: function(pClass) {
         this.unlockedNodes = {}; this.player = new Player(pClass);
@@ -356,37 +370,21 @@ const Engine = {
     },
     startEngine: function() {
         resizeCanvas();
-        document.getElementById('classSelectionScreen').classList.add('hidden'); 
-        document.getElementById('mainMenu').classList.add('hidden'); 
-        document.getElementById('uiLayer').classList.remove('hidden');
-        
-        this.enemies=[]; this.projectiles=[]; this.particles=[]; this.floatingTexts=[]; 
-        this.shrines=[]; this.loadedChunks=[]; this.mapMercenaries=[]; this.partyMercenaries=[];
-        
-        document.getElementById('uiStageContainer').classList.remove('hidden'); 
-        document.getElementById('uiKillsContainer').classList.remove('hidden'); 
-        
-        this.isGameRunning = true; 
-        this.lastTime = performance.now(); 
-        
-        UI.update(); 
-        UI.buildTree(); 
-        SaveSystem.save();
+        document.getElementById('classSelectionScreen').classList.add('hidden'); document.getElementById('mainMenu').classList.add('hidden'); document.getElementById('uiLayer').classList.remove('hidden');
+        this.enemies=[]; this.projectiles=[]; this.particles=[]; this.floatingTexts=[]; this.shrines=[]; this.loadedChunks=[]; this.mapMercenaries=[]; this.partyMercenaries=[];
+        document.getElementById('uiStageContainer').classList.remove('hidden'); document.getElementById('uiKillsContainer').classList.remove('hidden'); 
+        this.isGameRunning = true; this.lastTime = performance.now(); 
+        UI.update(); UI.buildTree(); SaveSystem.save();
     },
     loop: function(timestamp) {
         requestAnimationFrame((t) => Engine.loop(t));
         if (!this.isGameRunning) return;
-        
-        let dt = (timestamp - this.lastTime) / 1000; 
-        if (isNaN(dt) || dt <= 0) dt = 0.016; 
-        if (dt > 0.1) dt = 0.1; 
-        
+        let dt = (timestamp - this.lastTime) / 1000; if (isNaN(dt) || dt <= 0) dt = 0.016; if (dt > 0.1) dt = 0.1; 
         this.lastTime = timestamp;
         if (this.isPaused) { UI.treeLoop(); return; } 
         this.frameCount++;
         
-        this.camera.x = this.player.x - GAME_WIDTH / 2; 
-        this.camera.y = this.player.y - GAME_HEIGHT / 2;
+        this.camera.x = this.player.x - GAME_WIDTH / 2; this.camera.y = this.player.y - GAME_HEIGHT / 2;
         MapSystem.updateChunks(this.player.x, this.player.y);
 
         if(this.frameCount % 60 === 0) MapSystem.spawnEnemy();
@@ -407,20 +405,15 @@ const Engine = {
     },
     draw: function() {
         let sc = this.gameState.stageColor || {h:220, s:50, l:15}; 
-        ctx.fillStyle = `hsl(${sc.h}, ${sc.s}%, ${sc.l}%)`; 
-        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        
+        ctx.fillStyle = `hsl(${sc.h}, ${sc.s}%, ${sc.l}%)`; ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
         ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1; 
         let ox = (this.camera.x%50+50)%50, oy = (this.camera.y%50+50)%50;
-        
         ctx.beginPath(); 
         for(let x=-ox; x<GAME_WIDTH; x+=50){ ctx.moveTo(x,0); ctx.lineTo(x,GAME_HEIGHT); } 
         for(let y=-oy; y<GAME_HEIGHT; y+=50){ ctx.moveTo(0,y); ctx.lineTo(GAME_WIDTH,y); } 
         ctx.stroke();
 
-        ctx.save(); 
-        ctx.translate(-this.camera.x, -this.camera.y);
-        
+        ctx.save(); ctx.translate(-this.camera.x, -this.camera.y);
         this.obstacles.forEach(o => { ctx.font = (o.radius*2.5)+'px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(o.type, o.x, o.y); }); 
 
         this.shrines.forEach(s => s.draw()); this.mapMercenaries.forEach(m => m.draw());
@@ -429,14 +422,29 @@ const Engine = {
 
         for(let i=this.particles.length-1; i>=0; i--) {
             let p = this.particles[i]; p.life -= 0.016; if(p.life <= 0) { this.particles.splice(i, 1); continue; }
-            if(p.type === 'ring') { p.radius += (p.maxRadius / p.maxLife) * 0.016; ctx.strokeStyle = p.color; ctx.globalAlpha = p.life/p.maxLife; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.stroke(); ctx.globalAlpha = 1; } 
-            else if (p.type === 'line') { ctx.strokeStyle = p.color; ctx.globalAlpha = p.life/p.maxLife; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.tx, p.ty); ctx.stroke(); ctx.globalAlpha = 1; } 
-            else { p.x += p.dx * 0.016; p.y += p.dy * 0.016; ctx.fillStyle = p.color; ctx.globalAlpha = p.life/p.maxLife; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1; }
+            if(p.type === 'ring') { 
+                p.radius += (p.maxRadius / p.maxLife) * 0.016; 
+                ctx.strokeStyle = p.color; ctx.globalAlpha = Math.max(0, p.life/p.maxLife); ctx.lineWidth = 2 + (p.life/p.maxLife)*4; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.stroke(); ctx.globalAlpha = 1; 
+            } 
+            else if (p.type === 'ring_collapse') {
+                p.radius = p.maxRadius * Math.max(0, p.life/p.maxLife);
+                ctx.strokeStyle = p.color; ctx.globalAlpha = 0.5; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.stroke(); ctx.globalAlpha = 1;
+            }
+            else if (p.type === 'lightning') {
+                ctx.strokeStyle = p.color; ctx.globalAlpha = Math.max(0, p.life/p.maxLife); ctx.lineWidth = 4 * (p.life/p.maxLife);
+                ctx.shadowBlur = 15; ctx.shadowColor = p.color;
+                ctx.beginPath(); ctx.moveTo(p.x, p.y); p.pts.forEach(pt => ctx.lineTo(pt.x, pt.y)); ctx.lineTo(p.tx, p.ty); ctx.stroke(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+            }
+            else if (p.type === 'line') { 
+                ctx.strokeStyle = p.color; ctx.globalAlpha = p.life/p.maxLife; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.tx, p.ty); ctx.stroke(); ctx.globalAlpha = 1; 
+            } 
+            else { 
+                p.x += p.dx * 0.016; p.y += p.dy * 0.016; ctx.fillStyle = p.color; ctx.globalAlpha = p.life/p.maxLife; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1; 
+            }
         }
         for(let i=this.floatingTexts.length-1; i>=0; i--) {
             let ft = this.floatingTexts[i]; ft.life -= 0.016; if(ft.life <= 0) { this.floatingTexts.splice(i, 1); continue; }
-            ft.y += ft.dy * 0.016; ctx.fillStyle = ft.color; ctx.font = `bold ${ft.size}px Arial`; ctx.globalAlpha = ft.life; 
-            ctx.fillText(ft.text, ft.x, ft.y); ctx.globalAlpha = 1;
+            ft.y += ft.dy * 0.016; ctx.fillStyle = ft.color; ctx.font = `bold ${ft.size}px Arial`; ctx.globalAlpha = ft.life; ctx.fillText(ft.text, ft.x, ft.y); ctx.globalAlpha = 1;
         }
         ctx.restore(); 
 
@@ -444,18 +452,10 @@ const Engine = {
         this.mapMercenaries.forEach(m => { if(!m.isDead) UI.drawEdgeIndicator(m.x, m.y, '#3b82f6', m.emoji); });
     },
 
-    getAllTargets: function(casterFaction) { 
-        let targets = casterFaction === 'player' ? [...this.enemies] : [this.player, ...this.partyMercenaries];
-        return targets.filter(e => e && !e.isDead);
-    },
-
+    getAllTargets: function(casterFaction) { return (casterFaction === 'player' ? [...this.enemies] : [this.player, ...this.partyMercenaries]).filter(e => e && !e.isDead); },
     getClosestTarget: function(x, y, faction, maxRange, exclude = new Set()) {
         let nearest = null, minDist = Infinity, candidates = this.getAllTargets(faction);
-        for(let e of candidates) {
-            if(!exclude.has(e)) {
-                let d = Math.hypot(e.x - x, e.y - y); if(d < minDist && d <= maxRange) { minDist = d; nearest = e; }
-            }
-        }
+        for(let e of candidates) { if(!exclude.has(e)) { let d = Math.hypot(e.x - x, e.y - y); if(d < minDist && d <= maxRange) { minDist = d; nearest = e; } } }
         return nearest;
     },
     applyDamage: function(target, baseDmg, type, attackerFaction) {
@@ -464,21 +464,18 @@ const Engine = {
         finalDmg = Math.max(1, Math.floor(finalDmg * (0.9 + Math.random() * 0.2)));
 
         let wasDead = target.isDead;
-
         if (target.takeDamage) target.takeDamage(finalDmg); else { target.hp -= finalDmg; target.hitTimer = 0.1; if (target.hp <= 0) target.isDead = true; }
-        
         if(isCrit) addParticle(target.x, target.y, '#fef08a', 4); else addParticle(target.x, target.y, '#fff', 2);
 
         if (attackerFaction === 'player') {
             if (type === 'melee' && this.player.mods.passive_lifesteal) this.player.heal(finalDmg * 0.05);
-            
             if (type === 'melee' && this.player.mods.passive_tremor && Math.random() < 0.2) {
-                createRingExplosion(target.x, target.y, '#92400e', 40);
+                createRingExplosion(target.x, target.y, '#92400e', 40, 0.3);
                 this.getAllTargets('player').forEach(e => { if (e !== target && Math.hypot(e.x - target.x, e.y - target.y) <= 40) this.applyDamage(e, baseDmg * 0.5, 'melee_tremor', 'player'); });
             }
             if (type === 'assassination' && this.player.mods.passive_poison) target.poisonTimer = 3.0;
             if (type === 'magic' && this.player.mods.passive_resonance && Math.random() < 0.2) {
-                createRingExplosion(target.x, target.y, '#c084fc', 50);
+                createRingExplosion(target.x, target.y, '#c084fc', 50, 0.4);
                 this.getAllTargets('player').forEach(e => { if (e !== target && Math.hypot(e.x - target.x, e.y - target.y) <= 50) this.applyDamage(e, baseDmg * 0.5, 'magic_resonance', 'player'); });
             }
         }
@@ -495,7 +492,7 @@ const Engine = {
                 }
                 this.checkStageProgress();
             }
-            addParticle(target.x, target.y, '#ef4444', 8);
+            addParticle(target.x, target.y, '#ef4444', 8, 1.5);
         }
     },
     checkStageProgress: function() {
@@ -524,33 +521,12 @@ const Engine = {
     }
 };
 
-// --- 防卡死核心：強制將剛生成的實體擠出障礙物 ---
-function resolveSpawnCollision(entity) {
-    for (let tries = 0; tries < 10; tries++) {
-        let safe = true;
-        for (let obs of Engine.obstacles) {
-            let d = Math.hypot(entity.x - obs.x, entity.y - obs.y);
-            if (d < entity.radius + obs.radius) {
-                safe = false;
-                let angle = Math.atan2(entity.y - obs.y, entity.x - obs.x);
-                if (d === 0) angle = Math.random() * Math.PI * 2; // 完全重疊時給予隨機方向
-                let pushDist = (entity.radius + obs.radius - d) + 5;
-                entity.x += Math.cos(angle) * pushDist;
-                entity.y += Math.sin(angle) * pushDist;
-            }
-        }
-        if (safe) break;
-    }
-}
-
-// ----------------------------------------------------
-// 實體類別 (Classes)
-// ----------------------------------------------------
 class BaseCharacter {
     constructor() {
         this.x = 0; this.y = 0; this.radius = 18; this.dirX = 1; this.dirY = 0;
         this.mods = { str:0, agi:0, int:0, moveSpeed:0, maxHp:0, atkSpeed:0, aoe:0, critRate:0, critDmg:0, dodge:0, hpRegen:0, passive_lifesteal:false, passive_multishot:false, passive_poison:false, passive_multicast:false, passive_pierce:false, passive_mana_shield:false, passive_resonance:false, passive_counter:false, passive_ranged_def:false, passive_toxic_bloom:false, passive_shadow_step:false, passive_ricochet:false, passive_tremor:false, passive_mana_cascade:false };
         this.buffs = { frenzy: 0, slow: 0, shadow: 0 }; this.skills = []; this.skillLevels = {}; this.faction = 'player'; this.isDead = false; this.regenTimer = 1.0; this.shieldCooldown = 0; this.hasShield = false;
+        this.forcedMove = null; // 新增：處理物理衝刺的變數
     }
     getStr() { return this.baseStr + this.mods.str; } getAgi() { return this.baseAgi + this.mods.agi; } getInt() { return this.baseInt + this.mods.int; }
     getMaxHp() { return this.baseMaxHp + this.mods.maxHp + (this.getStr() * 5); }
@@ -562,7 +538,7 @@ class BaseCharacter {
     heal(amt) { if(this.hp < this.getMaxHp()) this.hp = Math.min(this.getMaxHp(), this.hp + amt); }
     takeDamage(amt) {
         if (Math.random() < this.getDodgeRate()) { addFloatingText('閃避!', this.x, this.y - 20, '#10b981'); if (this.mods.passive_shadow_step) this.buffs.shadow = 2.0; return; }
-        if (this.hasShield) { this.hasShield = false; this.shieldCooldown = 10.0; addFloatingText('護盾吸收!', this.x, this.y - 20, '#60a5fa'); createRingExplosion(this.x, this.y, '#60a5fa', 40); return; }
+        if (this.hasShield) { this.hasShield = false; this.shieldCooldown = 10.0; addFloatingText('護盾吸收!', this.x, this.y - 20, '#60a5fa'); createRingExplosion(this.x, this.y, '#60a5fa', 40, 0.4); return; }
         this.hp -= amt; addParticle(this.x, this.y, '#ef4444', 5); if (this.hp <= 0 && !this.isDead) { this.hp = 0; this.die(); }
     }
     die() { this.isDead = true; }
@@ -576,29 +552,14 @@ class BaseCharacter {
             if (s.queue > 0) { s.qTimer = (s.qTimer || 0) - dt; if(s.qTimer <= 0) { SkillRegistry[s.id].cast(this, this.skillLevels[s.id]||1); s.queue--; s.qTimer = 0.2; } }
         });
     }
-    
-    handleObstacles(px, py) {
+    handleObstacles() {
         for(let obs of Engine.obstacles) {
-            let nextDx = px - obs.x, nextDy = py - obs.y, nextDist = Math.hypot(nextDx, nextDy);
-            let minDist = this.radius + obs.radius;
-            
-            if(nextDist < minDist) {
-                let currDx = this.x - obs.x, currDy = this.y - obs.y, currDist = Math.hypot(currDx, currDy);
-                
-                if(currDist >= minDist) {
-                    if(nextDist === 0) { nextDx = 1; nextDist = 1; }
-                    let overlap = minDist - nextDist;
-                    px += (nextDx / nextDist) * overlap; 
-                    py += (nextDy / nextDist) * overlap;
-                } else if(nextDist < currDist) {
-                    if(nextDist === 0) { nextDx = 1; nextDist = 1; }
-                    let overlap = currDist - nextDist;
-                    px += (nextDx / nextDist) * overlap; 
-                    py += (nextDy / nextDist) * overlap;
-                }
+            let dx = this.x - obs.x, dy = this.y - obs.y, dist = Math.hypot(dx, dy), minDist = this.radius + obs.radius;
+            if (dist < minDist) {
+                if (dist === 0) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; dist = Math.hypot(dx, dy); }
+                let overlap = minDist - dist; this.x += (dx / dist) * overlap; this.y += (dy / dist) * overlap;
             }
         }
-        this.x = px; this.y = py;
     }
 }
 
@@ -626,11 +587,43 @@ class Player extends BaseCharacter {
                 else if (typeof effects[k] === 'boolean') this.mods[k] = true; else this.mods[k] += effects[k];
             }
         }
-        newSkills.forEach(id => { if (!this.unlockedSkillIds.includes(id)) { this.unlockedSkillIds.push(id); this.skills.push({id: id, cooldown: SkillRegistry[id].cooldown, timer: 0, queue: 0}); } });
+        
+        let oldSkills = this.skills;
+        this.skills = [];
+        this.unlockedSkillIds = [];
+        newSkills.forEach(id => { 
+            let existing = oldSkills.find(s => s.id === id);
+            if (existing) { this.skills.push(existing); } 
+            else { this.skills.push({id: id, cooldown: SkillRegistry[id].cooldown, timer: 0, queue: 0}); }
+            this.unlockedSkillIds.push(id);
+        });
+        
         if (this.hp > this.getMaxHp()) this.hp = this.getMaxHp(); UI.update();
     }
     update(dt) {
-        let px = this.x, py = this.y, mDx = 0, mDy = 0, kbDx = 0, kbDy = 0;
+        // 【核心修正】：處理物理衝刺，此狀態下忽略玩家輸入
+        if (this.forcedMove && this.forcedMove.time > 0) {
+            this.forcedMove.time -= dt;
+            this.x += this.forcedMove.dx * dt;
+            this.y += this.forcedMove.dy * dt;
+            
+            // 衝刺特效
+            addParticle(this.x, this.y, '#f87171', 1, 0); 
+            
+            // 衝刺傷害判定
+            Engine.getAllTargets(this.faction).forEach(e => {
+                if(Math.hypot(e.x - this.x, e.y - this.y) <= 50) { 
+                    Engine.applyDamage(e, this.forcedMove.dmg, 'melee', this.faction); 
+                    // 撞飛效果
+                    e.x += this.forcedMove.dx * dt * 0.5; 
+                    e.y += this.forcedMove.dy * dt * 0.5; 
+                }
+            });
+            this.handleObstacles();
+            return; // 衝刺期間不執行其他位移
+        }
+
+        let mDx = 0, mDy = 0, kbDx = 0, kbDy = 0;
         if(Engine.keys['w'] || Engine.keys['arrowup']) kbDy -= 1; if(Engine.keys['s'] || Engine.keys['arrowdown']) kbDy += 1;
         if(Engine.keys['a'] || Engine.keys['arrowleft']) kbDx -= 1; if(Engine.keys['d'] || Engine.keys['arrowright']) kbDx += 1;
         let kbDist = Math.hypot(kbDx, kbDy);
@@ -638,8 +631,9 @@ class Player extends BaseCharacter {
         if (Engine.joystick.active) { mDx = Engine.joystick.dx; mDy = Engine.joystick.dy; } 
         else if (kbDist > 0) { mDx = kbDx / kbDist; mDy = kbDy / kbDist; }
 
-        if (mDx !== 0 || mDy !== 0) { let s = this.getMoveSpeed() * dt * 60; px += mDx * s; py += mDy * s; this.dirX = mDx; this.dirY = mDy; }
-        this.handleObstacles(px, py); this.updateSkills(dt);
+        if (mDx !== 0 || mDy !== 0) { let s = this.getMoveSpeed() * dt * 60; this.x += mDx * s; this.y += mDy * s; this.dirX = mDx; this.dirY = mDy; }
+        
+        this.handleObstacles(); this.updateSkills(dt);
     }
     draw() {
         ctx.save(); ctx.translate(this.x, this.y);
@@ -655,7 +649,7 @@ class Player extends BaseCharacter {
         this.xp += amt;
         while (this.xp >= this.reqXp) { 
             this.level++; this.sp++; this.xp -= this.reqXp; this.reqXp = Math.floor(20 + (this.level * 10) + Math.pow(this.level, 1.6) * 5); this.hp = this.getMaxHp(); 
-            addFloatingText('Level Up!', this.x, this.y - 40, '#eab308', 24); createRingExplosion(this.x, this.y, '#eab308'); UI.buildTree(); SaveSystem.save();
+            addFloatingText('Level Up!', this.x, this.y - 40, '#eab308', 24); createRingExplosion(this.x, this.y, '#eab308', 60, 0.5); UI.buildTree(); SaveSystem.save();
         }
         UI.update();
     }
@@ -663,37 +657,16 @@ class Player extends BaseCharacter {
 
 class Enemy {
     constructor(type, sx=null, sy=null, archetype=null, customEmoji=null) {
-        if(sx !== null && sy !== null) { 
-            // 現在傳入的 sx, sy 已經是經過 getSafeSpawnPosition 保證安全的座標
-            this.x = sx; 
-            this.y = sy; 
-        } 
-        else { 
-            // 防呆預設
-            let a = Math.random() * Math.PI * 2, d = Math.max(GAME_WIDTH, GAME_HEIGHT)/2 + 100; 
-            this.x = Engine.player.x + Math.cos(a)*d; 
-            this.y = Engine.player.y + Math.sin(a)*d; 
-        }
-        this.isDead = false; this.speedMod = 1.0; this.speedTimer = 0; this.poisonTimer = 0; this.poisonTick = 0; this.hitTimer = 0; this.stateTimer = 0; 
+        if(sx != null && sy != null) { this.x = sx + (Math.random()-0.5)*100; this.y = sy + (Math.random()-0.5)*100; } 
+        else { let a = Math.random() * Math.PI * 2, d = Math.max(GAME_WIDTH, GAME_HEIGHT)/2 + 100; this.x = Engine.player.x + Math.cos(a)*d; this.y = Engine.player.y + Math.sin(a)*d; }
         
-        let st = 1 + (Engine.gameState.stage - 1) * 0.5, stDmg = 1 + (Engine.gameState.stage - 1) * 0.2;
-        let md;
-        
-        if (type === 'boss') {
-            md = archetype;
-            this.type = archetype.id;
-            this.emoji = customEmoji;
-        } else {
-            this.type = type;
-            md = DB.MONSTERS.find(m => m.type === type);
-            this.emoji = md.emoji;
-        }
+        this.isDead = false; this.speedMod = 1.0; this.speedTimer = 0; this.poisonTimer = 0; this.poisonTick = 0; this.hitTimer = 0; this.stateTimer = 0; this.wanderDir = Math.random() * Math.PI * 2;
+        let st = 1 + (Engine.gameState.stage - 1) * 0.5, stDmg = 1 + (Engine.gameState.stage - 1) * 0.2, md;
+        if (type === 'boss') { md = archetype; this.type = archetype.id; this.emoji = customEmoji; } 
+        else { this.type = type; md = DB.MONSTERS.find(m => m.type === type); this.emoji = md.emoji; }
 
-        this.radius = md.radius; this.speed = md.speed; 
-        this.hp = md.hp * st; this.dmg = md.dmg * stDmg; this.xpVal = md.xp; this.ai = md.ai || 'chase'; this.maxHp = this.hp; this.dirX = 0; this.dirY = 0;
-        
+        this.radius = md.radius; this.speed = md.speed; this.hp = md.hp * st; this.dmg = md.dmg * stDmg; this.xpVal = md.xp; this.ai = md.ai || 'chase'; this.maxHp = this.hp; this.dirX = 0; this.dirY = 0;
         this.skillCD = md.skillCD || 2.0; this.stateTimer = this.skillCD;
-        // 移除有缺陷的 resolveSpawnCollision，依賴 MapSystem 的預判安全座標
     }
     update(dt) {
         if(this.hitTimer > 0) this.hitTimer -= dt; if(this.speedTimer > 0) { this.speedTimer -= dt; if(this.speedTimer <= 0) this.speedMod = 1.0; }
@@ -704,43 +677,15 @@ class Enemy {
         let t = Engine.getClosestTarget(this.x, this.y, 'enemy') || Engine.player;
         let dx = t.x - this.x, dy = t.y - this.y, dist = Math.hypot(dx, dy);
         if (dist > 0) { this.dirX = dx/dist; this.dirY = dy/dist; }
-        
         let proposedX = this.x, proposedY = this.y;
         
         if (this.type.startsWith('boss')) {
-            this.stateTimer -= dt;
-            let cs = this.speed;
-
-            if (this.type === 'boss_summoner' && this.stateTimer <= 0) {
-                let pool = DB.MONSTERS;
-                Engine.enemies.push(new Enemy(pool[Math.floor(Math.random() * pool.length)].type, this.x, this.y));
-                this.stateTimer = this.skillCD;
-            }
-            else if (this.type === 'boss_shooter' && this.stateTimer <= 0) {
-                let p = new Projectile(this.x, this.y, this.dirX, this.dirY, 250, this.dmg, 2, 'enemy_magic', '#f97316', 'enemy');
-                p.radius = 12; Engine.projectiles.push(p);
-                this.stateTimer = this.skillCD;
-            }
-            else if (this.type === 'boss_dasher') {
-                if (this.stateTimer <= 0) cs = this.speed * 4;
-                if (this.stateTimer < -0.5) this.stateTimer = this.skillCD;
-            }
-            else if (this.type === 'boss_tank' && this.stateTimer <= 0) {
-                createRingExplosion(this.x, this.y, '#a16207', 120);
-                Engine.getAllTargets('enemy').forEach(e => {
-                    if(Math.hypot(e.x - this.x, e.y - this.y) <= 120) Engine.applyDamage(e, this.dmg * 1.5, 'melee', 'enemy');
-                });
-                this.stateTimer = this.skillCD;
-            }
-            else if (this.type === 'boss_spreader' && this.stateTimer <= 0) {
-                for(let i=0; i<8; i++) {
-                    let a = (Math.PI*2/8)*i;
-                    let p = new Projectile(this.x, this.y, Math.cos(a), Math.sin(a), 180, this.dmg*0.8, 1.5, 'enemy_magic', '#8b5cf6', 'enemy');
-                    p.radius = 8; Engine.projectiles.push(p);
-                }
-                this.stateTimer = this.skillCD;
-            }
-
+            this.stateTimer -= dt; let cs = this.speed;
+            if (this.type === 'boss_summoner' && this.stateTimer <= 0) { let pool = DB.MONSTERS; Engine.enemies.push(new Enemy(pool[Math.floor(Math.random() * pool.length)].type, this.x, this.y)); this.stateTimer = this.skillCD; }
+            else if (this.type === 'boss_shooter' && this.stateTimer <= 0) { let p = new Projectile(this.x, this.y, this.dirX, this.dirY, 250, this.dmg, 2, 'enemy_magic', '#f97316', 'enemy'); p.radius = 12; Engine.projectiles.push(p); this.stateTimer = this.skillCD; }
+            else if (this.type === 'boss_dasher') { if (this.stateTimer <= 0) cs = this.speed * 4; if (this.stateTimer < -0.5) this.stateTimer = this.skillCD; }
+            else if (this.type === 'boss_tank' && this.stateTimer <= 0) { createRingExplosion(this.x, this.y, '#a16207', 120, 0.4); Engine.getAllTargets('enemy').forEach(e => { if(Math.hypot(e.x - this.x, e.y - this.y) <= 120) Engine.applyDamage(e, this.dmg * 1.5, 'melee', 'enemy'); }); this.stateTimer = this.skillCD; }
+            else if (this.type === 'boss_spreader' && this.stateTimer <= 0) { for(let i=0; i<8; i++) { let a = (Math.PI*2/8)*i; let p = new Projectile(this.x, this.y, Math.cos(a), Math.sin(a), 180, this.dmg*0.8, 1.5, 'enemy_magic', '#8b5cf6', 'enemy'); p.radius = 8; Engine.projectiles.push(p); } this.stateTimer = this.skillCD; }
             if (dist > 0) { proposedX += this.dirX * cs * this.speedMod * dt; proposedY += this.dirY * cs * this.speedMod * dt; }
         } else {
             let res = Behaviors[this.ai](this, t, dist, dt, proposedX, proposedY); proposedX = res.x; proposedY = res.y;
@@ -752,30 +697,20 @@ class Enemy {
             proposedX -= this.dirX * 20; proposedY -= this.dirY * 20;
         }
 
+        this.x = proposedX; this.y = proposedY; this.handleObstacles();
+    }
+    handleObstacles() {
         for(let obs of Engine.obstacles) {
-            let nextDx = proposedX - obs.x, nextDy = proposedY - obs.y, nextDist = Math.hypot(nextDx, nextDy);
-            let minDist = this.radius + obs.radius;
-            if(nextDist < minDist) {
-                let currDx = this.x - obs.x, currDy = this.y - obs.y, currDist = Math.hypot(currDx, currDy);
-                if(currDist >= minDist) {
-                    if(nextDist === 0) { nextDx = 1; nextDist = 1; }
-                    let overlap = minDist - nextDist;
-                    proposedX += (nextDx / nextDist) * overlap; proposedY += (nextDy / nextDist) * overlap;
-                } else if(nextDist < currDist) {
-                    if(nextDist === 0) { nextDx = 1; nextDist = 1; }
-                    let overlap = currDist - nextDist;
-                    proposedX += (nextDx / nextDist) * overlap; proposedY += (nextDy / nextDist) * overlap;
-                }
-            }
+            let dx = this.x - obs.x, dy = this.y - obs.y, dist = Math.hypot(dx, dy), minDist = this.radius + obs.radius;
+            if (dist < minDist) { if (dist === 0) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; dist = Math.hypot(dx, dy); } let overlap = minDist - dist; this.x += (dx / dist) * overlap; this.y += (dy / dist) * overlap; }
         }
-        this.x = proposedX; this.y = proposedY;
     }
     draw() {
         ctx.save(); ctx.translate(this.x, this.y);
         if (this.poisonTimer > 0) { ctx.beginPath(); ctx.arc(0, 0, this.radius + 5, 0, Math.PI*2); ctx.fillStyle = 'rgba(74, 222, 128, 0.4)'; ctx.fill(); }
         ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(0, this.radius, this.radius, this.radius*0.4, 0, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.globalAlpha = (this.hitTimer > 0) ? 0.5 : 1.0; ctx.font = (this.radius * 2) + 'px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        if(Engine.player.x < this.x) ctx.scale(-1, 1); ctx.fillText(this.emoji, 0, 0); ctx.restore();
+        if(Engine.player && Engine.player.x < this.x) ctx.scale(-1, 1); ctx.fillText(this.emoji, 0, 0); ctx.restore();
         if(this.type.startsWith('boss')) { ctx.fillStyle = '#333'; ctx.fillRect(this.x - 30, this.y - this.radius - 15, 60, 6); ctx.fillStyle = '#ef4444'; ctx.fillRect(this.x - 30, this.y - this.radius - 15, 60 * (this.hp/this.maxHp), 6); }
     }
 }
@@ -788,64 +723,21 @@ class Mercenary extends BaseCharacter {
         let ps = ['magic_missile', 'fireball', 'throwing_knife', 'heavy_strike'], sid = ps[Math.floor(Math.random() * ps.length)];
         this.skills.push({id: sid, cooldown: SkillRegistry[sid].cooldown, timer:0, queue:0}); this.skillLevels[sid] = 1 + Math.floor(Engine.gameState.stage / 2);
         this.baseInt = 5 + Engine.gameState.stage*2; this.baseStr = 5 + Engine.gameState.stage*2; this.baseAgi = 5 + Engine.gameState.stage*2; this.orbitAngle = Math.random() * Math.PI * 2;
-        resolveSpawnCollision(this); // 生成時防卡死
     }
     update(dt) {
         if (this.state === 'leaving') { this.leaveTimer -= dt; if (this.leaveTimer <= 0) this.isDead = true; return; }
-        
-        let t = Engine.getClosestTarget(this.x, this.y, 'player');
-        let distToP = Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y);
-        
-        // 算出期望的目標座標 (Target Point)
-        let tx = this.x, ty = this.y;
-        
-        if (distToP > 300) { 
-            // 距離玩家過遠，強制跟隨
-            tx = Engine.player.x; ty = Engine.player.y;
-        } else if (t) {
-            let distToE = Math.hypot(t.x - this.x, t.y - this.y);
-            if (distToE < 150) { 
-                // 敵人太近：反向風箏 (目標點設在背對敵人的方向)
-                tx = this.x - (t.x - this.x); 
-                ty = this.y - (t.y - this.y);
-                // 確保退路不會脫離玩家太遠
-                if(distToP > 200) { tx = (tx + Engine.player.x)/2; ty = (ty + Engine.player.y)/2; }
-            } else if (distToE > 220) { 
-                // 敵人在雷達邊緣：靠近攻擊
-                tx = t.x; ty = t.y; 
-            } else { 
-                // 處於最佳射程 (150~220)：繞著敵人走位
-                this.orbitAngle += dt * 2.0; 
-                tx = t.x + Math.cos(this.orbitAngle) * 160; 
-                ty = t.y + Math.sin(this.orbitAngle) * 160; 
-            }
+        let t = Engine.getClosestTarget(this.x, this.y, 'player'), dxD = this.x, dyD = this.y;
+        if (t) {
+            let dtX = t.x - this.x, dtY = t.y - this.y, d = Math.hypot(dtX, dtY);
+            if (d > 200) { dxD = t.x; dyD = t.y; } else if (d < 150) { dxD = this.x - dtX; dyD = this.y - dtY; } 
+            else { this.orbitAngle += dt * 1.5; dxD = t.x + Math.cos(this.orbitAngle) * 160; dyD = t.y + Math.sin(this.orbitAngle) * 160; }
+            if (Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y) > 350) { dxD = Engine.player.x; dyD = Engine.player.y; }
         } else { 
-            // 沒有敵人時，繞著玩家散步
-            this.orbitAngle += dt * 1.0; 
-            tx = Engine.player.x + Math.cos(this.orbitAngle) * 80; 
-            ty = Engine.player.y + Math.sin(this.orbitAngle) * 80; 
+            this.orbitAngle += dt * 1.0; dxD = Engine.player.x + Math.cos(this.orbitAngle) * 80; dyD = Engine.player.y + Math.sin(this.orbitAngle) * 80; 
         }
-        
-        let dx = tx - this.x, dy = ty - this.y, distToT = Math.hypot(dx, dy), px = this.x, py = this.y;
-        
-        // 防抖動：10px 容差死區 (Deadzone)
-        if (distToT > 10) { 
-            let s = this.getMoveSpeed() * dt * 60;
-            // 沒敵人的時候當作在散步，放慢腳步
-            if (!t && distToP < 150) s *= 0.4;
-            
-            // 防暴衝：單次步數不超過目標距離
-            let md = Math.min(distToT, s);
-            px += (dx/distToT) * md; py += (dy/distToT) * md; 
-            
-            // 平滑轉向 (Lerp)，讓視線不會一秒來回翻轉十次
-            this.dirX += ((dx/distToT) - this.dirX) * 8 * dt;
-            this.dirY += ((dy/distToT) - this.dirY) * 8 * dt;
-            let curLen = Math.hypot(this.dirX, this.dirY) || 1;
-            this.dirX /= curLen; this.dirY /= curLen;
-        }
-        
-        this.handleObstacles(px, py); this.updateSkills(dt);
+        let dx = dxD - this.x, dy = dyD - this.y, dist = Math.hypot(dx, dy);
+        if (dist > 5) { let s = this.getMoveSpeed() * dt * 60; let md = Math.min(dist, s); this.x += (dx/dist)*md; this.y += (dy/dist)*md; this.dirX += ((dx/dist) - this.dirX) * 0.2; this.dirY += ((dy/dist) - this.dirY) * 0.2; }
+        this.handleObstacles(); this.updateSkills(dt);
     }
     draw() {
         ctx.save(); ctx.translate(this.x, this.y); 
@@ -860,9 +752,11 @@ class MapMercenary {
     constructor(x, y) {
         if(!x || !y) { let a = Math.random() * Math.PI * 2, d = Math.max(GAME_WIDTH, GAME_HEIGHT) * 0.7; x = Engine.player.x + Math.cos(a)*d; y = Engine.player.y + Math.sin(a)*d; }
         this.x = x; this.y = y; this.radius = 15; this.isDead = false; this.emoji = ['🧍','🧝','🧞'][Math.floor(Math.random()*3)];
-        resolveSpawnCollision(this); // 生成時防卡死
     }
-    update(dt) { if (Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y) < Engine.player.radius + this.radius) { this.isDead = true; MapSystem.recruitMercenary(this.emoji); } }
+    update(dt) { 
+        if (Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y) < Engine.player.radius + this.radius) { this.isDead = true; MapSystem.recruitMercenary(this.emoji); } 
+        for(let obs of Engine.obstacles) { let dx = this.x - obs.x, dy = this.y - obs.y, d = Math.hypot(dx, dy), minDist = this.radius + obs.radius; if (d < minDist) { if (d === 0) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d = Math.hypot(dx, dy); } this.x += (dx/d)*(minDist-d); this.y += (dy/d)*(minDist-d); } }
+    }
     draw() {
         ctx.save(); ctx.translate(this.x, this.y); ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.ellipse(0, 15, this.radius, this.radius*0.4, 0, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(this.emoji, 0, 0); ctx.restore();
@@ -872,63 +766,27 @@ class MapMercenary {
 class Shrine {
     constructor() {
         let a = Math.random() * Math.PI * 2, d = Math.max(GAME_WIDTH, GAME_HEIGHT) * 0.8; this.x = Engine.player.x + Math.cos(a)*d; this.y = Engine.player.y + Math.sin(a)*d;
-        this.radius = 20; this.used = false; 
-        this.color = '#c084fc'; // 改為神秘的紫色
-        resolveSpawnCollision(this); // 生成時防卡死
+        this.radius = 20; this.used = false; this.color = '#c084fc'; 
     }
     update(dt) {
         if(this.used) return; 
+        for(let obs of Engine.obstacles) { let dx = this.x - obs.x, dy = this.y - obs.y, d = Math.hypot(dx, dy), minDist = this.radius + obs.radius; if (d < minDist) { if (d === 0) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d = Math.hypot(dx, dy); } this.x += (dx/d)*(minDist-d); this.y += (dy/d)*(minDist-d); } }
         let d = Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y);
         if(d < Engine.player.radius + this.radius) {
-            this.used = true;
-            
-            // 神龕效果：3正面，3負面
-            let roll = Math.floor(Math.random() * 6);
-            let effectColor;
-            
+            this.used = true; let roll = Math.floor(Math.random() * 6), effectColor;
             switch(roll) {
-                case 0: // 正向：聖光 (Heal)
-                    Engine.player.heal(Engine.player.getMaxHp() * 0.5); 
-                    effectColor = '#22c55e';
-                    addFloatingText('聖光: 恢復 50% 生命!', this.x, this.y - 20, effectColor); 
-                    break;
-                case 1: // 正向：戰神 (Frenzy)
-                    Engine.player.buffs.frenzy = 10.0; 
-                    effectColor = '#eab308';
-                    addFloatingText('戰神: 狂熱 10 秒!', this.x, this.y - 20, effectColor); 
-                    break;
-                case 2: // 正向：庇護 (Shield)
-                    Engine.player.hasShield = true; 
-                    Engine.player.shieldCooldown = 10.0;
-                    effectColor = '#60a5fa';
-                    addFloatingText('庇護: 獲得護盾!', this.x, this.y - 20, effectColor); 
-                    break;
-                case 3: // 負向：詛咒 (Damage)
-                    let dmg = Engine.player.hp * 0.3; // 扣除當前血量 30%
-                    Engine.player.takeDamage(dmg);
-                    effectColor = '#ef4444';
-                    addFloatingText('詛咒: 損失 30% 鮮血!', this.x, this.y - 20, effectColor); 
-                    break;
-                case 4: // 負向：虛弱 (Slow)
-                    Engine.player.buffs.slow = 5.0;
-                    effectColor = '#9333ea';
-                    addFloatingText('虛弱: 遲緩 5 秒!', this.x, this.y - 20, effectColor); 
-                    break;
-                case 5: // 負向：陷阱 (Ambush)
-                    effectColor = '#dc2626';
-                    addFloatingText('陷阱: 魔物埋伏!', this.x, this.y - 20, effectColor); 
-                    for(let i=0; i<4; i++) {
-                        let pool = DB.MONSTERS;
-                        Engine.enemies.push(new Enemy(pool[Math.floor(Math.random() * pool.length)].type, this.x, this.y));
-                    }
-                    break;
+                case 0: Engine.player.heal(Engine.player.getMaxHp() * 0.5); effectColor = '#22c55e'; addFloatingText('聖光: 恢復 50% 生命!', this.x, this.y - 20, effectColor); break;
+                case 1: Engine.player.buffs.frenzy = 10.0; effectColor = '#eab308'; addFloatingText('戰神: 狂熱 10 秒!', this.x, this.y - 20, effectColor); break;
+                case 2: Engine.player.hasShield = true; Engine.player.shieldCooldown = 10.0; effectColor = '#60a5fa'; addFloatingText('庇護: 獲得護盾!', this.x, this.y - 20, effectColor); break;
+                case 3: Engine.player.takeDamage(Engine.player.hp * 0.3); effectColor = '#ef4444'; addFloatingText('詛咒: 損失 30% 鮮血!', this.x, this.y - 20, effectColor); break;
+                case 4: Engine.player.buffs.slow = 5.0; effectColor = '#9333ea'; addFloatingText('虛弱: 遲緩 5 秒!', this.x, this.y - 20, effectColor); break;
+                case 5: effectColor = '#dc2626'; addFloatingText('陷阱: 魔物埋伏!', this.x, this.y - 20, effectColor); for(let i=0; i<4; i++) { let pool = DB.MONSTERS; Engine.enemies.push(new Enemy(pool[Math.floor(Math.random() * pool.length)].type, this.x, this.y)); } break;
             }
-            createRingExplosion(this.x, this.y, effectColor, 60);
-            UI.update(); // 觸發後立刻強制刷新血條UI
+            createRingExplosion(this.x, this.y, effectColor, 60, 0.5); UI.update();
         }
     }
     draw() {
-        if(this.used) return; ctx.save(); ctx.translate(this.x, this.y); ctx.fillStyle = this.color; ctx.shadowColor = this.color; ctx.shadowBlur = 10; ctx.beginPath();
+        if(this.used) return; ctx.save(); ctx.translate(this.x, this.y); ctx.fillStyle = this.color; ctx.shadowColor = this.color; ctx.shadowBlur = 15; ctx.beginPath();
         ctx.moveTo(0, -this.radius); ctx.lineTo(this.radius, 0); ctx.lineTo(0, this.radius); ctx.lineTo(-this.radius, 0); ctx.closePath(); ctx.fill();
         ctx.fillStyle = '#000'; ctx.font = '20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.shadowBlur = 0; ctx.fillText('⛩️', 0, 0); ctx.restore();
     }
@@ -945,13 +803,16 @@ class Projectile {
             this.dx = bx/bd; this.dy = by/bd; this.hitTargets.clear();
         }
         this.x += this.dx * this.speed * dt; this.y += this.dy * this.speed * dt; this.life -= dt; if(this.life <= 0) this.isDead = true;
+        
+        // 視覺：魔法飛彈拖尾效果
+        if (this.type.includes('magic') && Math.random() < 0.4) {
+            Engine.particles.push({ type: 'dot', x: this.x, y: this.y, dx: -this.dx * this.speed * 0.2, dy: -this.dy * this.speed * 0.2, color: this.color, size: this.radius*0.6, life: 0.2, maxLife: 0.2 });
+        }
 
         for(let obs of Engine.obstacles) {
             let d = Math.hypot(this.x - obs.x, this.y - obs.y);
             if(d < this.radius + obs.radius) {
-                let nextD = Math.hypot((this.x + this.dx) - obs.x, (this.y + this.dy) - obs.y);
-                if (nextD >= d) continue; 
-                
+                let nextD = Math.hypot((this.x + this.dx) - obs.x, (this.y + this.dy) - obs.y); if (nextD >= d) continue; 
                 if(this.type === 'magic_explosive') { this.explode(); return; }
                 if(this.pierce > 0 || this.tryRicochet()) continue;
                 this.isDead = true; return;
@@ -971,7 +832,8 @@ class Projectile {
         }
     }
     explode() {
-        let expRange = 50 * this.aoeMult; createRingExplosion(this.x, this.y, '#ef4444', expRange);
+        let expRange = 50 * this.aoeMult; createRingExplosion(this.x, this.y, '#ef4444', expRange, 0.4);
+        addParticle(this.x, this.y, '#f59e0b', 15, 2); // 爆炸粒子
         Engine.getAllTargets(this.faction).forEach(e => { if(Math.hypot(e.x - this.x, e.y - this.y) <= expRange) Engine.applyDamage(e, this.dmg*0.5, 'magic', this.faction); });
         this.isDead = true;
     }
@@ -983,9 +845,22 @@ class Projectile {
         return false;
     }
     draw() {
+        // 發光美化
+        ctx.shadowBlur = 15; ctx.shadowColor = this.color;
         ctx.fillStyle = this.color; ctx.beginPath();
-        if(this.isKnife) { let a = this.boomerang ? Engine.frameCount * 0.5 : Math.atan2(this.dy, this.dx); ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(a); ctx.moveTo(10, 0); ctx.lineTo(-5, 5); ctx.lineTo(-5, -5); ctx.restore(); } 
-        else { ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); } ctx.fill();
+        if(this.isKnife) { 
+            let a = (this.boomerang || this.type.includes('assassination')) ? Engine.frameCount * 0.4 : Math.atan2(this.dy, this.dx); 
+            ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(a); 
+            // 變更為漂亮的飛鏢形狀
+            if (this.boomerang || this.color === '#14b8a6') {
+                for(let i=0; i<4; i++) { ctx.rotate(Math.PI/2); ctx.moveTo(0, 0); ctx.lineTo(12, -3); ctx.lineTo(16, 0); ctx.lineTo(12, 3); ctx.closePath(); }
+            } else {
+                ctx.moveTo(12, 0); ctx.lineTo(-6, 6); ctx.lineTo(-6, -6);
+            }
+            ctx.fill(); ctx.restore(); 
+        } 
+        else { ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); ctx.fill(); }
+        ctx.shadowBlur = 0;
     }
 }
 
@@ -1005,12 +880,38 @@ class PersistentAoe {
             });
         }
     }
-    draw() { ctx.strokeStyle = this.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(this.owner.x, this.owner.y, this.radius, 0, Math.PI*2); ctx.stroke(); ctx.fillStyle = this.color.replace(')', ', 0.2)').replace('rgb', 'rgba'); ctx.fill(); }
+    draw() { 
+        ctx.save(); ctx.translate(this.owner.x, this.owner.y);
+        ctx.shadowBlur = 20; ctx.shadowColor = this.color;
+        // 視覺：黑洞漩渦與旋風斬劍氣特化渲染
+        if(this.isBlackHole) {
+            this.rot = (this.rot || 0) + 0.1; ctx.rotate(this.rot);
+            ctx.strokeStyle = this.color; ctx.lineWidth = 4; ctx.beginPath();
+            for(let i=0; i<4; i++) { ctx.moveTo(0,0); ctx.quadraticCurveTo(this.radius*0.5, this.radius*0.5, this.radius*Math.cos(i*Math.PI/2), this.radius*Math.sin(i*Math.PI/2)); }
+            ctx.stroke(); ctx.beginPath(); ctx.arc(0,0,this.radius,0,Math.PI*2); ctx.fillStyle='rgba(124,58,237,0.1)'; ctx.fill();
+        } else if (this.isWhirlwind) {
+            this.rot = (this.rot || 0) + 0.35; ctx.rotate(this.rot);
+            ctx.strokeStyle = this.color; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(0,0,this.radius,0,Math.PI); ctx.stroke();
+            ctx.beginPath(); ctx.arc(0,0,this.radius*0.7,Math.PI,Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(0,0,this.radius,0,Math.PI*2); ctx.fillStyle='rgba(252,165,165,0.1)'; ctx.fill();
+        } else {
+            ctx.strokeStyle = this.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2); ctx.stroke(); 
+            ctx.fillStyle = this.color.replace(')', ', 0.2)').replace('rgb', 'rgba'); ctx.fill(); 
+        }
+        ctx.restore(); 
+    }
 }
 class MeleeArcVisual {
     constructor(x, y, angle, range, arcAngle, color) { this.x = x; this.y = y; this.angle = angle; this.range = range; this.arcAngle = arcAngle; this.color = color; this.life = 0.2; this.maxLife = 0.2; this.isDead = false; }
     update(dt) { this.life -= dt; if(this.life <= 0) this.isDead = true; }
-    draw() { ctx.fillStyle = this.color; ctx.globalAlpha = this.life / this.maxLife; ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.arc(this.x, this.y, this.range, this.angle - this.arcAngle/2, this.angle + this.arcAngle/2); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1.0; }
+    draw() { 
+        ctx.fillStyle = this.color; ctx.globalAlpha = this.life / this.maxLife; 
+        ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+        ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.arc(this.x, this.y, this.range, this.angle - this.arcAngle/2, this.angle + this.arcAngle/2); ctx.closePath(); ctx.fill(); 
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
+    }
 }
 
 // ----------------------------------------------------
@@ -1018,8 +919,8 @@ class MeleeArcVisual {
 // ----------------------------------------------------
 function hashCoord(x, y) { return (Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453)) % 1; }
 function addFloatingText(t, x, y, c, s=16) { Engine.floatingTexts.push({ text: t, x: x, y: y, color: c, size: s, life: 1.0, dy: -30 }); }
-function addParticle(x, y, c, cnt=1) { for (let i = 0; i < cnt; i++) { let a = Math.random()*Math.PI*2, s = Math.random()*50+20; Engine.particles.push({ type: 'dot', x: x, y: y, dx: Math.cos(a)*s, dy: Math.sin(a)*s, color: c, size: Math.random()*3+1, life: Math.random()*0.5+0.2, maxLife: 0.7 }); } }
-function createRingExplosion(x, y, c, mr=50) { Engine.particles.push({ type: 'ring', x: x, y: y, color: c, radius: 5, maxRadius: mr, life: 0.3, maxLife: 0.3 }); }
+function addParticle(x, y, c, cnt=1, speedMult=1) { for (let i = 0; i < cnt; i++) { let a = Math.random()*Math.PI*2, s = (Math.random()*50+20)*speedMult; Engine.particles.push({ type: 'dot', x: x, y: y, dx: Math.cos(a)*s, dy: Math.sin(a)*s, color: c, size: Math.random()*3+2, life: Math.random()*0.5+0.2, maxLife: 0.7 }); } }
+function createRingExplosion(x, y, c, mr=50, life=0.3) { Engine.particles.push({ type: 'ring', x: x, y: y, color: c, radius: 5, maxRadius: mr, life: life, maxLife: life }); }
 
 const MapSystem = {
     updateChunks: function(px, py) {
@@ -1029,7 +930,12 @@ const MapSystem = {
                 let key = `${cx+i},${cy+j}`; needed.add(key);
                 if(!Engine.loadedChunks[key]) {
                     let obs = [], sc = Math.floor(hashCoord(cx+i, cy+j) * 4) + 2; 
-                    for(let k=0; k<sc; k++) { let rx = hashCoord(cx+i+k, cy+j)*500, ry = hashCoord(cx+i, cy+j+k)*500, isTree = hashCoord(cx*k, cy*k) > 0.5; obs.push({ x: (cx+i)*500+rx, y: (cy+j)*500+ry, type: isTree ? '🌲' : '🪨', radius: isTree ? 25 : 20 }); }
+                    for(let k=0; k<sc; k++) { 
+                        let rx = hashCoord(cx+i+k, cy+j)*500, ry = hashCoord(cx+i, cy+j+k)*500, isTree = hashCoord(cx*k, cy*k) > 0.5; 
+                        let ox = (cx+i)*500+rx, oy = (cy+j)*500+ry;
+                        if (Math.hypot(ox, oy) < 150) continue; 
+                        obs.push({ x: ox, y: oy, type: isTree ? '🌲' : '🪨', radius: isTree ? 25 : 20 }); 
+                    }
                     Engine.loadedChunks[key] = obs;
                 }
                 Engine.obstacles.push(...Engine.loadedChunks[key]);
@@ -1038,19 +944,14 @@ const MapSystem = {
         for (let key in Engine.loadedChunks) { if (!needed.has(key)) delete Engine.loadedChunks[key]; }
     },
     spawnEnemy: function() {
-        if(Engine.gameState.bossSpawned) return;
-        
-        // 隨機 BOSS 生成系統
-        if(Engine.gameState.kills >= Engine.gameState.bossReq) {
+        if(Engine.gameState.kills >= Engine.gameState.bossReq && !Engine.gameState.bossSpawned) {
             let arch = DB.BOSS_ARCHETYPES[Math.floor(Math.random() * DB.BOSS_ARCHETYPES.length)];
             let emj = DB.BOSS_EMOJIS[Math.floor(Math.random() * DB.BOSS_EMOJIS.length)];
-            
             Engine.enemies.push(new Enemy('boss', null, null, arch, emj));
             Engine.gameState.bossSpawned = true;
             addFloatingText(`⚠️ BOSS [${arch.name}] 出現!`, Engine.player.x, Engine.player.y - 150, '#ef4444', 32);
-            return;
+            return; 
         }
-        
         let pool = DB.MONSTERS; 
         Engine.enemies.push(new Enemy(pool[Math.floor(Math.random() * pool.length)].type));
     },
@@ -1064,30 +965,22 @@ const MapSystem = {
 const SaveSystem = {
     memorySave: null,
     checkLocal: function() {
-        try {
-            if (localStorage.getItem(SAVE_KEY) || this.memorySave) document.getElementById('btnContinue').classList.remove('hidden');
-            else document.getElementById('btnContinue').classList.add('hidden');
-        } catch(e) {
-            if (this.memorySave) document.getElementById('btnContinue').classList.remove('hidden');
-            else document.getElementById('btnContinue').classList.add('hidden');
-        }
+        try { if (localStorage.getItem(SAVE_KEY) || this.memorySave) document.getElementById('btnContinue').classList.remove('hidden'); else document.getElementById('btnContinue').classList.add('hidden'); } 
+        catch(e) { if (this.memorySave) document.getElementById('btnContinue').classList.remove('hidden'); else document.getElementById('btnContinue').classList.add('hidden'); }
     },
     save: function() {
         if (!Engine.isGameRunning) return; 
         const data = { pC: Engine.player.playerClass, l: Engine.player.level, x: Engine.player.xp, rx: Engine.player.reqXp, s: Engine.player.sp, hp: Engine.player.hp, uN: Engine.unlockedNodes, gS: Engine.gameState };
-        let saveString = JSON.stringify(data);
-        this.memorySave = saveString; 
+        let saveString = JSON.stringify(data); this.memorySave = saveString; 
         try { localStorage.setItem(SAVE_KEY, saveString); } catch(e) {}
         this.checkLocal();
     },
     load: function() { 
-        let s = this.memorySave;
-        try { s = localStorage.getItem(SAVE_KEY) || s; } catch(e) {}
+        let s = this.memorySave; try { s = localStorage.getItem(SAVE_KEY) || s; } catch(e) {}
         if(s) { this.startFromData(JSON.parse(s)); } 
     },
     export: function() { 
-        let s = this.memorySave;
-        try { s = localStorage.getItem(SAVE_KEY) || s; } catch(e) {}
+        let s = this.memorySave; try { s = localStorage.getItem(SAVE_KEY) || s; } catch(e) {}
         if (!s) return UI.showModal({title:'錯誤', msg:'沒有找到存檔！'});
         try { UI.copyToClipboard(btoa(unescape(encodeURIComponent(s)))); UI.showModal({title:'匯出成功', msg:'存檔代碼已複製到剪貼簿！'}); } 
         catch (e) { UI.showModal({title:'匯出失敗', msg:'剪貼簿權限遭拒絕！'}); }
@@ -1130,15 +1023,32 @@ const UI = {
     showModal: function({ title, msg, type = 'alert', confirmText = '確認', onConfirm = null }) {
         let m = document.getElementById('customModal'), mi = document.getElementById('modalInput'), mc = document.getElementById('modalBtnCancel');
         document.getElementById('modalTitle').innerText = title; document.getElementById('modalMsg').innerText = msg; document.getElementById('modalBtnConfirm').innerText = confirmText;
-        if (type === 'prompt') { mi.classList.remove('hidden'); mi.value = ''; mc.classList.remove('hidden'); } else { mi.classList.add('hidden'); mc.classList.add('hidden'); }
+        // 【修正點】：精確切換 Confirm 和 Prompt 對話框的按鈕屬性
+        if (type === 'prompt') { mi.classList.remove('hidden'); mi.value = ''; mc.classList.remove('hidden'); } 
+        else if (type === 'confirm') { mi.classList.add('hidden'); mc.classList.remove('hidden'); }
+        else { mi.classList.add('hidden'); mc.classList.add('hidden'); }
         m.classList.remove('hidden');
         mc.onclick = () => m.classList.add('hidden');
-        document.getElementById('modalBtnConfirm').onclick = () => { m.classList.add('hidden'); if(onConfirm) onConfirm(type === 'prompt' ? mi.value : null); };
+        document.getElementById('modalBtnConfirm').onclick = () => { m.classList.add('hidden'); if(onConfirm) onConfirm(type === 'prompt' ? mi.value : true); };
     },
     copyToClipboard: function(text) { const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); },
     openTree: function() { if(!Engine.isGameRunning) return; Engine.isPaused = true; document.getElementById('skillTreeModal').classList.remove('hidden'); this.buildTree(); document.getElementById('treeScrollWrapper').scrollLeft = DB.SKILL_TREE['core'].x - window.innerWidth / 2; document.getElementById('treeScrollWrapper').scrollTop = DB.SKILL_TREE['core'].y - window.innerHeight / 2; },
     closeTree: function() { Engine.isPaused = false; document.getElementById('skillTreeModal').classList.add('hidden'); document.getElementById('nodeInfoPanel').classList.add('translate-y-full'); },
-    resetTalents: function() { this.showModal({ title: '重置天賦', msg: '確定要退回所有天賦點數嗎？', type: 'prompt', confirmText: '確認', onConfirm: () => { let sn = Engine.player.playerClass === 'mage' ? 'm_start' : (Engine.player.playerClass === 'rogue' ? 'r_start' : 'b_start'), ref = 0; for(let id in Engine.unlockedNodes) { if(id !== sn) ref += Engine.unlockedNodes[id]; } Engine.unlockedNodes = { [sn]: 1 }; Engine.player.sp += ref; Engine.player.recalculateStats(); this.buildTree(); SaveSystem.save(); } }); },
+    
+    resetTalents: function() { 
+        this.showModal({ 
+            title: '重置天賦', 
+            msg: '確定要退回所有天賦點數嗎？技能將會完全洗牌！', 
+            type: 'confirm', 
+            confirmText: '重置', 
+            onConfirm: () => { 
+                let sn = Engine.player.playerClass === 'mage' ? 'm_start' : (Engine.player.playerClass === 'rogue' ? 'r_start' : 'b_start'), ref = 0; 
+                for(let id in Engine.unlockedNodes) { if(id !== sn) ref += Engine.unlockedNodes[id]; } 
+                Engine.unlockedNodes = { [sn]: 1 }; 
+                Engine.player.sp += ref; Engine.player.recalculateStats(); this.buildTree(); SaveSystem.save(); 
+            } 
+        }); 
+    },
     treeLoop: function() {
         if(!Engine.isPaused || document.getElementById('skillTreeModal').classList.contains('hidden')) return;
         let dx = 0, dy = 0, speed = 15;
@@ -1204,7 +1114,6 @@ const UI = {
     }
 };
 
-// --- Joystick & Input ---
 const joyArea = document.getElementById('joystickArea'), joyBase = document.getElementById('joystickBase'), joyStick = document.getElementById('joystickStick');
 function joyStart(x, y) { if(Engine.isPaused || !Engine.isGameRunning) return; Engine.joystick.active = true; Engine.joystick.sx = x; Engine.joystick.sy = y; joyBase.style.display = 'block'; joyBase.style.left = `${x}px`; joyBase.style.top = `${y}px`; joyStick.style.transform = `translate(-50%, -50%)`; }
 function joyMove(x, y) { if(!Engine.joystick.active) return; let dx = x - Engine.joystick.sx, dy = y - Engine.joystick.sy, d = Math.hypot(dx, dy), md = 40; if(d > md) { dx = (dx/d)*md; dy = (dy/d)*md; } joyStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; if(d > 0) { Engine.joystick.dx = dx/md; Engine.joystick.dy = dy/md; } }
@@ -1212,23 +1121,16 @@ function joyEnd() { Engine.joystick.active = false; Engine.joystick.dx = 0; Engi
 joyArea.addEventListener('touchstart', e => joyStart(e.touches[0].clientX, e.touches[0].clientY)); joyArea.addEventListener('touchmove', e => joyMove(e.touches[0].clientX, e.touches[0].clientY)); joyArea.addEventListener('touchend', joyEnd); joyArea.addEventListener('touchcancel', joyEnd);
 joyArea.addEventListener('mousedown', e => joyStart(e.clientX, e.clientY)); joyArea.addEventListener('mousemove', e => joyMove(e.clientX, e.clientY)); joyArea.addEventListener('mouseup', joyEnd); joyArea.addEventListener('mouseleave', joyEnd);
 
-// --- Tree UI Dragging (Mouse & Touch) ---
 const treeW = document.getElementById('treeScrollWrapper');
-let isDraggingTree = false, startX, startY, sL, sT;
-window.treeHasMoved = false;
-
+let isDraggingTree = false, startX, startY, sL, sT; window.treeHasMoved = false;
 treeW.addEventListener('mousedown', e => { isDraggingTree = true; window.treeHasMoved = false; startX = e.pageX - treeW.offsetLeft; startY = e.pageY - treeW.offsetTop; sL = treeW.scrollLeft; sT = treeW.scrollTop; });
-treeW.addEventListener('mouseleave', () => isDraggingTree = false);
-treeW.addEventListener('mouseup', () => { setTimeout(()=> isDraggingTree = false, 50); });
+treeW.addEventListener('mouseleave', () => isDraggingTree = false); treeW.addEventListener('mouseup', () => { setTimeout(()=> isDraggingTree = false, 50); });
 treeW.addEventListener('mousemove', e => { if(!isDraggingTree) return; window.treeHasMoved = true; e.preventDefault(); treeW.scrollLeft = sL - (e.pageX - treeW.offsetLeft - startX); treeW.scrollTop = sT - (e.pageY - treeW.offsetTop - startY); });
-
 treeW.addEventListener('touchstart', e => { isDraggingTree = true; window.treeHasMoved = false; startX = e.touches[0].pageX - treeW.offsetLeft; startY = e.touches[0].pageY - treeW.offsetTop; sL = treeW.scrollLeft; sT = treeW.scrollTop; }, {passive: false});
-treeW.addEventListener('touchend', () => { setTimeout(()=> isDraggingTree = false, 50); });
-treeW.addEventListener('touchcancel', () => isDraggingTree = false);
+treeW.addEventListener('touchend', () => { setTimeout(()=> isDraggingTree = false, 50); }); treeW.addEventListener('touchcancel', () => isDraggingTree = false);
 treeW.addEventListener('touchmove', e => { if(!isDraggingTree) return; window.treeHasMoved = true; e.preventDefault(); treeW.scrollLeft = sL - (e.touches[0].pageX - treeW.offsetLeft - startX); treeW.scrollTop = sT - (e.touches[0].pageY - treeW.offsetTop - startY); }, {passive: false});
 
 Engine.init();
 </script>
 </body>
 </html>
-
