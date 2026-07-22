@@ -6,94 +6,41 @@
     <title>無限領域：天賦覺醒</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: #0f172a; color: white; overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: none; /* 禁用預設滑動手勢 */
-            user-select: none;
-        }
-        #gameCanvas {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
-        }
-        #uiLayer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none;
-        }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #0f172a; color: white; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; user-select: none; }
+        #gameCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #uiLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
         .interactive { pointer-events: auto; }
-        
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 12px;
-        }
-        
+        .glass-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; }
         #skillTreeModal, #mainMenu, #classSelectionScreen { z-index: 50; }
-        
-        #treeScrollWrapper {
-            cursor: grab;
-        }
-        #treeScrollWrapper:active {
-            cursor: grabbing;
-        }
-
-        #treeContainer {
-            position: relative; width: 1500px; height: 1500px;
-        }
-        .skill-node {
-            position: absolute; width: 56px; height: 56px;
-            transform: translate(-50%, -50%); border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 15px; font-weight: bold; cursor: pointer;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
-            transition: all 0.2s ease;
-            text-align: center; line-height: 1.1;
-        }
+        #treeScrollWrapper { cursor: grab; }
+        #treeScrollWrapper:active { cursor: grabbing; }
+        #treeContainer { position: relative; width: 1500px; height: 1500px; }
+        .skill-node { position: absolute; width: 56px; height: 56px; transform: translate(-50%, -50%); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: all 0.2s ease; text-align: center; line-height: 1.1; }
         .node-locked { background: #334155; color: #ffffff; border: 2px solid #1e293b; }
         .node-available { background: #eab308; color: #1c1917; border: 2px solid #fef08a; animation: pulse 2s infinite; }
         .node-unlocked { background: #3b82f6; color: white; border: 2px solid #93c5fd; box-shadow: 0 0 15px #3b82f6; }
-        
         .node-class-c { background: #eab308; color: #000; border-color: #fef08a; } 
         .node-class-m { background: #8b5cf6; border-color: #c4b5fd; }
         .node-class-r { background: #10b981; border-color: #6ee7b7; }
         .node-class-b { background: #ef4444; border-color: #fca5a5; }
-
-        @keyframes pulse {
-            0% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.1); box-shadow: 0 0 15px #eab308; }
-            100% { transform: translate(-50%, -50%) scale(1); }
-        }
-
+        @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.1); box-shadow: 0 0 15px #eab308; } 100% { transform: translate(-50%, -50%) scale(1); } }
         #joystickArea { position: absolute; width: 100%; height: 100%; pointer-events: auto; z-index: 5; }
-        
         #hpBarContainer { width: 100%; height: 12px; background: #334155; border-radius: 6px; overflow: hidden; margin-top: 5px;}
         #hpBar { width: 100%; height: 100%; background: linear-gradient(90deg, #ef4444, #f87171); transition: width 0.2s; }
         #xpBarContainer { width: 100%; height: 8px; background: #1e293b; border-radius: 4px; overflow: hidden; margin-top: 5px;}
         #xpBar { width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); transition: width 0.2s; }
-
         #bossHpBarContainer { display: none; width: 80%; height: 16px; background: #334155; border-radius: 8px; overflow: hidden; margin: 10px auto; border: 2px solid #ef4444;}
         #bossHpBar { width: 100%; height: 100%; background: linear-gradient(90deg, #b91c1c, #ef4444); transition: width 0.2s; }
-
-        #joystickBase {
-            position: absolute; width: 100px; height: 100px; border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3);
-            transform: translate(-50%, -50%); display: none; pointer-events: none;
-        }
-        #joystickStick {
-            position: absolute; width: 40px; height: 40px; border-radius: 50%;
-            background: rgba(255, 255, 255, 0.6); top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-        }
+        #joystickBase { position: absolute; width: 100px; height: 100px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); transform: translate(-50%, -50%); display: none; pointer-events: none; }
+        #joystickStick { position: absolute; width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.6); top: 50%; left: 50%; transform: translate(-50%, -50%); }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
-
     <div id="joystickArea"></div>
     <div id="joystickBase"><div id="joystickStick"></div></div>
 
-    <!-- 遊戲中 UI -->
-    <div id="uiLayer" class="p-4 flex flex-col justify-between hidden">
+    <div id="uiLayer" class="p-4 flex flex-col justify-between hidden z-10">
         <div class="flex justify-between items-start gap-4 interactive">
             <div class="w-2/3">
                 <div class="text-lg font-bold text-yellow-400 drop-shadow-md">Lv <span id="uiLevel">1</span> (<span id="uiSp">0</span> 點)</div>
@@ -111,16 +58,13 @@
         <div id="bossHpBarContainer"><div id="bossHpBar"></div></div>
     </div>
 
-    <!-- 主選單 -->
     <div id="mainMenu" class="absolute inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center p-6 interactive">
         <h1 class="text-5xl font-extrabold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 drop-shadow-lg text-center">無限領域<br><span class="text-3xl text-yellow-400">天賦覺醒</span></h1>
-        <p class="text-gray-400 mb-10 text-center text-sm">手機直屏最佳體驗 / 支援鍵鼠操控</p>
-        
+        <p class="text-gray-400 mb-10 text-center text-sm">支援WASD、方向鍵與觸控操控</p>
         <div class="w-full max-w-sm flex flex-col gap-4">
             <button id="btnContinue" class="w-full py-4 bg-green-600 hover:bg-green-500 rounded-xl text-xl font-bold text-white shadow-lg transform active:scale-95 hidden">繼續旅程</button>
             <button id="btnNewGame" class="w-full py-4 bg-blue-600 hover:bg-blue-500 rounded-xl text-xl font-bold text-white shadow-lg transform active:scale-95">全新開局</button>
             <button id="btnArena" class="w-full py-4 bg-purple-600 hover:bg-purple-500 rounded-xl text-xl font-bold text-white shadow-lg transform active:scale-95">競技場決鬥</button>
-            
             <div class="flex gap-4 mt-4">
                 <button id="btnExport" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-md font-bold text-white shadow-lg transform active:scale-95">匯出存檔</button>
                 <button id="btnImport" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-md font-bold text-white shadow-lg transform active:scale-95">匯入存檔</button>
@@ -128,25 +72,24 @@
         </div>
     </div>
 
-    <!-- 選角畫面 -->
     <div id="classSelectionScreen" class="absolute inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center p-4 interactive hidden">
         <h2 class="text-3xl font-bold text-white mb-4">選擇職業起點</h2>
         <div class="flex flex-col h-[80vh] w-full max-w-md gap-4">
-            <div class="glass-panel flex-1 flex flex-row items-center p-4 cursor-pointer hover:bg-slate-800 transition transform hover:scale-[1.02] active:scale-95" onclick="startGame('warrior')">
+            <div class="glass-panel flex-1 flex flex-row items-center p-4 cursor-pointer hover:bg-slate-800 transition transform hover:scale-[1.02] active:scale-95" onclick="Engine.startGame('warrior')">
                 <div class="text-6xl mr-4">🛡️</div>
                 <div>
                     <h2 class="text-2xl font-bold text-red-400">戰士</h2>
                     <p class="text-xs text-gray-300 mt-1">中等跑速、<span class="text-red-400">射程極短</span>、<span class="text-green-400">血量最多</span>。<br>主：力量 (生命/爆傷)</p>
                 </div>
             </div>
-            <div class="glass-panel flex-1 flex flex-row items-center p-4 cursor-pointer hover:bg-slate-800 transition transform hover:scale-[1.02] active:scale-95" onclick="startGame('rogue')">
+            <div class="glass-panel flex-1 flex flex-row items-center p-4 cursor-pointer hover:bg-slate-800 transition transform hover:scale-[1.02] active:scale-95" onclick="Engine.startGame('rogue')">
                 <div class="text-6xl mr-4">🥷</div>
                 <div>
                     <h2 class="text-2xl font-bold text-emerald-400">盜賊</h2>
                     <p class="text-xs text-gray-300 mt-1"><span class="text-green-400">最快跑速</span>、射程中等、血量中等。<br>主：敏捷 (爆擊/閃避)</p>
                 </div>
             </div>
-            <div class="glass-panel flex-1 flex flex-row items-center p-4 cursor-pointer hover:bg-slate-800 transition transform hover:scale-[1.02] active:scale-95" onclick="startGame('mage')">
+            <div class="glass-panel flex-1 flex flex-row items-center p-4 cursor-pointer hover:bg-slate-800 transition transform hover:scale-[1.02] active:scale-95" onclick="Engine.startGame('mage')">
                 <div class="text-6xl mr-4">🧙‍♂️</div>
                 <div>
                     <h2 class="text-2xl font-bold text-purple-400">法師</h2>
@@ -157,11 +100,10 @@
         <button id="btnCancelClass" class="mt-4 px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-lg shadow-lg active:scale-95">返回主選單</button>
     </div>
 
-    <!-- 天賦樹 Modal -->
     <div id="skillTreeModal" class="absolute inset-0 bg-slate-900/95 interactive flex flex-col hidden z-50">
         <div class="p-4 flex justify-between items-center border-b border-slate-700 bg-slate-800 z-30">
             <div>
-                <h2 class="text-xl font-bold text-yellow-400">天賦樹 (拖曳移動)</h2>
+                <h2 class="text-xl font-bold text-yellow-400">天賦樹 (可拖曳與方向鍵移動)</h2>
                 <p class="text-sm text-gray-300">剩餘點數：<span id="treeSp" class="font-bold text-white">0</span></p>
             </div>
             <div class="flex gap-2">
@@ -169,40 +111,31 @@
                 <button id="btnCloseTree" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded font-bold text-white active:scale-95 transition-transform">關閉</button>
             </div>
         </div>
-        
-        <div class="flex-1 overflow-auto relative bg-slate-900 select-none z-10" id="treeScrollWrapper">
+        <div class="flex-1 overflow-hidden relative bg-slate-900 select-none z-10" id="treeScrollWrapper" style="overflow: hidden;">
             <div id="treeContainer">
                 <svg width="100%" height="100%" class="absolute inset-0 pointer-events-none opacity-20">
-                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="0.5"/>
-                    </pattern>
+                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="0.5"/></pattern>
                     <rect width="100%" height="100%" fill="url(#grid)" />
                 </svg>
                 <svg id="treeLines" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 0;"></svg>
             </div>
         </div>
-        
         <div id="nodeInfoPanel" class="absolute bottom-0 left-0 w-full p-4 glass-panel transform translate-y-full transition-transform duration-300 flex justify-between items-center shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-40">
-            <div>
-                <h3 id="niTitle" class="font-bold text-xl text-white">節點名稱</h3>
-                <p id="niDesc" class="text-md text-gray-300 mt-1 whitespace-pre-line">節點描述效果...</p>
-            </div>
+            <div><h3 id="niTitle" class="font-bold text-xl text-white">節點名稱</h3><p id="niDesc" class="text-md text-gray-300 mt-1 whitespace-pre-line">節點描述...</p></div>
             <button id="btnLearnNode" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold hidden shadow-lg flex-shrink-0 ml-2">學習</button>
         </div>
     </div>
 
-    <!-- Game Over Screen -->
     <div id="gameOverScreen" class="absolute inset-0 bg-red-900/95 z-50 flex flex-col items-center justify-center p-4 interactive hidden">
         <h1 id="goTitle" class="text-5xl font-bold mb-4 text-white drop-shadow-lg">你陣亡了</h1>
         <p id="goDesc1" class="text-xl text-gray-200 mb-2">保留等級與天賦點數</p>
         <p id="goDesc2" class="text-md text-gray-300 mb-8">將退回較弱的關卡重生...</p>
         <div class="flex gap-4">
-            <button id="btnRespawn" onclick="respawn()" class="px-8 py-3 bg-white text-red-900 text-xl font-bold rounded-full shadow-lg hover:bg-gray-200 transition transform hover:scale-105">重新甦醒</button>
-            <button onclick="backToMainMenu()" class="px-8 py-3 bg-slate-700 text-white text-xl font-bold rounded-full shadow-lg hover:bg-slate-600 transition transform hover:scale-105">回主畫面</button>
+            <button id="btnRespawn" onclick="Engine.respawn()" class="px-8 py-3 bg-white text-red-900 text-xl font-bold rounded-full shadow-lg hover:bg-gray-200 transition transform hover:scale-105">重新甦醒</button>
+            <button id="btnBackToMenu2" class="px-8 py-3 bg-slate-700 text-white text-xl font-bold rounded-full shadow-lg hover:bg-slate-600 transition transform hover:scale-105">回主畫面</button>
         </div>
     </div>
 
-    <!-- Custom Modal System -->
     <div id="customModal" class="absolute inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 hidden interactive">
         <div class="glass-panel p-6 w-full max-w-md flex flex-col gap-4">
             <h3 id="modalTitle" class="text-2xl font-bold text-white">標題</h3>
@@ -216,380 +149,651 @@
     </div>
 
 <script>
-const SAVE_KEY = 'awaken_survivor_save';
-const CHUNK_SIZE = 500;
-
-function hashCoordinate(x, y) {
-    return (Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453)) % 1;
-}
-
-const customModal = document.getElementById('customModal');
-const modalTitle = document.getElementById('modalTitle');
-const modalMsg = document.getElementById('modalMsg');
-const modalInput = document.getElementById('modalInput');
-const modalBtnCancel = document.getElementById('modalBtnCancel');
-const modalBtnConfirm = document.getElementById('modalBtnConfirm');
-
-function showModal({ title, msg, type = 'alert', confirmText = '確認', onConfirm = null }) {
-    modalTitle.innerText = title;
-    modalMsg.innerText = msg;
-    modalBtnConfirm.innerText = confirmText;
-    
-    if (type === 'prompt') {
-        modalInput.classList.remove('hidden');
-        modalInput.value = '';
-        modalBtnCancel.classList.remove('hidden');
-    } else {
-        modalInput.classList.add('hidden');
-        modalBtnCancel.classList.add('hidden');
+const DB = {
+    EMOJI_POOLS: {
+        normal: ['🧟', '🧟‍♂️', '🧟‍♀️', '🦴', '🤡', '🎃', '🕷️', '🦂', '🐀', '🦠', '🍄', '🐌'],
+        fast: ['🦇', '🐺', '🐍', '🦅', '🦎', '🏃', '🏃‍♂️', '🏃‍♀️'],
+        tank: ['🐻', '🐗', '🐊', '🦍', '🦏', '🐘', '🪨', '🐢', '🦀', '🐳'],
+        ranged: ['💀', '👻', '👽', '👾', '🌵', '🐙', '🦑'],
+        dasher: ['🐎', '🐆', '🐅', '🦈', '🦅', '🐬'],
+        boss: ['🧛', '🐉', '🐲', '👿', '😈', '👹', '👺', '🦖', '🦕', '🦄', '🧜‍♀️', '🧚‍♀️', '🧞‍♂️', '🤖', '🔥', '💧', '🌪️', '⚡']
+    },
+    MONSTERS: [],
+    SKILL_TREE: {
+        'core': { x: 750, y: 750, name: '萬物之源', desc: '全屬性+10', effects: { str: 10, agi: 10, int: 10 }, links: [] },
+        'm_start': { x: 750, y: 350, name: '法師起點', desc: '解鎖魔法飛彈，+5智力\n可重複投資升級', effects: { int: 5, skills: ['magic_missile'] }, links: ['m_t4', 'm_p1', 'm_p2', 'm_p3'] },
+        'm_p1': { x: 650, y: 400, name: '護盾', desc: '【被動】每10秒產生抵擋傷害的護盾', effects: { passive_mana_shield: true }, links: ['m_start'] },
+        'm_p2': { x: 850, y: 400, name: '共鳴', desc: '【被動】法術命中20%機率產生額外爆炸', effects: { passive_resonance: true }, links: ['m_start'] },
+        'm_p3': { x: 750, y: 250, name: '湧動', desc: '【被動】法術擊殺有30%機率減少所有技能冷卻1秒', effects: { passive_mana_cascade: true }, links: ['m_start'] },
+        'm_t4': { x: 750, y: 450, name: '魔力擴張', desc: '+25% 技能範圍', effects: { aoe: 0.25 }, links: ['m_t3L', 'm_t3R'] },
+        'm_t3L': { x: 620, y: 520, name: '火球術', desc: '【法術】發射爆炸火球\n可重複投資升級', effects: { skills: ['fireball'] }, links: ['m_t2'] },
+        'm_t3R': { x: 880, y: 520, name: '冰霜新星', desc: '【法術】定時爆發緩速\n可重複投資升級', effects: { skills: ['frost_nova'] }, links: ['m_t2'] },
+        'm_t2': { x: 750, y: 550, name: '施法加速', desc: '+15% 攻擊速度', effects: { atkSpeed: 0.15 }, links: ['m_t1L', 'm_t1R', 'm_a1', 'm_a2'] },
+        'm_a1': { x: 660, y: 600, name: '黑洞', desc: '【主動】引力場持續牽引\n可重複投資升級', effects: { skills: ['black_hole'] }, links: ['m_t2'] },
+        'm_a2': { x: 840, y: 600, name: '隕石術', desc: '【主動】召喚巨大隕石\n可重複投資升級', effects: { skills: ['meteor_strike'] }, links: ['m_t2'] },
+        'm_t1L': { x: 650, y: 680, name: '閃電鏈', desc: '【法術】發射彈跳閃電\n可重複投資升級', effects: { skills: ['chain_lightning'] }, links: ['m_hub'] },
+        'm_t1R': { x: 850, y: 680, name: '連續施法', desc: '【被動】法術可連放兩次', effects: { passive_multicast: true }, links: ['m_hub'] },
+        'm_hub': { x: 750, y: 650, name: '智力樞紐', desc: '+10 智力', effects: { int: 10 }, links: ['core'] },
+        'b_start': { x: 400, y: 1100, name: '戰士起點', desc: '解鎖重擊，+5力量\n可重複投資升級', effects: { str: 5, skills: ['heavy_strike'] }, links: ['b_t4', 'b_p1', 'b_p2', 'b_p3'] },
+        'b_p1': { x: 480, y: 1160, name: '反擊', desc: '【被動】受近戰攻擊自動反擊', effects: { passive_counter: true }, links: ['b_start'] },
+        'b_p2': { x: 320, y: 1040, name: '防禦', desc: '【被動】受遠程攻擊25%減傷', effects: { passive_ranged_def: true }, links: ['b_start'] },
+        'b_p3': { x: 320, y: 1160, name: '餘震', desc: '【被動】近戰20%引發爆破', effects: { passive_tremor: true }, links: ['b_start'] },
+        'b_t4': { x: 470, y: 1040, name: '強壯體魄', desc: '+50 最大生命', effects: { maxHp: 50 }, links: ['b_t3L', 'b_t3R'] },
+        'b_t3L': { x: 580, y: 1090, name: '旋風斬', desc: '【近戰】持續範圍傷害\n可重複投資升級', effects: { skills: ['whirlwind'] }, links: ['b_t2'] },
+        'b_t3R': { x: 480, y: 920, name: '嗜血打擊', desc: '【被動】近戰附加吸血', effects: { passive_lifesteal: true }, links: ['b_t2'] },
+        'b_t2': { x: 570, y: 980, name: '狂暴之力', desc: '+30% 爆擊傷害', effects: { critDmg: 0.3 }, links: ['b_t1L', 'b_t1R', 'b_a1', 'b_a2'] },
+        'b_a1': { x: 510, y: 880, name: '衝鋒', desc: '【主動】突進攻擊\n可重複投資升級', effects: { skills: ['dash_attack'] }, links: ['b_t2'] },
+        'b_a2': { x: 670, y: 1020, name: '戰吼', desc: '【主動】怒吼狂熱\n可重複投資升級', effects: { skills: ['warcry'] }, links: ['b_t2'] },
+        'b_t1L': { x: 680, y: 920, name: '地震', desc: '【近戰】物理震波\n可重複投資升級', effects: { skills: ['earthquake'] }, links: ['b_hub'] },
+        'b_t1R': { x: 590, y: 820, name: '生生不息', desc: '【被動】生命恢復+5/秒', effects: { hpRegen: 5 }, links: ['b_hub'] },
+        'b_hub': { x: 660, y: 840, name: '力量樞紐', desc: '+10 力量', effects: { str: 10 }, links: ['core'] },
+        'r_start': { x: 1100, y: 1100, name: '盜賊起點', desc: '解鎖飛刀，+5敏捷\n可重複投資升級', effects: { agi: 5, skills: ['throwing_knife'] }, links: ['r_t4', 'r_p1', 'r_p2', 'r_p3'] },
+        'r_p1': { x: 1180, y: 1040, name: '毒爆', desc: '【被動】中毒敵人死後爆發', effects: { passive_toxic_bloom: true }, links: ['r_start'] },
+        'r_p2': { x: 1020, y: 1160, name: '暗影', desc: '【被動】閃避後短暫提速', effects: { passive_shadow_step: true }, links: ['r_start'] },
+        'r_p3': { x: 1180, y: 1160, name: '彈射', desc: '【被動】投擲物彈射', effects: { passive_ricochet: true }, links: ['r_start'] },
+        'r_t4': { x: 1030, y: 1040, name: '靈巧身法', desc: '+10%閃避 +15%跑速', effects: { dodge: 0.1, moveSpeed: 0.15 }, links: ['r_t3L', 'r_t3R'] },
+        'r_t3L': { x: 1020, y: 920, name: '淬毒刃', desc: '【被動】暗殺附加中毒', effects: { passive_poison: true }, links: ['r_t2'] },
+        'r_t3R': { x: 920, y: 1090, name: '多重投擲', desc: '【被動】投擲物增多', effects: { passive_multishot: true }, links: ['r_t2'] },
+        'r_t2': { x: 930, y: 980, name: '致命弱點', desc: '+15% 爆擊率', effects: { critRate: 0.15 }, links: ['r_t1L', 'r_t1R', 'r_a1', 'r_a2'] },
+        'r_a1': { x: 990, y: 880, name: '暗影步', desc: '【主動】瞬移背刺\n可重複投資升級', effects: { skills: ['shadow_strike'] }, links: ['r_t2'] },
+        'r_a2': { x: 830, y: 1020, name: '迴旋刃', desc: '【主動】發射飛回的穿透刃\n可重複投資升級', effects: { skills: ['boomerang_blade'] }, links: ['r_t2'] },
+        'r_t1L': { x: 820, y: 920, name: '環刃', desc: '【暗殺】全方位發射\n可重複投資升級', effects: { skills: ['shuriken_ring'] }, links: ['r_hub'] },
+        'r_t1R': { x: 910, y: 820, name: '穿透之刃', desc: '【被動】投擲物穿透+2', effects: { passive_pierce: true }, links: ['r_hub'] },
+        'r_hub': { x: 840, y: 840, name: '敏捷樞紐', desc: '+10 敏捷', effects: { agi: 10 }, links: ['core'] }
     }
+};
 
-    customModal.classList.remove('hidden');
-
-    modalBtnCancel.onclick = () => { customModal.classList.add('hidden'); };
-    modalBtnConfirm.onclick = () => {
-        customModal.classList.add('hidden');
-        if (onConfirm) onConfirm(type === 'prompt' ? modalInput.value : null);
+function buildMonsterDB() {
+    let typeConfig = {
+        'normal': { radius: 14, speed: 60, hp: 20, dmg: 10, xp: 2, ai: 'chase' },
+        'fast': { radius: 12, speed: 100, hp: 10, dmg: 5, xp: 3, ai: 'chase' },
+        'tank': { radius: 20, speed: 40, hp: 50, dmg: 20, xp: 5, ai: 'chase' },
+        'ranged': { radius: 14, speed: 50, hp: 15, dmg: 12, xp: 4, ai: 'ranged' },
+        'dasher': { radius: 16, speed: 40, hp: 25, dmg: 15, xp: 4, ai: 'dash' },
+        'boss': { radius: 35, speed: 60, hp: 600, dmg: 30, xp: 100, ai: 'boss' }
     };
-}
-
-function copyToClipboard(text) {
-    const el = document.createElement('textarea');
-    el.value = text;
-    document.body.appendChild(el);
-    el.select();
-    document.execCommand('copy');
-    document.body.removeChild(el);
-}
-
-function addFloatingText(text, x, y, color, size = 16) {
-    floatingTexts.push({ text: text, x: x, y: y, color: color, size: size, life: 1.0, dy: -30 });
-}
-
-function addParticle(x, y, color, count = 1) {
-    for (let i = 0; i < count; i++) {
-        let angle = Math.random() * Math.PI * 2;
-        let speed = Math.random() * 50 + 20;
-        particles.push({
-            type: 'dot', x: x, y: y, dx: Math.cos(angle) * speed, dy: Math.sin(angle) * speed,
-            color: color, size: Math.random() * 3 + 1, life: Math.random() * 0.5 + 0.2, maxLife: 0.7
+    for(let type in DB.EMOJI_POOLS) {
+        DB.EMOJI_POOLS[type].forEach(emoji => {
+            DB.MONSTERS.push({ id: `${type}_${emoji}`, type: type, emoji: emoji, ...typeConfig[type] });
         });
     }
 }
+buildMonsterDB();
 
-function createRingExplosion(x, y, color, maxRadius = 50) {
-    particles.push({ type: 'ring', x: x, y: y, color: color, radius: 5, maxRadius: maxRadius, life: 0.3, maxLife: 0.3 });
-}
-
-class MeleeArcVisual {
-    constructor(x, y, angle, range, arcAngle, color) {
-        this.x = x; this.y = y; this.angle = angle; this.range = range; this.arcAngle = arcAngle;
-        this.color = color; this.life = 0.2; this.maxLife = 0.2; this.isDead = false;
-    }
-    update(dt) { this.life -= dt; if(this.life <= 0) this.isDead = true; }
-    draw() {
-        ctx.fillStyle = this.color; ctx.globalAlpha = this.life / this.maxLife; ctx.beginPath();
-        ctx.moveTo(this.x, this.y); ctx.arc(this.x, this.y, this.range, this.angle - this.arcAngle/2, this.angle + this.arcAngle/2);
-        ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1.0;
-    }
-}
-
-class Shrine {
-    constructor(x, y) {
-        this.x = x; this.y = y; this.radius = 20; this.used = false;
-        this.type = Math.random() > 0.5 ? 'heal' : 'buff';
-        this.color = this.type === 'heal' ? '#22c55e' : '#eab308';
-    }
-    update(dt) {
-        if(this.used) return;
-        let dist = Math.hypot(player.x - this.x, player.y - this.y);
-        if(dist < player.radius + this.radius) {
-            this.used = true;
-            if(this.type === 'heal') {
-                player.heal(player.getMaxHp() * 0.5); addFloatingText('HP 恢復!', this.x, this.y - 20, this.color);
-            } else {
-                player.buffs.frenzy = 10.0; addFloatingText('狂熱!', this.x, this.y - 20, this.color);
-            }
-            createRingExplosion(this.x, this.y, this.color, 60);
+const Behaviors = {
+    'chase': (e, target, dist, dt, px, py) => {
+        let s = e.speed * e.speedMod * dt; if(dist > 0) { px += e.dirX*s; py += e.dirY*s; }
+        return {x: px, y: py};
+    },
+    'ranged': (e, target, dist, dt, px, py) => {
+        let s = e.speed * e.speedMod * dt; e.stateTimer -= dt;
+        if(dist < 200) s = 0; 
+        if(e.stateTimer <= 0 && dist < 250) { Engine.addProjectile(new Projectile(e.x, e.y, e.dirX, e.dirY, 200, e.dmg, 1, 'enemy_magic', '#d1d5db', 'enemy')); e.stateTimer = 2.0; }
+        if(dist > 0 && s > 0) { px += e.dirX*s; py += e.dirY*s; }
+        return {x: px, y: py};
+    },
+    'dash': (e, target, dist, dt, px, py) => {
+        let s = e.speed * e.speedMod * dt; e.stateTimer -= dt;
+        if(e.stateTimer <= 0) e.stateTimer = 3.0;
+        if(e.stateTimer > 2.5) s = e.speed * 4 * dt;
+        if(dist > 0) { px += e.dirX*s; py += e.dirY*s; }
+        return {x: px, y: py};
+    },
+    'boss': (e, target, dist, dt, px, py) => {
+        let s = e.speed * e.speedMod * dt; e.stateTimer -= dt;
+        if (e.stateTimer <= 0) {
+            let r = Math.random();
+            if (r < 0.33) { Engine.spawnEnemyDirect('fast', e.x, e.y); e.stateTimer = 3.0; }
+            else if (r < 0.66) { let p=new Projectile(e.x, e.y, e.dirX, e.dirY, 250, e.dmg, 2, 'enemy_magic', '#f97316', 'enemy'); p.radius=12; Engine.addProjectile(p); e.stateTimer = 2.5; }
+            else { s = e.speed * 3 * dt; e.stateTimer = 2.0; }
         }
+        if(dist > 0) { px += e.dirX*s; py += e.dirY*s; }
+        return {x: px, y: py};
     }
-    draw() {
-        if(this.used) return;
-        ctx.save(); ctx.translate(this.x, this.y); ctx.fillStyle = this.color;
-        ctx.shadowColor = this.color; ctx.shadowBlur = 10; ctx.beginPath();
-        ctx.moveTo(0, -this.radius); ctx.lineTo(this.radius, 0); ctx.lineTo(0, this.radius); ctx.lineTo(-this.radius, 0);
-        ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#000'; ctx.font = '20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.shadowBlur = 0; ctx.fillText('⛩️', 0, 0); ctx.restore();
-    }
-}
-
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
-let GAME_WIDTH = window.innerWidth;
-let GAME_HEIGHT = window.innerHeight;
-canvas.width = GAME_WIDTH; canvas.height = GAME_HEIGHT;
-
-window.addEventListener('resize', () => {
-    GAME_WIDTH = window.innerWidth; GAME_HEIGHT = window.innerHeight;
-    canvas.width = GAME_WIDTH; canvas.height = GAME_HEIGHT;
-});
-
-let isGameRunning = false; let isPaused = false; let isArena = false;
-let lastTime = 0; let frameCount = 0; let autoSaveTimer = 0;
-let camera = { x: 0, y: 0 };
-let gameState = { stage: 1, kills: 0, bossReq: 50, bossSpawned: false, stageColor: { h: 220, s: 50, l: 15 } };
-
-let player; let arenaBoss = null;
-let enemies = []; let projectiles = []; let particles = []; let floatingTexts = []; let shrines = [];
-let obstacles = []; let loadedChunks = {};
-let mapMercenaries = []; let partyMercenaries = []; 
-let joystick = { active: false, x: 0, y: 0, dx: 0, dy: 0 };
-
-const SKILL_TREE = {
-    'core': { x: 750, y: 750, name: '萬物之源', desc: '全屬性+10', effects: { str: 10, agi: 10, int: 10 }, links: [] },
-
-    // 法師分支 (Top) - BaseY: 350
-    'm_start': { x: 750, y: 350, name: '法師起點', desc: '解鎖魔法飛彈，+5智力\n可重複投資升級', effects: { int: 5, skills: ['magic_missile'] }, links: ['m_t4', 'm_p1', 'm_p2', 'm_p3'] },
-    'm_p1': { x: 650, y: 400, name: '護盾', desc: '【被動】每10秒產生抵擋傷害的護盾', effects: { passive_mana_shield: true }, links: ['m_start'] },
-    'm_p2': { x: 850, y: 400, name: '共鳴', desc: '【被動】法術命中20%機率產生額外爆炸', effects: { passive_resonance: true }, links: ['m_start'] },
-    'm_p3': { x: 750, y: 250, name: '湧動', desc: '【被動】魔力湧動\n法術擊殺有30%機率減少所有技能冷卻1秒', effects: { passive_mana_cascade: true }, links: ['m_start'] },
-    'm_t4': { x: 750, y: 450, name: '魔力擴張', desc: '+25% 技能範圍', effects: { aoe: 0.25 }, links: ['m_t3L', 'm_t3R'] },
-    'm_t3L': { x: 620, y: 520, name: '火球術', desc: '【法術】發射爆炸火球\n可重複投資升級', effects: { skills: ['fireball'] }, links: ['m_t2'] },
-    'm_t3R': { x: 880, y: 520, name: '冰霜新星', desc: '【法術】定時爆發緩速\n可重複投資升級', effects: { skills: ['frost_nova'] }, links: ['m_t2'] },
-    'm_t2': { x: 750, y: 550, name: '施法加速', desc: '+15% 攻擊速度', effects: { atkSpeed: 0.15 }, links: ['m_t1L', 'm_t1R', 'm_a1', 'm_a2'] },
-    'm_a1': { x: 660, y: 600, name: '黑洞', desc: '【主動】引力場\n持續牽引敵人並引發爆炸\n可重複投資升級', effects: { skills: ['black_hole'] }, links: ['m_t2'] },
-    'm_a2': { x: 840, y: 600, name: '隕石術', desc: '【主動】毀滅打擊\n召喚巨大隕石造成範圍暈眩\n可重複投資升級', effects: { skills: ['meteor_strike'] }, links: ['m_t2'] },
-    'm_t1L': { x: 650, y: 680, name: '閃電鏈', desc: '【法術】發射彈跳閃電\n可重複投資升級', effects: { skills: ['chain_lightning'] }, links: ['m_hub'] },
-    'm_t1R': { x: 850, y: 680, name: '連續施法', desc: '【被動】法術可連放兩次', effects: { passive_multicast: true }, links: ['m_hub'] },
-    'm_hub': { x: 750, y: 650, name: '智力樞紐', desc: '+10 智力', effects: { int: 10 }, links: ['core'] },
-
-    // 戰士分支 (Bottom Left) - Base(400, 1100)
-    'b_start': { x: 400, y: 1100, name: '戰士起點', desc: '解鎖重擊，+5力量\n可重複投資升級', effects: { str: 5, skills: ['heavy_strike'] }, links: ['b_t4', 'b_p1', 'b_p2', 'b_p3'] },
-    'b_p1': { x: 480, y: 1160, name: '反擊', desc: '【被動】受近戰攻擊時自動反擊周圍', effects: { passive_counter: true }, links: ['b_start'] },
-    'b_p2': { x: 320, y: 1040, name: '防禦', desc: '【被動】受遠程攻擊25%機率減免50%傷害', effects: { passive_ranged_def: true }, links: ['b_start'] },
-    'b_p3': { x: 320, y: 1160, name: '餘震', desc: '【被動】近戰震波\n近戰有20%機率引發爆破', effects: { passive_tremor: true }, links: ['b_start'] },
-    'b_t4': { x: 470, y: 1040, name: '強壯體魄', desc: '+50 最大生命', effects: { maxHp: 50 }, links: ['b_t3L', 'b_t3R'] },
-    'b_t3L': { x: 580, y: 1090, name: '旋風斬', desc: '【近戰】持續範圍傷害\n可重複投資升級', effects: { skills: ['whirlwind'] }, links: ['b_t2'] },
-    'b_t3R': { x: 480, y: 920, name: '嗜血打擊', desc: '【被動】近戰附加吸血', effects: { passive_lifesteal: true }, links: ['b_t2'] },
-    'b_t2': { x: 570, y: 980, name: '狂暴之力', desc: '+30% 爆擊傷害', effects: { critDmg: 0.3 }, links: ['b_t1L', 'b_t1R', 'b_a1', 'b_a2'] },
-    'b_a1': { x: 510, y: 880, name: '衝鋒', desc: '【主動】突進攻擊\n朝敵人衝刺造成路徑傷害\n可重複投資升級', effects: { skills: ['dash_attack'] }, links: ['b_t2'] },
-    'b_a2': { x: 670, y: 1020, name: '戰吼', desc: '【主動】怒吼\n震懾敵人並獲得狂熱護盾\n可重複投資升級', effects: { skills: ['warcry'] }, links: ['b_t2'] },
-    'b_t1L': { x: 680, y: 920, name: '地震', desc: '【近戰】引發物理震波\n可重複投資升級', effects: { skills: ['earthquake'] }, links: ['b_hub'] },
-    'b_t1R': { x: 590, y: 820, name: '生生不息', desc: '【被動】生命恢復+5/秒', effects: { hpRegen: 5 }, links: ['b_hub'] },
-    'b_hub': { x: 660, y: 840, name: '力量樞紐', desc: '+10 力量', effects: { str: 10 }, links: ['core'] },
-
-    // 盜賊分支 (Bottom Right) - Base(1100, 1100)
-    'r_start': { x: 1100, y: 1100, name: '盜賊起點', desc: '解鎖飛刀，+5敏捷\n可重複投資升級', effects: { agi: 5, skills: ['throwing_knife'] }, links: ['r_t4', 'r_p1', 'r_p2', 'r_p3'] },
-    'r_p1': { x: 1180, y: 1040, name: '毒爆', desc: '【被動】中毒敵人死亡時爆發毒霧', effects: { passive_toxic_bloom: true }, links: ['r_start'] },
-    'r_p2': { x: 1020, y: 1160, name: '暗影', desc: '【被動】閃避攻擊後短暫提升跑速與爆擊', effects: { passive_shadow_step: true }, links: ['r_start'] },
-    'r_p3': { x: 1180, y: 1160, name: '彈射', desc: '【被動】靈巧投擲\n投擲物擊中後可彈射一次', effects: { passive_ricochet: true }, links: ['r_start'] },
-    'r_t4': { x: 1030, y: 1040, name: '靈巧身法', desc: '+10%閃避 +15%跑速', effects: { dodge: 0.1, moveSpeed: 0.15 }, links: ['r_t3L', 'r_t3R'] },
-    'r_t3L': { x: 1020, y: 920, name: '淬毒刃', desc: '【被動】暗殺附加中毒', effects: { passive_poison: true }, links: ['r_t2'] },
-    'r_t3R': { x: 920, y: 1090, name: '多重投擲', desc: '【被動】投擲物呈扇形增多', effects: { passive_multishot: true }, links: ['r_t2'] },
-    'r_t2': { x: 930, y: 980, name: '致命弱點', desc: '+15% 爆擊率', effects: { critRate: 0.15 }, links: ['r_t1L', 'r_t1R', 'r_a1', 'r_a2'] },
-    'r_a1': { x: 990, y: 880, name: '暗影步', desc: '【主動】瞬移背刺\n傳送至敵人處並留下毒霧\n可重複投資升級', effects: { skills: ['shadow_strike'] }, links: ['r_t2'] },
-    'r_a2': { x: 830, y: 1020, name: '迴旋刃', desc: '【主動】來回斬擊\n發射會飛回的穿透飛刃\n可重複投資升級', effects: { skills: ['boomerang_blade'] }, links: ['r_t2'] },
-    'r_t1L': { x: 820, y: 920, name: '環刃', desc: '【暗殺】全方位發射飛刀\n可重複投資升級', effects: { skills: ['shuriken_ring'] }, links: ['r_hub'] },
-    'r_t1R': { x: 910, y: 820, name: '穿透之刃', desc: '【被動】投擲物穿透+2', effects: { passive_pierce: true }, links: ['r_hub'] },
-    'r_hub': { x: 840, y: 840, name: '敏捷樞紐', desc: '+10 敏捷', effects: { agi: 10 }, links: ['core'] }
 };
 
-let unlockedNodes = {}; let selectedNodeId = null;
-
-function checkLocalSave() {
-    let save = localStorage.getItem(SAVE_KEY);
-    if (save) document.getElementById('btnContinue').classList.remove('hidden');
-    else document.getElementById('btnContinue').classList.add('hidden');
-}
-
-function saveGame() {
-    if (!isGameRunning || isArena) return; 
-    const data = {
-        playerClass: player.playerClass, level: player.level, xp: player.xp, reqXp: player.reqXp, sp: player.sp, hp: player.hp,
-        unlockedNodes: unlockedNodes, gameState: { stage: gameState.stage, kills: gameState.kills, bossReq: gameState.bossReq }
-    };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data)); checkLocalSave();
-}
-
-function startFromData(data) {
-    unlockedNodes = data.unlockedNodes || {}; player = new Player(data.playerClass);
-    player.level = data.level; player.xp = data.xp; player.reqXp = data.reqXp; player.sp = data.sp;
-    player.recalculateStats(); player.hp = Math.min(data.hp, player.getMaxHp());
-    gameState.stage = data.gameState.stage || 1; gameState.kills = data.gameState.kills || 0; gameState.bossReq = data.gameState.bossReq || 50;
-    startGameEngine();
-}
-
-function generateChunk(cx, cy) {
-    if(isArena) return []; let obs = []; let seedCount = Math.floor(hashCoordinate(cx, cy) * 4) + 2; 
-    for(let i=0; i<seedCount; i++) {
-        let rx = hashCoordinate(cx + i, cy) * CHUNK_SIZE; let ry = hashCoordinate(cx, cy + i) * CHUNK_SIZE;
-        let isTree = hashCoordinate(cx*i, cy*i) > 0.5;
-        obs.push({ x: cx*CHUNK_SIZE + rx, y: cy*CHUNK_SIZE + ry, type: isTree ? '🌲' : '🪨', radius: isTree ? 25 : 20 });
-    }
-    return obs;
-}
-
-function updateMapChunks(px, py) {
-    if(isArena) { obstacles = []; return; }
-    let cx = Math.floor(px / CHUNK_SIZE); let cy = Math.floor(py / CHUNK_SIZE); obstacles = [];
-    for(let i=-1; i<=1; i++) {
-        for(let j=-1; j<=1; j++) {
-            let key = `${cx+i},${cy+j}`;
-            if(!loadedChunks[key]) loadedChunks[key] = generateChunk(cx+i, cy+j);
-            obstacles.push(...loadedChunks[key]);
-        }
-    }
-}
-
-class BaseCharacter {
-    constructor() {
-        this.x = 0; this.y = 0; this.radius = 18; this.dirX = 1; this.dirY = 0;
-        this.mods = {
-            str: 0, agi: 0, int: 0, moveSpeed: 0, maxHp: 0, atkSpeed: 0, aoe: 0, critRate: 0, critDmg: 0, dodge: 0, hpRegen: 0,
-            passive_lifesteal: false, passive_multishot: false, passive_poison: false, passive_multicast: false, passive_pierce: false,
-            passive_mana_shield: false, passive_resonance: false, passive_counter: false, passive_ranged_def: false,
-            passive_toxic_bloom: false, passive_shadow_step: false, passive_ricochet: false, passive_tremor: false, passive_mana_cascade: false
-        };
-        this.buffs = { frenzy: 0, slow: 0, shadow: 0 }; this.skills = []; this.skillLevels = {};
-        this.faction = 'player'; this.isDead = false; this.regenTimer = 1.0; this.shieldCooldown = 0; this.hasShield = false;
-    }
-    getStr() { return this.baseStr + this.mods.str; }
-    getAgi() { return this.baseAgi + this.mods.agi; }
-    getInt() { return this.baseInt + this.mods.int; }
-    getMaxHp() { return this.baseMaxHp + this.mods.maxHp + (this.getStr() * 5); }
-    getMoveSpeed() { let speed = this.baseMoveSpeed * (1 + this.mods.moveSpeed); if (this.buffs.slow > 0) speed *= 0.5; if (this.buffs.shadow > 0) speed *= 1.5; return speed; }
-    getCritRate() { return Math.min(0.7, this.baseCritRate + this.mods.critRate + (this.getAgi() * 0.005) + (this.buffs.shadow > 0 ? 0.3 : 0)); }
-    getCritDmg() { return this.baseCritDmg + this.mods.critDmg + (this.getStr() * 0.01); }
-    getDodgeRate() { return Math.min(0.7, this.mods.dodge + (this.getAgi() * 0.005)); }
-    getMeleeDmg() { return 10 + this.getStr() * 2; }
-    getAssassinationDmg() { return 8 + this.getAgi() * 2.5; }
-    getMagicDmg() { return 12 + this.getInt() * 2.2; }
-    getSpeedMult() { let mult = 1 + this.mods.atkSpeed; if (this.buffs.frenzy > 0) mult += 1.0; return mult; } 
-    getAoeMult() { return this.baseRange + this.mods.aoe + (this.getInt() * 0.01); }
-    heal(amount) { if(this.hp < this.getMaxHp()){ this.hp = Math.min(this.getMaxHp(), this.hp + amount); } }
-    takeDamage(amount) {
-        if (Math.random() < this.getDodgeRate()) {
-            addFloatingText('閃避!', this.x, this.y - 20, '#10b981');
-            if (this.mods.passive_shadow_step) this.buffs.shadow = 2.0; return;
-        }
-        if (this.hasShield) {
-            this.hasShield = false; this.shieldCooldown = 10.0;
-            addFloatingText('護盾吸收!', this.x, this.y - 20, '#60a5fa'); createRingExplosion(this.x, this.y, '#60a5fa', 40); return;
-        }
-        this.hp -= amount; addParticle(this.x, this.y, '#ef4444', 5);
-        if (this.hp <= 0 && !this.isDead) { this.hp = 0; this.die(); }
-    }
-    die() { this.isDead = true; }
-    updateSkills(dt) {
-        if(this.mods.hpRegen > 0) { this.regenTimer -= dt; if(this.regenTimer <= 0) { this.heal(this.mods.hpRegen); this.regenTimer = 1.0; } }
-        if (this.mods.passive_mana_shield && !this.hasShield) { this.shieldCooldown -= dt; if (this.shieldCooldown <= 0) this.hasShield = true; }
-        for(let key in this.buffs) { if(this.buffs[key] > 0) this.buffs[key] -= dt; }
-        this.skills.forEach(skill => { skill.timer -= dt * this.getSpeedMult(); if (skill.timer <= 0) { skill.execute(this); skill.timer = skill.cooldown; } if (skill.updateQueue) skill.updateQueue(dt, this); });
-    }
-    handleObstacles(proposedX, proposedY) {
-        for(let obs of obstacles) {
-            let dx = proposedX - obs.x; let dy = proposedY - obs.y; let dist = Math.hypot(dx, dy);
-            if(dist < this.radius + obs.radius) {
-                if(dist === 0) { dx = 1; dist = 1; }
-                let overlap = this.radius + obs.radius - dist;
-                proposedX += (dx/dist) * overlap; proposedY += (dy/dist) * overlap;
+const SkillRegistry = {
+    'magic_missile': {
+        type: 'magic', cooldown: 1.5, timer: 0, queue: 0, delay: 0.15, qTimer: 0,
+        execute: function(caster) { this.queue = caster.mods.passive_multicast ? 2 : 1; this.qTimer = 0; },
+        updateQueue: function(dt, caster) { if(this.queue > 0) { this.qTimer -= dt; if(this.qTimer <= 0) { this.cast(caster); this.queue--; this.qTimer = this.delay; } } },
+        cast: function(caster) {
+            let lvl = caster.skillLevels['magic_missile'] || 1; let maxRange = Engine.height * caster.getAoeMult();
+            let target = Engine.getClosestTarget(caster.x, caster.y, caster.faction, maxRange);
+            if(target) {
+                let dx=target.x-caster.x, dy=target.y-caster.y, dist=Math.hypot(dx,dy)||1;
+                let proj = new Projectile(caster.x, caster.y, dx/dist, dy/dist, 300, caster.getMagicDmg()*(1+(lvl-1)*0.4), caster.getAoeMult(), 'magic', '#a855f7', caster.faction);
+                proj.life = maxRange/proj.speed; Engine.addProjectile(proj);
             }
         }
-        if (isArena) {
-            let d = Math.hypot(proposedX, proposedY);
-            if(d > 800 - this.radius) { proposedX = (proposedX/d) * (800 - this.radius); proposedY = (proposedY/d) * (800 - this.radius); }
+    },
+    'fireball': {
+        type: 'magic', cooldown: 3.0, timer: 0, queue: 0, delay: 0.2, qTimer: 0,
+        execute: function(caster) { this.queue = caster.mods.passive_multicast ? 2 : 1; this.qTimer = 0; },
+        updateQueue: function(dt, caster) { if(this.queue > 0) { this.qTimer -= dt; if(this.qTimer <= 0) { this.cast(caster); this.queue--; this.qTimer = this.delay; } } },
+        cast: function(caster) {
+            let lvl = caster.skillLevels['fireball'] || 1; let maxRange = Engine.height * caster.getAoeMult();
+            let target = Engine.getClosestTarget(caster.x, caster.y, caster.faction, maxRange);
+            if(target) {
+                let dx=target.x-caster.x, dy=target.y-caster.y, dist=Math.hypot(dx,dy)||1, aoe=caster.getAoeMult()*(1+(lvl-1)*0.15);
+                let proj = new Projectile(caster.x, caster.y, dx/dist, dy/dist, 250, caster.getMagicDmg()*2*(1+(lvl-1)*0.5), aoe, 'magic_explosive', '#ef4444', caster.faction);
+                proj.radius = 8*aoe; proj.life = maxRange/proj.speed; Engine.addProjectile(proj);
+            }
         }
-        this.x = proposedX; this.y = proposedY;
+    },
+    'frost_nova': {
+        type: 'magic', cooldown: 4.0, timer: 0, queue: 0, delay: 0.3, qTimer: 0,
+        execute: function(caster) { this.queue = caster.mods.passive_multicast ? 2 : 1; this.qTimer = 0; },
+        updateQueue: function(dt, caster) { if(this.queue > 0) { this.qTimer -= dt; if(this.qTimer <= 0) { this.cast(caster); this.queue--; this.qTimer = this.delay; } } },
+        cast: function(caster) {
+            let lvl = caster.skillLevels['frost_nova'] || 1, aoe = caster.getAoeMult()*(1+(lvl-1)*0.1), radius = 100*aoe;
+            let dmg = caster.getMagicDmg()*0.8*(1+(lvl-1)*0.4), slowTime = 2.0+(lvl-1)*0.5;
+            Engine.createRingExplosion(caster.x, caster.y, '#60a5fa', radius);
+            Engine.getEnemiesInRadius(caster, radius).forEach(e => {
+                Engine.applyDamage(e, dmg, 'magic', caster.faction);
+                if(e.speedMod !== undefined) { e.speedMod = 0.5; e.speedTimer = slowTime; } else { e.buffs.slow = slowTime; }
+            });
+        }
+    },
+    'chain_lightning': {
+        type: 'magic', cooldown: 2.5, timer: 0, queue: 0, delay: 0.25, qTimer: 0,
+        execute: function(caster) { this.queue = caster.mods.passive_multicast ? 2 : 1; this.qTimer = 0; },
+        updateQueue: function(dt, caster) { if(this.queue > 0) { this.qTimer -= dt; if(this.qTimer <= 0) { this.cast(caster); this.queue--; this.qTimer = this.delay; } } },
+        cast: function(caster) {
+            let lvl = caster.skillLevels['chain_lightning'] || 1, maxRange = Engine.height * caster.getAoeMult();
+            let target = Engine.getClosestTarget(caster.x, caster.y, caster.faction, maxRange); if(!target) return;
+            let jumps = 4+Math.floor((lvl-1)/2), dmg = caster.getMagicDmg()*1.2*(1+(lvl-1)*0.3), hitSet = new Set(), startX = caster.x, startY = caster.y;
+            let candidates = Engine.getEnemyArray(caster.faction);
+            while(jumps > 0 && target) {
+                hitSet.add(target); Engine.applyDamage(target, dmg, 'magic', caster.faction);
+                Engine.addParticleLine(startX, startY, target.x, target.y, '#fef08a');
+                startX = target.x; startY = target.y; dmg *= 0.8; jumps--;
+                let next = null, minDist = (Engine.height*0.3)*caster.getAoeMult();
+                candidates.forEach(e => { if(e && !e.isDead && !hitSet.has(e)) { let d = Math.hypot(e.x-startX, e.y-startY); if(d<minDist){ minDist=d; next=e; } } });
+                target = next;
+            }
+        }
+    },
+    'black_hole': {
+        type: 'magic', cooldown: 8.0, timer: 0, execute: (caster) => {
+            let lvl = caster.skillLevels['black_hole'] || 1, maxRange = Engine.height * caster.getAoeMult();
+            let target = Engine.getClosestTarget(caster.x, caster.y, caster.faction, maxRange); if(!target) return;
+            let radius = 120*caster.getAoeMult()*(1+(lvl-1)*0.1), dmg = caster.getMagicDmg()*0.4*(1+(lvl-1)*0.3);
+            Engine.addProjectile(new PersistentAoe({x: target.x, y: target.y}, radius, 3.0, dmg, 'magic', '#7c3aed', caster.faction, true));
+        }
+    },
+    'meteor_strike': {
+        type: 'magic', cooldown: 6.0, timer: 0, execute: (caster) => {
+            let lvl = caster.skillLevels['meteor_strike'] || 1, maxRange = Engine.height * caster.getAoeMult();
+            let target = Engine.getClosestTarget(caster.x, caster.y, caster.faction, maxRange); if(!target) return;
+            let tx = target.x, ty = target.y; Engine.addFloatingText('⚠️', tx, ty, '#ef4444', 30);
+            setTimeout(() => {
+                if(!Engine.isGameRunning || Engine.isPaused) return;
+                let radius = 150*caster.getAoeMult()*(1+(lvl-1)*0.2), dmg = caster.getMagicDmg()*4*(1+(lvl-1)*0.5);
+                Engine.createRingExplosion(tx, ty, '#f97316', radius);
+                Engine.getEnemiesInRadius({x:tx, y:ty, faction:caster.faction}, radius).forEach(e => {
+                    Engine.applyDamage(e, dmg, 'magic', caster.faction);
+                    if(e.speedMod !== undefined) { e.speedMod = 0.0; e.speedTimer = 1.5; } else { e.buffs.slow = 1.5; }
+                });
+            }, 1000);
+        }
+    },
+    'heavy_strike': {
+        type: 'melee', cooldown: 1.0, timer: 0, execute: (caster) => {
+            let lvl = caster.skillLevels['heavy_strike'] || 1, aoe = caster.getAoeMult()*(1+(lvl-1)*0.1), range = 100*aoe, hitAngle = Math.PI/1.5; 
+            let target = Engine.getClosestTarget(caster.x, caster.y, caster.faction, range);
+            let pAngle = target ? Math.atan2(target.y-caster.y, target.x-caster.x) : Math.atan2(caster.dirY, caster.dirX);
+            Engine.addProjectile(new MeleeArcVisual(caster.x, caster.y, pAngle, range, hitAngle, 'rgba(239, 68, 68, 0.4)'));
+            let dmg = caster.getMeleeDmg()*(1+(lvl-1)*0.5); 
+            Engine.getEnemyArray(caster.faction).forEach(e => {
+                if(e && !e.isDead && Math.hypot(e.x-caster.x, e.y-caster.y) <= range) {
+                    let angleDiff = Math.abs(Math.atan2(e.y-caster.y, e.x-caster.x) - pAngle);
+                    if (angleDiff > Math.PI) angleDiff = 2*Math.PI - angleDiff;
+                    if (angleDiff <= hitAngle/2) Engine.applyDamage(e, dmg, 'melee', caster.faction);
+                }
+            });
+        }
+    },
+    'whirlwind': {
+        type: 'melee', cooldown: 2.0, timer: 0, execute: (caster) => { 
+            let lvl = caster.skillLevels['whirlwind'] || 1, dmg = caster.getMeleeDmg()*0.5*(1+(lvl-1)*0.3), radius = 90*caster.getAoeMult()*(1+(lvl-1)*0.1);
+            Engine.addProjectile(new PersistentAoe(caster, radius, 1.0, dmg, 'melee', '#fca5a5', caster.faction)); 
+        }
+    },
+    'earthquake': {
+        type: 'melee', cooldown: 3.5, timer: 0, execute: (caster) => {
+            let lvl = caster.skillLevels['earthquake'] || 1, radius = 120*caster.getAoeMult()*(1+(lvl-1)*0.1), dmg = caster.getMeleeDmg()*1.5*(1+(lvl-1)*0.6);
+            Engine.createRingExplosion(caster.x, caster.y, '#a16207', radius);
+            Engine.getEnemiesInRadius(caster, radius).forEach(e => { Engine.applyDamage(e, dmg, 'melee', caster.faction); if(e.speedMod !== undefined) { e.speedMod = 0.2; e.speedTimer = 1.0; } else { e.buffs.slow = 1.0; } });
+        }
+    },
+    'dash_attack': {
+        type: 'melee', cooldown: 4.0, timer: 0, execute: (caster) => {
+            let lvl = caster.skillLevels['dash_attack'] || 1, maxRange = 300*caster.getAoeMult();
+            let target = Engine.getClosestTarget(caster.x, caster.y, caster.faction, maxRange); if(!target) return;
+            let dx = target.x-caster.x, dy = target.y-caster.y, steps = 10, stepDx = dx/steps, stepDy = dy/steps;
+            let dmg = caster.getMeleeDmg()*2*(1+(lvl-1)*0.4), i = 0;
+            let dashInterval = setInterval(() => {
+                if(!Engine.isGameRunning || Engine.isPaused || caster.isDead || i >= steps) { clearInterval(dashInterval); return; }
+                caster.x += stepDx; caster.y += stepDy; Engine.createRingExplosion(caster.x, caster.y, '#f87171', 40);
+                Engine.getEnemiesInRadius(caster, 50).forEach(e => { Engine.applyDamage(e, dmg, 'melee', caster.faction); e.x += stepDx*2; e.y += stepDy*2; }); i++;
+            }, 20);
+        }
+    },
+    'warcry': {
+        type: 'melee', cooldown: 12.0, timer: 0, execute: (caster) => {
+            let lvl = caster.skillLevels['warcry'] || 1, radius = 200*caster.getAoeMult();
+            Engine.createRingExplosion(caster.x, caster.y, '#dc2626', radius); Engine.addFloatingText('WAAAGH!', caster.x, caster.y-30, '#ef4444', 24);
+            caster.buffs.frenzy = 3.0 + (lvl-1)*1.0; caster.hasShield = true;
+            Engine.getEnemiesInRadius(caster, radius).forEach(e => { if(e.speedMod !== undefined) { e.speedMod = 0.3; e.speedTimer = 2.0; } });
+        }
+    },
+    'throwing_knife': {
+        type: 'assassination', cooldown: 0.8, timer: 0, execute: (caster) => {
+            let lvl = caster.skillLevels['throwing_knife'] || 1, maxRange = Engine.width*caster.getAoeMult();
+            let target = Engine.getClosestTarget(caster.x, caster.y, caster.faction, maxRange); if(!target) return;
+            let count = (caster.mods.passive_multishot ? 3 : 1) + Math.floor((lvl-1)/2), dmg = caster.getAssassinationDmg()*(1+(lvl-1)*0.3), spread = 0.3; 
+            let baseAngle = Math.atan2(target.y-caster.y, target.x-caster.x);
+            for(let i=0; i<count; i++){
+                let angle = baseAngle + (i - (count-1)/2) * spread;
+                let proj = new Projectile(caster.x, caster.y, Math.cos(angle), Math.sin(angle), 400, dmg, caster.getAoeMult(), 'assassination', '#10b981', caster.faction);
+                proj.isKnife = true; proj.life = maxRange/proj.speed; if(caster.mods.passive_pierce) proj.pierce = 2; Engine.addProjectile(proj);
+            }
+        }
+    },
+    'shuriken_ring': {
+        type: 'assassination', cooldown: 3.0, timer: 0, execute: (caster) => {
+            let lvl = caster.skillLevels['shuriken_ring'] || 1, maxRange = Engine.width*caster.getAoeMult();
+            let count = 8 + (lvl-1)*2, dmg = caster.getAssassinationDmg()*(1+(lvl-1)*0.4);
+            for(let i=0; i<count; i++){
+                let angle = (Math.PI*2/count)*i;
+                let proj = new Projectile(caster.x, caster.y, Math.cos(angle), Math.sin(angle), 350, dmg, caster.getAoeMult(), 'assassination', '#14b8a6', caster.faction);
+                proj.isKnife = true; proj.life = maxRange/proj.speed; if(caster.mods.passive_pierce) proj.pierce = 2; Engine.addProjectile(proj);
+            }
+        }
+    },
+    'shadow_strike': {
+        type: 'assassination', cooldown: 5.0, timer: 0, execute: (caster) => {
+            let lvl = caster.skillLevels['shadow_strike'] || 1, maxLimit = Math.min(Engine.width, Engine.height)*0.4;
+            let target = Engine.getClosestTarget(caster.x, caster.y, caster.faction, maxLimit); if(!target) return;
+            Engine.addProjectile(new PersistentAoe({x:caster.x, y:caster.y}, 60, 2.0, caster.getAssassinationDmg()*0.5, 'assassination', 'rgba(16, 185, 129, 0.4)', caster.faction));
+            let angle = Math.atan2(caster.y-target.y, caster.x-target.x), safeX = target.x+Math.cos(angle)*30, safeY = target.y+Math.sin(angle)*30;
+            if(isNaN(safeX) || isNaN(safeY)) return; 
+            caster.x = safeX; caster.y = safeY; Engine.applyDamage(target, caster.getAssassinationDmg()*3*(1+(lvl-1)*0.5), 'assassination', caster.faction); Engine.createRingExplosion(caster.x, caster.y, '#34d399', 50);
+        }
+    },
+    'boomerang_blade': {
+        type: 'assassination', cooldown: 4.0, timer: 0, execute: (caster) => {
+            let lvl = caster.skillLevels['boomerang_blade'] || 1, maxRange = Engine.width*0.8*caster.getAoeMult();
+            let target = Engine.getClosestTarget(caster.x, caster.y, caster.faction, maxRange); if(!target) return;
+            let count = caster.mods.passive_multishot ? 3 : 1, spread = 0.3, baseAngle = Math.atan2(target.y-caster.y, target.x-caster.x);
+            for(let i=0; i<count; i++) {
+                let angle = baseAngle + (i - (count-1)/2)*spread, dmg = caster.getAssassinationDmg()*1.5*(1+(lvl-1)*0.4);
+                let proj = new Projectile(caster.x, caster.y, Math.cos(angle), Math.sin(angle), 500, dmg, caster.getAoeMult(), 'assassination', '#059669', caster.faction);
+                proj.isKnife = true; proj.pierce = 999; proj.life = (maxRange/proj.speed)*2; proj.boomerang = true; proj.owner = caster; proj.returnTime = proj.life/2; Engine.addProjectile(proj);
+            }
+        }
+    }
+};
+
+class Entity { constructor(x=0, y=0) { this.x = x; this.y = y; this.isDead = false; } die() { this.isDead = true; } update(dt) {} draw(ctx) {} }
+
+class BaseCharacter extends Entity {
+    constructor(x, y) {
+        super(x, y); this.radius = 18; this.dirX = 1; this.dirY = 0;
+        this.mods = { str:0, agi:0, int:0, moveSpeed:0, maxHp:0, atkSpeed:0, aoe:0, critRate:0, critDmg:0, dodge:0, hpRegen:0, passive_lifesteal:false, passive_multishot:false, passive_poison:false, passive_multicast:false, passive_pierce:false, passive_mana_shield:false, passive_resonance:false, passive_counter:false, passive_ranged_def:false, passive_toxic_bloom:false, passive_shadow_step:false, passive_ricochet:false, passive_tremor:false, passive_mana_cascade:false };
+        this.buffs = { frenzy: 0, slow: 0, shadow: 0 }; this.skills = []; this.skillLevels = {};
+        this.faction = 'player'; this.regenTimer = 1.0; this.shieldCooldown = 0; this.hasShield = false;
+    }
+    getStr() { return this.baseStr + this.mods.str; } getAgi() { return this.baseAgi + this.mods.agi; } getInt() { return this.baseInt + this.mods.int; }
+    getMaxHp() { return this.baseMaxHp + this.mods.maxHp + (this.getStr()*5); }
+    getMoveSpeed() { let s = this.baseMoveSpeed*(1+this.mods.moveSpeed); if(this.buffs.slow>0) s*=0.5; if(this.buffs.shadow>0) s*=1.5; return s; }
+    getCritRate() { return Math.min(0.7, this.baseCritRate+this.mods.critRate+(this.getAgi()*0.005)+(this.buffs.shadow>0?0.3:0)); }
+    getCritDmg() { return this.baseCritDmg + this.mods.critDmg + (this.getStr()*0.01); }
+    getDodgeRate() { return Math.min(0.7, this.mods.dodge + (this.getAgi()*0.005)); }
+    getMeleeDmg() { return 10 + this.getStr()*2; } getAssassinationDmg() { return 8 + this.getAgi()*2.5; } getMagicDmg() { return 12 + this.getInt()*2.2; }
+    getSpeedMult() { let m = 1 + this.mods.atkSpeed; if(this.buffs.frenzy>0) m+=1.0; return m; } 
+    getAoeMult() { return this.baseRange + this.mods.aoe + (this.getInt()*0.01); }
+    heal(amt) { if(this.hp<this.getMaxHp()){ this.hp=Math.min(this.getMaxHp(), this.hp+amt); } }
+    takeDamage(amt) {
+        if(Math.random() < this.getDodgeRate()) { Engine.addFloatingText('閃避!', this.x, this.y-20, '#10b981'); if(this.mods.passive_shadow_step) this.buffs.shadow=2.0; return; }
+        if(this.hasShield) { this.hasShield=false; this.shieldCooldown=10.0; Engine.addFloatingText('護盾吸收!', this.x, this.y-20, '#60a5fa'); Engine.createRingExplosion(this.x, this.y, '#60a5fa', 40); return; }
+        this.hp-=amt; Engine.addParticle(this.x, this.y, '#ef4444', 5); if(this.hp<=0 && !this.isDead){ this.hp=0; this.die(); }
+    }
+    updateSkills(dt) {
+        if(this.mods.hpRegen>0) { this.regenTimer-=dt; if(this.regenTimer<=0){ this.heal(this.mods.hpRegen); this.regenTimer=1.0; } }
+        if(this.mods.passive_mana_shield && !this.hasShield) { this.shieldCooldown-=dt; if(this.shieldCooldown<=0) this.hasShield=true; }
+        for(let k in this.buffs) { if(this.buffs[k]>0) this.buffs[k]-=dt; }
+        this.skills.forEach(s => { s.timer -= dt*this.getSpeedMult(); if(s.timer<=0) { s.execute(this); s.timer=s.cooldown; } if(s.updateQueue) s.updateQueue(dt, this); });
+    }
+    handleObstacles(px, py) {
+        for(let obs of Engine.obstacles) {
+            let dx=px-obs.x, dy=py-obs.y, dist=Math.hypot(dx,dy);
+            if(dist < this.radius+obs.radius) {
+                if(dist===0) { dx=1; dist=1; }
+                let overlap=this.radius+obs.radius-dist; px+=(dx/dist)*overlap; py+=(dy/dist)*overlap;
+            }
+        }
+        if(Engine.isArena) { let d=Math.hypot(px,py); if(d>800-this.radius) { px=(px/d)*(800-this.radius); py=(py/d)*(800-this.radius); } }
+        this.x=px; this.y=py;
     }
 }
 
 class Player extends BaseCharacter {
     constructor(playerClass) {
-        super(); this.faction = 'player'; this.level = 1; this.xp = 0; this.reqXp = 35; this.sp = 0; 
-        this.baseStr = 5; this.baseAgi = 5; this.baseInt = 5; this.baseMoveSpeed = 3.0; this.baseMaxHp = 100;
-        this.baseRange = 1.0; this.baseCritRate = 0.05; this.baseCritDmg = 1.5;
-        this.unlockedSkillIds = []; this.playerClass = playerClass; this.applyClassStart();
+        super(0,0); this.level=1; this.xp=0; this.reqXp=35; this.sp=0; 
+        this.baseStr=5; this.baseAgi=5; this.baseInt=5; this.baseMoveSpeed=3.0; this.baseMaxHp=100;
+        this.baseRange=1.0; this.baseCritRate=0.05; this.baseCritDmg=1.5;
+        this.playerClass=playerClass; this.applyClassStart();
     }
     applyClassStart() {
-        let startNode = '';
-        if (this.playerClass === 'mage') { startNode = 'm_start'; this.emoji = '🧙‍♂️'; this.baseMoveSpeed = 2.0; this.baseMaxHp = 50; this.baseRange = 1.5; this.baseInt = 15; this.baseStr = 3; this.baseAgi = 3; }
-        else if (this.playerClass === 'rogue') { startNode = 'r_start'; this.emoji = '🥷'; this.baseMoveSpeed = 4.5; this.baseMaxHp = 90; this.baseRange = 1.0; this.baseAgi = 15; this.baseStr = 5; this.baseInt = 3; }
-        else if (this.playerClass === 'warrior') { startNode = 'b_start'; this.emoji = '🛡️'; this.baseMoveSpeed = 3.0; this.baseMaxHp = 150; this.baseRange = 1.0; this.baseStr = 15; this.baseAgi = 4; this.baseInt = 2; }
-        if(!unlockedNodes[startNode]) unlockedNodes[startNode] = 1;
-        this.recalculateStats(); this.hp = this.getMaxHp();
+        let stNode='';
+        if(this.playerClass==='mage') { stNode='m_start'; this.emoji='🧙‍♂️'; this.baseMoveSpeed=2.0; this.baseMaxHp=50; this.baseRange=1.5; this.baseInt=15; this.baseStr=3; this.baseAgi=3; }
+        else if(this.playerClass==='rogue') { stNode='r_start'; this.emoji='🥷'; this.baseMoveSpeed=4.5; this.baseMaxHp=90; this.baseRange=1.0; this.baseAgi=15; this.baseStr=5; this.baseInt=3; }
+        else if(this.playerClass==='warrior') { stNode='b_start'; this.emoji='🛡️'; this.baseMoveSpeed=3.0; this.baseMaxHp=150; this.baseRange=1.0; this.baseStr=15; this.baseAgi=4; this.baseInt=2; }
+        if(!PlayerState.unlockedNodes[stNode]) PlayerState.unlockedNodes[stNode]=1;
+        this.recalculateStats(); this.hp=this.getMaxHp();
     }
     recalculateStats() {
-        for (let key in this.mods) { if(typeof this.mods[key] === 'boolean') this.mods[key] = false; else this.mods[key] = 0; }
-        this.skillLevels = {}; let newSkills = new Set();
-        for(let nodeId in unlockedNodes) {
-            let level = unlockedNodes[nodeId]; let effects = SKILL_TREE[nodeId].effects;
-            for(let k in effects) {
-                if (k === 'skills') { effects[k].forEach(s => { this.skillLevels[s] = (this.skillLevels[s] || 0) + level; newSkills.add(s); }); } 
-                else if (typeof effects[k] === 'boolean') { this.mods[k] = true; } 
-                else { this.mods[k] += effects[k]; }
+        for(let k in this.mods){ if(typeof this.mods[k]==='boolean') this.mods[k]=false; else this.mods[k]=0; }
+        this.skillLevels={}; this.skills=[];
+        for(let id in PlayerState.unlockedNodes) {
+            let lvl = PlayerState.unlockedNodes[id], eff = DB.SKILL_TREE[id].effects;
+            for(let k in eff) {
+                if(k==='skills') eff[k].forEach(s => { 
+                    this.skillLevels[s]=(this.skillLevels[s]||0)+lvl;
+                    if(!this.skills.find(x=>x.id===s)){ let def = SkillRegistry[s]; if (def) this.skills.push({ ...def, id: s }); }
+                });
+                else if(typeof eff[k]==='boolean') this.mods[k]=true; else this.mods[k]+=eff[k];
             }
         }
-        newSkills.forEach(skillId => { if (!this.unlockedSkillIds.includes(skillId)) { this.unlockedSkillIds.push(skillId); this.skills.push(initSkill(skillId)); } });
-        if (this.hp > this.getMaxHp()) this.hp = this.getMaxHp(); updateUI();
+        if(this.hp>this.getMaxHp()) this.hp=this.getMaxHp(); UI.update();
     }
     update(dt) {
-        let proposedX = this.x; let proposedY = this.y;
-        let moveDx = 0; let moveDy = 0;
-
-        // Keyboard support natively calculated here to prevent jitter/locking
-        let kbDx = 0; let kbDy = 0;
-        if(keys['w'] || keys['arrowup']) kbDy -= 1;
-        if(keys['s'] || keys['arrowdown']) kbDy += 1;
-        if(keys['a'] || keys['arrowleft']) kbDx -= 1;
-        if(keys['d'] || keys['arrowright']) kbDx += 1;
-        let kbDist = Math.hypot(kbDx, kbDy);
-
-        if (joystick.active) {
-            moveDx = joystick.dx; moveDy = joystick.dy;
-        } else if (kbDist > 0) {
-            moveDx = kbDx / kbDist; moveDy = kbDy / kbDist;
-        }
-
-        if (moveDx !== 0 || moveDy !== 0) {
-            let speed = this.getMoveSpeed() * dt * 60; 
-            proposedX += moveDx * speed; proposedY += moveDy * speed;
-            this.dirX = moveDx; this.dirY = moveDy;
-        }
+        let px = this.x, py = this.y, mDx = 0, mDy = 0;
+        let kDx = (Engine.keys['d'] || Engine.keys['arrowright'] ? 1 : 0) - (Engine.keys['a'] || Engine.keys['arrowleft'] ? 1 : 0);
+        let kDy = (Engine.keys['s'] || Engine.keys['arrowdown'] ? 1 : 0) - (Engine.keys['w'] || Engine.keys['arrowup'] ? 1 : 0);
+        if(Engine.joystick.active) { mDx = Engine.joystick.dx; mDy = Engine.joystick.dy; }
+        else if(kDx!==0 || kDy!==0) { let d=Math.hypot(kDx,kDy); mDx=kDx/d; mDy=kDy/d; }
         
-        this.handleObstacles(proposedX, proposedY); this.updateSkills(dt);
+        if(mDx!==0 || mDy!==0) { let s = this.getMoveSpeed()*dt*60; px+=mDx*s; py+=mDy*s; this.dirX=mDx; this.dirY=mDy; }
+        this.handleObstacles(px, py); this.updateSkills(dt);
     }
-    draw() {
+    draw(ctx) {
         ctx.save(); ctx.translate(this.x, this.y);
-        if(this.buffs.frenzy > 0) { ctx.beginPath(); ctx.arc(0, 0, this.radius + 10, 0, Math.PI*2); ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)'; ctx.lineWidth = 4; ctx.stroke(); }
-        if(this.buffs.slow > 0) { ctx.beginPath(); ctx.arc(0, 0, this.radius + 10, 0, Math.PI*2); ctx.strokeStyle = 'rgba(139, 92, 246, 0.5)'; ctx.lineWidth = 4; ctx.stroke(); }
-        if(this.hasShield) { ctx.beginPath(); ctx.arc(0, 0, this.radius + 8, 0, Math.PI*2); ctx.strokeStyle = 'rgba(96, 165, 250, 0.8)'; ctx.lineWidth = 3; ctx.stroke(); }
+        if(this.buffs.frenzy>0){ ctx.beginPath(); ctx.arc(0,0,this.radius+10,0,Math.PI*2); ctx.strokeStyle='rgba(239,68,68,0.5)'; ctx.lineWidth=4; ctx.stroke(); }
+        if(this.buffs.slow>0){ ctx.beginPath(); ctx.arc(0,0,this.radius+10,0,Math.PI*2); ctx.strokeStyle='rgba(139,92,246,0.5)'; ctx.lineWidth=4; ctx.stroke(); }
+        if(this.hasShield){ ctx.beginPath(); ctx.arc(0,0,this.radius+8,0,Math.PI*2); ctx.strokeStyle='rgba(96,165,250,0.8)'; ctx.lineWidth=3; ctx.stroke(); }
+        ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(0,15,this.radius,this.radius*0.4,0,0,Math.PI*2); ctx.fill();
+        ctx.globalAlpha = (this.buffs.shadow > 0) ? 0.5 : 1.0; ctx.fillStyle = '#fff'; ctx.font='32px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        if(this.dirX<0) ctx.scale(-1,1); ctx.fillText(this.emoji,0,0); ctx.restore();
+    }
+    gainXp(amt) { if(Engine.isArena)return; this.xp+=amt; while(this.xp>=this.reqXp){ this.level++; this.sp++; this.reqXp=Math.floor(20+this.level*10+Math.pow(this.level,1.6)*5); this.hp=this.getMaxHp(); Engine.addFloatingText('Lv Up!',this.x,this.y-40,'#eab308'); Engine.createRingExplosion(this.x,this.y,'#eab308'); } UI.update(); UI.buildTree(); }
+    die() { 
+        super.die(); 
+        document.getElementById('uiLayer').classList.add('hidden'); 
+        let go = document.getElementById('gameOverScreen');
+        if (Engine.isArena) {
+            document.getElementById('goTitle').innerText = '競技場敗北...';
+            document.getElementById('goDesc1').innerText = '技不如人，再接再厲';
+            document.getElementById('goDesc2').innerText = ''; 
+            document.getElementById('btnRespawn').classList.add('hidden');
+        } else {
+            document.getElementById('goTitle').innerText = '你陣亡了';
+            document.getElementById('goDesc1').innerText = '保留等級與天賦點數';
+            document.getElementById('goDesc2').innerText = '將退回較弱的關卡重生...'; 
+            document.getElementById('btnRespawn').classList.remove('hidden');
+        }
+        go.classList.remove('hidden'); 
+        Engine.isGameRunning = false; 
+    }
+}
+
+class MapMercenary extends Entity {
+    constructor(x, y) { super(x, y); this.radius = 15; this.emoji = ['🧍','🧝','🧞','🧙‍♀️','🥷'][Math.floor(Math.random()*5)]; }
+    update(dt) {
+        if(Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y) < Engine.player.radius + this.radius) {
+            this.isDead = true; 
+            Engine.entities.mercenaries.forEach(m => {
+                if(m.state !== 'leaving') {
+                    m.state = 'leaving'; m.leaveTimer = 10;
+                    Engine.addFloatingText('離隊休息', m.x, m.y-20, '#9ca3af');
+                }
+            });
+            let newMerc = new Mercenary(this.emoji);
+            newMerc.state = 'following';
+            Engine.entities.mercenaries.push(newMerc);
+            Engine.addFloatingText('傭兵加入!', this.x, this.y-20, '#3b82f6'); Engine.createRingExplosion(this.x, this.y, '#3b82f6', 60);
+        }
+    }
+    draw(ctx) {
+        ctx.save(); ctx.translate(this.x, this.y);
+        ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.ellipse(0, 15, this.radius, this.radius*0.4, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(this.emoji, 0, 0); ctx.restore();
+    }
+}
+
+class Mercenary extends BaseCharacter {
+    constructor(emoji) {
+        super(Engine.player.x, Engine.player.y); this.faction = 'player'; this.emoji = emoji; this.radius = 15;
+        this.baseMaxHp = 100 + Engine.gameState.stage * 50; this.hp = this.baseMaxHp;
+        this.baseMoveSpeed = 3.5; this.baseRange = 1.0;
+        this.baseInt = 15 + Engine.gameState.stage*5; this.baseStr = 15 + Engine.gameState.stage*5; this.baseAgi = 15 + Engine.gameState.stage*5;
+        this.state = 'following'; this.leaveTimer = 0;
+        let possibleSkills = ['magic_missile', 'fireball', 'throwing_knife', 'heavy_strike', 'chain_lightning', 'boomerang_blade'];
+        let sid = possibleSkills[Math.floor(Math.random() * possibleSkills.length)];
+        this.skills.push({ ...SkillRegistry[sid], id: sid, timer: 0 });
+        this.skillLevels[sid] = 1 + Math.floor(Engine.gameState.stage / 2);
+        this.orbitAngle = Math.random() * Math.PI * 2;
+    }
+    update(dt) {
+        if(this.state === 'leaving') {
+            this.leaveTimer -= dt;
+            if(this.leaveTimer <= 0) this.isDead = true;
+            return;
+        }
+        let target = Engine.getClosestTarget(this.x, this.y, 'player', 500);
+        let destX, destY;
+        if(target) {
+            let dx = target.x - this.x, dy = target.y - this.y, dist = Math.hypot(dx, dy);
+            if(dist > 200) { destX = target.x; destY = target.y; }
+            else if(dist < 150) { destX = this.x - dx; destY = this.y - dy; }
+            else { this.orbitAngle += dt; destX = target.x + Math.cos(this.orbitAngle)*160; destY = target.y + Math.sin(this.orbitAngle)*160; }
+            if(Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y) > 350) { destX = Engine.player.x; destY = Engine.player.y; }
+        } else {
+            this.orbitAngle += dt; destX = Engine.player.x + Math.cos(this.orbitAngle)*80; destY = Engine.player.y + Math.sin(this.orbitAngle)*80;
+        }
+        let px = this.x, py = this.y, dx = destX - this.x, dy = destY - this.y, dist = Math.hypot(dx, dy);
+        if(dist > 5) {
+            let speed = this.getMoveSpeed() * dt * 60; let md = Math.min(dist, speed);
+            px += (dx/dist)*md; py += (dy/dist)*md; this.dirX = dx/dist; this.dirY = dy/dist;
+        }
+        this.handleObstacles(px, py); this.updateSkills(dt);
+    }
+    draw(ctx) {
+        ctx.save(); ctx.translate(this.x, this.y);
+        if(this.state === 'leaving') ctx.globalAlpha = Math.max(0, this.leaveTimer / 10);
         ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(0, 15, this.radius, this.radius*0.4, 0, 0, Math.PI*2); ctx.fill();
-        
-        ctx.globalAlpha = (this.buffs.shadow > 0) ? 0.5 : 1.0;
-        ctx.font = '32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        if(this.dirX < 0) ctx.scale(-1, 1);
+        ctx.fillStyle = '#fff'; ctx.font = '24px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; if(this.dirX < 0) ctx.scale(-1, 1);
         ctx.fillText(this.emoji, 0, 0); ctx.restore();
+        if(this.state !== 'leaving') {
+            ctx.fillStyle = '#333'; ctx.fillRect(this.x - 15, this.y - 25, 30, 4);
+            ctx.fillStyle = '#22c55e'; ctx.fillRect(this.x - 15, this.y - 25, 30 * (this.hp/this.getMaxHp()), 4);
+        }
     }
-    die() { super.die(); triggerGameOver(false); }
-    gainXp(amount) {
-        if(isArena) return; this.xp += amount;
-        while (this.xp >= this.reqXp) { this.xp -= this.reqXp; this.levelUp(); }
-        updateUI();
+}
+
+class Shrine extends Entity {
+    constructor(x, y) { super(x, y); this.radius = 20; this.used = false; this.type = Math.random() > 0.5 ? 'heal' : 'buff'; this.color = this.type === 'heal' ? '#22c55e' : '#eab308'; }
+    update(dt) {
+        if(this.used) return;
+        if(Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y) < Engine.player.radius + this.radius) {
+            this.used = true;
+            if(this.type === 'heal') { Engine.player.heal(Engine.player.getMaxHp() * 0.5); Engine.addFloatingText('HP 恢復!', this.x, this.y-20, this.color); }
+            else { Engine.player.buffs.frenzy = 10.0; Engine.addFloatingText('狂熱!', this.x, this.y-20, this.color); }
+            Engine.createRingExplosion(this.x, this.y, this.color, 60);
+        }
     }
-    levelUp() {
-        this.level++; this.sp++; 
-        this.reqXp = Math.floor(20 + (this.level * 10) + Math.pow(this.level, 1.6) * 5); // 平滑曲線
-        this.hp = this.getMaxHp(); 
-        addFloatingText('Level Up!', this.x, this.y - 40, '#eab308', 24);
-        createRingExplosion(this.x, this.y, '#eab308'); updateTreeUI(); saveGame();
+    draw(ctx) {
+        if(this.used) return;
+        ctx.save(); ctx.translate(this.x, this.y); ctx.fillStyle = this.color; ctx.shadowColor = this.color; ctx.shadowBlur = 10;
+        ctx.beginPath(); ctx.moveTo(0, -this.radius); ctx.lineTo(this.radius, 0); ctx.lineTo(0, this.radius); ctx.lineTo(-this.radius, 0); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#000'; ctx.font = '20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.shadowBlur = 0; ctx.fillText('⛩️', 0, 0); ctx.restore();
+    }
+}
+
+class Projectile extends Entity {
+    constructor(x,y,dx,dy,speed,dmg,aoe,type,color,faction) { super(x,y); this.dx=dx; this.dy=dy; this.speed=speed; this.dmg=dmg; this.aoeMult=aoe; this.type=type; this.color=color; this.faction=faction; this.radius=5*aoe; this.life=2.0; this.hitSet=new Set(); this.pierce=0; this.bounces=0; }
+    
+    tryRicochet() {
+        if (this.faction === 'player' && Engine.player.mods.passive_ricochet && this.bounces < 1 && !this.boomerang && this.type.includes('assassination')) {
+            this.bounces++;
+            let nextT = Engine.getClosestTarget(this.x, this.y, this.faction, 400, this.hitSet);
+            if (nextT) {
+                let ndx = nextT.x - this.x, ndy = nextT.y - this.y, ndist = Math.hypot(ndx, ndy) || 1;
+                this.dx = ndx/ndist; this.dy = ndy/ndist;
+                this.life += 1.0; 
+                return true;
+            }
+        }
+        return false;
+    }
+
+    update(dt) {
+        if (this.boomerang && this.life < this.returnTime && this.owner && !this.owner.isDead) {
+            let bx = this.owner.x - this.x, by = this.owner.y - this.y, bdist = Math.hypot(bx, by);
+            if(bdist < 20) { this.isDead = true; return; }
+            this.dx = bx/bdist; this.dy = by/bdist; this.hitSet.clear();
+        }
+        this.x+=this.dx*this.speed*dt; this.y+=this.dy*this.speed*dt; this.life-=dt; if(this.life<=0) { this.isDead=true; return; }
+        
+        if (this.pierce < 999 && !this.isDead) {
+            for (let obs of Engine.obstacles) {
+                if (Math.hypot(obs.x - this.x, obs.y - this.y) < this.radius + obs.radius) {
+                    if (this.type === 'magic_explosive') {
+                        Engine.createRingExplosion(this.x, this.y, '#ef4444', 50 * this.aoeMult);
+                        Engine.getEnemiesInRadius({x:this.x, y:this.y, faction:this.faction}, 50 * this.aoeMult).forEach(e2 => Engine.applyDamage(e2, this.dmg*0.5, 'magic', Engine.player));
+                        this.isDead = true; break;
+                    } else { 
+                        Engine.addParticle(this.x, this.y, '#9ca3af', 3); 
+                        if (this.tryRicochet()) { break; } else { this.isDead = true; break; }
+                    }
+                }
+            }
+        }
+        if (this.isDead) return;
+
+        Engine.getEnemiesInRadius({x:this.x, y:this.y, faction:this.faction}, this.radius + 15).forEach(e => {
+            if(!this.hitSet.has(e) && Math.hypot(e.x-this.x, e.y-this.y) < this.radius + e.radius) {
+                let actualType = this.type.includes('magic') ? 'magic' : (this.type.includes('assassination') ? 'assassination' : 'melee');
+                Engine.applyDamage(e, this.dmg, actualType, this.faction); this.hitSet.add(e);
+                
+                if(this.type === 'magic_explosive') {
+                    let expRange = 50*this.aoeMult; Engine.createRingExplosion(this.x, this.y, '#ef4444', expRange);
+                    Engine.getEnemiesInRadius({x:this.x, y:this.y, faction:this.faction}, expRange).forEach(e2 => { if(e2!==e) Engine.applyDamage(e2, this.dmg*0.5, 'magic', this.faction); });
+                    this.isDead = true;
+                } else if (this.tryRicochet()) {
+                    // Success ricochet
+                } else if (this.pierce > 0) { 
+                    this.pierce--; 
+                } else { 
+                    this.isDead = true; 
+                }
+            }
+        });
+    }
+    draw(ctx) {
+        ctx.fillStyle = this.color; ctx.beginPath();
+        if(this.isKnife) {
+            let angle = this.boomerang ? Engine.frameCount * 0.5 : Math.atan2(this.dy, this.dx);
+            ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(angle); ctx.moveTo(10, 0); ctx.lineTo(-5, 5); ctx.lineTo(-5, -5); ctx.restore();
+        } else { ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); }
+        ctx.fill();
+    }
+}
+
+class PersistentAoe extends Entity {
+    constructor(owner, radius, duration, dmgPerTick, type, color, faction, pull=false) { super(owner.x, owner.y); this.owner = owner; this.radius = radius; this.life = duration; this.dmg = dmgPerTick; this.type = type; this.color = color; this.faction = faction; this.pull = pull; this.tickRate = 0.25; this.tickTimer = 0; }
+    update(dt) {
+        this.x = this.owner.x; this.y = this.owner.y; this.life -= dt; if(this.life <= 0) { this.isDead = true; return; }
+        this.tickTimer -= dt;
+        if(this.tickTimer <= 0) {
+            this.tickTimer = this.tickRate;
+            Engine.getEnemiesInRadius(this.owner, this.radius).forEach(e => {
+                Engine.applyDamage(e, this.dmg, this.type, this.faction);
+                if(this.pull && e.speedMod !== undefined) { let pdx=this.owner.x-e.x, pdy=this.owner.y-e.y, pdist=Math.hypot(pdx,pdy); if(pdist>10){ e.x+=(pdx/pdist)*10; e.y+=(pdy/pdist)*10; } }
+            });
+        }
+    }
+    draw(ctx) {
+        ctx.strokeStyle = this.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = this.color.replace(')', ', 0.2)').replace('rgb', 'rgba'); ctx.fill();
+    }
+}
+
+class MeleeArcVisual extends Entity {
+    constructor(x, y, angle, range, arcAngle, color) { super(x, y); this.angle = angle; this.range = range; this.arcAngle = arcAngle; this.color = color; this.life = 0.2; this.maxLife = 0.2; }
+    update(dt) { this.life -= dt; if(this.life <= 0) this.isDead = true; }
+    draw(ctx) { ctx.fillStyle = this.color; ctx.globalAlpha = this.life / this.maxLife; ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.arc(this.x, this.y, this.range, this.angle - this.arcAngle/2, this.angle + this.arcAngle/2); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1.0; }
+}
+
+class Enemy extends Entity {
+    constructor(type, sx=null, sy=null) {
+        super(); this.type = type;
+        if(sx !== null) { this.x = sx + (Math.random()-0.5)*100; this.y = sy + (Math.random()-0.5)*100; } 
+        else { let ang = Math.random()*Math.PI*2, dist = Math.max(Engine.width, Engine.height)/2 + 100; this.x = Engine.player.x + Math.cos(ang)*dist; this.y = Engine.player.y + Math.sin(ang)*dist; }
+        this.speedMod = 1.0; this.speedTimer = 0; this.poisonTimer = 0; this.poisonTick = 0; this.hitTimer = 0; this.stateTimer = 0;
+        
+        let mData = DB.MONSTERS.find(m => m.id === type) || DB.MONSTERS.find(m => m.type === type);
+        let st = 1 + (Engine.gameState.stage - 1) * 0.5, stDmg = 1 + (Engine.gameState.stage - 1) * 0.2;
+        this.emoji = mData.emoji; this.radius = mData.radius; this.speed = mData.speed; this.maxHp = mData.hp * st; this.hp = this.maxHp; this.dmg = mData.dmg * stDmg; this.xpVal = mData.xp; this.ai = mData.ai;
+    }
+    update(dt) {
+        if(this.hitTimer > 0) this.hitTimer -= dt;
+        if(this.speedTimer > 0) { this.speedTimer -= dt; if(this.speedTimer <= 0) this.speedMod = 1.0; }
+        if(this.poisonTimer > 0) {
+            this.poisonTimer -= dt; this.poisonTick -= dt;
+            if(this.poisonTick <= 0) {
+                this.hp -= Engine.player.getAssassinationDmg() * 0.2; this.hitTimer = 0.1; this.poisonTick = 0.5;
+                if(this.hp <= 0 && !this.isDead) { this.isDead = true; Engine.player.gainXp(this.xpVal); Engine.gameState.kills++; Engine.checkStageProgress(); }
+            }
+        }
+        let target = Engine.getClosestTarget(this.x, this.y, 'enemy') || Engine.player;
+        let dx = target.x - this.x, dy = target.y - this.y, dist = Math.hypot(dx, dy);
+        if (dist > 0) { this.dirX = dx/dist; this.dirY = dy/dist; }
+        
+        let res = Behaviors[this.ai](this, target, dist, dt, this.x, this.y);
+        let px = res.x, py = res.y;
+
+        if (dist < target.radius + this.radius) {
+            if(target.takeDamage) target.takeDamage(this.dmg);
+            if(target === Engine.player && Engine.player.mods.passive_counter) { Engine.applyDamage(this, Engine.player.getMeleeDmg()*0.8, 'melee', 'player'); Engine.addParticle(this.x, this.y, '#fca5a5', 3); }
+            px -= this.dirX * 20; py -= this.dirY * 20;
+        }
+
+        for(let obs of Engine.obstacles) {
+            let odx = px - obs.x, ody = py - obs.y, odist = Math.hypot(odx, ody);
+            if(odist < this.radius + obs.radius) {
+                if (odist === 0) { odx = 1; odist = 1; }
+                let overlap = this.radius + obs.radius - odist; px += (odx/odist) * overlap; py += (ody/odist) * overlap;
+            }
+        }
+        this.x = px; this.y = py;
+    }
+    draw(ctx) {
+        ctx.save(); ctx.translate(this.x, this.y);
+        if(this.poisonTimer > 0) { ctx.beginPath(); ctx.arc(0, 0, this.radius + 5, 0, Math.PI*2); ctx.fillStyle = 'rgba(74, 222, 128, 0.4)'; ctx.fill(); }
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(0, 15, this.radius, this.radius*0.4, 0, 0, Math.PI*2); ctx.fill();
+        ctx.globalAlpha = (this.hitTimer > 0) ? 0.5 : 1.0; ctx.fillStyle = '#fff'; ctx.font = (this.radius * 2) + 'px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        if(Engine.player.x < this.x) ctx.scale(-1, 1);
+        ctx.fillText(this.emoji, 0, 0); ctx.restore();
+        if(this.type === 'boss') { ctx.fillStyle = '#333'; ctx.fillRect(this.x - 30, this.y - this.radius - 15, 60, 6); ctx.fillStyle = '#ef4444'; ctx.fillRect(this.x - 30, this.y - this.radius - 15, 60 * (this.hp/this.maxHp), 6); }
     }
 }
 
 class ArenaBoss extends BaseCharacter {
     constructor(data) {
-        super(); this.faction = 'enemy'; this.emoji = '👿';
+        super(200, -200); this.faction = 'enemy'; this.emoji = '👿';
         this.baseStr = 5; this.baseAgi = 5; this.baseInt = 5; this.baseMoveSpeed = 3.0; this.baseMaxHp = 100;
         this.baseRange = 1.0; this.baseCritRate = 0.05; this.baseCritDmg = 1.5;
         let pClass = data.playerClass;
@@ -598,974 +802,426 @@ class ArenaBoss extends BaseCharacter {
         else if (pClass === 'warrior') { this.emoji = '🦾'; this.baseMoveSpeed=3.0; this.baseMaxHp=150; this.baseRange=1.0; this.baseStr=15; this.baseAgi=4; this.baseInt=2; }
         let nodes = data.unlockedNodes || {};
         for(let nodeId in nodes) {
-            let level = nodes[nodeId]; let effects = SKILL_TREE[nodeId].effects;
+            let level = nodes[nodeId]; let effects = DB.SKILL_TREE[nodeId].effects;
             for(let k in effects) {
-                if (k === 'skills') { effects[k].forEach(s => { this.skillLevels[s] = (this.skillLevels[s] || 0) + level; if (!this.skills.find(x => x.id === s)) this.skills.push(initSkill(s)); }); } 
+                if (k === 'skills') { effects[k].forEach(s => { this.skillLevels[s] = (this.skillLevels[s] || 0) + level; if (!this.skills.find(x => x.id === s)) { let def = SkillRegistry[s]; if(def) this.skills.push({...def, id:s}); } }); } 
                 else if (typeof effects[k] === 'boolean') this.mods[k] = true; else this.mods[k] += effects[k];
             }
         }
-        this.mods.maxHp += (this.getMaxHp() * 10); this.hp = this.getMaxHp(); this.x = 200; this.y = -200;
+        this.mods.maxHp += (this.getMaxHp() * 10); this.hp = this.getMaxHp();
         document.getElementById('bossHpBarContainer').style.display = 'block';
     }
     update(dt) {
-        let dx = player.x - this.x; let dy = player.y - this.y; let dist = Math.hypot(dx, dy);
-        let proposedX = this.x; let proposedY = this.y;
+        let dx = Engine.player.x - this.x, dy = Engine.player.y - this.y, dist = Math.hypot(dx, dy);
+        let px = this.x, py = this.y;
         if (dist > 150) { 
-            let moveDx = dx/dist; let moveDy = dy/dist;
+            let mDx = dx/dist, mDy = dy/dist;
             let speed = this.getMoveSpeed() * dt * 60; 
-            proposedX += moveDx * speed; proposedY += moveDy * speed; this.dirX = moveDx; this.dirY = moveDy;
+            px += mDx * speed; py += mDy * speed; this.dirX = mDx; this.dirY = mDy;
         }
-        this.handleObstacles(proposedX, proposedY); this.updateSkills(dt);
+        this.handleObstacles(px, py); this.updateSkills(dt);
         document.getElementById('bossHpBar').style.width = `${(this.hp / this.getMaxHp()) * 100}%`;
     }
-    draw() {
+    draw(ctx) {
         ctx.save(); ctx.translate(this.x, this.y);
         ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(0, 15, this.radius, this.radius*0.4, 0, 0, Math.PI*2); ctx.fill();
-        ctx.globalAlpha = 1.0; ctx.font = '40px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.globalAlpha = (this.hitTimer > 0) ? 0.5 : 1.0; ctx.fillStyle = '#fff'; ctx.font = '40px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         if(this.dirX < 0) ctx.scale(-1, 1);
         ctx.fillText(this.emoji, 0, 0); ctx.restore();
         ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; ctx.beginPath(); ctx.arc(this.x, this.y, 45, 0, Math.PI*2); ctx.fill();
     }
-    die() { super.die(); triggerGameOver(true); }
-}
-
-class MapMercenary {
-    constructor(x, y) {
-        this.x = x; this.y = y; this.radius = 15; this.life = 0; this.isDead = false;
-        this.emoji = ['🧍','🧝','🧞'][Math.floor(Math.random()*3)];
-    }
-    update(dt) {
-        if (this.life > 0) { this.life -= dt; if (this.life <= 0) this.isDead = true; } 
-        else { if (Math.hypot(player.x - this.x, player.y - this.y) < player.radius + this.radius) { this.isDead = true; recruitMercenary(this.emoji); } }
-    }
-    draw() {
-        ctx.save(); ctx.translate(this.x, this.y); ctx.globalAlpha = this.life > 0 ? (this.life / 10) : 1.0;
-        ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.ellipse(0, 15, this.radius, this.radius*0.4, 0, 0, Math.PI*2); ctx.fill();
-        ctx.font = '24px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(this.emoji, 0, 0); ctx.restore();
+    die() {
+        super.die(); Engine.isGameRunning = false;
+        document.getElementById('uiLayer').classList.add('hidden');
+        let go = document.getElementById('gameOverScreen');
+        document.getElementById('goTitle').innerText = '競技場勝利！';
+        document.getElementById('goDesc1').innerText = '你擊敗了對手！';
+        document.getElementById('goDesc2').innerText = ''; 
+        document.getElementById('btnRespawn').classList.add('hidden');
+        go.classList.remove('hidden');
     }
 }
 
-class Mercenary extends BaseCharacter {
-    constructor(emoji) {
-        super(); this.faction = 'player'; this.emoji = emoji;
-        this.x = player.x + (Math.random() - 0.5) * 50; this.y = player.y + (Math.random() - 0.5) * 50;
-        this.baseMaxHp = 100 + gameState.stage * 50; this.hp = this.baseMaxHp;
-        this.baseMoveSpeed = 3.5; this.baseRange = 1.0;
-        let possibleSkills = ['magic_missile', 'fireball', 'throwing_knife', 'heavy_strike'];
-        let sid = possibleSkills[Math.floor(Math.random() * possibleSkills.length)];
-        this.skills.push(initSkill(sid)); this.skillLevels[sid] = 1 + Math.floor(gameState.stage / 2);
-        this.baseInt = 5 + gameState.stage*2; this.baseStr = 5 + gameState.stage*2; this.baseAgi = 5 + gameState.stage*2;
-        this.orbitAngle = Math.random() * Math.PI * 2;
-    }
-    update(dt) {
-        let target = getTarget(this.x, this.y, 'player'); let destX, destY;
-        if (target) {
-            let dxT = target.x - this.x; let dyT = target.y - this.y; let distT = Math.hypot(dxT, dyT);
-            if (distT > 200) { destX = target.x; destY = target.y; } // 追敵
-            else if (distT < 150) { destX = this.x - dxT; destY = this.y - dyT; } // 太近則風箏退後
-            else { this.orbitAngle += dt * 1.5; destX = target.x + Math.cos(this.orbitAngle) * 160; destY = target.y + Math.sin(this.orbitAngle) * 160; } // 安全距離繞圈
-            
-            // 避免離玩家太遠
-            if (Math.hypot(player.x - this.x, player.y - this.y) > 350) { destX = player.x; destY = player.y; }
-        } else {
-            this.orbitAngle += dt * 1.0;
-            destX = player.x + Math.cos(this.orbitAngle) * 80; destY = player.y + Math.sin(this.orbitAngle) * 80;
-        }
-        
-        let dx = destX - this.x; let dy = destY - this.y; let dist = Math.hypot(dx, dy);
-        let proposedX = this.x; let proposedY = this.y;
-        if (dist > 5) { // 防抖動
-            let speed = this.getMoveSpeed() * dt * 60; let moveDist = Math.min(dist, speed);
-            proposedX += (dx/dist) * moveDist; proposedY += (dy/dist) * moveDist;
-            this.dirX = dx/dist; this.dirY = dy/dist;
-        }
-        this.handleObstacles(proposedX, proposedY); this.updateSkills(dt);
-    }
-    draw() {
-        ctx.save(); ctx.translate(this.x, this.y);
-        ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(0, 15, this.radius, this.radius*0.4, 0, 0, Math.PI*2); ctx.fill();
-        ctx.globalAlpha = 1.0; ctx.font = '24px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        if(this.dirX < 0) ctx.scale(-1, 1);
-        ctx.fillText(this.emoji, 0, 0); ctx.restore();
-        ctx.fillStyle = '#333'; ctx.fillRect(this.x - 15, this.y - 25, 30, 4);
-        ctx.fillStyle = '#22c55e'; ctx.fillRect(this.x - 15, this.y - 25, 30 * (this.hp/this.getMaxHp()), 4);
-    }
-}
+const PlayerState = { unlockedNodes: {} };
 
-function recruitMercenary(emoji) {
-    if (partyMercenaries.length >= 1) { // 限制只能帶一隻
-        let old = partyMercenaries.shift();
-        let mm = new MapMercenary(old.x, old.y); mm.emoji = old.emoji; mm.life = 10.0;
-        mapMercenaries.push(mm);
-    }
-    partyMercenaries.push(new Mercenary(emoji));
-}
-
-function getTarget(casterX, casterY, faction, maxRange = Infinity, excludeSet = null) {
-    let nearest = null; let minDist = Infinity; let candidates = [];
-    if (faction === 'player') { candidates = enemies; if (arenaBoss && !arenaBoss.isDead) candidates.push(arenaBoss); } 
-    else { candidates = [player, ...partyMercenaries]; }
-    for(let e of candidates) {
-        if(e && !e.isDead && (!excludeSet || !excludeSet.has(e))) {
-            let dist = Math.hypot(e.x - casterX, e.y - casterY);
-            if(dist < minDist && dist <= maxRange) { minDist = dist; nearest = e; }
-        }
-    }
-    return nearest;
-}
-
-function initSkill(id) {
-    const skillsDict = {
-        'magic_missile': {
-            id: 'magic_missile', type: 'magic', cooldown: 1.5, timer: 0, queue: 0, delay: 0.15, qTimer: 0,
-            execute: function(caster) { this.queue = caster.mods.passive_multicast ? 2 : 1; this.qTimer = 0; },
-            updateQueue: function(dt, caster) { if (this.queue > 0) { this.qTimer -= dt; if (this.qTimer <= 0) { this.cast(caster); this.queue--; this.qTimer = this.delay; } } },
-            cast: function(caster) {
-                let lvl = caster.skillLevels[this.id] || 1; let maxRange = GAME_HEIGHT * caster.getAoeMult();
-                let target = getTarget(caster.x, caster.y, caster.faction, maxRange);
-                if (target) {
-                    let dx = target.x - caster.x; let dy = target.y - caster.y; let dist = Math.hypot(dx, dy) || 1;
-                    let dmg = caster.getMagicDmg() * (1 + (lvl-1)*0.4); 
-                    let proj = new Projectile(caster.x, caster.y, dx/dist, dy/dist, 300, dmg, caster.getAoeMult(), 'magic', '#a855f7', caster.faction);
-                    proj.life = maxRange / proj.speed; projectiles.push(proj);
-                }
-            }
-        },
-        'fireball': {
-            id: 'fireball', type: 'magic', cooldown: 3.0, timer: 0, queue: 0, delay: 0.2, qTimer: 0,
-            execute: function(caster) { this.queue = caster.mods.passive_multicast ? 2 : 1; this.qTimer = 0; },
-            updateQueue: function(dt, caster) { if (this.queue > 0) { this.qTimer -= dt; if (this.qTimer <= 0) { this.cast(caster); this.queue--; this.qTimer = this.delay; } } },
-            cast: function(caster) {
-                let lvl = caster.skillLevels[this.id] || 1; let maxRange = GAME_HEIGHT * caster.getAoeMult();
-                let target = getTarget(caster.x, caster.y, caster.faction, maxRange);
-                if (target) {
-                    let dx = target.x - caster.x; let dy = target.y - caster.y; let dist = Math.hypot(dx, dy) || 1;
-                    let dmg = caster.getMagicDmg() * 2 * (1 + (lvl-1)*0.5); let aoe = caster.getAoeMult() * (1 + (lvl-1)*0.15); 
-                    let proj = new Projectile(caster.x, caster.y, dx/dist, dy/dist, 250, dmg, aoe, 'magic_explosive', '#ef4444', caster.faction);
-                    proj.radius = 8 * aoe; proj.life = maxRange / proj.speed; projectiles.push(proj);
-                }
-            }
-        },
-        'frost_nova': {
-            id: 'frost_nova', type: 'magic', cooldown: 4.0, timer: 0, queue: 0, delay: 0.3, qTimer: 0,
-            execute: function(caster) { this.queue = caster.mods.passive_multicast ? 2 : 1; this.qTimer = 0; },
-            updateQueue: function(dt, caster) { if (this.queue > 0) { this.qTimer -= dt; if (this.qTimer <= 0) { this.cast(caster); this.queue--; this.qTimer = this.delay; } } },
-            cast: function(caster) {
-                let lvl = caster.skillLevels[this.id] || 1; let aoe = caster.getAoeMult() * (1 + (lvl-1)*0.1); let radius = 100 * aoe; 
-                let dmg = caster.getMagicDmg() * 0.8 * (1 + (lvl-1)*0.4); let slowTime = 2.0 + (lvl-1)*0.5;
-                createRingExplosion(caster.x, caster.y, '#60a5fa', radius);
-                let candidates = caster.faction === 'player' ? [...enemies, arenaBoss] : [player, ...partyMercenaries];
-                candidates.forEach(e => {
-                    if (e && !e.isDead && Math.hypot(e.x - caster.x, e.y - caster.y) <= radius) {
-                        applyDamage(e, dmg, 'magic', caster.faction);
-                        if(e.speedMod !== undefined) { e.speedMod = 0.5; e.speedTimer = slowTime; } else { e.buffs.slow = slowTime; }
-                    }
-                });
-            }
-        },
-        'chain_lightning': {
-            id: 'chain_lightning', type: 'magic', cooldown: 2.5, timer: 0, queue: 0, delay: 0.25, qTimer: 0,
-            execute: function(caster) { this.queue = caster.mods.passive_multicast ? 2 : 1; this.qTimer = 0; },
-            updateQueue: function(dt, caster) { if (this.queue > 0) { this.qTimer -= dt; if (this.qTimer <= 0) { this.cast(caster); this.queue--; this.qTimer = this.delay; } } },
-            cast: function(caster) {
-                let lvl = caster.skillLevels[this.id] || 1; let maxRange = GAME_HEIGHT * caster.getAoeMult();
-                let currentTarget = getTarget(caster.x, caster.y, caster.faction, maxRange);
-                if(!currentTarget) return;
-                let jumps = 4 + Math.floor((lvl-1)/2); let dmg = caster.getMagicDmg() * 1.2 * (1 + (lvl-1)*0.3);
-                let hitSet = new Set(); let startX = caster.x; let startY = caster.y;
-                let candidates = caster.faction === 'player' ? [...enemies, arenaBoss] : [player, ...partyMercenaries];
-                while(jumps > 0 && currentTarget) {
-                    hitSet.add(currentTarget); applyDamage(currentTarget, dmg, 'magic', caster.faction);
-                    particles.push({ type: 'line', x: startX, y: startY, tx: currentTarget.x, ty: currentTarget.y, life: 0.2, maxLife: 0.2, color: '#fef08a' });
-                    startX = currentTarget.x; startY = currentTarget.y; dmg *= 0.8; jumps--;
-                    let next = null; let minDist = (GAME_HEIGHT * 0.3) * caster.getAoeMult();
-                    candidates.forEach(e => {
-                        if(e && !e.isDead && !hitSet.has(e)) { let d = Math.hypot(e.x - startX, e.y - startY); if(d < minDist) { minDist = d; next = e; } }
-                    });
-                    currentTarget = next;
-                }
-            }
-        },
-        'black_hole': {
-            id: 'black_hole', type: 'magic', cooldown: 8.0, timer: 0,
-            execute: (caster) => {
-                let lvl = caster.skillLevels['black_hole'] || 1; let maxRange = GAME_HEIGHT * caster.getAoeMult();
-                let target = getTarget(caster.x, caster.y, caster.faction, maxRange);
-                if(!target) return;
-                let radius = 120 * caster.getAoeMult() * (1 + (lvl-1)*0.1); let dmg = caster.getMagicDmg() * 0.4 * (1 + (lvl-1)*0.3);
-                projectiles.push(new PersistentAoe({x: target.x, y: target.y}, radius, 3.0, dmg, 'magic', '#7c3aed', caster.faction, true));
-            }
-        },
-        'meteor_strike': {
-            id: 'meteor_strike', type: 'magic', cooldown: 6.0, timer: 0,
-            execute: (caster) => {
-                let lvl = caster.skillLevels['meteor_strike'] || 1; let maxRange = GAME_HEIGHT * caster.getAoeMult();
-                let target = getTarget(caster.x, caster.y, caster.faction, maxRange);
-                if(!target) return;
-                let tx = target.x; let ty = target.y;
-                addFloatingText('⚠️', tx, ty, '#ef4444', 30);
-                setTimeout(() => {
-                    if(!isGameRunning || isPaused) return;
-                    let radius = 150 * caster.getAoeMult() * (1 + (lvl-1)*0.2); let dmg = caster.getMagicDmg() * 4 * (1 + (lvl-1)*0.5);
-                    createRingExplosion(tx, ty, '#f97316', radius);
-                    let candidates = caster.faction === 'player' ? [...enemies, arenaBoss] : [player, ...partyMercenaries];
-                    candidates.forEach(e => {
-                        if(e && !e.isDead && Math.hypot(e.x - tx, e.y - ty) <= radius) {
-                            applyDamage(e, dmg, 'magic', caster.faction);
-                            if(e.speedMod !== undefined) { e.speedMod = 0.0; e.speedTimer = 1.5; } else { e.buffs.slow = 1.5; }
-                        }
-                    });
-                }, 1000);
-            }
-        },
-        'heavy_strike': {
-            id: 'heavy_strike', type: 'melee', cooldown: 1.0, timer: 0,
-            execute: (caster) => {
-                let lvl = caster.skillLevels['heavy_strike'] || 1; let aoe = caster.getAoeMult() * (1 + (lvl-1)*0.1); let range = 100 * aoe; 
-                let hitAngle = Math.PI / 1.5; 
-                let target = getTarget(caster.x, caster.y, caster.faction, range);
-                let pAngle = target ? Math.atan2(target.y - caster.y, target.x - caster.x) : Math.atan2(caster.dirY, caster.dirX);
-                projectiles.push(new MeleeArcVisual(caster.x, caster.y, pAngle, range, hitAngle, 'rgba(239, 68, 68, 0.4)'));
-                let dmg = caster.getMeleeDmg() * (1 + (lvl-1)*0.5); 
-                let candidates = caster.faction === 'player' ? [...enemies, arenaBoss] : [player, ...partyMercenaries];
-                candidates.forEach(e => {
-                    if(!e || e.isDead) return;
-                    let dx = e.x - caster.x; let dy = e.y - caster.y; let dist = Math.hypot(dx, dy);
-                    if (dist <= range) {
-                        let angleToEnemy = Math.atan2(dy, dx); let angleDiff = Math.abs(angleToEnemy - pAngle);
-                        if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-                        if (angleDiff <= hitAngle/2) applyDamage(e, dmg, 'melee', caster.faction);
-                    }
-                });
-            }
-        },
-        'whirlwind': {
-            id: 'whirlwind', type: 'melee', cooldown: 2.0, timer: 0,
-            execute: (caster) => { 
-                let lvl = caster.skillLevels['whirlwind'] || 1; let dmg = caster.getMeleeDmg() * 0.5 * (1 + (lvl-1)*0.3);
-                let radius = 90 * caster.getAoeMult() * (1 + (lvl-1)*0.1);
-                projectiles.push(new PersistentAoe(caster, radius, 1.0, dmg, 'melee', '#fca5a5', caster.faction)); 
-            }
-        },
-        'earthquake': {
-            id: 'earthquake', type: 'melee', cooldown: 3.5, timer: 0,
-            execute: (caster) => {
-                let lvl = caster.skillLevels['earthquake'] || 1; let radius = 120 * caster.getAoeMult() * (1 + (lvl-1)*0.1);
-                let dmg = caster.getMeleeDmg() * 1.5 * (1 + (lvl-1)*0.6);
-                createRingExplosion(caster.x, caster.y, '#a16207', radius);
-                let candidates = caster.faction === 'player' ? [...enemies, arenaBoss] : [player, ...partyMercenaries];
-                candidates.forEach(e => {
-                    if (e && !e.isDead && Math.hypot(e.x - caster.x, e.y - caster.y) <= radius) {
-                        applyDamage(e, dmg, 'melee', caster.faction);
-                        if(e.speedMod !== undefined) { e.speedMod = 0.2; e.speedTimer = 1.0; } else { e.buffs.slow = 1.0; }
-                    }
-                });
-            }
-        },
-        'dash_attack': {
-            id: 'dash_attack', type: 'melee', cooldown: 4.0, timer: 0,
-            execute: (caster) => {
-                let lvl = caster.skillLevels['dash_attack'] || 1; let maxRange = 300 * caster.getAoeMult();
-                let target = getTarget(caster.x, caster.y, caster.faction, maxRange);
-                if(!target) return;
-                let dx = target.x - caster.x; let dy = target.y - caster.y; let dist = Math.hypot(dx, dy);
-                let steps = 10; let stepDx = dx/steps; let stepDy = dy/steps;
-                let dmg = caster.getMeleeDmg() * 2 * (1 + (lvl-1)*0.4);
-                let i = 0;
-                let dashInterval = setInterval(() => {
-                    if(!isGameRunning || isPaused || caster.isDead || i >= steps) { clearInterval(dashInterval); return; }
-                    caster.x += stepDx; caster.y += stepDy; createRingExplosion(caster.x, caster.y, '#f87171', 40);
-                    let candidates = caster.faction === 'player' ? [...enemies, arenaBoss] : [player, ...partyMercenaries];
-                    candidates.forEach(e => {
-                        if(e && !e.isDead && Math.hypot(e.x - caster.x, e.y - caster.y) <= 50) {
-                            applyDamage(e, dmg, 'melee', caster.faction);
-                            e.x += stepDx*2; e.y += stepDy*2; // knockback
-                        }
-                    });
-                    i++;
-                }, 20);
-            }
-        },
-        'warcry': {
-            id: 'warcry', type: 'melee', cooldown: 12.0, timer: 0,
-            execute: (caster) => {
-                let lvl = caster.skillLevels['warcry'] || 1; let radius = 200 * caster.getAoeMult();
-                createRingExplosion(caster.x, caster.y, '#dc2626', radius); addFloatingText('WAAAGH!', caster.x, caster.y-30, '#ef4444', 24);
-                caster.buffs.frenzy = 3.0 + (lvl-1)*1.0; caster.hasShield = true;
-                let candidates = caster.faction === 'player' ? [...enemies, arenaBoss] : [player, ...partyMercenaries];
-                candidates.forEach(e => {
-                    if(e && !e.isDead && Math.hypot(e.x - caster.x, e.y - caster.y) <= radius) {
-                        if(e.speedMod !== undefined) { e.speedMod = 0.3; e.speedTimer = 2.0; }
-                    }
-                });
-            }
-        },
-        'throwing_knife': {
-            id: 'throwing_knife', type: 'assassination', cooldown: 0.8, timer: 0,
-            execute: (caster) => {
-                let lvl = caster.skillLevels['throwing_knife'] || 1; let maxRange = GAME_WIDTH * caster.getAoeMult();
-                let target = getTarget(caster.x, caster.y, caster.faction, maxRange);
-                if(!target) return;
-                let count = (caster.mods.passive_multishot ? 3 : 1) + Math.floor((lvl-1)/2);
-                let dmg = caster.getAssassinationDmg() * (1 + (lvl-1)*0.3); let spread = 0.3; 
-                let baseAngle = Math.atan2(target.y - caster.y, target.x - caster.x);
-                for(let i=0; i<count; i++){
-                    let angle = baseAngle + (i - (count-1)/2) * spread;
-                    let proj = new Projectile(caster.x, caster.y, Math.cos(angle), Math.sin(angle), 400, dmg, caster.getAoeMult(), 'assassination', '#10b981', caster.faction);
-                    proj.isKnife = true; proj.life = maxRange / proj.speed; 
-                    if(caster.mods.passive_pierce) proj.pierce = 2; projectiles.push(proj);
-                }
-            }
-        },
-        'shuriken_ring': {
-            id: 'shuriken_ring', type: 'assassination', cooldown: 3.0, timer: 0,
-            execute: (caster) => {
-                let lvl = caster.skillLevels['shuriken_ring'] || 1; let maxRange = GAME_WIDTH * caster.getAoeMult();
-                let count = 8 + (lvl-1)*2; let dmg = caster.getAssassinationDmg() * (1 + (lvl-1)*0.4);
-                for(let i=0; i<count; i++){
-                    let angle = (Math.PI * 2 / count) * i;
-                    let proj = new Projectile(caster.x, caster.y, Math.cos(angle), Math.sin(angle), 350, dmg, caster.getAoeMult(), 'assassination', '#14b8a6', caster.faction);
-                    proj.isKnife = true; proj.life = maxRange / proj.speed; 
-                    if(caster.mods.passive_pierce) proj.pierce = 2; projectiles.push(proj);
-                }
-            }
-        },
-        'shadow_strike': {
-            id: 'shadow_strike', type: 'assassination', cooldown: 5.0, timer: 0,
-            execute: (caster) => {
-                let lvl = caster.skillLevels['shadow_strike'] || 1; 
-                let maxLimit = Math.min(GAME_WIDTH, GAME_HEIGHT) * 0.4;
-                let target = getTarget(caster.x, caster.y, caster.faction, maxLimit);
-                if(!target) return;
-                
-                projectiles.push(new PersistentAoe({x: caster.x, y: caster.y}, 60, 2.0, caster.getAssassinationDmg()*0.5, 'assassination', 'rgba(16, 185, 129, 0.4)', caster.faction));
-                
-                let angle = Math.atan2(caster.y - target.y, caster.x - target.x);
-                let safeX = target.x + Math.cos(angle)*30; let safeY = target.y + Math.sin(angle)*30;
-                
-                if (isNaN(safeX) || isNaN(safeY)) return; 
-                
-                caster.x = safeX; caster.y = safeY;
-                applyDamage(target, caster.getAssassinationDmg() * 3 * (1 + (lvl-1)*0.5), 'assassination', caster.faction);
-                createRingExplosion(caster.x, caster.y, '#34d399', 50);
-            }
-        },
-        'boomerang_blade': {
-            id: 'boomerang_blade', type: 'assassination', cooldown: 4.0, timer: 0,
-            execute: (caster) => {
-                let lvl = caster.skillLevels['boomerang_blade'] || 1; let maxRange = GAME_WIDTH * 0.8 * caster.getAoeMult();
-                let target = getTarget(caster.x, caster.y, caster.faction, maxRange);
-                if(!target) return;
-                
-                let count = caster.mods.passive_multishot ? 3 : 1; let spread = 0.3;
-                let baseAngle = Math.atan2(target.y - caster.y, target.x - caster.x);
-                
-                for(let i=0; i<count; i++) {
-                    let angle = baseAngle + (i - (count-1)/2) * spread;
-                    let dmg = caster.getAssassinationDmg() * 1.5 * (1 + (lvl-1)*0.4);
-                    let proj = new Projectile(caster.x, caster.y, Math.cos(angle), Math.sin(angle), 500, dmg, caster.getAoeMult(), 'assassination', '#059669', caster.faction);
-                    proj.isKnife = true; proj.pierce = 999; proj.life = (maxRange / proj.speed) * 2;
-                    proj.boomerang = true; proj.owner = caster; proj.returnTime = proj.life / 2;
-                    projectiles.push(proj);
-                }
-            }
-        }
-    };
-    return skillsDict[id];
-}
-
-class Projectile {
-    constructor(x, y, dx, dy, speed, dmg, aoe, type, color, faction) {
-        this.x = x; this.y = y; this.dx = dx; this.dy = dy; this.speed = speed; this.dmg = dmg; this.aoeMult = aoe;
-        this.type = type; this.color = color; this.faction = faction;
-        this.radius = 5 * aoe; this.life = 2.0; this.isDead = false; this.pierce = 0;
-        this.hitTargets = new Set(); this.bounces = 0;
-    }
-    update(dt) {
-        if (this.boomerang) {
-            if(this.life < this.returnTime && this.owner && !this.owner.isDead) {
-                let bx = this.owner.x - this.x; let by = this.owner.y - this.y; let bdist = Math.hypot(bx, by);
-                if(bdist < 20) { this.isDead = true; return; }
-                this.dx = bx/bdist; this.dy = by/bdist; this.hitTargets.clear();
-            }
-        }
-        
-        this.x += this.dx * this.speed * dt; this.y += this.dy * this.speed * dt;
-        this.life -= dt; if(this.life <= 0) this.isDead = true;
-
-        for(let obs of obstacles) {
-            if(Math.hypot(obs.x - this.x, obs.y - this.y) < this.radius + obs.radius) {
-                if(this.type === 'magic_explosive') {
-                    let expRange = 50 * this.aoeMult; createRingExplosion(this.x, this.y, '#ef4444', expRange);
-                    let candidates = this.faction === 'player' ? [...enemies, arenaBoss] : [player, ...partyMercenaries];
-                    candidates.forEach(e => { if(e && !e.isDead && Math.hypot(e.x - this.x, e.y - this.y) <= expRange) applyDamage(e, this.dmg*0.5, 'magic', this.faction); });
-                    this.isDead = true; return;
-                }
-                if (this.tryRicochet()) return;
-                this.isDead = true; return;
-            }
-        }
-
-        let candidates = this.faction === 'player' ? [...enemies, arenaBoss] : [player, ...partyMercenaries];
-        for(let e of candidates) {
-            if(!e || e.isDead) continue;
-            if(!this.hitTargets.has(e) && Math.hypot(e.x - this.x, e.y - this.y) < this.radius + e.radius) {
-                let actualType = this.type.includes('magic') ? 'magic' : (this.type.includes('assassination') ? 'assassination' : 'melee');
-                let finalDmg = this.dmg;
-                if (this.faction === 'enemy' && e.mods && e.mods.passive_ranged_def && Math.random() < 0.25) { finalDmg *= 0.5; addFloatingText('防禦!', e.x, e.y - 30, '#94a3b8'); }
-                
-                applyDamage(e, finalDmg, actualType, this.faction); this.hitTargets.add(e);
-                
-                if (this.type === 'magic_explosive') {
-                    let expRange = 50 * this.aoeMult; createRingExplosion(this.x, this.y, '#ef4444', expRange);
-                    candidates.forEach(e2 => { if(e2 && !e2.isDead && e2 !== e && Math.hypot(e2.x - this.x, e2.y - this.y) <= expRange) applyDamage(e2, this.dmg*0.5, 'magic', this.faction); });
-                    this.isDead = true; break;
-                }
-                if (this.tryRicochet()) continue;
-                if(this.pierce > 0) this.pierce--; else { this.isDead = true; break; }
-            }
-        }
-    }
-    tryRicochet() {
-        if(this.faction === 'player' && player.mods.passive_ricochet && this.bounces < 1 && !this.boomerang) {
-            this.bounces++;
-            let nextT = getTarget(this.x, this.y, this.faction, 400, this.hitTargets);
-            if(nextT) {
-                let ndx = nextT.x - this.x; let ndy = nextT.y - this.y; let ndist = Math.hypot(ndx, ndy);
-                this.dx = ndx/ndist; this.dy = ndy/ndist; return true;
-            }
-        }
-        return false;
-    }
-    draw() {
-        ctx.fillStyle = this.color; ctx.beginPath();
-        if(this.isKnife) {
-            let angle = this.boomerang ? frameCount * 0.5 : Math.atan2(this.dy, this.dx);
-            ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(angle);
-            ctx.moveTo(10, 0); ctx.lineTo(-5, 5); ctx.lineTo(-5, -5); ctx.restore();
-        } else { ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); }
-        ctx.fill();
-    }
-}
-
-class PersistentAoe {
-    constructor(owner, radius, duration, dmgPerTick, type, color, faction, pull = false) {
-        this.owner = owner; this.radius = radius; this.life = duration; this.dmg = dmgPerTick;
-        this.type = type; this.color = color; this.faction = faction; this.pull = pull;
-        this.tickRate = 0.25; this.tickTimer = 0; this.isDead = false;
-    }
-    update(dt) {
-        this.life -= dt; if(this.life <= 0) { this.isDead = true; return; }
-        this.tickTimer -= dt;
-        if(this.tickTimer <= 0) {
-            this.tickTimer = this.tickRate;
-            let candidates = this.faction === 'player' ? [...enemies, arenaBoss] : [player, ...partyMercenaries];
-            candidates.forEach(e => {
-                if(e && !e.isDead && Math.hypot(e.x - this.owner.x, e.y - this.owner.y) <= this.radius + e.radius) {
-                    applyDamage(e, this.dmg, this.type, this.faction);
-                    if(this.pull && e.speedMod !== undefined) {
-                        let pdx = this.owner.x - e.x; let pdy = this.owner.y - e.y; let pdist = Math.hypot(pdx, pdy);
-                        if(pdist > 10) { e.x += (pdx/pdist)*10; e.y += (pdy/pdist)*10; }
-                    }
-                }
-            });
-        }
-    }
-    draw() {
-        ctx.strokeStyle = this.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(this.owner.x, this.owner.y, this.radius, 0, Math.PI*2); ctx.stroke();
-        ctx.fillStyle = this.color.replace(')', ', 0.2)').replace('rgb', 'rgba'); ctx.fill();
-    }
-}
-
-function applyDamage(target, baseDmg, type, attackerFaction) {
-    let isCrit = false; let finalDmg = baseDmg;
-    if (attackerFaction === 'player') {
-        isCrit = Math.random() < player.getCritRate();
-        finalDmg = isCrit ? baseDmg * player.getCritDmg() : baseDmg;
-    }
-    finalDmg = finalDmg * (0.9 + Math.random() * 0.2); finalDmg = Math.max(1, Math.floor(finalDmg));
-
-    if (target.takeDamage) target.takeDamage(finalDmg);
-    else { target.hp -= finalDmg; target.hitTimer = 0.1; if (target.hp <= 0) target.isDead = true; }
+const Engine = {
+    canvas: document.getElementById('gameCanvas'), ctx: document.getElementById('gameCanvas').getContext('2d'),
+    width: window.innerWidth, height: window.innerHeight,
+    isGameRunning: false, isPaused: false, isArena: false, lastTime: 0, frameCount: 0, autoSaveTimer: 0,
+    camera: { x: 0, y: 0 }, gameState: { stage: 1, kills: 0, bossReq: 50, bossSpawned: false, stageColor: { h: 220, s: 50, l: 15 } },
+    player: null, arenaBoss: null, loadedChunks: {}, obstacles: [], keys: {}, joystick: { active: false, x: 0, y: 0, dx: 0, dy: 0 },
+    entities: { enemies: [], projectiles: [], particles: [], floatingTexts: [], shrines: [], mapMercenaries: [], mercenaries: [] },
     
-    if(isCrit) addParticle(target.x, target.y, '#fef08a', 4); else addParticle(target.x, target.y, '#fff', 2);
-
-    if (attackerFaction === 'player') {
-        if (type === 'melee' && player.mods.passive_lifesteal) player.heal(finalDmg * 0.05);
-        if (type === 'melee' && player.mods.passive_tremor && Math.random() < 0.2) {
-            createRingExplosion(target.x, target.y, '#92400e', 40);
-            let candidates = [...enemies, arenaBoss];
-            candidates.forEach(e => { if (e && e !== target && !e.isDead && Math.hypot(e.x - target.x, e.y - target.y) <= 40) applyDamage(e, baseDmg * 0.5, 'melee_tremor', 'player'); });
-        }
-        if (type === 'assassination' && player.mods.passive_poison) target.poisonTimer = 3.0;
-        if (type === 'magic' && player.mods.passive_resonance && Math.random() < 0.2) {
-            createRingExplosion(target.x, target.y, '#c084fc', 50);
-            let candidates = [...enemies, arenaBoss];
-            candidates.forEach(e => { if (e && e !== target && !e.isDead && Math.hypot(e.x - target.x, e.y - target.y) <= 50) applyDamage(e, baseDmg * 0.5, 'magic_resonance', 'player'); });
-        }
-    }
-
-    if (target.isDead && target.type) { 
-        if(attackerFaction === 'player') {
-            player.gainXp(target.xpVal); gameState.kills++;
-            if (player.mods.passive_mana_cascade && type.includes('magic') && Math.random() < 0.3) {
-                addFloatingText('-1s CD!', player.x, player.y - 40, '#60a5fa', 18);
-                player.skills.forEach(s => s.timer = Math.max(0, s.timer - 1.0));
-            }
-            if (player.mods.passive_toxic_bloom && target.poisonTimer > 0) {
-                projectiles.push(new PersistentAoe({x: target.x, y: target.y}, 60 * player.getAoeMult(), 2.0, player.getAssassinationDmg() * 0.5, 'assassination', 'rgba(16, 185, 129, 0.4)', 'player'));
-            }
-            checkStageProgress();
-        }
-        addParticle(target.x, target.y, '#ef4444', 8);
-    }
-}
-
-const AI_PATTERNS = {
-    'chase': (e, target, dist, dt, proposedX, proposedY) => {
-        let currentSpeed = e.speed;
-        if (dist > 0) { proposedX += e.dirX * currentSpeed * e.speedMod * dt; proposedY += e.dirY * currentSpeed * e.speedMod * dt; }
-        return {x: proposedX, y: proposedY};
+    init: function() {
+        this.canvas.width = this.width; this.canvas.height = this.height;
+        window.addEventListener('resize', () => { this.width = window.innerWidth; this.height = window.innerHeight; this.canvas.width = this.width; this.canvas.height = this.height; });
+        window.addEventListener('keydown', e => this.keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => this.keys[e.key.toLowerCase()] = false);
+        const joyArea = document.getElementById('joystickArea'), joyBase = document.getElementById('joystickBase'), joyStick = document.getElementById('joystickStick');
+        const handleStart = (x, y) => { if(this.isPaused || !this.isGameRunning) return; this.joystick.active=true; this.joystick.x=x; this.joystick.y=y; joyBase.style.display='block'; joyBase.style.left=`${x}px`; joyBase.style.top=`${y}px`; joyStick.style.transform=`translate(-50%, -50%)`; };
+        const handleMove = (x, y) => { if(!this.joystick.active) return; let dx=x-this.joystick.x, dy=y-this.joystick.y, dist=Math.hypot(dx,dy), maxDist=40; if(dist>maxDist){ dx=(dx/dist)*maxDist; dy=(dy/dist)*maxDist; } joyStick.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; if(dist>0){ this.joystick.dx=dx/maxDist; this.joystick.dy=dy/maxDist; } };
+        const handleEnd = () => { this.joystick.active=false; this.joystick.dx=0; this.joystick.dy=0; joyBase.style.display='none'; };
+        joyArea.addEventListener('touchstart', e => handleStart(e.touches[0].clientX, e.touches[0].clientY)); joyArea.addEventListener('touchmove', e => handleMove(e.touches[0].clientX, e.touches[0].clientY));
+        joyArea.addEventListener('touchend', handleEnd); joyArea.addEventListener('touchcancel', handleEnd);
+        joyArea.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY)); joyArea.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
+        joyArea.addEventListener('mouseup', handleEnd); joyArea.addEventListener('mouseleave', handleEnd);
     },
-    'ranged': (e, target, dist, dt, proposedX, proposedY) => {
-        let currentSpeed = e.speed;
-        e.stateTimer -= dt;
-        if(dist < 200) currentSpeed = 0; 
-        if(e.stateTimer <= 0 && dist < 250) { projectiles.push(new Projectile(e.x, e.y, e.dirX, e.dirY, 200, e.dmg, 1, 'enemy_magic', '#d1d5db', 'enemy')); e.stateTimer = 2.0; }
-        if (dist > 0 && currentSpeed > 0) { proposedX += e.dirX * currentSpeed * e.speedMod * dt; proposedY += e.dirY * currentSpeed * e.speedMod * dt; }
-        return {x: proposedX, y: proposedY};
+    
+    addProjectile: function(p) { this.entities.projectiles.push(p); },
+    addParticle: function(x,y,color,count=1) { for(let i=0;i<count;i++) { let ang=Math.random()*Math.PI*2, spd=Math.random()*50+20; this.entities.particles.push({ type:'dot', x:x, y:y, dx:Math.cos(ang)*spd, dy:Math.sin(ang)*spd, color:color, size:Math.random()*3+1, life:Math.random()*0.5+0.2, maxLife:0.7 }); } },
+    addParticleLine: function(x,y,tx,ty,color) { this.entities.particles.push({ type:'line', x:x, y:y, tx:tx, ty:ty, color:color, life:0.2, maxLife:0.2 }); },
+    createRingExplosion: function(x,y,color,maxR=50) { this.entities.particles.push({ type:'ring', x:x, y:y, color:color, radius:5, maxRadius:maxR, life:0.3, maxLife:0.3 }); },
+    addFloatingText: function(txt,x,y,c,s=16) { this.entities.floatingTexts.push({ text:txt, x:x, y:y, color:c, size:s, life:1.0, dy:-30 }); },
+    
+    getEnemyArray: function(faction) { return faction === 'player' ? [...this.entities.enemies, this.arenaBoss] : [this.player, ...this.entities.mercenaries]; },
+    getClosestTarget: function(x, y, faction, maxRange=Infinity, excludeSet=null) {
+        let nearest = null, minDist = Infinity, cands = this.getEnemyArray(faction);
+        for(let e of cands) { if(e && !e.isDead && (!excludeSet || !excludeSet.has(e))) { let d=Math.hypot(e.x-x, e.y-y); if(d<minDist && d<=maxRange) { minDist=d; nearest=e; } } }
+        return nearest;
     },
-    'dash': (e, target, dist, dt, proposedX, proposedY) => {
-        let currentSpeed = e.speed; e.stateTimer -= dt;
-        if(e.stateTimer <= 0) e.stateTimer = 3.0;
-        if(e.stateTimer > 2.5) currentSpeed = e.speed * 4;
-        if (dist > 0) { proposedX += e.dirX * currentSpeed * e.speedMod * dt; proposedY += e.dirY * currentSpeed * e.speedMod * dt; }
-        return {x: proposedX, y: proposedY};
+    getEnemiesInRadius: function(center, r) { return this.getEnemyArray(center.faction).filter(e => e && !e.isDead && Math.hypot(e.x-center.x, e.y-center.y) <= r + e.radius); },
+    
+    applyDamage: function(t, dmg, type, fac) {
+        let isCrit=false, fd=dmg; if(fac==='player') { isCrit=Math.random()<this.player.getCritRate(); fd=isCrit?dmg*this.player.getCritDmg():dmg; }
+        fd = Math.max(1, Math.floor(fd*(0.9+Math.random()*0.2)));
+        if(t.takeDamage) t.takeDamage(fd); else { t.hp-=fd; t.hitTimer=0.1; if(t.hp<=0) t.isDead=true; }
+        if(isCrit) this.addParticle(t.x, t.y, '#fef08a', 4); else this.addParticle(t.x, t.y, '#fff', 2);
+        if(fac==='player' && !t.isDead) {
+            if(type==='melee' && this.player.mods.passive_lifesteal) this.player.heal(fd*0.05);
+            if(type==='melee' && this.player.mods.passive_tremor && Math.random()<0.2) { this.createRingExplosion(t.x,t.y,'#92400e',40); this.getEnemiesInRadius({x:t.x,y:t.y,faction:'player'},40).forEach(e=>{if(e!==t)this.applyDamage(e,dmg*0.5,'melee_tremor','player');}); }
+            if(type==='assassination' && this.player.mods.passive_poison) t.poisonTimer=3.0;
+            if(type==='magic' && this.player.mods.passive_resonance && Math.random()<0.2) { this.createRingExplosion(t.x,t.y,'#c084fc',50); this.getEnemiesInRadius({x:t.x,y:t.y,faction:'player'},50).forEach(e=>{if(e!==t)this.applyDamage(e,dmg*0.5,'magic_resonance','player');}); }
+        }
+        if(t.isDead && t.type) {
+            if(fac==='player') {
+                this.player.gainXp(t.xpVal);
+                this.gameState.kills++;
+                this.checkStageProgress();
+                if(this.player.mods.passive_mana_cascade && type.includes('magic') && Math.random()<0.3) { this.addFloatingText('-1s CD!', this.player.x, this.player.y-40, '#60a5fa', 18); this.player.skills.forEach(s=>s.timer=Math.max(0,s.timer-1.0)); }
+                if(this.player.mods.passive_toxic_bloom && t.poisonTimer>0) this.addProjectile(new PersistentAoe({x:t.x,y:t.y}, 60*this.player.getAoeMult(), 2.0, this.player.getAssassinationDmg()*0.5, 'assassination', 'rgba(16, 185, 129, 0.4)', 'player'));
+            }
+            this.addParticle(t.x, t.y, '#ef4444', 8);
+        }
+    },
+    
+    spawnEnemyDirect: function(type, x, y) { this.entities.enemies.push(new Enemy(type, x, y)); },
+    checkStageProgress: function() {
+        if(this.isArena) return; UI.update(); let bossAlive = this.entities.enemies.some(e => e.type === 'boss' && !e.isDead);
+        if(this.gameState.bossSpawned && !bossAlive) {
+            this.gameState.stage++; this.gameState.kills = 0; this.gameState.bossReq = 50 + this.gameState.stage*20; this.gameState.bossSpawned = false;
+            this.gameState.stageColor = { h: Math.floor(Math.random()*360), s: 30+Math.random()*40, l: 10+Math.random()*15 };
+            this.addFloatingText('關卡突破!', this.player.x, this.player.y-100, '#3b82f6', 40);
+            this.player.heal(this.player.getMaxHp()*0.5); this.entities.mercenaries.forEach(m => m.heal(m.getMaxHp()*0.5)); SaveSystem.save();
+        }
+    },
+
+    loop: function(timestamp) {
+        if (!this.isGameRunning) return;
+        if (this.isPaused) { 
+            this.lastTime = timestamp; 
+            if (!document.getElementById('skillTreeModal').classList.contains('hidden')) {
+                let dx = (this.keys['d'] || this.keys['arrowright'] ? 1 : 0) - (this.keys['a'] || this.keys['arrowleft'] ? 1 : 0);
+                let dy = (this.keys['s'] || this.keys['arrowdown'] ? 1 : 0) - (this.keys['w'] || this.keys['arrowup'] ? 1 : 0);
+                if (dx !== 0 || dy !== 0) {
+                    let wrapper = document.getElementById('treeScrollWrapper');
+                    wrapper.scrollLeft += dx * 15; wrapper.scrollTop += dy * 15;
+                }
+            }
+            requestAnimationFrame(t => this.loop(t)); 
+            return; 
+        }
+        let dt = Math.min((timestamp - this.lastTime) / 1000, 0.1); this.lastTime = timestamp; this.frameCount++;
+
+        this.camera.x = this.player.x - this.width / 2; this.camera.y = this.player.y - this.height / 2;
+        MapSystem.update(this.player.x, this.player.y);
+
+        if(!this.isArena) {
+            if(this.frameCount % 60 === 0) this.spawner();
+            if(this.gameState.stage >= 2 && this.frameCount % 45 === 0) this.spawner();
+            if(this.gameState.stage >= 4 && this.frameCount % 30 === 0) this.spawner();
+            if(this.frameCount % 600 === 0 && this.entities.shrines.filter(s=>!s.used).length < 3) this.entities.shrines.push(new Shrine(this.player.x+Math.cos(Math.random()*Math.PI*2)*1000, this.player.y+Math.sin(Math.random()*Math.PI*2)*1000));
+            if(this.frameCount % 900 === 0 && this.entities.mapMercenaries.length < 2) this.entities.mapMercenaries.push(new MapMercenary(this.player.x+Math.cos(Math.random()*Math.PI*2)*800, this.player.y+Math.sin(Math.random()*Math.PI*2)*800));
+            this.autoSaveTimer += dt; if(this.autoSaveTimer > 10) { SaveSystem.save(); this.autoSaveTimer = 0; }
+        }
+
+        this.player.update(dt); if(this.arenaBoss && !this.arenaBoss.isDead) this.arenaBoss.update(dt);
+        ['enemies', 'projectiles', 'shrines', 'mapMercenaries', 'mercenaries'].forEach(grp => {
+            this.entities[grp].forEach(e => e.update(dt));
+            this.entities[grp] = this.entities[grp].filter(e => !e.isDead);
+        });
+
+        let bg = `hsl(${this.gameState.stageColor.h}, ${this.gameState.stageColor.s}%, ${this.gameState.stageColor.l}%)`;
+        this.ctx.fillStyle = bg; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.strokeStyle = 'rgba(255,255,255,0.05)'; this.ctx.lineWidth = 1; this.ctx.beginPath();
+        let offX = (this.camera.x%50+50)%50, offY = (this.camera.y%50+50)%50;
+        for(let x=-offX; x<this.width; x+=50){ this.ctx.moveTo(x,0); this.ctx.lineTo(x,this.height); }
+        for(let y=-offY; y<this.height; y+=50){ this.ctx.moveTo(0,y); this.ctx.lineTo(this.width,y); } this.ctx.stroke();
+
+        this.ctx.save(); this.ctx.translate(-this.camera.x, -this.camera.y);
+        if(this.isArena) { this.ctx.strokeStyle='rgba(239,68,68,0.5)'; this.ctx.lineWidth=10; this.ctx.beginPath(); this.ctx.arc(0,0,800,0,Math.PI*2); this.ctx.stroke(); }
+        else { this.obstacles.forEach(o => { this.ctx.font = (o.radius*2.5)+'px Arial'; this.ctx.textAlign='center'; this.ctx.textBaseline='middle'; this.ctx.fillText(o.type, o.x, o.y); }); }
+
+        ['shrines', 'mapMercenaries', 'projectiles', 'enemies', 'mercenaries'].forEach(grp => this.entities[grp].forEach(e => e.draw(this.ctx)));
+        if(this.arenaBoss && !this.arenaBoss.isDead) this.arenaBoss.draw(this.ctx); this.player.draw(this.ctx);
+
+        for(let i=this.entities.particles.length-1; i>=0; i--) {
+            let p = this.entities.particles[i]; p.life-=dt; if(p.life<=0){ this.entities.particles.splice(i,1); continue; }
+            if(p.type==='ring'){ p.radius+=(p.maxRadius/p.maxLife)*dt; this.ctx.strokeStyle=p.color; this.ctx.globalAlpha=p.life/p.maxLife; this.ctx.lineWidth=3; this.ctx.beginPath(); this.ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); this.ctx.stroke(); this.ctx.globalAlpha=1.0; }
+            else if(p.type==='line'){ this.ctx.strokeStyle=p.color; this.ctx.globalAlpha=p.life/p.maxLife; this.ctx.lineWidth=2; this.ctx.beginPath(); this.ctx.moveTo(p.x,p.y); this.ctx.lineTo(p.tx,p.ty); this.ctx.stroke(); this.ctx.globalAlpha=1.0; }
+            else { p.x+=p.dx*dt; p.y+=p.dy*dt; this.ctx.fillStyle=p.color; this.ctx.globalAlpha=p.life/p.maxLife; this.ctx.beginPath(); this.ctx.arc(p.x,p.y,p.size,0,Math.PI*2); this.ctx.fill(); this.ctx.globalAlpha=1.0; }
+        }
+        for(let i=this.entities.floatingTexts.length-1; i>=0; i--) {
+            let ft = this.entities.floatingTexts[i]; ft.life-=dt; if(ft.life<=0){ this.entities.floatingTexts.splice(i,1); continue; }
+            ft.y+=ft.dy*dt; this.ctx.fillStyle=ft.color; this.ctx.font=`bold ${ft.size}px Arial`; this.ctx.globalAlpha=ft.life; this.ctx.fillText(ft.text, ft.x-this.ctx.measureText(ft.text).width/2, ft.y); this.ctx.globalAlpha=1.0;
+        }
+        this.ctx.restore();
+
+        this.entities.shrines.forEach(s => { if(!s.used) this.drawOffscreen(s.x, s.y, s.color, '⛩️'); });
+        this.entities.mapMercenaries.forEach(m => { if(!m.isDead) this.drawOffscreen(m.x, m.y, '#3b82f6', m.emoji); });
+        requestAnimationFrame(t => this.loop(t));
+    },
+    spawner: function() {
+        if(this.gameState.bossSpawned || this.isArena) return;
+        if(this.gameState.kills >= this.gameState.bossReq) {
+            let pool = DB.MONSTERS.filter(m => m.type === 'boss'); let b = pool[Math.floor(Math.random()*pool.length)];
+            this.entities.enemies.push(new Enemy(b.id)); this.gameState.bossSpawned = true; this.addFloatingText('BOSS 出現!', this.player.x, this.player.y-150, '#ef4444', 40); return;
+        }
+        let pool = DB.MONSTERS.filter(m => m.type !== 'boss'); let e = pool[Math.floor(Math.random()*pool.length)];
+        this.entities.enemies.push(new Enemy(e.id));
+    },
+    drawOffscreen: function(tx, ty, bgc, emo) {
+        let dx=tx-this.camera.x-this.width/2, dy=ty-this.camera.y-this.height/2, dist=Math.hypot(dx,dy);
+        if(dist < Math.min(this.width,this.height)/2 - 30) return;
+        let m=30, hw=this.width/2-m, hh=this.height/2-m, slope=dy/dx, ix, iy;
+        if(Math.abs(slope)>hh/hw){ iy = dy>0?this.height/2+hh:this.height/2-hh; ix = this.width/2+(iy-this.height/2)/slope; }
+        else { ix = dx>0?this.width/2+hw:this.width/2-hw; iy = this.height/2+(ix-this.width/2)*slope; }
+        this.ctx.fillStyle=bgc; this.ctx.beginPath(); this.ctx.arc(ix,iy,18,0,Math.PI*2); this.ctx.fill();
+        this.ctx.strokeStyle='rgba(255,255,255,0.8)'; this.ctx.lineWidth=2; this.ctx.stroke();
+        this.ctx.fillStyle='#fff'; this.ctx.font='20px Arial'; this.ctx.textAlign='center'; this.ctx.textBaseline='middle'; this.ctx.fillText(emo, ix, iy);
+    },
+    startEngine: function() {
+        document.getElementById('classSelectionScreen').classList.add('hidden'); document.getElementById('mainMenu').classList.add('hidden'); document.getElementById('uiLayer').classList.remove('hidden');
+        ['enemies','projectiles','particles','floatingTexts','shrines','mapMercenaries','mercenaries'].forEach(k => this.entities[k]=[]); this.loadedChunks = {};
+        if(this.isArena) { document.getElementById('uiStageContainer').classList.add('hidden'); document.getElementById('uiKillsContainer').classList.add('hidden'); this.gameState.stageColor = {h:0,s:80,l:20}; } 
+        else { document.getElementById('uiStageContainer').classList.remove('hidden'); document.getElementById('uiKillsContainer').classList.remove('hidden'); }
+        this.isGameRunning = true; this.lastTime = performance.now(); UI.update(); UI.buildTree(); SaveSystem.save(); requestAnimationFrame(t => this.loop(t));
+    },
+    startGame: function(cls) { this.isArena = false; PlayerState.unlockedNodes = {}; this.player = new Player(cls); this.gameState = { stage:1, kills:0, bossReq:50, bossSpawned:false, stageColor:{h:220,s:50,l:15} }; this.startEngine(); },
+    startFromData: function(d) {
+        PlayerState.unlockedNodes = d.unlockedNodes || {}; this.player = new Player(d.playerClass);
+        this.player.level = d.level; this.player.xp = d.xp; this.player.reqXp = d.reqXp; this.player.sp = d.sp;
+        this.player.recalculateStats(); this.player.hp = Math.min(d.hp, this.player.getMaxHp());
+        this.gameState.stage = d.gameState.stage || 1; this.gameState.kills = d.gameState.kills || 0; this.gameState.bossReq = d.gameState.bossReq || 50;
+        this.gameState.stageColor = d.gameState.stageColor || { h: 220, s: 50, l: 15 };
+        this.startEngine();
+    },
+    respawn: function() {
+        this.gameState.stage = Math.max(1, this.gameState.stage-2); this.gameState.kills = 0; this.gameState.bossReq = 50+this.gameState.stage*20; this.gameState.bossSpawned = false;
+        this.player.hp = this.player.getMaxHp(); this.player.x = 0; this.player.y = 0;
+        ['enemies','projectiles','particles','floatingTexts','shrines','mapMercenaries','mercenaries'].forEach(k => this.entities[k]=[]); this.loadedChunks = {};
+        document.getElementById('gameOverScreen').classList.add('hidden'); document.getElementById('uiLayer').classList.remove('hidden');
+        this.isGameRunning = true; this.lastTime = performance.now(); requestAnimationFrame(t => this.loop(t)); UI.update();
+    },
+    backToMainMenu: function() {
+        this.isGameRunning = false; document.getElementById('gameOverScreen').classList.add('hidden'); document.getElementById('uiLayer').classList.add('hidden');
+        document.getElementById('mainMenu').classList.remove('hidden'); document.getElementById('bossHpBarContainer').style.display = 'none'; SaveSystem.check();
     }
 };
 
-const MONSTER_DB = [
-    { type: 'normal', emoji: '🧟', radius: 14, speed: 60, hp: 20, dmg: 10, xp: 2, ai: 'chase' },
-    { type: 'fast', emoji: '🦇', radius: 12, speed: 100, hp: 10, dmg: 5, xp: 3, ai: 'chase' },
-    { type: 'tank', emoji: '👹', radius: 20, speed: 40, hp: 50, dmg: 20, xp: 5, ai: 'chase' },
-    { type: 'ranged', emoji: '💀', radius: 14, speed: 50, hp: 15, dmg: 12, xp: 4, ai: 'ranged' },
-    { type: 'dasher', emoji: '🐺', radius: 16, speed: 40, hp: 25, dmg: 15, xp: 4, ai: 'dash' },
-    { type: 'slime', emoji: '🦠', radius: 12, speed: 50, hp: 15, dmg: 8, xp: 2, ai: 'chase' },
-    { type: 'ghost', emoji: '👻', radius: 16, speed: 70, hp: 18, dmg: 12, xp: 3, ai: 'chase' },
-    { type: 'goblin', emoji: '👺', radius: 14, speed: 80, hp: 20, dmg: 15, xp: 3, ai: 'chase' }
-];
-
-const BOSS_DB = [
-    { type: 'boss_vampire', emoji: '🧛', radius: 30, speed: 55, hp: 600, dmg: 30, xp: 100 },
-    { type: 'boss_dragon', emoji: '🐉', radius: 35, speed: 45, hp: 800, dmg: 40, xp: 150 },
-    { type: 'boss_demon', emoji: '👿', radius: 32, speed: 70, hp: 700, dmg: 35, xp: 150 }
-];
-
-class Enemy {
-    constructor(type, spawnX = null, spawnY = null) {
-        if(spawnX !== null && spawnY !== null) { this.x = spawnX + (Math.random()-0.5)*100; this.y = spawnY + (Math.random()-0.5)*100; } 
-        else { let spawnAngle = Math.random() * Math.PI * 2; let spawnDist = Math.max(GAME_WIDTH, GAME_HEIGHT)/2 + 100; this.x = player.x + Math.cos(spawnAngle)*spawnDist; this.y = player.y + Math.sin(spawnAngle)*spawnDist; }
-        this.isDead = false; this.type = type; this.speedMod = 1.0; this.speedTimer = 0; this.poisonTimer = 0; this.poisonTick = 0; this.hitTimer = 0; this.stateTimer = 0; 
-        let st = 1 + (gameState.stage - 1) * 0.5; let stDmg = 1 + (gameState.stage - 1) * 0.2;
-        
-        let mData = MONSTER_DB.find(m => m.type === type) || BOSS_DB.find(b => b.type === type);
-        this.emoji = mData.emoji; this.radius = mData.radius; this.speed = mData.speed; 
-        this.hp = mData.hp * st; this.dmg = mData.dmg * stDmg; this.xpVal = mData.xp; this.ai = mData.ai || 'chase';
-        this.maxHp = this.hp; this.dirX = 0; this.dirY = 0;
-    }
-    update(dt) {
-        if(this.hitTimer > 0) this.hitTimer -= dt;
-        if(this.speedTimer > 0) { this.speedTimer -= dt; if(this.speedTimer <= 0) this.speedMod = 1.0; }
-        if(this.poisonTimer > 0) {
-            this.poisonTimer -= dt; this.poisonTick -= dt;
-            if(this.poisonTick <= 0) {
-                this.hp -= player.getAssassinationDmg() * 0.2; this.hitTimer = 0.1; this.poisonTick = 0.5;
-                if(this.hp <= 0 && !this.isDead) { this.isDead = true; player.gainXp(this.xpVal); gameState.kills++; checkStageProgress(); }
+const MapSystem = {
+    CHUNK_SIZE: 500,
+    hash: function(x, y) { return (Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453)) % 1; },
+    generate: function(cx, cy) {
+        if(Engine.isArena) return []; let obs = [], count = Math.floor(this.hash(cx, cy) * 4) + 2; 
+        for(let i=0; i<count; i++) {
+            let rx = this.hash(cx+i, cy) * this.CHUNK_SIZE, ry = this.hash(cx, cy+i) * this.CHUNK_SIZE, isTree = this.hash(cx*i, cy*i) > 0.5;
+            obs.push({ x: cx*this.CHUNK_SIZE+rx, y: cy*this.CHUNK_SIZE+ry, type: isTree?'🌲':'🪨', radius: isTree?25:20 });
+        } return obs;
+    },
+    update: function(px, py) {
+        if(Engine.isArena) { Engine.obstacles = []; return; }
+        let cx = Math.floor(px / this.CHUNK_SIZE), cy = Math.floor(py / this.CHUNK_SIZE), activeKeys = new Set();
+        Engine.obstacles = [];
+        for(let i=-1; i<=1; i++) {
+            for(let j=-1; j<=1; j++) {
+                let key = `${cx+i},${cy+j}`; activeKeys.add(key);
+                if(!Engine.loadedChunks[key]) Engine.loadedChunks[key] = this.generate(cx+i, cy+j);
+                Engine.obstacles.push(...Engine.loadedChunks[key]);
             }
         }
-        let target = getTarget(this.x, this.y, 'enemy') || player;
-        let dx = target.x - this.x; let dy = target.y - this.y; let dist = Math.hypot(dx, dy);
-        if (dist > 0) { this.dirX = dx/dist; this.dirY = dy/dist; }
-        
-        let proposedX = this.x; let proposedY = this.y;
-        
-        if (this.type.startsWith('boss')) {
-            this.stateTimer -= dt;
-            if(this.type === 'boss_vampire' && this.stateTimer <= 0) { enemies.push(new Enemy('fast', this.x, this.y)); this.stateTimer = 3.0; }
-            if(this.type === 'boss_dragon' && this.stateTimer <= 0) { let p = new Projectile(this.x, this.y, this.dirX, this.dirY, 250, this.dmg, 2, 'enemy_magic', '#f97316', 'enemy'); p.radius = 12; projectiles.push(p); this.stateTimer = 2.5; }
-            let currentSpeed = (this.type === 'boss_demon' && this.stateTimer <= 0) ? this.speed * 3 : this.speed;
-            if(this.type === 'boss_demon' && this.stateTimer < -0.5) this.stateTimer = 2.0;
-            if (dist > 0) { proposedX += this.dirX * currentSpeed * this.speedMod * dt; proposedY += this.dirY * currentSpeed * this.speedMod * dt; }
-        } else {
-            let res = AI_PATTERNS[this.ai](this, target, dist, dt, proposedX, proposedY);
-            proposedX = res.x; proposedY = res.y;
-        }
+        for(let key in Engine.loadedChunks) { if(!activeKeys.has(key)) delete Engine.loadedChunks[key]; }
+    }
+};
 
-        if (dist < target.radius + this.radius) {
-            if(target.takeDamage) target.takeDamage(this.dmg);
-            if (target === player && player.mods.passive_counter) { applyDamage(this, player.getMeleeDmg() * 0.8, 'melee', 'player'); addParticle(this.x, this.y, '#fca5a5', 3); }
-            proposedX -= this.dirX * 20; proposedY -= this.dirY * 20;
-        }
+const SaveSystem = {
+    key: 'awaken_survivor_save',
+    save: function() {
+        if(!Engine.isGameRunning || Engine.isArena) return;
+        const data = { playerClass: Engine.player.playerClass, level: Engine.player.level, xp: Engine.player.xp, reqXp: Engine.player.reqXp, sp: Engine.player.sp, hp: Engine.player.hp, unlockedNodes: PlayerState.unlockedNodes, gameState: { stage: Engine.gameState.stage, kills: Engine.gameState.kills, bossReq: Engine.gameState.bossReq, stageColor: Engine.gameState.stageColor } };
+        localStorage.setItem(this.key, JSON.stringify(data)); this.check();
+    },
+    check: function() {
+        let save = localStorage.getItem(this.key);
+        if (save) document.getElementById('btnContinue').classList.remove('hidden'); else document.getElementById('btnContinue').classList.add('hidden');
+    }
+};
 
-        for(let obs of obstacles) {
-            let odx = proposedX - obs.x; let ody = proposedY - obs.y; let odist = Math.hypot(odx, ody);
-            if(odist < this.radius + obs.radius) {
-                if (odist === 0) { odx = 1; odist = 1; }
-                let overlap = this.radius + obs.radius - odist; proposedX += (odx/odist) * overlap; proposedY += (ody/odist) * overlap;
+const Modals = {
+    show: function({ title, msg, type = 'alert', confirmText = '確認', onConfirm = null }) {
+        let m = document.getElementById('customModal'), inp = document.getElementById('modalInput'), bc = document.getElementById('modalBtnCancel'), bcf = document.getElementById('modalBtnConfirm');
+        document.getElementById('modalTitle').innerText = title; document.getElementById('modalMsg').innerText = msg; bcf.innerText = confirmText;
+        if(type === 'prompt') { inp.classList.remove('hidden'); inp.value = ''; bc.classList.remove('hidden'); } else { inp.classList.add('hidden'); bc.classList.add('hidden'); }
+        m.classList.remove('hidden');
+        bc.onclick = () => m.classList.add('hidden');
+        bcf.onclick = () => { m.classList.add('hidden'); if(onConfirm) onConfirm(type === 'prompt' ? inp.value : null); };
+    },
+    copy: function(txt) {
+        let el = document.createElement('textarea'); el.value = txt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
+    }
+};
+
+const UI = {
+    update: function() {
+        if(!Engine.player) return;
+        document.getElementById('uiLevel').innerText = Engine.player.level; document.getElementById('uiSp').innerText = Engine.player.sp;
+        document.getElementById('hpBar').style.width = `${(Engine.player.hp / Engine.player.getMaxHp()) * 100}%`; document.getElementById('xpBar').style.width = `${(Engine.player.xp / Engine.player.reqXp) * 100}%`;
+        document.getElementById('uiStage').innerText = Engine.gameState.stage; document.getElementById('uiKills').innerText = Engine.gameState.kills;
+        document.getElementById('uiBossReq').innerText = Engine.gameState.bossReq;
+        let bText = '';
+        if(Engine.player.buffs.frenzy>0) bText+=`<span class="text-red-400">狂熱 ${Math.ceil(Engine.player.buffs.frenzy)}s</span> `;
+        if(Engine.player.buffs.slow>0) bText+=`<span class="text-purple-400">遲緩 ${Math.ceil(Engine.player.buffs.slow)}s</span> `;
+        if(Engine.player.hasShield) bText+=`<span class="text-blue-400">護盾就緒</span>`;
+        document.getElementById('buffStatus').innerHTML = bText;
+    },
+    initTreeDrag: function() {
+        const wrapper = document.getElementById('treeScrollWrapper');
+        let isDragging = false, startX, startY, scrollLeft, scrollTop;
+        wrapper.addEventListener('mousedown', e => {
+            isDragging = true; startX = e.pageX - wrapper.offsetLeft; startY = e.pageY - wrapper.offsetTop;
+            scrollLeft = wrapper.scrollLeft; scrollTop = wrapper.scrollTop;
+        });
+        wrapper.addEventListener('mouseleave', () => isDragging = false);
+        wrapper.addEventListener('mouseup', () => isDragging = false);
+        wrapper.addEventListener('mousemove', e => {
+            if (!isDragging) return; e.preventDefault();
+            wrapper.scrollLeft = scrollLeft - (e.pageX - wrapper.offsetLeft - startX);
+            wrapper.scrollTop = scrollTop - (e.pageY - wrapper.offsetTop - startY);
+        });
+    },
+    buildTree: function() {
+        const tc = document.getElementById('treeContainer'), svg = document.getElementById('treeLines');
+        tc.querySelectorAll('.skill-node').forEach(n => n.remove()); svg.innerHTML = '';
+        let sp = Engine.player.sp, available = new Set(), drawn = new Set();
+        
+        if (sp > 0) {
+            for(let id in DB.SKILL_TREE) {
+                if (PlayerState.unlockedNodes[id] > 0) continue;
+                let n = DB.SKILL_TREE[id], can = false;
+                for(let lid of (n.links||[])){ if(PlayerState.unlockedNodes[lid]>0) can=true; }
+                for(let uid in PlayerState.unlockedNodes){ if(DB.SKILL_TREE[uid].links && DB.SKILL_TREE[uid].links.includes(id)) can=true; }
+                if(can) available.add(id);
             }
         }
-        this.x = proposedX; this.y = proposedY;
-    }
-    draw() {
-        ctx.save(); ctx.translate(this.x, this.y);
-        if (this.poisonTimer > 0) { ctx.beginPath(); ctx.arc(0, 0, this.radius + 5, 0, Math.PI*2); ctx.fillStyle = 'rgba(74, 222, 128, 0.4)'; ctx.fill(); }
-        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(0, this.radius, this.radius, this.radius*0.4, 0, 0, Math.PI*2); ctx.fill();
-        ctx.globalAlpha = (this.hitTimer > 0) ? 0.5 : 1.0;
-        ctx.font = (this.radius * 2) + 'px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        if(player.x < this.x) ctx.scale(-1, 1);
-        ctx.fillText(this.emoji, 0, 0); ctx.restore();
-        if(this.type.startsWith('boss')) { ctx.fillStyle = '#333'; ctx.fillRect(this.x - 30, this.y - this.radius - 15, 60, 6); ctx.fillStyle = '#ef4444'; ctx.fillRect(this.x - 30, this.y - this.radius - 15, 60 * (this.hp/this.maxHp), 6); }
-    }
-}
-
-function spawnEnemy() {
-    if(gameState.bossSpawned || isArena) return;
-    if(gameState.kills >= gameState.bossReq) {
-        let bType = 'boss_vampire'; if (gameState.stage % 3 === 2) bType = 'boss_dragon'; if (gameState.stage % 3 === 0) bType = 'boss_demon';
-        enemies.push(new Enemy(bType)); gameState.bossSpawned = true; addFloatingText('BOSS 出現!', player.x, player.y - 150, '#ef4444', 40); return;
-    }
-    let r = Math.random(); let pool = MONSTER_DB.filter(m => m.type !== 'boss');
-    let m = pool[Math.floor(r * pool.length)]; enemies.push(new Enemy(m.type));
-}
-
-function spawnShrine() {
-    if(isArena) return; let angle = Math.random() * Math.PI * 2; let dist = Math.max(GAME_WIDTH, GAME_HEIGHT) * 0.8; 
-    shrines.push(new Shrine(player.x + Math.cos(angle)*dist, player.y + Math.sin(angle)*dist));
-}
-
-function spawnMapMercenary() {
-    if(isArena || partyMercenaries.length >= 1) return;
-    let angle = Math.random() * Math.PI * 2; let dist = Math.max(GAME_WIDTH, GAME_HEIGHT) * 0.7; 
-    mapMercenaries.push(new MapMercenary(player.x + Math.cos(angle)*dist, player.y + Math.sin(angle)*dist));
-}
-
-function checkStageProgress() {
-    if(isArena) return; updateUI(); let bossAlive = enemies.some(e => e.type.startsWith('boss') && !e.isDead);
-    if (gameState.bossSpawned && !bossAlive) {
-        gameState.stage++; gameState.kills = 0; gameState.bossReq = 50 + gameState.stage * 20; gameState.bossSpawned = false;
-        gameState.stageColor = { h: Math.floor(Math.random()*360), s: 30 + Math.random()*40, l: 10 + Math.random()*15 };
-        addFloatingText('關卡突破!', player.x, player.y - 100, '#3b82f6', 40);
-        player.heal(player.getMaxHp() * 0.5); partyMercenaries.forEach(m => m.heal(m.getMaxHp()*0.5)); saveGame();
-    }
-}
-
-function triggerGameOver(wonArena = false) {
-    isGameRunning = false; document.getElementById('uiLayer').classList.add('hidden');
-    let go = document.getElementById('gameOverScreen'); go.classList.remove('hidden');
-    if (isArena) {
-        document.getElementById('goTitle').innerText = wonArena ? '競技場勝利！' : '競技場敗北...';
-        document.getElementById('goDesc1').innerText = wonArena ? '你擊敗了朋友的角色' : '技不如人，再接再厲';
-        document.getElementById('goDesc2').innerText = ''; document.getElementById('btnRespawn').classList.add('hidden');
-    } else {
-        document.getElementById('goTitle').innerText = '你陣亡了'; document.getElementById('goDesc1').innerText = '保留等級與天賦點數';
-        document.getElementById('goDesc2').innerText = '將退回較弱的關卡重生...'; document.getElementById('btnRespawn').classList.remove('hidden');
-    }
-}
-
-function respawn() {
-    gameState.stage = Math.max(1, gameState.stage - 2); gameState.kills = 0; gameState.bossReq = 50 + gameState.stage * 20; gameState.bossSpawned = false;
-    player.hp = player.getMaxHp(); player.x = 0; player.y = 0; partyMercenaries = []; mapMercenaries = [];
-    enemies = []; projectiles = []; particles = []; floatingTexts = []; shrines = []; loadedChunks = {};
-    document.getElementById('gameOverScreen').classList.add('hidden'); document.getElementById('uiLayer').classList.remove('hidden');
-    isGameRunning = true; lastTime = performance.now(); requestAnimationFrame(gameLoop); updateUI();
-}
-
-function backToMainMenu() {
-    isGameRunning = false; document.getElementById('gameOverScreen').classList.add('hidden'); document.getElementById('uiLayer').classList.add('hidden');
-    document.getElementById('mainMenu').classList.remove('hidden'); document.getElementById('bossHpBarContainer').style.display = 'none'; checkLocalSave();
-}
-
-function startGameEngine() {
-    document.getElementById('classSelectionScreen').classList.add('hidden'); document.getElementById('mainMenu').classList.add('hidden'); document.getElementById('uiLayer').classList.remove('hidden');
-    enemies = []; projectiles = []; particles = []; floatingTexts = []; shrines = []; loadedChunks = {}; partyMercenaries = []; mapMercenaries = [];
-    if (isArena) { document.getElementById('uiStageContainer').classList.add('hidden'); document.getElementById('uiKillsContainer').classList.add('hidden'); gameState.stageColor = { h: 0, s: 80, l: 20 }; } 
-    else { document.getElementById('uiStageContainer').classList.remove('hidden'); document.getElementById('uiKillsContainer').classList.remove('hidden'); }
-    isGameRunning = true; lastTime = performance.now(); updateUI(); buildSkillTreeUI(); saveGame(); requestAnimationFrame(gameLoop);
-}
-
-function startGame(playerClass) {
-    isArena = false; unlockedNodes = {}; player = new Player(playerClass);
-    gameState = { stage: 1, kills: 0, bossReq: 50, bossSpawned: false, stageColor: { h: 220, s: 50, l: 15 } }; startGameEngine();
-}
-
-function drawOffscreenIndicator(targetX, targetY, bgColor, emoji) {
-    let dx = targetX - camera.x - GAME_WIDTH/2; let dy = targetY - camera.y - GAME_HEIGHT/2; let dist = Math.hypot(dx, dy);
-    if (dist < Math.min(GAME_WIDTH, GAME_HEIGHT)/2 - 30) return;
-    let margin = 30; let hw = GAME_WIDTH/2 - margin; let hh = GAME_HEIGHT/2 - margin; let slope = dy / dx; let indX, indY;
-    if (Math.abs(slope) > hh / hw) { indY = dy > 0 ? GAME_HEIGHT/2 + hh : GAME_HEIGHT/2 - hh; indX = GAME_WIDTH/2 + (indY - GAME_HEIGHT/2) / slope; } 
-    else { indX = dx > 0 ? GAME_WIDTH/2 + hw : GAME_WIDTH/2 - hw; indY = GAME_HEIGHT/2 + (indX - GAME_WIDTH/2) * slope; }
-    ctx.fillStyle = bgColor; ctx.beginPath(); ctx.arc(indX, indY, 18, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.fillStyle = '#fff'; ctx.font = '20px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(emoji, indX, indY);
-}
-
-function gameLoop(timestamp) {
-    if (!isGameRunning) return;
-    if (isPaused) { lastTime = timestamp; requestAnimationFrame(gameLoop); return; }
-    let dt = (timestamp - lastTime) / 1000; if (dt > 0.1) dt = 0.1; lastTime = timestamp; frameCount++;
-
-    camera.x = player.x - GAME_WIDTH / 2; camera.y = player.y - GAME_HEIGHT / 2;
-    updateMapChunks(player.x, player.y);
-
-    if(!isArena) {
-        if(frameCount % 60 === 0) spawnEnemy();
-        if(gameState.stage >= 2 && frameCount % 45 === 0) spawnEnemy();
-        if(gameState.stage >= 4 && frameCount % 30 === 0) spawnEnemy();
-        if(frameCount % 600 === 0 && shrines.filter(s=>!s.used).length < 3) spawnShrine();
-        if(frameCount % 900 === 0 && mapMercenaries.length < 2) spawnMapMercenary();
-        autoSaveTimer += dt; if(autoSaveTimer > 10) { saveGame(); autoSaveTimer = 0; }
-    }
-
-    player.update(dt); if(arenaBoss && !arenaBoss.isDead) arenaBoss.update(dt);
-    partyMercenaries.forEach(m => m.update(dt)); partyMercenaries = partyMercenaries.filter(m => !m.isDead);
-    mapMercenaries.forEach(m => m.update(dt)); mapMercenaries = mapMercenaries.filter(m => !m.isDead);
-    shrines.forEach(s => s.update(dt));
-    enemies.forEach(e => e.update(dt)); enemies = enemies.filter(e => !e.isDead); 
-    projectiles.forEach(p => p.update(dt)); projectiles = projectiles.filter(p => !p.isDead);
-
-    // Draw Map & Entities
-    let bg = `hsl(${gameState.stageColor.h}, ${gameState.stageColor.s}%, ${gameState.stageColor.l}%)`;
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1; let offsetX = (camera.x % 50 + 50) % 50; let offsetY = (camera.y % 50 + 50) % 50;
-    ctx.beginPath();
-    for(let x = -offsetX; x < GAME_WIDTH; x+=50) { ctx.moveTo(x, 0); ctx.lineTo(x, GAME_HEIGHT); }
-    for(let y = -offsetY; y < GAME_HEIGHT; y+=50) { ctx.moveTo(0, y); ctx.lineTo(GAME_WIDTH, y); }
-    ctx.stroke();
-
-    ctx.save(); ctx.translate(-camera.x, -camera.y);
-    if(isArena) { ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(0, 0, 800, 0, Math.PI*2); ctx.stroke(); } 
-    else { obstacles.forEach(obs => { ctx.font = (obs.radius * 2.5) + 'px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(obs.type, obs.x, obs.y); }); }
-
-    shrines.forEach(s => s.draw()); mapMercenaries.forEach(m => m.draw());
-    projectiles.forEach(p => p.draw()); enemies.forEach(e => e.draw()); partyMercenaries.forEach(m => m.draw());
-    if(arenaBoss && !arenaBoss.isDead) arenaBoss.draw(); player.draw();
-
-    for(let i=particles.length-1; i>=0; i--) {
-        let p = particles[i]; p.life -= dt; if(p.life <= 0) { particles.splice(i, 1); continue; }
-        if(p.type === 'ring') {
-            p.radius += (p.maxRadius / p.maxLife) * dt;
-            ctx.strokeStyle = p.color; ctx.globalAlpha = p.life / p.maxLife; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.stroke(); ctx.globalAlpha = 1.0;
-        } else if (p.type === 'line') {
-            ctx.strokeStyle = p.color; ctx.globalAlpha = p.life / p.maxLife; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.tx, p.ty); ctx.stroke(); ctx.globalAlpha = 1.0;
-        } else {
-            p.x += p.dx * dt; p.y += p.dy * dt; ctx.fillStyle = p.color; ctx.globalAlpha = p.life / p.maxLife; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1.0;
+        
+        for(let id in DB.SKILL_TREE) {
+            let n = DB.SKILL_TREE[id];
+            if(n.links) {
+                n.links.forEach(tid => {
+                    let t = DB.SKILL_TREE[tid]; if(!t) return;
+                    let lKey = [id, tid].sort().join('-');
+                    if(!drawn.has(lKey)) {
+                        let l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        l.setAttribute('x1', n.x); l.setAttribute('y1', n.y); l.setAttribute('x2', t.x); l.setAttribute('y2', t.y);
+                        if(PlayerState.unlockedNodes[id]>0 && PlayerState.unlockedNodes[tid]>0) { l.setAttribute('stroke', '#eab308'); l.setAttribute('stroke-width', '6'); }
+                        else { l.setAttribute('stroke', '#334155'); l.setAttribute('stroke-width', '4'); }
+                        svg.appendChild(l); drawn.add(lKey);
+                    }
+                });
+            }
+            
+            let el = document.createElement('div');
+            el.className = `skill-node node-class-${id[0]==='m'?'m':id[0]==='r'?'r':id[0]==='b'?'b':'c'}`;
+            let lvl = PlayerState.unlockedNodes[id] || 0;
+            el.classList.add(lvl > 0 ? 'node-unlocked' : (available.has(id) ? 'node-available' : 'node-locked'));
+            el.style.left = `${n.x}px`; el.style.top = `${n.y}px`; 
+            let words = n.name.split(''); el.innerHTML = words.length >= 2 ? `${words[0]}${words[1]}<br>${words[2]||''}${words[3]||''}` : words[0];
+            
+            let isSkill = n.effects.skills !== undefined;
+            if (lvl > 0 && isSkill) {
+                let badge = document.createElement('div');
+                badge.className = 'absolute -top-2 -right-2 bg-blue-600 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center border-2 border-white shadow-md z-10';
+                badge.innerText = lvl; el.appendChild(badge);
+            }
+            
+            el.onmousedown = (e) => e.stopPropagation();
+            el.onclick = () => this.selectNode(id, available.has(id)); tc.appendChild(el);
         }
+        document.getElementById('treeSp').innerText = sp;
+    },
+    selectNode: function(id, isAvail) {
+        let n = DB.SKILL_TREE[id], lvl = PlayerState.unlockedNodes[id] || 0, isSkill = n.effects.skills !== undefined;
+        document.getElementById('niTitle').innerText = n.name; document.getElementById('niDesc').innerText = n.desc;
+        document.getElementById('nodeInfoPanel').classList.remove('translate-y-full');
+        let btn = document.getElementById('btnLearnNode'); btn.style.display = 'block';
+        if (lvl > 0 && !isSkill) { btn.innerText = '已學習'; btn.disabled = true; btn.className = 'px-6 py-3 bg-gray-600 text-white rounded-lg font-bold cursor-not-allowed ml-2'; } 
+        else if ((isAvail || (lvl > 0 && isSkill)) && Engine.player.sp > 0) {
+            btn.innerText = lvl > 0 ? `升級至 Lv.${lvl + 1} (消耗 1 點)` : '學習 (消耗 1 點)'; btn.disabled = false;
+            btn.className = 'px-6 py-3 bg-blue-600 hover:bg-blue-400 text-white rounded-lg font-bold active:scale-95 transition-transform shadow-[0_0_15px_#3b82f6] ml-2';
+            btn.onclick = () => { Engine.player.sp--; PlayerState.unlockedNodes[id] = (PlayerState.unlockedNodes[id] || 0) + 1; Engine.player.recalculateStats(); this.buildTree(); SaveSystem.save(); };
+        } 
+        else if (lvl > 0 && isSkill && Engine.player.sp === 0) { btn.innerText = `目前 Lv.${lvl}`; btn.disabled = true; btn.className = 'px-6 py-3 bg-gray-600 text-white rounded-lg font-bold cursor-not-allowed ml-2'; } 
+        else { btn.style.display = 'none'; }
     }
-    for(let i=floatingTexts.length-1; i>=0; i--) {
-        let ft = floatingTexts[i]; ft.life -= dt; if(ft.life <= 0) { floatingTexts.splice(i, 1); continue; }
-        ft.y += ft.dy * dt; ctx.fillStyle = ft.color; ctx.font = `bold ${ft.size}px Arial`; ctx.globalAlpha = ft.life; 
-        ctx.fillText(ft.text, ft.x - ctx.measureText(ft.text).width/2, ft.y); ctx.globalAlpha = 1.0;
-    }
-    ctx.restore(); 
+};
 
-    shrines.forEach(s => { if(!s.used) drawOffscreenIndicator(s.x, s.y, s.color, '⛩️'); });
-    mapMercenaries.forEach(m => { if(!m.isDead) drawOffscreenIndicator(m.x, m.y, '#3b82f6', m.emoji); });
-    requestAnimationFrame(gameLoop);
-}
+document.getElementById('btnNewGame').onclick = () => document.getElementById('classSelectionScreen').classList.remove('hidden');
+document.getElementById('btnCancelClass').onclick = () => document.getElementById('classSelectionScreen').classList.add('hidden');
+document.getElementById('btnContinue').onclick = () => { let save = localStorage.getItem(SaveSystem.key); if(save) Engine.startFromData(JSON.parse(save)); };
+document.getElementById('btnBackToMenu').onclick = () => { SaveSystem.save(); Engine.backToMainMenu(); };
+document.getElementById('btnBackToMenu2').onclick = () => { SaveSystem.save(); Engine.backToMainMenu(); };
 
-document.getElementById('btnNewGame').onclick = () => { document.getElementById('classSelectionScreen').classList.remove('hidden'); };
-document.getElementById('btnCancelClass').onclick = () => { document.getElementById('classSelectionScreen').classList.add('hidden'); };
-document.getElementById('btnContinue').onclick = () => { let save = localStorage.getItem(SAVE_KEY); if(save) { isArena = false; startFromData(JSON.parse(save)); } };
-document.getElementById('btnBackToMenu').onclick = () => { saveGame(); backToMainMenu(); };
+document.getElementById('btnOpenTree').onclick = () => {
+    Engine.isPaused = true; document.getElementById('skillTreeModal').classList.remove('hidden'); UI.buildTree();
+    let coreNode = DB.SKILL_TREE['core'], wrapper = document.getElementById('treeScrollWrapper');
+    wrapper.scrollLeft = coreNode.x - window.innerWidth / 2; wrapper.scrollTop = coreNode.y - window.innerHeight / 2;
+};
+document.getElementById('btnCloseTree').onclick = () => { Engine.isPaused = false; document.getElementById('skillTreeModal').classList.add('hidden'); document.getElementById('nodeInfoPanel').classList.add('translate-y-full'); };
+document.getElementById('btnResetTalents').onclick = () => {
+    Modals.show({ title: '重置天賦', msg: '退回所有點數嗎？', type: 'prompt', confirmText: '確認', onConfirm: () => {
+        let stNode = Engine.player.playerClass==='mage'?'m_start':(Engine.player.playerClass==='rogue'?'r_start':'b_start'), ref = 0;
+        for(let id in PlayerState.unlockedNodes) { if(id !== stNode) ref += PlayerState.unlockedNodes[id]; }
+        PlayerState.unlockedNodes = { [stNode]: 1 }; Engine.player.sp += ref; Engine.player.recalculateStats(); UI.buildTree(); SaveSystem.save();
+    }});
+};
+
 document.getElementById('btnExport').onclick = () => {
-    let save = localStorage.getItem(SAVE_KEY); if (!save) return showModal({ title: '錯誤', msg: '沒有找到本地存檔！' });
-    copyToClipboard(btoa(unescape(encodeURIComponent(save)))); showModal({ title: '匯出成功', msg: '存檔代碼已複製到剪貼簿！' });
+    let save = localStorage.getItem(SaveSystem.key); if (!save) return Modals.show({ title: '錯誤', msg: '沒有找到本地存檔！' });
+    Modals.copy(btoa(unescape(encodeURIComponent(save)))); Modals.show({ title: '匯出成功', msg: '存檔代碼已複製到剪貼簿！' });
 };
 document.getElementById('btnImport').onclick = () => {
-    showModal({ title: '匯入存檔', msg: '請貼上存檔代碼：', type: 'prompt', onConfirm: (val) => {
+    Modals.show({ title: '匯入存檔', msg: '請貼上存檔代碼：', type: 'prompt', onConfirm: (val) => {
         if(!val) return;
-        try {
-            let data = JSON.parse(decodeURIComponent(escape(atob(val))));
-            if(data && data.playerClass) { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); checkLocalSave(); showModal({ title: '成功', msg: '存檔匯入成功！' }); } else throw 'Invalid';
-        } catch(e) { showModal({ title: '失敗', msg: '無效的存檔代碼！' }); }
+        try { let data = JSON.parse(decodeURIComponent(escape(atob(val))));
+            if(data && data.playerClass) { localStorage.setItem(SaveSystem.key, JSON.stringify(data)); SaveSystem.check(); Modals.show({ title: '成功', msg: '存檔匯入成功！' }); } else throw 'Invalid';
+        } catch(e) { Modals.show({ title: '失敗', msg: '無效的存檔代碼！' }); }
     }});
 };
 document.getElementById('btnArena').onclick = () => {
-    showModal({ title: '競技場模式', msg: '請貼上對手的存檔代碼：', type: 'prompt', onConfirm: (val) => {
+    Modals.show({ title: '競技場模式', msg: '請貼上對手的存檔代碼：', type: 'prompt', onConfirm: (val) => {
         if(!val) return;
-        try {
-            let friendData = JSON.parse(decodeURIComponent(escape(atob(val))));
-            let localSave = localStorage.getItem(SAVE_KEY);
-            if(!localSave) return showModal({title:'錯誤', msg:'你必須有自己的存檔！'});
-            if(friendData && friendData.playerClass) { isArena = true; startFromData(JSON.parse(localSave)); arenaBoss = new ArenaBoss(friendData); } else throw 'Invalid';
-        } catch(e) { showModal({ title: '失敗', msg: '無效的存檔代碼！' }); }
+        try { let friendData = JSON.parse(decodeURIComponent(escape(atob(val))));
+            let localSave = localStorage.getItem(SaveSystem.key);
+            if(!localSave) return Modals.show({title:'錯誤', msg:'你必須有自己的存檔！'});
+            if(friendData && friendData.playerClass) { 
+                Engine.isArena = true; Engine.startFromData(JSON.parse(localSave)); Engine.arenaBoss = new ArenaBoss(friendData);
+                document.getElementById('uiStageContainer').classList.add('hidden'); document.getElementById('uiKillsContainer').classList.add('hidden');
+                Engine.gameState.stageColor = { h: 0, s: 80, l: 20 };
+            } else throw 'Invalid';
+        } catch(e) { Modals.show({ title: '失敗', msg: '無效的存檔代碼！' }); }
     }});
 };
 
-function updateUI() {
-    if(!player) return;
-    document.getElementById('uiLevel').innerText = player.level; document.getElementById('uiSp').innerText = player.sp;
-    document.getElementById('hpBar').style.width = `${(player.hp / player.getMaxHp()) * 100}%`; document.getElementById('xpBar').style.width = `${(player.xp / player.reqXp) * 100}%`;
-    document.getElementById('uiStage').innerText = gameState.stage; document.getElementById('uiKills').innerText = gameState.kills; document.getElementById('uiBossReq').innerText = gameState.bossReq;
-    let buffText = '';
-    if(player.buffs.frenzy > 0) buffText += `<span class="text-red-400">狂熱 ${Math.ceil(player.buffs.frenzy)}s</span>`;
-    if(player.buffs.slow > 0) buffText += `<span class="text-purple-400">遲緩 ${Math.ceil(player.buffs.slow)}s</span>`;
-    if(player.hasShield) buffText += `<span class="text-blue-400">護盾就緒</span>`;
-    document.getElementById('buffStatus').innerHTML = buffText;
-}
-
-// Joystick & WASD unified input
-const joyArea = document.getElementById('joystickArea'); const joyBase = document.getElementById('joystickBase'); const joyStick = document.getElementById('joystickStick');
-
-function handleJoyStart(clientX, clientY) {
-    if(isPaused || !isGameRunning) return;
-    joystick.active = true; joystick.x = clientX; joystick.y = clientY;
-    joyBase.style.display = 'block'; joyBase.style.left = `${joystick.x}px`; joyBase.style.top = `${joystick.y}px`; joyStick.style.transform = `translate(-50%, -50%)`;
-}
-function handleJoyMove(clientX, clientY) {
-    if(!joystick.active) return;
-    let dx = clientX - joystick.x; let dy = clientY - joystick.y;
-    let dist = Math.hypot(dx, dy); let maxDist = 40; if(dist > maxDist) { dx = (dx/dist)*maxDist; dy = (dy/dist)*maxDist; }
-    joyStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    if(dist > 0) { joystick.dx = dx / maxDist; joystick.dy = dy / maxDist; }
-}
-function handleJoyEnd() { joystick.active = false; joystick.dx = 0; joystick.dy = 0; joyBase.style.display = 'none'; }
-
-joyArea.addEventListener('touchstart', (e) => handleJoyStart(e.touches[0].clientX, e.touches[0].clientY));
-joyArea.addEventListener('touchmove', (e) => handleJoyMove(e.touches[0].clientX, e.touches[0].clientY));
-joyArea.addEventListener('touchend', handleJoyEnd);
-joyArea.addEventListener('touchcancel', handleJoyEnd);
-
-joyArea.addEventListener('mousedown', (e) => handleJoyStart(e.clientX, e.clientY));
-joyArea.addEventListener('mousemove', (e) => handleJoyMove(e.clientX, e.clientY));
-joyArea.addEventListener('mouseup', handleJoyEnd);
-joyArea.addEventListener('mouseleave', handleJoyEnd);
-
-let keys = {};
-window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-
-const btnOpenTree = document.getElementById('btnOpenTree'); const btnCloseTree = document.getElementById('btnCloseTree');
-const skillTreeModal = document.getElementById('skillTreeModal'); const treeContainer = document.getElementById('treeContainer');
-const treeLinesSvg = document.getElementById('treeLines'); const niTitle = document.getElementById('niTitle');
-const niDesc = document.getElementById('niDesc'); const btnLearnNode = document.getElementById('btnLearnNode');
-const nodeInfoPanel = document.getElementById('nodeInfoPanel'); const treeScrollWrapper = document.getElementById('treeScrollWrapper');
-
-let isDraggingTree = false; let startX, startY, scrollLeft, scrollTop;
-treeScrollWrapper.addEventListener('mousedown', (e) => { isDraggingTree = true; startX = e.pageX - treeScrollWrapper.offsetLeft; startY = e.pageY - treeScrollWrapper.offsetTop; scrollLeft = treeScrollWrapper.scrollLeft; scrollTop = treeScrollWrapper.scrollTop; });
-treeScrollWrapper.addEventListener('mouseleave', () => { isDraggingTree = false; });
-treeScrollWrapper.addEventListener('mouseup', () => { isDraggingTree = false; });
-treeScrollWrapper.addEventListener('mousemove', (e) => {
-    if(!isDraggingTree) return; e.preventDefault();
-    const x = e.pageX - treeScrollWrapper.offsetLeft; const y = e.pageY - treeScrollWrapper.offsetTop;
-    treeScrollWrapper.scrollLeft = scrollLeft - (x - startX); treeScrollWrapper.scrollTop = scrollTop - (y - startY);
-});
-
-btnOpenTree.addEventListener('click', () => {
-    if(!isGameRunning || isArena) return; 
-    isPaused = true; skillTreeModal.classList.remove('hidden'); updateTreeUI();
-    let coreNode = SKILL_TREE['core'];
-    treeScrollWrapper.scrollLeft = coreNode.x - window.innerWidth / 2; treeScrollWrapper.scrollTop = coreNode.y - window.innerHeight / 2;
-});
-btnCloseTree.addEventListener('click', () => { isPaused = false; skillTreeModal.classList.add('hidden'); nodeInfoPanel.classList.add('translate-y-full'); });
-
-document.getElementById('btnResetTalents').addEventListener('click', () => {
-    showModal({
-        title: '重置天賦', msg: '確定要退回所有天賦點數嗎？', type: 'prompt', confirmText: '確認',
-        onConfirm: () => {
-            let startNode = player.playerClass === 'mage' ? 'm_start' : (player.playerClass === 'rogue' ? 'r_start' : 'b_start');
-            let refund = 0; for(let id in unlockedNodes) { if(id !== startNode) refund += unlockedNodes[id]; }
-            unlockedNodes = { [startNode]: 1 }; player.sp += refund; player.recalculateStats(); updateTreeUI(); saveGame();
-        }
-    });
-});
-
-function buildSkillTreeUI() {
-    treeContainer.querySelectorAll('.skill-node').forEach(n => n.remove()); treeLinesSvg.innerHTML = ''; let drawnLines = new Set();
-    for(let id in SKILL_TREE) {
-        let node = SKILL_TREE[id];
-        if(node.links) {
-            node.links.forEach(targetId => {
-                let target = SKILL_TREE[targetId];
-                if(target) {
-                    let lineKey = [id, targetId].sort().join('-');
-                    if(!drawnLines.has(lineKey)) {
-                        let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                        line.setAttribute('x1', node.x); line.setAttribute('y1', node.y); line.setAttribute('x2', target.x); line.setAttribute('y2', target.y);
-                        line.setAttribute('stroke', '#334155'); line.setAttribute('stroke-width', '4'); line.setAttribute('id', `line-${lineKey}`);
-                        treeLinesSvg.appendChild(line); drawnLines.add(lineKey);
-                    }
-                }
-            });
-        }
-        let el = document.createElement('div'); el.className = 'skill-node node-locked';
-        if (id === 'core') el.classList.add('node-class-c'); else if (id.startsWith('m')) el.classList.add('node-class-m'); else if (id.startsWith('r')) el.classList.add('node-class-r'); else if (id.startsWith('b')) el.classList.add('node-class-b');
-        el.style.left = `${node.x}px`; el.style.top = `${node.y}px`; el.id = `node-${id}`;
-        let words = node.name.split(''); el.innerHTML = words.length >= 2 ? `${words[0]}${words[1]}<br>${words[2]||''}${words[3]||''}` : words[0];
-        el.onmousedown = (e) => e.stopPropagation(); // 避免點擊與拖曳衝突
-        el.onclick = () => selectNode(id); treeContainer.appendChild(el);
-    }
-}
-
-function updateTreeUI() {
-    document.getElementById('treeSp').innerText = player.sp; let availableNodes = new Set();
-    if (player.sp > 0) {
-        for(let id in SKILL_TREE) {
-            if (unlockedNodes[id] > 0) continue;
-            let node = SKILL_TREE[id]; let canUnlock = false;
-            for (let linkId of (node.links || [])) { if (unlockedNodes[linkId] > 0) canUnlock = true; }
-            for (let uid in unlockedNodes) { if (SKILL_TREE[uid].links && SKILL_TREE[uid].links.includes(id)) canUnlock = true; }
-            if (canUnlock) availableNodes.add(id);
-        }
-    }
-    for(let id in SKILL_TREE) {
-        let el = document.getElementById(`node-${id}`); let level = unlockedNodes[id] || 0; let isSkill = SKILL_TREE[id].effects.skills !== undefined;
-        el.className = 'skill-node';
-        if (id === 'core') el.classList.add('node-class-c'); else if(id.startsWith('m')) el.classList.add('node-class-m'); else if(id.startsWith('r')) el.classList.add('node-class-r'); else if(id.startsWith('b')) el.classList.add('node-class-b');
-        if(level > 0) el.classList.add('node-unlocked'); else if (availableNodes.has(id)) el.classList.add('node-available'); else el.classList.add('node-locked');
-        let existingBadge = el.querySelector('.level-badge'); if (existingBadge) existingBadge.remove();
-        if (level > 0 && isSkill) {
-            let badge = document.createElement('div'); badge.className = 'level-badge absolute -top-2 -right-2 bg-blue-600 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center border-2 border-white shadow-md';
-            badge.innerText = level; el.appendChild(badge);
-        }
-    }
-    let drawnLines = new Set();
-    for(let id in SKILL_TREE) {
-        let node = SKILL_TREE[id];
-        if(node.links) {
-            node.links.forEach(targetId => {
-                let lineKey = [id, targetId].sort().join('-');
-                if(!drawnLines.has(lineKey)) {
-                    let line = document.getElementById(`line-${lineKey}`);
-                    if(line) { if(unlockedNodes[id] > 0 && unlockedNodes[targetId] > 0) line.setAttribute('stroke', '#eab308'); else line.setAttribute('stroke', '#334155'); }
-                    drawnLines.add(lineKey);
-                }
-            });
-        }
-    }
-    if(selectedNodeId) selectNode(selectedNodeId);
-}
-
-function selectNode(id) {
-    selectedNodeId = id; let node = SKILL_TREE[id]; niTitle.innerText = node.name; niDesc.innerText = node.desc;
-    nodeInfoPanel.classList.remove('translate-y-full');
-    let level = unlockedNodes[id] || 0; let isSkill = node.effects.skills !== undefined; let isAvailable = false;
-    for (let linkId of (node.links || [])) { if (unlockedNodes[linkId] > 0) isAvailable = true; }
-    for (let uid in unlockedNodes) { if (SKILL_TREE[uid].links && SKILL_TREE[uid].links.includes(id)) isAvailable = true; }
-
-    btnLearnNode.style.display = 'block';
-    if (level > 0 && !isSkill) { btnLearnNode.innerText = '已學習'; btnLearnNode.disabled = true; btnLearnNode.className = 'px-6 py-3 bg-gray-600 text-white rounded-lg font-bold cursor-not-allowed'; } 
-    else if ((isAvailable || (level > 0 && isSkill)) && player.sp > 0) {
-        btnLearnNode.innerText = level > 0 ? `升級至 Lv.${level + 1} (消耗 1 點)` : '學習 (消耗 1 點)'; btnLearnNode.disabled = false;
-        btnLearnNode.className = 'px-6 py-3 bg-blue-600 hover:bg-blue-400 text-white rounded-lg font-bold active:scale-95 transition-transform shadow-[0_0_15px_#3b82f6]';
-        btnLearnNode.onclick = () => { player.sp--; unlockedNodes[id] = (unlockedNodes[id] || 0) + 1; player.recalculateStats(); updateTreeUI(); saveGame(); };
-    } 
-    else if (level > 0 && isSkill && player.sp === 0) { btnLearnNode.innerText = `目前 Lv.${level}`; btnLearnNode.disabled = true; btnLearnNode.className = 'px-6 py-3 bg-gray-600 text-white rounded-lg font-bold cursor-not-allowed'; } 
-    else { btnLearnNode.style.display = 'none'; }
-}
-
-checkLocalSave();
+UI.initTreeDrag(); Engine.init(); SaveSystem.check();
 </script>
 </body>
 </html>
