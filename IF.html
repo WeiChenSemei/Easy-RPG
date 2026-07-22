@@ -219,10 +219,15 @@ const DB = {
     EMOJIS: ['🧟','🦇','👹','💀','🐺','🦠','👻','👺','🕷️','🦂','🐍','🦖','🦍','🧌','🦹','🧛','🧟‍♂️','🧞','🧜‍♂️','🧚','🧝','🧙','🥷','💂','🕵️','👽','🤖','🎃','👿','🦊','🐯','🦁','🐻','🐼','🐨','🐸','🐊','🐢','🦎','🐙','🦑','🦞','🦀','🐡','🦈','🐅','🐆','🦓','🦏','🦛'],
     AI_TYPES: ['chase', 'ranged', 'dash', 'wander'],
     MONSTERS: [],
-    BOSSES: [
-        { type: 'boss_vampire', emoji: '🧛', radius: 30, speed: 55, hp: 600, dmg: 30, xp: 100 },
-        { type: 'boss_dragon', emoji: '🐉', radius: 35, speed: 45, hp: 800, dmg: 40, xp: 150 },
-        { type: 'boss_demon', emoji: '👿', radius: 32, speed: 70, hp: 700, dmg: 35, xp: 150 }
+    // 隨機 Boss 的外型庫 (超過30種)
+    BOSS_EMOJIS: ['👹','👺','💀','👽','👾','🎃','👿','🧌','🧟','🧛','🐉','🦖','🐙','🦑','🕷️','🦂','🐍','🦍','🦏','🐘','🐻‍❄️','🐺','🦇','🦅','🐊','🦈','🧞','🧜‍♂️','🧙','👁️','🗿','🌋','🌪️'],
+    // 隨機 Boss 的原型庫
+    BOSS_ARCHETYPES: [
+        { id: 'boss_summoner', name: '召喚者', radius: 30, speed: 50, hp: 700, dmg: 30, xp: 150, skillCD: 2.5 },
+        { id: 'boss_shooter', name: '狙擊者', radius: 35, speed: 45, hp: 800, dmg: 40, xp: 150, skillCD: 2.0 },
+        { id: 'boss_dasher', name: '突進者', radius: 32, speed: 65, hp: 750, dmg: 35, xp: 150, skillCD: 3.0 },
+        { id: 'boss_tank', name: '重裝巨獸', radius: 45, speed: 30, hp: 1500, dmg: 55, xp: 200, skillCD: 4.0 },
+        { id: 'boss_spreader', name: '彈幕使', radius: 35, speed: 35, hp: 900, dmg: 35, xp: 180, skillCD: 3.5 }
     ],
     SKILL_TREE: {
         'core': { x: 750, y: 750, name: '萬物之源', desc: '全屬性+10', effects: { str: 10, agi: 10, int: 10 }, links: [] },
@@ -270,6 +275,7 @@ const DB = {
     }
 };
 
+// 隨機生成 50 種一般怪物
 for (let i = 0; i < 50; i++) {
     DB.MONSTERS.push({
         type: `mob_${i}`, emoji: DB.EMOJIS[i % DB.EMOJIS.length],
@@ -286,13 +292,22 @@ const Behaviors = {
         return { x: px + Math.cos(e.wanderDir) * e.speed * 0.5 * e.speedMod * dt, y: py + Math.sin(e.wanderDir) * e.speed * 0.5 * e.speedMod * dt };
     },
     'ranged': (e, t, d, dt, px, py) => {
-        e.stateTimer -= dt; let s = d < 200 ? 0 : e.speed;
-        if(e.stateTimer <= 0 && d < 250) { Engine.projectiles.push(new Projectile(e.x, e.y, e.dirX, e.dirY, 200, e.dmg, 1, 'enemy_magic', '#d1d5db', 'enemy')); e.stateTimer = 2.0; }
+        e.stateTimer -= dt; 
+        // 核心 AI 修改：保持移動以防卡死
+        let s = e.speed;
+        if (d < 150) s = -e.speed * 0.5; // 太近：往後退拉開距離
+        else if (d < 250) s = e.speed * 0.2; // 射程內：極緩慢移動(繞行逼近)
+
+        if(e.stateTimer <= 0 && d < 300) { 
+            Engine.projectiles.push(new Projectile(e.x, e.y, e.dirX, e.dirY, 200, e.dmg, 1, 'enemy_magic', '#d1d5db', 'enemy')); 
+            e.stateTimer = 2.0; 
+        }
         return { x: px + e.dirX * s * e.speedMod * dt, y: py + e.dirY * s * e.speedMod * dt };
     },
     'dash': (e, t, d, dt, px, py) => {
         e.stateTimer -= dt; if(e.stateTimer <= 0) e.stateTimer = 3.0;
-        let s = e.stateTimer > 2.5 ? e.speed * 4 : e.speed;
+        // 核心 AI 修改：蓄力期間依然保持 40% 的緩慢移動，爆發時 4 倍速
+        let s = e.stateTimer > 2.5 ? e.speed * 4 : e.speed * 0.4;
         return { x: px + e.dirX * s * e.speedMod * dt, y: py + e.dirY * s * e.speedMod * dt };
     }
 };
@@ -509,6 +524,25 @@ const Engine = {
     }
 };
 
+// --- 防卡死核心：強制將剛生成的實體擠出障礙物 ---
+function resolveSpawnCollision(entity) {
+    for (let tries = 0; tries < 10; tries++) {
+        let safe = true;
+        for (let obs of Engine.obstacles) {
+            let d = Math.hypot(entity.x - obs.x, entity.y - obs.y);
+            if (d < entity.radius + obs.radius) {
+                safe = false;
+                let angle = Math.atan2(entity.y - obs.y, entity.x - obs.x);
+                if (d === 0) angle = Math.random() * Math.PI * 2; // 完全重疊時給予隨機方向
+                let pushDist = (entity.radius + obs.radius - d) + 5;
+                entity.x += Math.cos(angle) * pushDist;
+                entity.y += Math.sin(angle) * pushDist;
+            }
+        }
+        if (safe) break;
+    }
+}
+
 // ----------------------------------------------------
 // 實體類別 (Classes)
 // ----------------------------------------------------
@@ -542,10 +576,27 @@ class BaseCharacter {
             if (s.queue > 0) { s.qTimer = (s.qTimer || 0) - dt; if(s.qTimer <= 0) { SkillRegistry[s.id].cast(this, this.skillLevels[s.id]||1); s.queue--; s.qTimer = 0.2; } }
         });
     }
+    
     handleObstacles(px, py) {
         for(let obs of Engine.obstacles) {
-            let dx = px - obs.x, dy = py - obs.y, d = Math.hypot(dx, dy);
-            if(d < this.radius + obs.radius) { if(d === 0) { dx=1; d=1; } let overlap = this.radius + obs.radius - d; px += (dx/d)*overlap; py += (dy/d)*overlap; }
+            let nextDx = px - obs.x, nextDy = py - obs.y, nextDist = Math.hypot(nextDx, nextDy);
+            let minDist = this.radius + obs.radius;
+            
+            if(nextDist < minDist) {
+                let currDx = this.x - obs.x, currDy = this.y - obs.y, currDist = Math.hypot(currDx, currDy);
+                
+                if(currDist >= minDist) {
+                    if(nextDist === 0) { nextDx = 1; nextDist = 1; }
+                    let overlap = minDist - nextDist;
+                    px += (nextDx / nextDist) * overlap; 
+                    py += (nextDy / nextDist) * overlap;
+                } else if(nextDist < currDist) {
+                    if(nextDist === 0) { nextDx = 1; nextDist = 1; }
+                    let overlap = currDist - nextDist;
+                    px += (nextDx / nextDist) * overlap; 
+                    py += (nextDy / nextDist) * overlap;
+                }
+            }
         }
         this.x = px; this.y = py;
     }
@@ -611,14 +662,38 @@ class Player extends BaseCharacter {
 }
 
 class Enemy {
-    constructor(type, sx=null, sy=null) {
-        if(sx !== null && sy !== null) { this.x = sx + (Math.random()-0.5)*100; this.y = sy + (Math.random()-0.5)*100; } 
-        else { let a = Math.random() * Math.PI * 2, d = Math.max(GAME_WIDTH, GAME_HEIGHT)/2 + 100; this.x = Engine.player.x + Math.cos(a)*d; this.y = Engine.player.y + Math.sin(a)*d; }
-        this.isDead = false; this.type = type; this.speedMod = 1.0; this.speedTimer = 0; this.poisonTimer = 0; this.poisonTick = 0; this.hitTimer = 0; this.stateTimer = 0; 
+    constructor(type, sx=null, sy=null, archetype=null, customEmoji=null) {
+        if(sx !== null && sy !== null) { 
+            // 現在傳入的 sx, sy 已經是經過 getSafeSpawnPosition 保證安全的座標
+            this.x = sx; 
+            this.y = sy; 
+        } 
+        else { 
+            // 防呆預設
+            let a = Math.random() * Math.PI * 2, d = Math.max(GAME_WIDTH, GAME_HEIGHT)/2 + 100; 
+            this.x = Engine.player.x + Math.cos(a)*d; 
+            this.y = Engine.player.y + Math.sin(a)*d; 
+        }
+        this.isDead = false; this.speedMod = 1.0; this.speedTimer = 0; this.poisonTimer = 0; this.poisonTick = 0; this.hitTimer = 0; this.stateTimer = 0; 
+        
         let st = 1 + (Engine.gameState.stage - 1) * 0.5, stDmg = 1 + (Engine.gameState.stage - 1) * 0.2;
-        let md = DB.MONSTERS.find(m => m.type === type) || DB.BOSSES.find(b => b.type === type);
-        this.emoji = md.emoji; this.radius = md.radius; this.speed = md.speed; 
+        let md;
+        
+        if (type === 'boss') {
+            md = archetype;
+            this.type = archetype.id;
+            this.emoji = customEmoji;
+        } else {
+            this.type = type;
+            md = DB.MONSTERS.find(m => m.type === type);
+            this.emoji = md.emoji;
+        }
+
+        this.radius = md.radius; this.speed = md.speed; 
         this.hp = md.hp * st; this.dmg = md.dmg * stDmg; this.xpVal = md.xp; this.ai = md.ai || 'chase'; this.maxHp = this.hp; this.dirX = 0; this.dirY = 0;
+        
+        this.skillCD = md.skillCD || 2.0; this.stateTimer = this.skillCD;
+        // 移除有缺陷的 resolveSpawnCollision，依賴 MapSystem 的預判安全座標
     }
     update(dt) {
         if(this.hitTimer > 0) this.hitTimer -= dt; if(this.speedTimer > 0) { this.speedTimer -= dt; if(this.speedTimer <= 0) this.speedMod = 1.0; }
@@ -631,12 +706,41 @@ class Enemy {
         if (dist > 0) { this.dirX = dx/dist; this.dirY = dy/dist; }
         
         let proposedX = this.x, proposedY = this.y;
+        
         if (this.type.startsWith('boss')) {
             this.stateTimer -= dt;
-            if(this.type === 'boss_vampire' && this.stateTimer <= 0) { Engine.enemies.push(new Enemy('mob_1', this.x, this.y)); this.stateTimer = 3.0; }
-            if(this.type === 'boss_dragon' && this.stateTimer <= 0) { let p = new Projectile(this.x, this.y, this.dirX, this.dirY, 250, this.dmg, 2, 'enemy_magic', '#f97316', 'enemy'); p.radius = 12; Engine.projectiles.push(p); this.stateTimer = 2.5; }
-            let cs = (this.type === 'boss_demon' && this.stateTimer <= 0) ? this.speed * 3 : this.speed;
-            if(this.type === 'boss_demon' && this.stateTimer < -0.5) this.stateTimer = 2.0;
+            let cs = this.speed;
+
+            if (this.type === 'boss_summoner' && this.stateTimer <= 0) {
+                let pool = DB.MONSTERS;
+                Engine.enemies.push(new Enemy(pool[Math.floor(Math.random() * pool.length)].type, this.x, this.y));
+                this.stateTimer = this.skillCD;
+            }
+            else if (this.type === 'boss_shooter' && this.stateTimer <= 0) {
+                let p = new Projectile(this.x, this.y, this.dirX, this.dirY, 250, this.dmg, 2, 'enemy_magic', '#f97316', 'enemy');
+                p.radius = 12; Engine.projectiles.push(p);
+                this.stateTimer = this.skillCD;
+            }
+            else if (this.type === 'boss_dasher') {
+                if (this.stateTimer <= 0) cs = this.speed * 4;
+                if (this.stateTimer < -0.5) this.stateTimer = this.skillCD;
+            }
+            else if (this.type === 'boss_tank' && this.stateTimer <= 0) {
+                createRingExplosion(this.x, this.y, '#a16207', 120);
+                Engine.getAllTargets('enemy').forEach(e => {
+                    if(Math.hypot(e.x - this.x, e.y - this.y) <= 120) Engine.applyDamage(e, this.dmg * 1.5, 'melee', 'enemy');
+                });
+                this.stateTimer = this.skillCD;
+            }
+            else if (this.type === 'boss_spreader' && this.stateTimer <= 0) {
+                for(let i=0; i<8; i++) {
+                    let a = (Math.PI*2/8)*i;
+                    let p = new Projectile(this.x, this.y, Math.cos(a), Math.sin(a), 180, this.dmg*0.8, 1.5, 'enemy_magic', '#8b5cf6', 'enemy');
+                    p.radius = 8; Engine.projectiles.push(p);
+                }
+                this.stateTimer = this.skillCD;
+            }
+
             if (dist > 0) { proposedX += this.dirX * cs * this.speedMod * dt; proposedY += this.dirY * cs * this.speedMod * dt; }
         } else {
             let res = Behaviors[this.ai](this, t, dist, dt, proposedX, proposedY); proposedX = res.x; proposedY = res.y;
@@ -649,8 +753,20 @@ class Enemy {
         }
 
         for(let obs of Engine.obstacles) {
-            let odx = proposedX - obs.x, ody = proposedY - obs.y, odist = Math.hypot(odx, ody);
-            if(odist < this.radius + obs.radius) { if (odist === 0) { odx = 1; odist = 1; } let overlap = this.radius + obs.radius - odist; proposedX += (odx/odist) * overlap; proposedY += (ody/odist) * overlap; }
+            let nextDx = proposedX - obs.x, nextDy = proposedY - obs.y, nextDist = Math.hypot(nextDx, nextDy);
+            let minDist = this.radius + obs.radius;
+            if(nextDist < minDist) {
+                let currDx = this.x - obs.x, currDy = this.y - obs.y, currDist = Math.hypot(currDx, currDy);
+                if(currDist >= minDist) {
+                    if(nextDist === 0) { nextDx = 1; nextDist = 1; }
+                    let overlap = minDist - nextDist;
+                    proposedX += (nextDx / nextDist) * overlap; proposedY += (nextDy / nextDist) * overlap;
+                } else if(nextDist < currDist) {
+                    if(nextDist === 0) { nextDx = 1; nextDist = 1; }
+                    let overlap = currDist - nextDist;
+                    proposedX += (nextDx / nextDist) * overlap; proposedY += (nextDy / nextDist) * overlap;
+                }
+            }
         }
         this.x = proposedX; this.y = proposedY;
     }
@@ -672,47 +788,61 @@ class Mercenary extends BaseCharacter {
         let ps = ['magic_missile', 'fireball', 'throwing_knife', 'heavy_strike'], sid = ps[Math.floor(Math.random() * ps.length)];
         this.skills.push({id: sid, cooldown: SkillRegistry[sid].cooldown, timer:0, queue:0}); this.skillLevels[sid] = 1 + Math.floor(Engine.gameState.stage / 2);
         this.baseInt = 5 + Engine.gameState.stage*2; this.baseStr = 5 + Engine.gameState.stage*2; this.baseAgi = 5 + Engine.gameState.stage*2; this.orbitAngle = Math.random() * Math.PI * 2;
+        resolveSpawnCollision(this); // 生成時防卡死
     }
     update(dt) {
         if (this.state === 'leaving') { this.leaveTimer -= dt; if (this.leaveTimer <= 0) this.isDead = true; return; }
         
-        let px = this.x, py = this.y, mDx = 0, mDy = 0;
-        let distToPlayer = Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y);
-        let closestEnemy = Engine.getClosestTarget(this.x, this.y, 'player', 400); // 尋找附近敵人
-
-        if (distToPlayer > 300) { 
-            // 離玩家太遠，趕快追上去
-            mDx = Engine.player.x - this.x; mDy = Engine.player.y - this.y; 
-        } else if (closestEnemy) {
-            let distToEnemy = Math.hypot(closestEnemy.x - this.x, closestEnemy.y - this.y);
-            if (distToEnemy < 120) { 
-                // 風箏戰術：敵人太近，主動往後退
-                mDx = this.x - closestEnemy.x; mDy = this.y - closestEnemy.y; 
-                // 若後退會導致脫隊，將移動向量往玩家方向修正
-                if (distToPlayer > 200) { mDx += (Engine.player.x - this.x)*0.8; mDy += (Engine.player.y - this.y)*0.8; } 
-            } else if (distToEnemy > 200) { 
-                // 敵人在雷達邊緣，稍微往前追擊
-                mDx = closestEnemy.x - this.x; mDy = closestEnemy.y - this.y; 
+        let t = Engine.getClosestTarget(this.x, this.y, 'player');
+        let distToP = Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y);
+        
+        // 算出期望的目標座標 (Target Point)
+        let tx = this.x, ty = this.y;
+        
+        if (distToP > 300) { 
+            // 距離玩家過遠，強制跟隨
+            tx = Engine.player.x; ty = Engine.player.y;
+        } else if (t) {
+            let distToE = Math.hypot(t.x - this.x, t.y - this.y);
+            if (distToE < 150) { 
+                // 敵人太近：反向風箏 (目標點設在背對敵人的方向)
+                tx = this.x - (t.x - this.x); 
+                ty = this.y - (t.y - this.y);
+                // 確保退路不會脫離玩家太遠
+                if(distToP > 200) { tx = (tx + Engine.player.x)/2; ty = (ty + Engine.player.y)/2; }
+            } else if (distToE > 220) { 
+                // 敵人在雷達邊緣：靠近攻擊
+                tx = t.x; ty = t.y; 
             } else { 
-                // 距離剛好，微調位置並準備攻擊
-                this.orbitAngle += dt * 2; 
-                mDx = (Engine.player.x + Math.cos(this.orbitAngle)*100) - this.x; 
-                mDy = (Engine.player.y + Math.sin(this.orbitAngle)*100) - this.y; 
+                // 處於最佳射程 (150~220)：繞著敵人走位
+                this.orbitAngle += dt * 2.0; 
+                tx = t.x + Math.cos(this.orbitAngle) * 160; 
+                ty = t.y + Math.sin(this.orbitAngle) * 160; 
             }
-        } else {
-            // 沒敵人時，在玩家附近自由繞圈遊走
-            this.orbitAngle += dt * 1.5; 
-            mDx = (Engine.player.x + Math.cos(this.orbitAngle)*100) - this.x; 
-            mDy = (Engine.player.y + Math.sin(this.orbitAngle)*100) - this.y;
+        } else { 
+            // 沒有敵人時，繞著玩家散步
+            this.orbitAngle += dt * 1.0; 
+            tx = Engine.player.x + Math.cos(this.orbitAngle) * 80; 
+            ty = Engine.player.y + Math.sin(this.orbitAngle) * 80; 
         }
-
-        let len = Math.hypot(mDx, mDy);
-        if (len > 0) { 
+        
+        let dx = tx - this.x, dy = ty - this.y, distToT = Math.hypot(dx, dy), px = this.x, py = this.y;
+        
+        // 防抖動：10px 容差死區 (Deadzone)
+        if (distToT > 10) { 
             let s = this.getMoveSpeed() * dt * 60;
-            // 當在玩家身旁且無敵人時，放慢速度當作散步
-            if (distToPlayer < 100 && !closestEnemy) s *= 0.4;
-            px += (mDx/len) * s; py += (mDy/len) * s; 
-            this.dirX = mDx/len; this.dirY = mDy/len; 
+            // 沒敵人的時候當作在散步，放慢腳步
+            if (!t && distToP < 150) s *= 0.4;
+            
+            // 防暴衝：單次步數不超過目標距離
+            let md = Math.min(distToT, s);
+            px += (dx/distToT) * md; py += (dy/distToT) * md; 
+            
+            // 平滑轉向 (Lerp)，讓視線不會一秒來回翻轉十次
+            this.dirX += ((dx/distToT) - this.dirX) * 8 * dt;
+            this.dirY += ((dy/distToT) - this.dirY) * 8 * dt;
+            let curLen = Math.hypot(this.dirX, this.dirY) || 1;
+            this.dirX /= curLen; this.dirY /= curLen;
         }
         
         this.handleObstacles(px, py); this.updateSkills(dt);
@@ -730,6 +860,7 @@ class MapMercenary {
     constructor(x, y) {
         if(!x || !y) { let a = Math.random() * Math.PI * 2, d = Math.max(GAME_WIDTH, GAME_HEIGHT) * 0.7; x = Engine.player.x + Math.cos(a)*d; y = Engine.player.y + Math.sin(a)*d; }
         this.x = x; this.y = y; this.radius = 15; this.isDead = false; this.emoji = ['🧍','🧝','🧞'][Math.floor(Math.random()*3)];
+        resolveSpawnCollision(this); // 生成時防卡死
     }
     update(dt) { if (Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y) < Engine.player.radius + this.radius) { this.isDead = true; MapSystem.recruitMercenary(this.emoji); } }
     draw() {
@@ -741,15 +872,59 @@ class MapMercenary {
 class Shrine {
     constructor() {
         let a = Math.random() * Math.PI * 2, d = Math.max(GAME_WIDTH, GAME_HEIGHT) * 0.8; this.x = Engine.player.x + Math.cos(a)*d; this.y = Engine.player.y + Math.sin(a)*d;
-        this.radius = 20; this.used = false; this.type = Math.random() > 0.5 ? 'heal' : 'buff'; this.color = this.type === 'heal' ? '#22c55e' : '#eab308';
+        this.radius = 20; this.used = false; 
+        this.color = '#c084fc'; // 改為神秘的紫色
+        resolveSpawnCollision(this); // 生成時防卡死
     }
     update(dt) {
-        if(this.used) return; let d = Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y);
+        if(this.used) return; 
+        let d = Math.hypot(Engine.player.x - this.x, Engine.player.y - this.y);
         if(d < Engine.player.radius + this.radius) {
             this.used = true;
-            if(this.type === 'heal') { Engine.player.heal(Engine.player.getMaxHp() * 0.5); addFloatingText('HP 恢復!', this.x, this.y - 20, this.color); } 
-            else { Engine.player.buffs.frenzy = 10.0; addFloatingText('狂熱!', this.x, this.y - 20, this.color); }
-            createRingExplosion(this.x, this.y, this.color, 60);
+            
+            // 神龕效果：3正面，3負面
+            let roll = Math.floor(Math.random() * 6);
+            let effectColor;
+            
+            switch(roll) {
+                case 0: // 正向：聖光 (Heal)
+                    Engine.player.heal(Engine.player.getMaxHp() * 0.5); 
+                    effectColor = '#22c55e';
+                    addFloatingText('聖光: 恢復 50% 生命!', this.x, this.y - 20, effectColor); 
+                    break;
+                case 1: // 正向：戰神 (Frenzy)
+                    Engine.player.buffs.frenzy = 10.0; 
+                    effectColor = '#eab308';
+                    addFloatingText('戰神: 狂熱 10 秒!', this.x, this.y - 20, effectColor); 
+                    break;
+                case 2: // 正向：庇護 (Shield)
+                    Engine.player.hasShield = true; 
+                    Engine.player.shieldCooldown = 10.0;
+                    effectColor = '#60a5fa';
+                    addFloatingText('庇護: 獲得護盾!', this.x, this.y - 20, effectColor); 
+                    break;
+                case 3: // 負向：詛咒 (Damage)
+                    let dmg = Engine.player.hp * 0.3; // 扣除當前血量 30%
+                    Engine.player.takeDamage(dmg);
+                    effectColor = '#ef4444';
+                    addFloatingText('詛咒: 損失 30% 鮮血!', this.x, this.y - 20, effectColor); 
+                    break;
+                case 4: // 負向：虛弱 (Slow)
+                    Engine.player.buffs.slow = 5.0;
+                    effectColor = '#9333ea';
+                    addFloatingText('虛弱: 遲緩 5 秒!', this.x, this.y - 20, effectColor); 
+                    break;
+                case 5: // 負向：陷阱 (Ambush)
+                    effectColor = '#dc2626';
+                    addFloatingText('陷阱: 魔物埋伏!', this.x, this.y - 20, effectColor); 
+                    for(let i=0; i<4; i++) {
+                        let pool = DB.MONSTERS;
+                        Engine.enemies.push(new Enemy(pool[Math.floor(Math.random() * pool.length)].type, this.x, this.y));
+                    }
+                    break;
+            }
+            createRingExplosion(this.x, this.y, effectColor, 60);
+            UI.update(); // 觸發後立刻強制刷新血條UI
         }
     }
     draw() {
@@ -772,7 +947,11 @@ class Projectile {
         this.x += this.dx * this.speed * dt; this.y += this.dy * this.speed * dt; this.life -= dt; if(this.life <= 0) this.isDead = true;
 
         for(let obs of Engine.obstacles) {
-            if(Math.hypot(obs.x - this.x, obs.y - this.y) < this.radius + obs.radius) {
+            let d = Math.hypot(this.x - obs.x, this.y - obs.y);
+            if(d < this.radius + obs.radius) {
+                let nextD = Math.hypot((this.x + this.dx) - obs.x, (this.y + this.dy) - obs.y);
+                if (nextD >= d) continue; 
+                
                 if(this.type === 'magic_explosive') { this.explode(); return; }
                 if(this.pierce > 0 || this.tryRicochet()) continue;
                 this.isDead = true; return;
@@ -860,11 +1039,20 @@ const MapSystem = {
     },
     spawnEnemy: function() {
         if(Engine.gameState.bossSpawned) return;
+        
+        // 隨機 BOSS 生成系統
         if(Engine.gameState.kills >= Engine.gameState.bossReq) {
-            let bt = 'boss_vampire'; if (Engine.gameState.stage % 3 === 2) bt = 'boss_dragon'; if (Engine.gameState.stage % 3 === 0) bt = 'boss_demon';
-            Engine.enemies.push(new Enemy(bt)); Engine.gameState.bossSpawned = true; addFloatingText('BOSS 出現!', Engine.player.x, Engine.player.y - 150, '#ef4444', 40); return;
+            let arch = DB.BOSS_ARCHETYPES[Math.floor(Math.random() * DB.BOSS_ARCHETYPES.length)];
+            let emj = DB.BOSS_EMOJIS[Math.floor(Math.random() * DB.BOSS_EMOJIS.length)];
+            
+            Engine.enemies.push(new Enemy('boss', null, null, arch, emj));
+            Engine.gameState.bossSpawned = true;
+            addFloatingText(`⚠️ BOSS [${arch.name}] 出現!`, Engine.player.x, Engine.player.y - 150, '#ef4444', 32);
+            return;
         }
-        let pool = DB.MONSTERS; Engine.enemies.push(new Enemy(pool[Math.floor(Math.random() * pool.length)].type));
+        
+        let pool = DB.MONSTERS; 
+        Engine.enemies.push(new Enemy(pool[Math.floor(Math.random() * pool.length)].type));
     },
     recruitMercenary: function(emoji) {
         let active = Engine.partyMercenaries.filter(m => m.state === 'active');
@@ -1043,5 +1231,4 @@ Engine.init();
 </script>
 </body>
 </html>
-
 
