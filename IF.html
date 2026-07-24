@@ -285,7 +285,10 @@ const Behaviors = {
     'ranged': (e, t, d, dt, px, py) => {
         e.stateTimer -= dt; let s = e.speed;
         if (d < 150) s = -e.speed * 0.5; else if (d < 250) s = e.speed * 0.2; 
-        if(e.stateTimer <= 0 && d < 300) { Engine.projectiles.push(new Projectile(e.x, e.y, e.dirX, e.dirY, 200, e.dmg, 1, 'enemy_magic', '#d1d5db', 'enemy')); e.stateTimer = 2.0; }
+        if(e.stateTimer <= 0 && d < 350) { 
+            Engine.projectiles.push(new Projectile(e.x, e.y, e.dirX, e.dirY, 220, e.dmg, 1.2, 'enemy_magic', '#ef4444', 'enemy')); 
+            e.stateTimer = 1.5 + Math.random(); 
+        }
         return { x: px + e.dirX * s * e.speedMod * dt, y: py + e.dirY * s * e.speedMod * dt };
     },
     'dash': (e, t, d, dt, px, py) => {
@@ -305,23 +308,20 @@ const SkillRegistry = {
     'heavy_strike': { cooldown: 1.0, cast: (c, lvl) => { let r=100*c.getAoeMult()*(1+(lvl-1)*0.1), t=Engine.getClosestTarget(c.x, c.y, c.faction, r), pa=t?Math.atan2(t.y-c.y,t.x-c.x):Math.atan2(c.dirY,c.dirX); Engine.projectiles.push(new MeleeArcVisual(c.x, c.y, pa, r, Math.PI/1.5, 'rgba(239, 68, 68, 0.5)')); Engine.getAllTargets(c.faction).forEach(e=>{ let d=Math.hypot(e.x-c.x,e.y-c.y); if(d<=r){ let ad=Math.abs(Math.atan2(e.y-c.y, e.x-c.x)-pa); if(ad>Math.PI)ad=2*Math.PI-ad; if(ad<=Math.PI/3) Engine.applyDamage(e, c.getMeleeDmg()*(1+(lvl-1)*0.5), 'melee', c.faction); } }); } },
     'whirlwind': { cooldown: 2.0, cast: (c, lvl) => { let p = new PersistentAoe(c, 90*c.getAoeMult()*(1+(lvl-1)*0.1), 1.0, c.getMeleeDmg()*0.5*(1+(lvl-1)*0.3), 'melee', '#fca5a5', c.faction); p.isWhirlwind = true; Engine.projectiles.push(p); } },
     'earthquake': { cooldown: 3.5, cast: (c, lvl) => { let r=120*c.getAoeMult()*(1+(lvl-1)*0.1); createRingExplosion(c.x, c.y, '#a16207', r, 0.6); createRingExplosion(c.x, c.y, '#78350f', r*0.6, 0.4); addParticle(c.x, c.y, '#92400e', 15, 2); Engine.getAllTargets(c.faction).forEach(e=>{ if(Math.hypot(e.x-c.x, e.y-c.y)<=r){ Engine.applyDamage(e, c.getMeleeDmg()*1.5*(1+(lvl-1)*0.6), 'melee', c.faction); if(e.speedMod!==undefined){e.speedMod=0.2;e.speedTimer=1;}else e.buffs.slow=1; } }); } },
-    
-    // 【完美修復】：完全捨棄 setInterval，改用強迫物理位移系統
     'dash_attack': { cooldown: 4.0, cast: (c, lvl) => { 
         let t = Engine.getClosestTarget(c.x, c.y, c.faction, 350 * c.getAoeMult());
         let a = t ? Math.atan2(t.y - c.y, t.x - c.x) : Math.atan2(c.dirY, c.dirX);
-        if(!t && c.dirX === 0 && c.dirY === 0) a = 0; // 若連動都沒動，預設向右衝
+        if(!t && c.dirX === 0 && c.dirY === 0) a = 0; 
         
-        // 設定強制位移狀態，將由角色的 update() 進行平滑處理
         c.forcedMove = { 
             time: 0.2, maxTime: 0.2, 
-            dx: Math.cos(a) * 1200 * c.getAoeMult(), // 極高速衝刺
+            dx: Math.cos(a) * 1200 * c.getAoeMult(), 
             dy: Math.sin(a) * 1200 * c.getAoeMult(), 
-            dmg: c.getMeleeDmg() * 2 * (1 + (lvl - 1) * 0.4) 
+            dmg: c.getMeleeDmg() * 2 * (1 + (lvl - 1) * 0.4),
+            hitSet: new Set()
         };
         addFloatingText('衝鋒!', c.x, c.y - 20, '#f87171', 20);
     }},
-    
     'warcry': { cooldown: 12.0, cast: (c, lvl) => { let r=200*c.getAoeMult(); createRingExplosion(c.x, c.y, '#dc2626', r, 0.6); addFloatingText('WAAAGH!', c.x, c.y-30, '#ef4444', 24); c.buffs.frenzy=3+(lvl-1)*1; c.hasShield=true; Engine.getAllTargets(c.faction).forEach(e=>{ if(Math.hypot(e.x-c.x, e.y-c.y)<=r && e.speedMod!==undefined){ e.speedMod=0.3; e.speedTimer=2.0; } }); } },
     'throwing_knife': { cooldown: 0.8, cast: (c, lvl) => { let t=Engine.getClosestTarget(c.x, c.y, c.faction, GAME_WIDTH*c.getAoeMult()); if(!t)return; let cnt=(c.mods.passive_multishot?3:1)+Math.floor((lvl-1)/2), ba=Math.atan2(t.y-c.y, t.x-c.x); for(let i=0;i<cnt;i++){ let a=ba+(i-(cnt-1)/2)*0.3; let p=new Projectile(c.x, c.y, Math.cos(a), Math.sin(a), 400, c.getAssassinationDmg()*(1+(lvl-1)*0.3), c.getAoeMult(), 'assassination', '#10b981', c.faction); p.isKnife=true; p.life=GAME_WIDTH*c.getAoeMult()/p.speed; if(c.mods.passive_pierce)p.pierce=2; Engine.projectiles.push(p); } } },
     'shuriken_ring': { cooldown: 3.0, cast: (c, lvl) => { let cnt=8+(lvl-1)*2; for(let i=0;i<cnt;i++){ let a=(Math.PI*2/cnt)*i; let p=new Projectile(c.x, c.y, Math.cos(a), Math.sin(a), 350, c.getAssassinationDmg()*(1+(lvl-1)*0.4), c.getAoeMult(), 'assassination', '#14b8a6', c.faction); p.isKnife=true; p.life=GAME_WIDTH*c.getAoeMult()/p.speed; if(c.mods.passive_pierce)p.pierce=2; Engine.projectiles.push(p); } } },
@@ -450,6 +450,7 @@ const Engine = {
 
         this.shrines.forEach(s => { if(!s.used) UI.drawEdgeIndicator(s.x, s.y, s.color, '⛩️'); });
         this.mapMercenaries.forEach(m => { if(!m.isDead) UI.drawEdgeIndicator(m.x, m.y, '#3b82f6', m.emoji); });
+        this.enemies.forEach(e => { if(e.type.startsWith('boss') && !e.isDead) UI.drawEdgeIndicator(e.x, e.y, '#ef4444', '⚠️'); });
     },
 
     getAllTargets: function(casterFaction) { return (casterFaction === 'player' ? [...this.enemies] : [this.player, ...this.partyMercenaries]).filter(e => e && !e.isDead); },
@@ -467,16 +468,18 @@ const Engine = {
         if (target.takeDamage) target.takeDamage(finalDmg); else { target.hp -= finalDmg; target.hitTimer = 0.1; if (target.hp <= 0) target.isDead = true; }
         if(isCrit) addParticle(target.x, target.y, '#fef08a', 4); else addParticle(target.x, target.y, '#fff', 2);
 
-        if (attackerFaction === 'player') {
+               if (attackerFaction === 'player') {
             if (type === 'melee' && this.player.mods.passive_lifesteal) this.player.heal(finalDmg * 0.05);
             if (type === 'melee' && this.player.mods.passive_tremor && Math.random() < 0.2) {
                 createRingExplosion(target.x, target.y, '#92400e', 40, 0.3);
-                this.getAllTargets('player').forEach(e => { if (e !== target && Math.hypot(e.x - target.x, e.y - target.y) <= 40) this.applyDamage(e, baseDmg * 0.5, 'melee_tremor', 'player'); });
+                let procDmg = this.player.getMeleeDmg() * 0.8;
+                this.getAllTargets('player').forEach(e => { if (e !== target && Math.hypot(e.x - target.x, e.y - target.y) <= 40) this.applyDamage(e, procDmg, 'melee_tremor', 'player'); });
             }
             if (type === 'assassination' && this.player.mods.passive_poison) target.poisonTimer = 3.0;
             if (type === 'magic' && this.player.mods.passive_resonance && Math.random() < 0.2) {
                 createRingExplosion(target.x, target.y, '#c084fc', 50, 0.4);
-                this.getAllTargets('player').forEach(e => { if (e !== target && Math.hypot(e.x - target.x, e.y - target.y) <= 50) this.applyDamage(e, baseDmg * 0.5, 'magic_resonance', 'player'); });
+                let procDmg = this.player.getMagicDmg() * 0.8;
+                this.getAllTargets('player').forEach(e => { if (e !== target && Math.hypot(e.x - target.x, e.y - target.y) <= 50) this.applyDamage(e, procDmg, 'magic_resonance', 'player'); });
             }
         }
 
@@ -600,27 +603,26 @@ class Player extends BaseCharacter {
         
         if (this.hp > this.getMaxHp()) this.hp = this.getMaxHp(); UI.update();
     }
-    update(dt) {
-        // 【核心修正】：處理物理衝刺，此狀態下忽略玩家輸入
+       update(dt) {
         if (this.forcedMove && this.forcedMove.time > 0) {
             this.forcedMove.time -= dt;
             this.x += this.forcedMove.dx * dt;
             this.y += this.forcedMove.dy * dt;
             
-            // 衝刺特效
             addParticle(this.x, this.y, '#f87171', 1, 0); 
             
-            // 衝刺傷害判定
             Engine.getAllTargets(this.faction).forEach(e => {
                 if(Math.hypot(e.x - this.x, e.y - this.y) <= 50) { 
-                    Engine.applyDamage(e, this.forcedMove.dmg, 'melee', this.faction); 
-                    // 撞飛效果
-                    e.x += this.forcedMove.dx * dt * 0.5; 
-                    e.y += this.forcedMove.dy * dt * 0.5; 
+                    if(!this.forcedMove.hitSet.has(e)) {
+                        Engine.applyDamage(e, this.forcedMove.dmg, 'melee', this.faction); 
+                        e.x += this.forcedMove.dx * dt * 0.5; 
+                        e.y += this.forcedMove.dy * dt * 0.5; 
+                        this.forcedMove.hitSet.add(e);
+                    }
                 }
             });
             this.handleObstacles();
-            return; // 衝刺期間不執行其他位移
+            return; 
         }
 
         let mDx = 0, mDy = 0, kbDx = 0, kbDy = 0;
@@ -661,7 +663,12 @@ class Enemy {
         else { let a = Math.random() * Math.PI * 2, d = Math.max(GAME_WIDTH, GAME_HEIGHT)/2 + 100; this.x = Engine.player.x + Math.cos(a)*d; this.y = Engine.player.y + Math.sin(a)*d; }
         
         this.isDead = false; this.speedMod = 1.0; this.speedTimer = 0; this.poisonTimer = 0; this.poisonTick = 0; this.hitTimer = 0; this.stateTimer = 0; this.wanderDir = Math.random() * Math.PI * 2;
-        let st = 1 + (Engine.gameState.stage - 1) * 0.5, stDmg = 1 + (Engine.gameState.stage - 1) * 0.2, md;
+        
+        let stage = Engine.gameState.stage;
+        let st = Math.pow(1.35, stage - 1) + (stage - 1) * 0.5;
+        let stDmg = Math.pow(1.15, stage - 1) + (stage - 1) * 0.2;
+        let md;
+        
         if (type === 'boss') { md = archetype; this.type = archetype.id; this.emoji = customEmoji; } 
         else { this.type = type; md = DB.MONSTERS.find(m => m.type === type); this.emoji = md.emoji; }
 
@@ -797,10 +804,14 @@ class Projectile {
         this.x = x; this.y = y; this.dx = dx; this.dy = dy; this.speed = s; this.dmg = dmg; this.aoeMult = aoe; this.type = type; this.color = color; this.faction = faction;
         this.radius = 5 * aoe; this.life = 2.0; this.isDead = false; this.pierce = 0; this.hitTargets = new Set(); this.bounces = 0;
     }
-    update(dt) {
+     update(dt) {
         if (this.boomerang && this.life < this.returnTime && this.owner && !this.owner.isDead) {
+            if(!this.isReturning) {
+                this.isReturning = true;
+                this.hitTargets.clear();
+            }
             let bx = this.owner.x - this.x, by = this.owner.y - this.y, bd = Math.hypot(bx, by); if(bd < 20) { this.isDead = true; return; }
-            this.dx = bx/bd; this.dy = by/bd; this.hitTargets.clear();
+            this.dx = bx/bd; this.dy = by/bd; 
         }
         this.x += this.dx * this.speed * dt; this.y += this.dy * this.speed * dt; this.life -= dt; if(this.life <= 0) this.isDead = true;
         
@@ -848,7 +859,15 @@ class Projectile {
         // 發光美化
         ctx.shadowBlur = 15; ctx.shadowColor = this.color;
         ctx.fillStyle = this.color; ctx.beginPath();
-        if(this.isKnife) { 
+        
+        if(this.faction === 'enemy') {
+            // 敵方子彈專屬惡意造型 (旋轉的尖銳菱形)
+            let a = Engine.frameCount * 0.2; 
+            ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(a); 
+            ctx.moveTo(this.radius * 1.5, 0); ctx.lineTo(0, this.radius * 1.5); ctx.lineTo(-this.radius * 1.5, 0); ctx.lineTo(0, -this.radius * 1.5);
+            ctx.fill(); ctx.restore(); 
+        }
+        else if(this.isKnife) { 
             let a = (this.boomerang || this.type.includes('assassination')) ? Engine.frameCount * 0.4 : Math.atan2(this.dy, this.dx); 
             ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(a); 
             // 變更為漂亮的飛鏢形狀
