@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>魔彈射手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a202c; font-family: sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+        .pixelated { image-rendering: pixelated; }
+        
+        #joystick-zone { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; z-index: 10; } /* 擴充至全螢幕以支援滑鼠點擊拖曳 */
+        #joystick-base { position: absolute; width: 100px; height: 100px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.5); display: none; transform: translate(-50%, -50%); pointer-events: none; }
+        #joystick-stick { position: absolute; width: 50px; height: 50px; border-radius: 50%; background: rgba(255, 255, 255, 0.6); top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
+    </style>
+</head>
+<body class="text-white h-[100dvh] w-screen flex flex-col absolute inset-0">
+
+    <!-- 頂部 UI 區塊 -->
+    <div id="ui-top" class="flex-none bg-gray-900 border-b border-gray-700 shadow-md z-20 flex flex-col p-2 gap-2 text-sm select-none">
+        <div class="flex justify-between items-center">
+            <div class="flex flex-col text-xs font-bold text-gray-300">
+                <span>🌊 波次: <span id="ui-wave" class="text-white">1</span></span>
+                <span>💀 死亡: <span id="ui-deaths" class="text-red-400">0</span></span>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="toggleModal('modal-bag')" class="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded shadow active:scale-95 transition-transform flex items-center gap-1 font-bold">🎒 背包</button>
+                <button onclick="toggleModal('modal-file')" class="bg-green-600 hover:bg-green-500 px-3 py-1.5 rounded shadow active:scale-95 transition-transform flex items-center gap-1 font-bold">💾 檔案</button>
+            </div>
+        </div>
+
+        <div class="flex gap-2 w-full">
+            <div class="flex-1 bg-gray-800 rounded h-5 relative overflow-hidden border border-gray-700">
+                <div id="bar-hp" class="bg-red-600 h-full w-full transition-all duration-200"></div>
+                <div class="absolute inset-0 flex justify-center items-center text-[10px] font-bold drop-shadow-md"><span id="text-hp">100/100</span></div>
+            </div>
+            <div class="flex-1 bg-gray-800 rounded h-5 relative overflow-hidden border border-gray-700">
+                <div id="bar-mp" class="bg-blue-600 h-full w-full transition-all duration-200"></div>
+                <div class="absolute inset-0 flex justify-center items-center text-[10px] font-bold drop-shadow-md"><span id="text-mp">100/100</span></div>
+            </div>
+        </div>
+
+        <div class="w-full bg-gray-800 rounded h-4 relative overflow-hidden border border-gray-700">
+            <div id="bar-aggro" class="bg-purple-600 h-full w-0 transition-all duration-200"></div>
+            <div class="absolute inset-0 flex justify-center items-center text-[10px] font-bold drop-shadow-md"><span>侵略值 <span id="text-aggro">0%</span></span></div>
+        </div>
+
+        <div class="flex justify-center flex-wrap gap-1.5 px-1" id="gun-slots-container"></div>
+    </div>
+
+    <!-- 遊戲畫面區塊 -->
+    <div id="game-container" class="flex-1 relative bg-green-900 overflow-hidden">
+        <canvas id="gameCanvas" class="block w-full h-full pixelated"></canvas>
+        <div id="joystick-zone"><div id="joystick-base"><div id="joystick-stick"></div></div></div>
+        <div id="pause-overlay" class="absolute inset-0 bg-black/40 hidden justify-center items-center z-10 pointer-events-none">
+            <span class="text-white text-2xl font-bold tracking-widest drop-shadow-lg">PAUSED</span>
+        </div>
+        <!-- 操作提示 -->
+        <div class="absolute bottom-2 right-2 text-[10px] text-white/50 pointer-events-none font-bold">支援 WASD/方向鍵 或 點擊拖曳移動</div>
+    </div>
+
+    <!-- 背包與打磨 -->
+    <div id="modal-bag" class="fixed inset-0 bg-black/80 z-50 hidden flex-col justify-center items-center p-4">
+        <div class="bg-gray-800 rounded-lg w-full max-w-sm flex flex-col max-h-[90dvh] shadow-2xl border border-gray-600">
+            <div class="flex justify-between items-center p-3 border-b border-gray-700">
+                <h2 class="text-lg font-bold">🎒 背包與打磨</h2>
+                <button onclick="toggleModal('modal-bag')" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1">
+                <div class="bg-gray-700 p-3 rounded mb-4 flex justify-between items-center">
+                    <div><div class="text-sm text-gray-300">原石數量</div><div class="text-2xl font-bold text-gray-100" id="ui-rawstones">0</div></div>
+                    <div><div class="text-sm text-gray-300">打磨經驗</div><div class="text-lg font-bold text-yellow-400" id="ui-craftlevel">Lv 1</div></div>
+                    <button onclick="craftGem()" class="bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-2 rounded font-bold active:scale-95">打磨!</button>
+                </div>
+                <h3 class="text-md font-bold mb-2">💎 寶石庫 (<span id="ui-gem-count">0</span>/20)</h3>
+                <div id="inventory-grid" class="grid grid-cols-5 gap-2"></div>
+                <h3 class="text-md font-bold mt-4 mb-2">📊 角色詳細屬性</h3>
+                <div id="player-stats-list" class="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-gray-300 bg-gray-900 p-2 rounded"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 寶石詳細資訊 -->
+    <div id="modal-gem-detail" class="fixed inset-0 bg-black/80 z-[60] hidden flex-col justify-center items-center p-4">
+        <div class="bg-gray-800 rounded-lg w-full max-w-xs p-5 shadow-2xl border flex flex-col gap-3" id="gem-detail-content"></div>
+    </div>
+
+    <!-- 存檔與系統 (已移除本地手動存檔/讀檔按鈕，改為自動) -->
+    <div id="modal-file" class="fixed inset-0 bg-black/80 z-50 hidden flex-col justify-center items-center p-4">
+        <div class="bg-gray-800 rounded-lg w-full max-w-xs p-5 shadow-2xl border border-gray-600 flex flex-col gap-3">
+            <h2 class="text-lg font-bold text-center border-b border-gray-700 pb-2">💾 遊戲系統</h2>
+            <div class="text-sm text-green-400 text-center font-bold mb-2">✔️ 遊戲已啟用自動本地存檔</div>
+            <button onclick="exportSave()" class="bg-purple-600 py-2.5 rounded font-bold w-full active:scale-95 text-md">匯出存檔檔 (JSON)</button>
+            <button onclick="document.getElementById('import-file').click()" class="bg-yellow-600 py-2.5 rounded font-bold w-full active:scale-95 text-md">匯入存檔檔 (JSON)</button>
+            <input type="file" id="import-file" accept=".json" class="hidden" onchange="handleImportSave(event)">
+            <hr class="border-gray-600 my-1">
+            <button onclick="fullResetGame()" class="bg-red-600 py-2.5 rounded font-bold w-full active:scale-95 text-md">重新開始 (清空存檔)</button>
+            <button onclick="toggleModal('modal-file')" class="bg-gray-600 py-2 rounded font-bold w-full mt-2">關閉</button>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-900/90 text-white px-4 py-2 rounded shadow-lg z-50 hidden transition-opacity font-bold"></div>
+
+    <script>
+        /** ==========================================
+         * 1. 遊戲設定與資料驅動字典
+         * ========================================== */
+        const GAME_CONFIG = {
+            maxAggro: 100, aggroPerMove: 0.1, aggroPerMine: 2,
+            inventoryLimit: 20, maxSlots: 8, town: { x: 0, y: 0, radius: 80 }
+        };
+
+        const ATTR_NAMES = {
+            maxHp: '最大生命', maxMp: '最大魔力', atk: '攻擊力', def: '防禦力',
+            spd: '移動速度', critRate: '爆擊率', critDmg: '爆擊傷害', dodge: '閃躲率',
+            hpRegen: '生命回復/秒', mpRegen: '魔力回復/秒'
+        };
+
+        const RARITY_TIERS = [
+            { id: 'common', name: '普通', color: '#a0aec0', weight: 1000, statMultiplier: 1.0, valueReq: 0 },
+            { id: 'uncommon', name: '精良', color: '#48bb78', weight: 400, statMultiplier: 1.5, valueReq: 5 },
+            { id: 'rare', name: '稀有', color: '#4299e1', weight: 150, statMultiplier: 2.2, valueReq: 15 },
+            { id: 'epic', name: '史詩', color: '#9f7aea', weight: 50, statMultiplier: 3.5, valueReq: 30 },
+            { id: 'legendary', name: '傳說', color: '#ed8936', weight: 10, statMultiplier: 5.5, valueReq: 60 },
+            { id: 'mythic', name: '神話', color: '#f56565', weight: 1, statMultiplier: 9.0, valueReq: 100 }
+        ];
+
+        const GEM_TYPES = [
+            // 原有 9 種
+            { id: 'fire', icon: '🔥', name: '烈焰', effect: '子彈變大，傷害提升', color: '#fc8181' },
+            { id: 'ice', icon: '❄️', name: '寒霜', effect: '子彈能穿透並大幅減速敵人', color: '#90cdf4' },
+            { id: 'thunder', icon: '⚡', name: '雷霆', effect: '命中時觸發連鎖閃電', color: '#faf089' },
+            { id: 'poison', icon: '🐍', name: '劇毒', effect: '子彈附加毒傷(基礎爆擊提升)', color: '#9ae6b4' },
+            { id: 'summon', icon: '👻', name: '靈魂', effect: '殺敵有機率召喚友軍', color: '#d6bcfa' },
+            { id: 'wind', icon: '🌪️', name: '颶風', effect: '扇狀發射三枚子彈', color: '#cbd5e0' },
+            { id: 'light', icon: '✨', name: '聖光', effect: '十字方向發射子彈', color: '#fef08a' },
+            { id: 'arcane', icon: '🔮', name: '奧術', effect: '子彈會自動追蹤敵人', color: '#c084fc' },
+            { id: 'earth', icon: '🪨', name: '大地', effect: '擊中或消失時分裂', color: '#d97706' },
+            // 新增 12 種，共 21 種
+            { id: 'vampire', icon: '🦇', name: '吸血', effect: '命中時機率回復生命', color: '#8b0000' },
+            { id: 'sniper', icon: '🎯', name: '狙擊', effect: '子彈極快且傷害大增', color: '#2b6cb0' },
+            { id: 'shotgun', icon: '💥', name: '散彈', effect: '前方扇形發射五枚短程子彈', color: '#dd6b20' },
+            { id: 'moon', icon: '🌙', name: '背水', effect: '同時向後方發射子彈', color: '#f6e05e' },
+            { id: 'star', icon: '⭐', name: '星爆', effect: '八方發射，子彈緩慢', color: '#ecc94b' },
+            { id: 'mine', icon: '💣', name: '地雷', effect: '命中時在敵人腳下生成定時爆炸/觸發的範圍地雷', color: '#4a5568' },
+            { id: 'chaos', icon: '🎲', name: '混沌', effect: '傷害、大小、顏色隨機變化', color: '#ed64a6' },
+            { id: 'gravity', icon: '🌌', name: '重力', effect: '子彈飛行時會吸引周圍敵人', color: '#667eea' },
+            { id: 'freeze', icon: '⏳', name: '時停', effect: '命中使敵人長時間暈眩(對魔王無效)', color: '#00b5d8' },
+            { id: 'wealth', icon: '💰', name: '貪婪', effect: '擊殺敵人機率掉落原石', color: '#d69e2e' },
+            { id: 'phantom', icon: '🌬️', name: '幻影', effect: '子彈可無限穿透', color: '#a0aec0' },
+            { id: 'meteor', icon: '☄️', name: '隕石', effect: '巨大、緩慢且高傷害', color: '#c53030' }
+        ];
+
+        // 高達 50+ 種的普通怪物 Emoji 庫
+        const NORMAL_EMOJIS = ['🐀','🦇','🐺','🐗','🐍','🕷️','🦂','🐛','🐜','🐝','🪲','🐞','🦗','🪳','🦟','🪰','🪱','🐢','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🐃','🐂','🐄','🐎','🐖','🧟','🧛','🧞','🧜','🧚','🧝'];
+        // 高達 15 種的魔王 Emoji 庫
+        const BOSS_EMOJIS = ['🐉','🐲','👹','👺','👿','😈','💀','☠️','👽','👾','🤖','🎃','👁️','🩸','🌋'];
+
+        // 獨立的行動邏輯與屬性模板
+        const NORMAL_BEHAVIORS = [
+            { id: 'chase', hpMulti: 1.0, atkMulti: 1.0, spdMulti: 1.0, size: 15, ranged: false },
+            { id: 'dash', hpMulti: 0.8, atkMulti: 1.2, spdMulti: 1.0, size: 14, ranged: false }, // 會停頓然後衝刺
+            { id: 'tank', hpMulti: 3.0, atkMulti: 1.5, spdMulti: 0.5, size: 22, ranged: false }, // 血多、慢、大
+            { id: 'swarm', hpMulti: 0.5, atkMulti: 0.8, spdMulti: 1.4, size: 12, ranged: false }, // 血少、快、小
+            { id: 'ranged', hpMulti: 0.8, atkMulti: 1.0, spdMulti: 0.8, size: 15, ranged: true }, // 會拉開距離射擊
+            { id: 'wander', hpMulti: 1.2, atkMulti: 1.0, spdMulti: 0.9, size: 15, ranged: false } // 會隨機亂走
+        ];
+
+        const BOSS_BEHAVIORS = [
+            { id: 'boss_chase', hpMulti: 15, atkMulti: 4, spdMulti: 1.2, size: 40, ranged: false },
+            { id: 'boss_summoner', hpMulti: 18, atkMulti: 3, spdMulti: 0.8, size: 35, ranged: false }, // 會生小怪
+            { id: 'boss_ranged', hpMulti: 12, atkMulti: 4, spdMulti: 0.9, size: 38, ranged: true }, // 會放八方彈幕
+            { id: 'boss_dasher', hpMulti: 10, atkMulti: 6, spdMulti: 1.0, size: 35, ranged: false } // 會超高速大位移
+        ];
+
+        /** ==========================================
+         * 2. 遊戲狀態與實體定義
+         * ========================================== */
+        const state = {
+            wave: 1, deaths: 0, aggro: 0, isBossFight: false,
+            timeOfDay: 0, lastTime: performance.now(),
+            camera: { x: 0, y: 0 }, craftingExp: 0,
+            input: { x: 0, y: 0 }, autoAimTarget: null, shootTimer: 0,
+            enemySpawnTimer: 0, isPaused: false,
+            keys: {} // 記錄鍵盤狀態
+        };
+
+        class Player {
+            constructor() {
+                this.x = GAME_CONFIG.town.x; this.y = GAME_CONFIG.town.y; this.size = 15;
+                this.baseStats = { maxHp: 100, maxMp: 100, atk: 10, def: 5, spd: 120, critRate: 0.05, critDmg: 1.5, dodge: 0.05, hpRegen: 1.5, mpRegen: 4.0 };
+                this.stats = { ...this.baseStats }; this.hp = this.stats.maxHp; this.mp = this.stats.maxMp;
+                this.inventory = { rawStones: 0, gems: [] }; this.slots = new Array(GAME_CONFIG.maxSlots).fill(null);
+            }
+            recalculateStats() {
+                this.stats = { ...this.baseStats };
+                this.slots.forEach(gem => { if (gem) for (let attr in gem.bonusStats) this.stats[attr] += gem.bonusStats[attr]; });
+                this.hp = Math.min(this.hp, this.stats.maxHp); this.mp = Math.min(this.mp, this.stats.maxMp);
+            }
+        }
+
+        class Mercenary {
+            constructor(type, emoji, bx, by) {
+                this.type = type; this.emoji = emoji; this.x = bx; this.y = by; this.size = 15;
+                this.baseHp = type === 'warrior' ? 250 : 150; this.baseAtk = type === 'warrior' ? 15 : 10;
+                this.hp = this.baseHp; this.spd = 135; this.state = 'idle'; this.cooldown = 0; this.isFollowing = false;
+            }
+            update(dt, inTown) {
+                let maxHp = this.baseHp * (1 + state.wave * 0.5); let atk = this.baseAtk * (1 + state.wave * 0.3);
+                if (this.hp > maxHp) this.hp = maxHp;
+
+                if (inTown && this.hp > 0) {
+                    this.hp = Math.min(maxHp, this.hp + maxHp * 0.1 * dt); // 傭兵在城鎮內每秒恢復 10% 體力
+                }
+
+                if (this.state === 'idle') {
+                    if (Math.hypot(player.x - this.x, player.y - this.y) < 50) { this.state = 'follow'; showToast(`${this.emoji} 加入了隊伍！`); }
+                    return;
+                }
+
+                if (this.state === 'follow') {
+                    if (this.hp <= 0) {
+                        this.state = 'idle'; this.hp = maxHp;
+                        this.x = GAME_CONFIG.town.x + (Math.random()*40-20); this.y = GAME_CONFIG.town.y + (Math.random()*40-20);
+                        showToast(`${this.emoji} 受到重傷，已撤退回城鎮！`); return;
+                    }
+                    this.cooldown -= dt;
+                    let distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
+                    let closestEnemy = null; let minEnemyDist = 400;
+
+                    if (inTown) {
+                        this.isFollowing = true;
+                    } else {
+                        entities.enemies.forEach(e => {
+                            if (!e.isDead) {
+                                let d = Math.hypot(this.x - e.x, this.y - e.y) - e.size;
+                                if (d < minEnemyDist) { minEnemyDist = d; closestEnemy = e; }
+                            }
+                        });
+                    }
+
+                    if (this.type === 'warrior') {
+                        if (closestEnemy && !inTown) {
+                            if (minEnemyDist > this.size + 5) {
+                                let angle = Math.atan2(closestEnemy.y - this.y, closestEnemy.x - this.x);
+                                this.x += Math.cos(angle) * this.spd * dt; this.y += Math.sin(angle) * this.spd * dt;
+                            }
+                            if (minEnemyDist <= this.size + 15 && this.cooldown <= 0) {
+                                closestEnemy.hp -= atk; addHitEffect(closestEnemy.x, closestEnemy.y, '💥');
+                                if (Math.random() < 0.25 && !closestEnemy.isBoss) { 
+                                    closestEnemy.stun = 2.0; addFloatingText(closestEnemy.x, closestEnemy.y - closestEnemy.size - 10, '💫暈眩!', '#fbbf24'); 
+                                }
+                                this.cooldown = 1.0; checkEnemyDeath(closestEnemy);
+                            }
+                        } else {
+                            if (distToPlayer > 120) this.isFollowing = true;
+                            if (distToPlayer < 60) this.isFollowing = false;
+                            if (this.isFollowing) {
+                                let angle = Math.atan2(player.y - this.y, player.x - this.x);
+                                this.x += Math.cos(angle) * this.spd * dt; this.y += Math.sin(angle) * this.spd * dt;
+                            }
+                        }
+                    } else if (this.type === 'priest') {
+                        if (closestEnemy && minEnemyDist < 150 && !inTown) {
+                            let angle = Math.atan2(this.y - closestEnemy.y, this.x - closestEnemy.x);
+                            this.x += Math.cos(angle) * this.spd * dt; this.y += Math.sin(angle) * this.spd * dt;
+                            this.isFollowing = false;
+                        } else {
+                            if (distToPlayer > 120) this.isFollowing = true;
+                            if (distToPlayer < 60) this.isFollowing = false;
+                            if (this.isFollowing) {
+                                let angle = Math.atan2(player.y - this.y, player.x - this.x);
+                                this.x += Math.cos(angle) * this.spd * dt; this.y += Math.sin(angle) * this.spd * dt;
+                            }
+                        }
+                        if (this.cooldown <= 0) {
+                            let allyToHeal = null; let lowestPct = player.hp / player.stats.maxHp;
+                            if (lowestPct < 0.7) allyToHeal = player;
+                            entities.mercs.forEach(m => {
+                                if(m.state === 'follow' && m !== this) {
+                                    let mMaxHp = m.baseHp * (1 + state.wave * 0.5); let pct = m.hp / mMaxHp;
+                                    if (pct < 0.7 && pct < lowestPct) { lowestPct = pct; allyToHeal = m; }
+                                }
+                            });
+                            if (allyToHeal) {
+                                let healAmt = atk * 3;
+                                if (allyToHeal === player) player.hp = Math.min(player.stats.maxHp, player.hp + healAmt);
+                                else allyToHeal.hp = Math.min(allyToHeal.baseHp * (1 + state.wave * 0.5), allyToHeal.hp + healAmt);
+                                addHitEffect(allyToHeal.x, allyToHeal.y, '✨', '#4ade80'); addFloatingText(allyToHeal.x, allyToHeal.y - 20, `+${Math.floor(healAmt)}`, '#4ade80');
+                                this.cooldown = 2.0;
+                            } else if (closestEnemy && minEnemyDist <= 250 && !inTown) {
+                                closestEnemy.hp -= atk * 1.5; addHitEffect(closestEnemy.x, closestEnemy.y, '✨', '#fef08a');
+                                let angle = Math.atan2(closestEnemy.y - this.y, closestEnemy.x - this.x);
+                                closestEnemy.x += Math.cos(angle) * 50; closestEnemy.y += Math.sin(angle) * 50;
+                                this.cooldown = 1.2; checkEnemyDeath(closestEnemy);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let player = new Player();
+        let entities = { enemies: [], bullets: [], ores: [], scenery: [], floatingTexts: [], hitEffects: [], mercs: [], altars: [], mines: [] };
+
+        /** ==========================================
+         * 3. 核心系統 (輸入整合：鍵盤 + 滑鼠 + 觸控)
+         * ========================================== */
+        const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
+        function resize() { canvas.width = document.getElementById('game-container').clientWidth; canvas.height = document.getElementById('game-container').clientHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        function initWorld() {
+            entities.scenery = []; entities.ores = []; entities.enemies = []; entities.bullets = []; entities.hitEffects = []; entities.altars = []; entities.mines = [];
+            entities.mercs = [new Mercenary('warrior', '🛡️', GAME_CONFIG.town.x - 20, GAME_CONFIG.town.y + 20), new Mercenary('priest', '🪄', GAME_CONFIG.town.x + 20, GAME_CONFIG.town.y + 20)];
+            entities.scenery.push({ x: GAME_CONFIG.town.x, y: GAME_CONFIG.town.y - 30, emoji: '🏰', isTown: true });
+            for(let i=0; i<150; i++) {
+                let rx = (Math.random() - 0.5) * 3000; let ry = (Math.random() - 0.5) * 3000;
+                if (Math.hypot(rx - GAME_CONFIG.town.x, ry - GAME_CONFIG.town.y) > GAME_CONFIG.town.radius) entities.scenery.push({ x: rx, y: ry, emoji: Math.random() > 0.5 ? '🌳' : '🌲' });
+            }
+            for(let i=0; i<40; i++) spawnRandomEntity(entities.ores, '🪨', 15, 800);
+            for(let i=0; i<5; i++) spawnRandomEntity(entities.altars, '🗿', 20, 1500);
+        }
+
+        function spawnRandomEntity(arr, emoji, size, maxDist) {
+            let angle = Math.random() * Math.PI * 2; let dist = GAME_CONFIG.town.radius + 50 + Math.random() * maxDist;
+            let x = GAME_CONFIG.town.x + Math.cos(angle)*dist; let y = GAME_CONFIG.town.y + Math.sin(angle)*dist;
+            arr.push({ x, y, emoji, size });
+        }
+
+        // 鍵盤監聽
+        window.addEventListener('keydown', e => { if(state.keys.hasOwnProperty(e.key) === false || state.keys.hasOwnProperty(e.key)) state.keys[e.key] = true; });
+        window.addEventListener('keyup', e => { if(state.keys.hasOwnProperty(e.key) === false || state.keys.hasOwnProperty(e.key)) state.keys[e.key] = false; });
+
+        // 滑鼠與觸控搖桿
+        const joystickZone = document.getElementById('joystick-zone'), joystickBase = document.getElementById('joystick-base'), joystickStick = document.getElementById('joystick-stick');
+        let activePointerId = null, baseCenter = { x: 0, y: 0 };
+        
+        const startJoystick = (clientX, clientY, pointerId) => {
+            if (activePointerId !== null || state.isPaused) return; activePointerId = pointerId;
+            joystickBase.style.display = 'block'; joystickBase.style.left = `${clientX}px`; joystickBase.style.top = `${clientY}px`;
+            baseCenter = { x: clientX, y: clientY }; updateJoystick(clientX, clientY);
+        };
+        const moveJoystick = (clientX, clientY, pointerId) => {
+            if (activePointerId !== pointerId || state.isPaused) return; updateJoystick(clientX, clientY);
+        };
+        const endJoystick = (pointerId) => {
+            if (activePointerId !== pointerId) return; activePointerId = null;
+            joystickBase.style.display = 'none'; joystickStick.style.transform = `translate(-50%, -50%)`; state.input.x = 0; state.input.y = 0;
+        };
+
+        // 觸控事件
+        joystickZone.addEventListener('touchstart', (e) => { e.preventDefault(); startJoystick(e.changedTouches[0].clientX, e.changedTouches[0].clientY, e.changedTouches[0].identifier); }, {passive: false});
+        joystickZone.addEventListener('touchmove', (e) => { e.preventDefault(); for(let i=0; i<e.changedTouches.length; i++) moveJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY, e.changedTouches[i].identifier); }, {passive: false});
+        joystickZone.addEventListener('touchend', (e) => { for(let i=0; i<e.changedTouches.length; i++) endJoystick(e.changedTouches[i].identifier); });
+        joystickZone.addEventListener('touchcancel', (e) => { for(let i=0; i<e.changedTouches.length; i++) endJoystick(e.changedTouches[i].identifier); });
+        
+        // 滑鼠事件
+        joystickZone.addEventListener('mousedown', (e) => { startJoystick(e.clientX, e.clientY, 'mouse'); });
+        joystickZone.addEventListener('mousemove', (e) => { moveJoystick(e.clientX, e.clientY, 'mouse'); });
+        joystickZone.addEventListener('mouseup', () => { endJoystick('mouse'); });
+        joystickZone.addEventListener('mouseleave', () => { endJoystick('mouse'); });
+
+        function updateJoystick(cx, cy) {
+            const dx = cx - baseCenter.x, dy = cy - baseCenter.y, distance = Math.min(50, Math.sqrt(dx*dx + dy*dy)), angle = Math.atan2(dy, dx);
+            joystickStick.style.transform = `translate(calc(-50% + ${distance*Math.cos(angle)}px), calc(-50% + ${distance*Math.sin(angle)}px))`;
+            state.input.x = distance > 0 ? Math.cos(angle) : 0; state.input.y = distance > 0 ? Math.sin(angle) : 0;
+        }
+
+        /** ==========================================
+         * 4. 存檔與系統 (改為自動存檔)
+         * ========================================== */
+        function getSaveData() { return { player: { inventory: player.inventory, slots: player.slots, stats: player.baseStats, hp: player.hp, mp: player.mp }, state: { wave: state.wave, deaths: state.deaths, craftingExp: state.craftingExp } }; }
+        function applySaveData(parsed) {
+            player.inventory = parsed.player.inventory || { rawStones: 0, gems: [] };
+            let loadedSlots = parsed.player.slots || []; player.slots = new Array(GAME_CONFIG.maxSlots).fill(null);
+            for(let i=0; i < Math.min(loadedSlots.length, GAME_CONFIG.maxSlots); i++) player.slots[i] = loadedSlots[i];
+            player.baseStats = { ...player.baseStats, ...parsed.player.stats }; player.recalculateStats();
+            player.hp = Math.min(parsed.player.hp, player.stats.maxHp); player.mp = Math.min(parsed.player.mp, player.stats.maxMp);
+            state.wave = parsed.state.wave || 1; state.deaths = parsed.state.deaths || 0; state.craftingExp = parsed.state.craftingExp || 0;
+            player.x = GAME_CONFIG.town.x; player.y = GAME_CONFIG.town.y; state.aggro = 0; state.isBossFight = false;
+            initWorld(); updateUI(); renderSlots();
+        }
+        
+        function autoSaveGame() { localStorage.setItem('magicBulletSave', JSON.stringify(getSaveData())); }
+        function autoLoadGame() { const data = localStorage.getItem('magicBulletSave'); if (data) { applySaveData(JSON.parse(data)); console.log("Auto-loaded save."); } else { initWorld(); renderSlots(); } }
+        
+        // 每 5 秒自動本地存檔
+        setInterval(autoSaveGame, 5000);
+
+        function exportSave() { const blob = new Blob([JSON.stringify(getSaveData())], { type: 'application/json' }); const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = 'magic_bullet_save.json'; a.click(); URL.revokeObjectURL(url); showToast("存檔已匯出！"); }
+        function handleImportSave(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { applySaveData(JSON.parse(e.target.result)); showToast("存檔匯入成功！"); toggleModal('modal-file'); } catch (err) { showToast("存檔格式錯誤！"); } }; reader.readAsText(file); event.target.value = ''; }
+        function fullResetGame() { localStorage.removeItem('magicBulletSave'); player = new Player(); state.wave = 1; state.deaths = 0; state.craftingExp = 0; state.aggro = 0; state.isBossFight = false; initWorld(); updateUI(); renderSlots(); toggleModal('modal-file'); showToast("已重新開始遊戲"); }
+
+        function handleDeath() {
+            state.deaths++; player.x = GAME_CONFIG.town.x; player.y = GAME_CONFIG.town.y; player.hp = player.stats.maxHp; player.mp = player.stats.maxMp;
+            state.aggro = 0; state.isBossFight = false; entities.enemies = []; entities.bullets = []; entities.hitEffects = []; entities.mines = [];
+            entities.mercs.forEach(m => { m.state = 'idle'; m.x = GAME_CONFIG.town.x + (Math.random()*40-20); m.y = GAME_CONFIG.town.y + (Math.random()*40-20); m.hp = m.baseHp; });
+            updateUI(); showToast("你死亡了！返回起始城鎮。"); autoSaveGame();
+        }
+
+        /** ==========================================
+         * 5. 無限地圖與邏輯更新
+         * ========================================== */
+        function update(dt) {
+            if (player.hp <= 0) return;
+            const inTown = Math.hypot(player.x - GAME_CONFIG.town.x, player.y - GAME_CONFIG.town.y) < GAME_CONFIG.town.radius;
+
+            player.hp = Math.min(player.stats.maxHp, player.hp + (inTown ? player.stats.maxHp * 0.2 : player.stats.hpRegen) * dt);
+            player.mp = Math.min(player.stats.maxMp, player.mp + (inTown ? player.stats.maxMp * 0.2 : player.stats.mpRegen) * dt);
+
+            // 整合鍵盤與滑鼠/觸控輸入
+            let moveX = 0, moveY = 0;
+            if (state.input.x !== 0 || state.input.y !== 0) { moveX = state.input.x; moveY = state.input.y; }
+            let kx = 0, ky = 0;
+            if (state.keys.w || state.keys.W || state.keys.ArrowUp) ky -= 1;
+            if (state.keys.s || state.keys.S || state.keys.ArrowDown) ky += 1;
+            if (state.keys.a || state.keys.A || state.keys.ArrowLeft) kx -= 1;
+            if (state.keys.d || state.keys.D || state.keys.ArrowRight) kx += 1;
+            if (kx !== 0 || ky !== 0) { let len = Math.hypot(kx, ky); moveX = kx / len; moveY = ky / len; }
+
+            if (moveX !== 0 || moveY !== 0) {
+                player.x += moveX * player.stats.spd * dt; player.y += moveY * player.stats.spd * dt;
+                if (!state.isBossFight && !inTown) state.aggro = Math.min(GAME_CONFIG.maxAggro, state.aggro + GAME_CONFIG.aggroPerMove * dt * 10);
+            }
+
+            const despawnDist = 1800;
+            entities.scenery = entities.scenery.filter(s => s.isTown || Math.hypot(player.x - s.x, player.y - s.y) < despawnDist);
+            entities.ores = entities.ores.filter(o => Math.hypot(player.x - o.x, player.y - o.y) < despawnDist);
+            entities.enemies = entities.enemies.filter(e => Math.hypot(player.x - e.x, player.y - e.y) < despawnDist * 1.5);
+            entities.altars = entities.altars.filter(a => Math.hypot(player.x - a.x, player.y - a.y) < despawnDist);
+
+            while (entities.scenery.length < 150) {
+                let rx = player.x + (Math.random() - 0.5) * 2000; let ry = player.y + (Math.random() - 0.5) * 2000;
+                if (Math.hypot(rx - GAME_CONFIG.town.x, ry - GAME_CONFIG.town.y) > GAME_CONFIG.town.radius) entities.scenery.push({ x: rx, y: ry, emoji: Math.random() > 0.5 ? '🌳' : '🌲' });
+            }
+            if (entities.ores.length < 40 && Math.random() < 0.05) spawnRandomEntity(entities.ores, '🪨', 15, 1000);
+            if (entities.altars.length < 3 && Math.random() < 0.01) spawnRandomEntity(entities.altars, '🗿', 20, 1500);
+
+            for (let i = entities.ores.length - 1; i >= 0; i--) {
+                const ore = entities.ores[i];
+                if (Math.hypot(player.x - ore.x, player.y - ore.y) < player.size + ore.size + 10) {
+                    const hpCost = Math.floor(Math.random() * 11) + 5; player.hp -= hpCost;
+                    addFloatingText(player.x, player.y - 15, '採集!', '#fbbf24');
+                    addFloatingText(player.x, player.y + 10, `-${hpCost} HP`, '#ff4444'); addHitEffect(player.x, player.y, '🩸', '#ff0000');
+                    player.inventory.rawStones++; state.aggro = Math.min(GAME_CONFIG.maxAggro, state.aggro + GAME_CONFIG.aggroPerMine);
+                    entities.ores.splice(i, 1);
+                    if (player.hp <= 0) { handleDeath(); return; }
+                }
+            }
+            
+            for (let i = entities.altars.length - 1; i >= 0; i--) {
+                const altar = entities.altars[i];
+                if (Math.hypot(player.x - altar.x, player.y - altar.y) < player.size + altar.size + 10) { activateAltar(); entities.altars.splice(i, 1); }
+            }
+
+            entities.mercs.forEach(m => m.update(dt, inTown));
+
+            if (!inTown) {
+                findAutoAimTarget(); state.shootTimer -= dt;
+                if (state.shootTimer <= 0 && state.autoAimTarget && player.mp >= getShootCost()) { shoot(); state.shootTimer = 0.5; }
+            } else { state.autoAimTarget = null; }
+
+            updateBullets(dt); updateMines(dt); updateEnemies(dt, inTown); updateEffects(dt);
+            if (!inTown) spawnEnemies(dt);
+
+            // 【修復核心】在所有運算結束後，統一清除已死亡的怪物，避免陣列迭代時突變當機
+            entities.enemies = entities.enemies.filter(e => !e.isDead);
+
+            state.camera.x = player.x - canvas.width / 2; state.camera.y = player.y - canvas.height / 2;
+        }
+
+        // --- 進階射擊邏輯 ---
+        function getShootCost() { return 2 + player.slots.filter(g=>g).length; }
+        function findAutoAimTarget() {
+            let nearest = null; let minDist = 300;
+            entities.enemies.forEach(e => { 
+                if (!e.isDead) {
+                    let d = Math.hypot(player.x - e.x, player.y - e.y); 
+                    if (d < minDist) { minDist = d; nearest = e; } 
+                }
+            });
+            state.autoAimTarget = nearest;
+        }
+
+        function shoot() {
+            player.mp -= getShootCost();
+            const centerAngle = Math.atan2(state.autoAimTarget.y - player.y, state.autoAimTarget.x - player.x);
+            
+            let hasFan = player.slots.some(g => g && g.type === 'wind');
+            let hasCross = player.slots.some(g => g && g.type === 'light');
+            let hasShotgun = player.slots.some(g => g && g.type === 'shotgun');
+            let hasMoon = player.slots.some(g => g && g.type === 'moon');
+            let hasStar = player.slots.some(g => g && g.type === 'star');
+            
+            let baseAngles = [centerAngle];
+            if (hasStar) {
+                baseAngles = []; for(let i=0; i<8; i++) baseAngles.push(centerAngle + (i*Math.PI/4));
+            } else {
+                if (hasShotgun) baseAngles = [centerAngle - 0.2, centerAngle - 0.1, centerAngle, centerAngle + 0.1, centerAngle + 0.2];
+                else if (hasFan) baseAngles = [centerAngle - 0.25, centerAngle, centerAngle + 0.25];
+                
+                if (hasCross) {
+                    let expanded = [];
+                    baseAngles.forEach(a => { expanded.push(a, a + Math.PI/2, a + Math.PI, a - Math.PI/2); });
+                    baseAngles = expanded;
+                } else if (hasMoon) {
+                    let expanded = [];
+                    baseAngles.forEach(a => { expanded.push(a, a + Math.PI); });
+                    baseAngles = expanded;
+                }
+            }
+
+            baseAngles.forEach(ang => {
+                // 修正: 增加 hitTargets 以追蹤已被穿透的敵人
+                let b = { owner: 'player', x: player.x, y: player.y, vx: Math.cos(ang)*300, vy: Math.sin(ang)*300, life: 1.5, size: 5, color: '#ffff00', dmg: player.stats.atk, pierce: 1, effects: [], isSplit: false, hitTargets: new Set() };
+                player.slots.forEach(gem => {
+                    if(!gem) return;
+                    if (gem.type === 'fire') { b.size+=3; b.color='#fc8181'; b.dmg*=1.2; }
+                    if (gem.type === 'ice') { b.pierce+=2; b.color='#90cdf4'; b.effects.push('slow'); }
+                    if (gem.type === 'thunder') { b.vx*=1.5; b.vy*=1.5; b.color='#faf089'; b.effects.push('chain'); }
+                    if (gem.type === 'poison') { b.color='#9ae6b4'; b.effects.push('poison'); b.effects.push('crit_boost'); }
+                    if (gem.type === 'summon') b.effects.push('summon');
+                    if (gem.type === 'arcane') b.effects.push('homing');
+                    if (gem.type === 'earth') b.effects.push('split');
+                    
+                    if (gem.type === 'vampire') b.effects.push('lifesteal');
+                    if (gem.type === 'sniper') { b.dmg *= 2.5; b.vx *= 2.5; b.vy *= 2.5; b.color = '#2b6cb0'; }
+                    if (gem.type === 'shotgun') b.life = 0.6;
+                    if (gem.type === 'star') { b.vx *= 0.4; b.vy *= 0.4; }
+                    if (gem.type === 'mine') { b.effects.push('mine'); b.color = '#4a5568'; }
+                    if (gem.type === 'chaos') { b.dmg *= (Math.random() * 2.5 + 0.5); b.size *= (Math.random() * 1.5 + 0.5); b.color = '#ed64a6'; }
+                    if (gem.type === 'gravity') b.effects.push('gravity');
+                    if (gem.type === 'freeze') b.effects.push('freeze');
+                    if (gem.type === 'wealth') b.effects.push('wealth');
+                    if (gem.type === 'phantom') { b.pierce = 999; b.color = '#a0aec0'; }
+                    if (gem.type === 'meteor') { b.size += 15; b.dmg *= 3; b.vx *= 0.3; b.vy *= 0.3; b.color = '#c53030'; b.pierce += 3; }
+                });
+                entities.bullets.push(b);
+            });
+        }
+
+        function updateBullets(dt) {
+            for (let i = entities.bullets.length - 1; i >= 0; i--) {
+                let b = entities.bullets[i];
+                
+                if (b.effects.includes('homing') && b.owner === 'player') {
+                    let target = null; let minDist = 250;
+                    entities.enemies.forEach(e => { 
+                        if (!e.isDead) {
+                            let d = Math.hypot(b.x - e.x, b.y - e.y); 
+                            if (d < minDist) { minDist = d; target = e; } 
+                        }
+                    });
+                    if (target) {
+                        let currentAngle = Math.atan2(b.vy, b.vx);
+                        let targetAngle = Math.atan2(target.y - b.y, target.x - b.x);
+                        let diff = targetAngle - currentAngle;
+                        while(diff < -Math.PI) diff += Math.PI*2; while(diff > Math.PI) diff -= Math.PI*2;
+                        let newAngle = currentAngle + Math.sign(diff) * Math.min(4 * dt, Math.abs(diff));
+                        let speed = Math.hypot(b.vx, b.vy);
+                        b.vx = Math.cos(newAngle) * speed; b.vy = Math.sin(newAngle) * speed;
+                    }
+                }
+                
+                if (b.effects.includes('gravity') && b.owner === 'player') {
+                    entities.enemies.forEach(e => {
+                        if (!e.isDead && !e.isBoss) {
+                            // 優化: 將開根號運算轉為平方比較
+                            let dx = b.x - e.x; let dy = b.y - e.y;
+                            if (dx*dx + dy*dy < 22500) {
+                                let angle = Math.atan2(dy, dx);
+                                e.x += Math.cos(angle) * 100 * dt; e.y += Math.sin(angle) * 100 * dt;
+                            }
+                        }
+                    });
+                }
+
+                b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+                
+                // 優化: 降低子彈殘影粒子特效生成機率，減輕 GPU 負擔
+                if (Math.random() < 0.25) entities.hitEffects.push({ type: 'particle', x: b.x, y: b.y, size: b.size * 0.7, color: b.color, life: 0.15 });
+
+                let hitTarget = false;
+                if (b.owner === 'player') {
+                    for (let j = entities.enemies.length - 1; j >= 0; j--) {
+                        let e = entities.enemies[j];
+                        // 修正: 檢查 b.hitTargets.has(e) 防止對同一個怪物每幀重複造成傷害
+                        if (!e || e.isDead || b.hitTargets.has(e)) continue; 
+                        let dx = b.x - e.x; let dy = b.y - e.y;
+                        if (dx*dx + dy*dy < (b.size + e.size)*(b.size + e.size)) { 
+                            hitTarget = true; b.hitTargets.add(e); hitEnemy(e, b); b.pierce--; 
+                            if (b.pierce <= 0) break; 
+                        }
+                    }
+                } else {
+                    let validTargets = [player]; entities.mercs.forEach(m => { if(m.state === 'follow' && m.hp > 0) validTargets.push(m); });
+                    validTargets.forEach(t => {
+                        if (!hitTarget && !b.hitTargets.has(t)) {
+                            let dx = b.x - t.x; let dy = b.y - t.y;
+                            if (dx*dx + dy*dy < (b.size + t.size)*(b.size + t.size)) {
+                                hitTarget = true; b.hitTargets.add(t);
+                                if (t === player && Math.random() < player.stats.dodge) { addFloatingText(player.x, player.y, '閃躲!', '#a0aec0'); }
+                                else {
+                                    let def = t === player ? player.stats.def : (t.type === 'warrior' ? 10 : 5);
+                                    let dmg = Math.max(1, b.dmg - def); t.hp -= dmg; addHitEffect(t.x, t.y, '🩸', '#ff0000');
+                                    if (t === player && player.hp <= 0) handleDeath();
+                                }
+                            }
+                        }
+                    });
+                    if (hitTarget) b.pierce--;
+                }
+
+                if (b.pierce <= 0 || b.life <= 0) {
+                    if (b.effects.includes('split') && !b.isSplit && b.owner === 'player') {
+                        let currentAngle = Math.atan2(b.vy, b.vx); let speed = Math.hypot(b.vx, b.vy);
+                        // 確保分裂後的子彈擁有新的碰撞記錄表
+                        entities.bullets.push({ ...b, vx: Math.cos(currentAngle - 0.5)*speed, vy: Math.sin(currentAngle - 0.5)*speed, life: 1.0, size: Math.max(2, b.size - 2), pierce: 1, isSplit: true, hitTargets: new Set() });
+                        entities.bullets.push({ ...b, vx: Math.cos(currentAngle + 0.5)*speed, vy: Math.sin(currentAngle + 0.5)*speed, life: 1.0, size: Math.max(2, b.size - 2), pierce: 1, isSplit: true, hitTargets: new Set() });
+                    }
+                    if (entities.bullets[i]) entities.bullets.splice(i, 1);
+                }
+            }
+        }
+
+        function hitEnemy(e, b) {
+            let isCrit = Math.random() < player.stats.critRate + (b.effects.includes('crit_boost') ? 0.2 : 0);
+            let finalDmg = isCrit ? b.dmg * player.stats.critDmg : b.dmg;
+            e.hp -= finalDmg; addHitEffect(e.x, e.y, isCrit ? '💥' : '✨', isCrit ? '#fbbf24' : '#ffffff');
+            if (b.effects.includes('slow')) e.spd = Math.max(e.baseSpd * 0.2, e.spd * 0.6);
+            
+            if (b.effects.includes('freeze') && !e.isBoss) {
+                e.stun = 3.0; addFloatingText(e.x, e.y - 15, '⏳時停!', '#00b5d8');
+            }
+            
+            if (b.effects.includes('mine')) {
+                entities.mines.push({ x: e.x + (Math.random()*20-10), y: e.y + (Math.random()*20-10), dmg: b.dmg * 2.5, life: 3.0, triggerRadius: 40, explosionRadius: 120 });
+            }
+            
+            if (b.effects.includes('lifesteal') && Math.random() < 0.2) {
+                player.hp = Math.min(player.stats.maxHp, player.hp + finalDmg * 0.1);
+                addHitEffect(player.x, player.y, '🩸', '#8b0000');
+            }
+            
+            if (b.effects.includes('chain')) {
+                let chainTarget = null; let minChainDist = 150;
+                entities.enemies.forEach(otherE => {
+                    if (otherE !== e && !otherE.isDead) { let d = Math.hypot(e.x - otherE.x, e.y - otherE.y); if (d < minChainDist) { minChainDist = d; chainTarget = otherE; } }
+                });
+                if (chainTarget) {
+                    chainTarget.hp -= finalDmg * 0.5; addHitEffect(chainTarget.x, chainTarget.y, '⚡', '#faf089');
+                    entities.hitEffects.push({ type: 'line', x: e.x, y: e.y, tx: chainTarget.x, ty: chainTarget.y, color: '#faf089', life: 0.2 });
+                    checkEnemyDeath(chainTarget, []);
+                }
+            }
+            checkEnemyDeath(e, b.effects);
+        }
+
+        function updateMines(dt) {
+            for (let i = entities.mines.length - 1; i >= 0; i--) {
+                let m = entities.mines[i];
+                m.life -= dt;
+                let triggered = false;
+
+                if (m.life <= 0) {
+                    triggered = true;
+                } else {
+                    // 偵測是否有怪物踩到
+                    for (let j = 0; j < entities.enemies.length; j++) {
+                        let e = entities.enemies[j];
+                        if (!e.isDead && Math.hypot(m.x - e.x, m.y - e.y) < m.triggerRadius + e.size) {
+                            triggered = true; break;
+                        }
+                    }
+                }
+
+                if (triggered) {
+                    addHitEffect(m.x, m.y, '💥', '#ff4444'); addHitEffect(m.x, m.y, '💨');
+                    entities.hitEffects.push({ type: 'particle', x: m.x, y: m.y, size: m.explosionRadius * 0.8, color: 'rgba(255, 68, 68, 0.4)', life: 0.3 });
+                    
+                    // 對範圍內敵人造成爆炸傷害
+                    entities.enemies.forEach(e => {
+                        if (!e.isDead && Math.hypot(m.x - e.x, m.y - e.y) < m.explosionRadius + e.size) {
+                            let isCrit = Math.random() < player.stats.critRate;
+                            let finalDmg = isCrit ? m.dmg * player.stats.critDmg : m.dmg;
+                            e.hp -= finalDmg;
+                            addHitEffect(e.x, e.y, '🔥', '#fc8181');
+                            addFloatingText(e.x, e.y - 10, Math.floor(finalDmg), isCrit ? '#fbbf24' : '#ff4444', isCrit);
+                            checkEnemyDeath(e);
+                        }
+                    });
+                    entities.mines.splice(i, 1);
+                }
+            }
+        }
+
+        function checkEnemyDeath(e, effects = []) {
+            if (e.hp <= 0 && !e.isDead) {
+                e.isDead = true; // 標記為死亡，不再使用 splice 即時刪除
+                addHitEffect(e.x, e.y, '💨');
+                if (effects.includes('summon') && Math.random() < 0.3) {
+                    addFloatingText(e.x, e.y, '👻', '#d6bcfa');
+                    entities.enemies.forEach(otherE => { if (!otherE.isDead && Math.hypot(otherE.x - e.x, otherE.y - e.y) < 100) { otherE.hp -= player.stats.atk * 2; addHitEffect(otherE.x, otherE.y, '💥'); checkEnemyDeath(otherE); } });
+                }
+                if (effects.includes('wealth') && Math.random() < 0.25) {
+                    entities.ores.push({ x: e.x, y: e.y, emoji: '🪨', size: 15 });
+                    addFloatingText(e.x, e.y, '💰', '#d69e2e');
+                }
+                if (e.isBoss) { state.isBossFight = false; state.aggro = 0; state.wave++; showToast(`消滅了魔王！進入第 ${state.wave} 波`); autoSaveGame(); }
+            }
+        }
+
+        function updateEnemies(dt, inTown) {
+            let validTargets = [player]; entities.mercs.forEach(m => { if(m.state === 'follow' && m.hp > 0) validTargets.push(m); });
+
+            entities.enemies.forEach(e => {
+                if (e.isDead) return;
+                if (e.stun && e.stun > 0) { e.stun -= dt; return; }
+                if (e.spd < e.baseSpd) e.spd += (e.baseSpd - e.spd) * dt * 0.5; // 解凍
+                
+                let actualSpd = e.spd;
+                // Dash 特性
+                if (e.behavior === 'dash' || e.behavior === 'boss_dasher') {
+                    e.stateTime = (e.stateTime || 0) + dt;
+                    if (e.stateTime > 3) e.stateTime = 0;
+                    else if (e.stateTime > 2.5) actualSpd = e.spd * 4;
+                    else if (e.stateTime > 2.0) actualSpd = 0;
+                }
+
+                let closestTarget = player; let minDistToTarget = Math.hypot(player.x - e.x, player.y - e.y);
+                validTargets.forEach(t => { let d = Math.hypot(t.x - e.x, t.y - e.y); if (d < minDistToTarget) { minDistToTarget = d; closestTarget = t; } });
+                let distToTown = Math.hypot(e.x - GAME_CONFIG.town.x, e.y - GAME_CONFIG.town.y);
+
+                if (inTown) {
+                    if (distToTown < GAME_CONFIG.town.radius + 150) {
+                        let angle = Math.atan2(e.y - GAME_CONFIG.town.y, e.x - GAME_CONFIG.town.x);
+                        e.x += Math.cos(angle) * (actualSpd * 0.6) * dt; e.y += Math.sin(angle) * (actualSpd * 0.6) * dt;
+                    } else {
+                        if (!e.wanderAngle || Math.random() < 0.02) e.wanderAngle = Math.random() * Math.PI * 2;
+                        e.x += Math.cos(e.wanderAngle) * (actualSpd * 0.3) * dt; e.y += Math.sin(e.wanderAngle) * (actualSpd * 0.3) * dt;
+                    }
+                } else {
+                    if (e.behavior === 'wander' && Math.random() < 0.5) {
+                        if (!e.wanderAngle || Math.random() < 0.05) e.wanderAngle = Math.random() * Math.PI * 2;
+                        e.x += Math.cos(e.wanderAngle) * actualSpd * dt; e.y += Math.sin(e.wanderAngle) * actualSpd * dt;
+                    } else if (minDistToTarget > 10) {
+                        // 遠程怪物太近時會試圖拉開距離，否則一般追擊
+                        if (e.isRanged && minDistToTarget < 150) {
+                            let angle = Math.atan2(e.y - closestTarget.y, e.x - closestTarget.x);
+                            e.x += Math.cos(angle) * actualSpd * dt; e.y += Math.sin(angle) * actualSpd * dt;
+                        } else if (!e.isRanged || minDistToTarget > 250) {
+                            let angle = Math.atan2(closestTarget.y - e.y, closestTarget.x - e.x);
+                            let nextX = e.x + Math.cos(angle) * actualSpd * dt; let nextY = e.y + Math.sin(angle) * actualSpd * dt;
+                            let distToTownCenter = Math.hypot(nextX - GAME_CONFIG.town.x, nextY - GAME_CONFIG.town.y);
+                            let townBarrier = GAME_CONFIG.town.radius + (e.size / 2);
+                            if (distToTownCenter < townBarrier) {
+                                let pushAngle = Math.atan2(nextY - GAME_CONFIG.town.y, nextX - GAME_CONFIG.town.x);
+                                nextX = GAME_CONFIG.town.x + Math.cos(pushAngle) * townBarrier; nextY = GAME_CONFIG.town.y + Math.sin(pushAngle) * townBarrier;
+                            }
+                            e.x = nextX; e.y = nextY;
+                        }
+                    }
+                } // inTown else 結束
+
+                // 遠程攻擊 (Boss & Normal) 搭配多樣化射擊模式
+                if (!inTown && e.isRanged) {
+                    e.atkCooldown -= dt;
+                    if (e.atkCooldown <= 0 && minDistToTarget < 350) {
+                        let baseAngle = Math.atan2(closestTarget.y - e.y, closestTarget.x - e.x);
+                        let angles = [baseAngle];
+                        
+                        if (e.shootPattern === 'fan') angles = [baseAngle - 0.25, baseAngle, baseAngle + 0.25];
+                        else if (e.shootPattern === 'cross') angles = [baseAngle, baseAngle+Math.PI/2, baseAngle+Math.PI, baseAngle-Math.PI/2];
+                        else if (e.shootPattern === 'circle' || e.behavior === 'boss_ranged') { 
+                            angles = []; for(let i=0; i<8; i++) angles.push((i/8)*Math.PI*2); 
+                        }
+                        else if (e.shootPattern === 'shotgun') angles = [baseAngle - 0.3, baseAngle - 0.15, baseAngle, baseAngle + 0.15, baseAngle + 0.3];
+                        
+                        angles.forEach(ang => {
+                            // 加入 hitTargets 記錄
+                            entities.bullets.push({ owner: 'enemy', x: e.x, y: e.y, vx: Math.cos(ang)*150, vy: Math.sin(ang)*150, life: (e.shootPattern==='shotgun'?1.0:2.5), size: e.isBoss ? 8 : 6, color: '#ff4444', dmg: e.atk, pierce: 1, effects: [], hitTargets: new Set() });
+                        });
+                        e.atkCooldown = e.isBoss ? 2.0 : 2.5;
+                    }
+                }
+
+                // 召喚 Boss 技能 (生小怪)
+                if (!inTown && e.behavior === 'boss_summoner') {
+                    e.stateTime = (e.stateTime || 0) + dt;
+                    if (e.stateTime > 5) {
+                        e.stateTime = 0; addFloatingText(e.x, e.y - 30, "召喚!", "#c084fc");
+                        for(let i=0; i<3; i++) {
+                            let tmpl = NORMAL_BEHAVIORS.find(b=>b.id==='swarm'); let w = 1 + (state.wave * 0.2);
+                            entities.enemies.push({ x: e.x + (Math.random()*60-30), y: e.y + (Math.random()*60-30), emoji: NORMAL_EMOJIS[Math.floor(Math.random()*NORMAL_EMOJIS.length)], size: tmpl.size, hp: 30*tmpl.hpMulti*w, maxHp: 30*tmpl.hpMulti*w, atk: 5*tmpl.atkMulti*w, spd: 40*tmpl.spdMulti, baseSpd: 40*tmpl.spdMulti, atkCooldown: 0, isBoss: false, behavior: tmpl.id, isRanged: tmpl.ranged });
+                        }
+                    }
+                }
+
+                // 近戰攻擊判定
+                if (!inTown && minDistToTarget < closestTarget.size + e.size && (!e.isRanged || e.behavior==='tank') && (!e.atkCooldown || e.atkCooldown <= 0)) {
+                    if (closestTarget === player && Math.random() < player.stats.dodge) {
+                        addFloatingText(player.x, player.y, '閃躲!', '#a0aec0');
+                    } else {
+                        let def = closestTarget === player ? player.stats.def : (closestTarget.type === 'warrior' ? 10 : 5);
+                        let dmg = Math.max(1, e.atk - def); closestTarget.hp -= dmg; addHitEffect(closestTarget.x, closestTarget.y, '🩸', '#ff0000');
+                        if (closestTarget === player && player.hp <= 0) handleDeath();
+                    }
+                    e.atkCooldown = 1.0;
+                }
+                if(e.atkCooldown > 0 && !e.isRanged) e.atkCooldown -= dt; // 防錯
+            });
+        }
+
+        function spawnEnemies(dt) {
+            state.enemySpawnTimer -= dt; if (state.enemySpawnTimer > 0) return;
+            state.enemySpawnTimer = 0.5; 
+            
+            if (state.aggro >= GAME_CONFIG.maxAggro && !state.isBossFight) {
+                state.isBossFight = true; showToast("⚠️ 魔王降臨 ⚠️");
+                let tmpl = BOSS_BEHAVIORS[Math.floor(Math.random() * BOSS_BEHAVIORS.length)];
+                
+                // 平衡調整: 魔王血量改為指數型成長，攻擊力維持線性成長
+                let hpMult = Math.pow(1.3, state.wave - 1);
+                let atkMult = 1 + (state.wave * 0.2);
+                let angle = Math.random() * Math.PI * 2; let actualSpd = 40 * tmpl.spdMulti;
+                
+                let eObj = { x: player.x + Math.cos(angle)*600, y: player.y + Math.sin(angle)*600, emoji: BOSS_EMOJIS[Math.floor(Math.random()*BOSS_EMOJIS.length)], size: tmpl.size, hp: 100*tmpl.hpMulti*hpMult, maxHp: 100*tmpl.hpMulti*hpMult, atk: 10*tmpl.atkMulti*atkMult, spd: actualSpd, baseSpd: actualSpd, atkCooldown: 0, isBoss: true, behavior: tmpl.id, isRanged: tmpl.ranged };
+                
+                if (tmpl.ranged) eObj.shootPattern = ['circle', 'cross', 'fan'][Math.floor(Math.random() * 3)];
+                entities.enemies.push(eObj);
+            }
+            
+            let aggroRatio = state.aggro / GAME_CONFIG.maxAggro;
+            let spawnChance = 0.05 + Math.pow(aggroRatio, 2) * 0.85; 
+            
+            if (!state.isBossFight && Math.random() < spawnChance && entities.enemies.length < 80) {
+                let spawnCount = 1 + Math.floor(aggroRatio * 3.5); 
+                for (let i = 0; i < spawnCount; i++) {
+                    let tmpl = NORMAL_BEHAVIORS[Math.floor(Math.random() * NORMAL_BEHAVIORS.length)];
+                    
+                    // 平衡調整: 小怪血量也改為指數型成長
+                    let hpMult = Math.pow(1.25, state.wave - 1);
+                    let atkMult = 1 + (state.wave * 0.2);
+                    let angle = Math.random() * Math.PI * 2; let actualSpd = 40 * tmpl.spdMulti;
+                    
+                    let spread = (Math.random() - 0.5) * 150; 
+                    let eObj = { x: player.x + Math.cos(angle)*(400 + spread), y: player.y + Math.sin(angle)*(400 + spread), emoji: NORMAL_EMOJIS[Math.floor(Math.random()*NORMAL_EMOJIS.length)], size: tmpl.size, hp: 30*tmpl.hpMulti*hpMult, maxHp: 30*tmpl.hpMulti*hpMult, atk: 5*tmpl.atkMulti*atkMult, spd: actualSpd, baseSpd: actualSpd, atkCooldown: 0, isBoss: false, behavior: tmpl.id, isRanged: tmpl.ranged };
+                    
+                    if (tmpl.ranged) eObj.shootPattern = ['single', 'fan', 'cross', 'circle', 'shotgun'][Math.floor(Math.random() * 5)];
+                    entities.enemies.push(eObj);
+                }
+            }
+        }
+
+        function activateAltar() {
+            let r = Math.random();
+            if (r < 0.25) { player.hp = Math.min(player.stats.maxHp, player.hp + player.stats.maxHp * 0.5); addFloatingText(player.x, player.y - 20, "✨ 治癒之風", "#4ade80", true); }
+            else if (r < 0.5) { player.hp -= player.stats.maxHp * 0.2; addFloatingText(player.x, player.y - 20, "💀 鮮血祭祀", "#f87171", true); if (player.hp <= 0) handleDeath(); }
+            else if (r < 0.75) { state.aggro = Math.min(GAME_CONFIG.maxAggro, state.aggro + 30); addFloatingText(player.x, player.y - 20, "⚠️ 狂怒印記", "#c084fc", true); }
+            else { state.aggro = Math.max(0, state.aggro - 30); addFloatingText(player.x, player.y - 20, "🕊️ 寧靜之祈", "#93c5fd", true); }
+        }
+
+        function addFloatingText(x, y, text, color, isBig = false) { entities.floatingTexts.push({ x, y, text, color, life: 1, isBig }); }
+        function addHitEffect(x, y, emoji='💥', color='#ffffff') { entities.hitEffects.push({ type: 'emoji', x: x + (Math.random()*10-5), y: y + (Math.random()*10-5), emoji, color, life: 0.3 }); }
+        function updateEffects(dt) {
+            for (let i = entities.floatingTexts.length - 1; i >= 0; i--) { entities.floatingTexts[i].y -= 30 * dt; entities.floatingTexts[i].life -= dt; if (entities.floatingTexts[i].life <= 0) entities.floatingTexts.splice(i, 1); }
+            for (let i = entities.hitEffects.length - 1; i >= 0; i--) { entities.hitEffects[i].life -= dt; if (entities.hitEffects[i].life <= 0) entities.hitEffects.splice(i, 1); }
+        }
+
+        /** ==========================================
+         * 6. 渲染與 UI
+         * ========================================== */
+        function render() {
+            // 背景漸層渲染：營造開放世界的空間層次感
+            state.timeOfDay = (state.timeOfDay + 0.0005) % 24; 
+            let cx = canvas.width / 2; let cy = canvas.height / 2;
+            let grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(canvas.width, canvas.height));
+            
+            if (state.isBossFight) {
+                grad.addColorStop(0, `hsl(0, 60%, 25%)`);
+                grad.addColorStop(1, `hsl(0, 80%, 10%)`);
+            } else {
+                let centerL = Math.sin((state.timeOfDay / 24) * Math.PI * 2) * 15 + 35;
+                let edgeL = Math.sin((state.timeOfDay / 24) * Math.PI * 2) * 15 + 15;
+                grad.addColorStop(0, `hsl(120, 40%, ${centerL}%)`);
+                grad.addColorStop(1, `hsl(120, 60%, ${edgeL}%)`);
+            }
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save(); ctx.translate(-state.camera.x, -state.camera.y);
+
+            ctx.beginPath(); ctx.arc(GAME_CONFIG.town.x, GAME_CONFIG.town.y, GAME_CONFIG.town.radius, 0, Math.PI*2);
+            ctx.fillStyle = 'rgba(150, 150, 150, 0.3)'; ctx.fill();
+            ctx.strokeStyle = 'rgba(100, 200, 255, 0.6)'; ctx.setLineDash([10, 10]); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+
+            // 重置填充顏色為不透明白，避免受前方城鎮半透明區域或血條顏色的影響
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 1.0;
+
+            ctx.font = '24px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            entities.scenery.forEach(s => { if(s.x>state.camera.x-50 && s.x<state.camera.x+canvas.width+50 && s.y>state.camera.y-50 && s.y<state.camera.y+canvas.height+50) ctx.fillText(s.emoji, s.x, s.y); });
+            ctx.font = '20px sans-serif'; entities.ores.forEach(o => { ctx.fillText(o.emoji, o.x, o.y); });
+            ctx.font = '28px sans-serif'; entities.altars.forEach(a => { ctx.fillText(a.emoji, a.x, a.y); });
+            
+            entities.mercs.forEach(m => {
+                ctx.fillStyle = '#ffffff'; // 每次畫傭兵 Emoji 前確保顏色為不透明
+                ctx.font = '20px sans-serif'; ctx.fillText(m.emoji, m.x, m.y);
+                if(m.state === 'follow' && m.hp < m.baseHp * (1+state.wave*0.5)){ ctx.fillStyle='#000'; ctx.fillRect(m.x-10, m.y-18, 20, 3); ctx.fillStyle='#0f0'; ctx.fillRect(m.x-10, m.y-18, 20*(m.hp/(m.baseHp*(1+state.wave*0.5))), 3); }
+            });
+            
+            ctx.fillStyle = '#ffffff'; // 畫完血條後，再重置一次給敵人與玩家使用
+            entities.enemies.forEach(e => {
+                ctx.font = `${e.size * 1.5}px sans-serif`; ctx.fillText(e.emoji, e.x, e.y);
+                if (e.stun && e.stun > 0) { ctx.font = '16px sans-serif'; ctx.fillText('💫', e.x, e.y - e.size); }
+            });
+            
+            ctx.font = '20px sans-serif';
+            entities.mines.forEach(m => { 
+                ctx.fillText('💣', m.x, m.y);
+                // 畫出閃爍的警戒半徑圈
+                ctx.beginPath(); ctx.arc(m.x, m.y, m.triggerRadius, 0, Math.PI*2);
+                ctx.fillStyle = `rgba(255, 0, 0, ${0.1 + Math.abs(Math.sin(m.life * 5)) * 0.2})`; ctx.fill();
+            });
+            
+            ctx.font = '24px sans-serif'; ctx.fillText('🧙‍♂️', player.x, player.y);
+            const inTown = Math.hypot(player.x - GAME_CONFIG.town.x, player.y - GAME_CONFIG.town.y) < GAME_CONFIG.town.radius;
+            if (!inTown && state.autoAimTarget && player.mp >= getShootCost()) {
+                ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(state.autoAimTarget.x, state.autoAimTarget.y);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+            }
+
+            entities.bullets.forEach(b => {
+                if (b.owner === 'player') {
+                    // --- 玩家：流線型高光魔法能量彈 ---
+                    ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx));
+                    let stretch = 1.6; 
+                    // 優化: 完全移除造成嚴重過熱與卡頓的 shadowBlur
+                    
+                    // 漸層外發光層
+                    ctx.beginPath(); ctx.ellipse(0, 0, b.size * stretch, b.size, 0, 0, Math.PI * 2);
+                    let grad = ctx.createRadialGradient(0, 0, 0, 0, 0, b.size * stretch);
+                    grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.3, b.color); grad.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = grad; ctx.fill();
+                    
+                    // 耀眼的內核心
+                    ctx.beginPath(); ctx.ellipse(0, 0, b.size * stretch * 0.4, b.size * 0.4, 0, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff'; ctx.fill(); 
+                    ctx.restore();
+                } else {
+                    // --- 敵人：銳利漸層暗影水晶刺 ---
+                    ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx));
+                    // 優化: 移除 ctx.shadowBlur
+                    
+                    // 水晶輪廓
+                    ctx.beginPath(); ctx.moveTo(b.size * 1.5, 0); ctx.lineTo(0, b.size * 0.8); ctx.lineTo(-b.size, 0); ctx.lineTo(0, -b.size * 0.8); ctx.closePath();
+                    let eGrad = ctx.createLinearGradient(-b.size, 0, b.size * 1.5, 0);
+                    eGrad.addColorStop(0, 'rgba(50, 0, 0, 0)'); eGrad.addColorStop(0.5, b.color); eGrad.addColorStop(1, '#ffffff');
+                    ctx.fillStyle = eGrad; ctx.fill();
+                    
+                    // 水晶內部高光
+                    ctx.beginPath(); ctx.moveTo(b.size, 0); ctx.lineTo(0, b.size * 0.3); ctx.lineTo(-b.size * 0.6, 0); ctx.lineTo(0, -b.size * 0.3); ctx.closePath();
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.fill(); 
+                    ctx.restore();
+                }
+            });
+            
+            entities.hitEffects.forEach(h => {
+                if (h.type === 'line') {
+                    ctx.beginPath(); ctx.moveTo(h.x, h.y); ctx.lineTo(h.tx, h.ty);
+                    ctx.strokeStyle = h.color; ctx.lineWidth = 2; ctx.globalAlpha = Math.max(0, h.life / 0.2); ctx.stroke(); ctx.globalAlpha = 1.0;
+                } else if (h.type === 'particle') {
+                    // --- 渲染子彈尾跡粒子 ---
+                    let pSize = Math.max(0, h.size * (h.life / 0.15));
+                    ctx.beginPath(); ctx.arc(h.x, h.y, pSize, 0, Math.PI * 2);
+                    ctx.fillStyle = h.color; ctx.globalAlpha = Math.max(0, h.life / 0.15); ctx.fill(); ctx.globalAlpha = 1.0;
+                } else {
+                    ctx.font = '20px sans-serif'; ctx.globalAlpha = Math.max(0, h.life / 0.3); ctx.fillStyle = h.color; ctx.fillText(h.emoji, h.x, h.y); ctx.globalAlpha = 1.0; 
+                }
+            });
+            entities.floatingTexts.forEach(ft => { ctx.fillStyle = ft.color; ctx.font = ft.isBig ? 'bold 20px sans-serif' : '14px sans-serif'; ctx.globalAlpha = Math.max(0, ft.life); ctx.fillText(ft.text, ft.x, ft.y); ctx.globalAlpha = 1.0; });
+            ctx.restore(); 
+
+            // --- 城鎮方位指標 (Town Direction Indicator) ---
+            let distToTown = Math.hypot(GAME_CONFIG.town.x - player.x, GAME_CONFIG.town.y - player.y);
+            // 當距離大於畫面一半時顯示指標
+            if (distToTown > Math.min(canvas.width, canvas.height) / 2 + 50) {
+                let angle = Math.atan2(GAME_CONFIG.town.y - player.y, GAME_CONFIG.town.x - player.x);
+                let cx = canvas.width / 2;
+                let cy = canvas.height / 2;
+                let radius = Math.min(cx, cy) - 50; // 指標距離螢幕中心的半徑
+                
+                let indX = cx + Math.cos(angle) * radius;
+                let indY = cy + Math.sin(angle) * radius;
+
+                ctx.save();
+                ctx.translate(indX, indY);
+                
+                // 背景圈圈
+                ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI*2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; ctx.fill();
+                ctx.strokeStyle = 'rgba(100, 200, 255, 0.5)'; ctx.lineWidth = 2; ctx.stroke();
+                
+                // 動態指向箭頭
+                ctx.save();
+                ctx.rotate(angle);
+                ctx.fillStyle = 'rgba(100, 200, 255, 0.8)';
+                ctx.beginPath(); ctx.moveTo(26, 0); ctx.lineTo(16, -7); ctx.lineTo(16, 7); ctx.fill();
+                ctx.restore();
+
+                // 畫城鎮圖示與剩餘距離
+                ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('🏰', 0, -5);
+                ctx.font = 'bold 10px sans-serif'; ctx.fillStyle = '#60a5fa';
+                ctx.fillText(`${Math.floor(distToTown)}m`, 0, 11);
+                
+                ctx.restore();
+            }
+
+            // --- 魔王方位指標 (Boss Direction Indicator) ---
+            if (state.isBossFight) {
+                let boss = entities.enemies.find(e => e.isBoss && !e.isDead);
+                if (boss) {
+                    let distToBoss = Math.hypot(boss.x - player.x, boss.y - player.y);
+                    if (distToBoss > Math.min(canvas.width, canvas.height) / 2 + 50) {
+                        let angle = Math.atan2(boss.y - player.y, boss.x - player.x);
+                        let radius = Math.min(cx, cy) - 50;
+                        
+                        let indX = cx + Math.cos(angle) * radius;
+                        let indY = cy + Math.sin(angle) * radius;
+
+                        ctx.save();
+                        ctx.translate(indX, indY);
+                        
+                        ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI*2);
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; ctx.fill();
+                        ctx.strokeStyle = 'rgba(255, 100, 100, 0.6)'; ctx.lineWidth = 2; ctx.stroke();
+                        
+                        ctx.save();
+                        ctx.rotate(angle);
+                        ctx.fillStyle = 'rgba(255, 100, 100, 0.9)';
+                        ctx.beginPath(); ctx.moveTo(26, 0); ctx.lineTo(16, -7); ctx.lineTo(16, 7); ctx.fill();
+                        ctx.restore();
+
+                        ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.fillText('👿', 0, -5);
+                        ctx.font = 'bold 10px sans-serif'; ctx.fillStyle = '#fca5a5';
+                        ctx.fillText(`${Math.floor(distToBoss)}m`, 0, 11);
+                        
+                        ctx.restore();
+                    }
+                }
+            }
+
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('ui-wave').innerText = state.wave; document.getElementById('ui-deaths').innerText = state.deaths;
+            document.getElementById('bar-hp').style.width = `${Math.max(0, Math.min(100, (player.hp/player.stats.maxHp)*100))}%`; document.getElementById('text-hp').innerText = `${Math.floor(player.hp)} / ${Math.floor(player.stats.maxHp)}`;
+            document.getElementById('bar-mp').style.width = `${Math.max(0, Math.min(100, (player.mp/player.stats.maxMp)*100))}%`; document.getElementById('text-mp').innerText = `${Math.floor(player.mp)} / ${Math.floor(player.stats.maxMp)}`;
+            const aggroPct = (state.aggro / GAME_CONFIG.maxAggro) * 100; document.getElementById('bar-aggro').style.width = `${aggroPct}%`;
+            if (state.isBossFight) { document.getElementById('bar-aggro').classList.replace('bg-purple-600', 'bg-red-600'); document.getElementById('text-aggro').innerText = `⚠️ 魔王戰鬥中`; }
+            else { document.getElementById('bar-aggro').classList.replace('bg-red-600', 'bg-purple-600'); document.getElementById('text-aggro').innerText = `${Math.floor(aggroPct)}%`; }
+        }
+
+        /** ==========================================
+         * 7. 寶石系統
+         * ========================================== */
+        function craftGem() {
+            if (player.inventory.rawStones <= 0) { showToast('原石不足！(請在世界中採礦)'); return; }
+            if (player.inventory.gems.length >= GAME_CONFIG.inventoryLimit) { showToast('背包已滿！請先丟棄或鑲嵌'); return; }
+
+            player.inventory.rawStones--; state.craftingExp++;
+            let craftLevel = Math.floor(state.craftingExp / 10) + 1; // 提取打磨等級
+            let expBonus = state.craftingExp;
+            
+            let availableTiers = RARITY_TIERS.filter(t => expBonus >= t.valueReq); 
+            if (availableTiers.length === 0) availableTiers = [RARITY_TIERS[0]];
+            
+            // 加入打磨等級影響機率：稀有度越高的寶石，受打磨等級加成權重越多
+            let adjustedTiers = availableTiers.map(t => {
+                let bonusWeight = (t.valueReq > 0) ? (craftLevel * t.statMultiplier * 3) : 0;
+                return { ...t, currentWeight: t.weight + bonusWeight };
+            });
+
+            let totalWeight = adjustedTiers.reduce((sum, t) => sum + t.currentWeight, 0);
+            let roll = Math.random() * totalWeight, currentWeight = 0, selectedTier = adjustedTiers[0];
+            for (let t of adjustedTiers) { currentWeight += t.currentWeight; if (roll <= currentWeight) { selectedTier = t; break; } }
+            
+            let type = GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
+            
+            let statKeys = Object.keys(ATTR_NAMES); let numStats = Math.floor(Math.random() * 3) + 1; let bonusStats = {};
+            for(let i=0; i<numStats; i++) {
+                let k = statKeys[Math.floor(Math.random() * statKeys.length)];
+                let baseVal = (k === 'critRate' || k === 'dodge') ? 0.02 : (k === 'critDmg' ? 0.2 : (k === 'hpRegen' || k === 'mpRegen' ? 1 : 5));
+                bonusStats[k] = (bonusStats[k] || 0) + baseVal * selectedTier.statMultiplier;
+            }
+            player.inventory.gems.push({ id: Date.now() + Math.random(), name: `${selectedTier.name}的${type.name}石`, type: type.id, icon: type.icon, rarity: selectedTier, bonusStats: bonusStats, effect: type.effect });
+            updateBagUI();
+        }
+
+        function renderSlots() {
+            const container = document.getElementById('gun-slots-container'); container.innerHTML = '';
+            for (let i = 0; i < GAME_CONFIG.maxSlots; i++) {
+                let gem = player.slots[i]; let bg = gem ? gem.rarity.color : '#4a5568'; let icon = gem ? gem.icon : '＋';
+                container.innerHTML += `<div onclick="openGemDetail('slot', ${i})" class="w-[34px] h-[34px] sm:w-10 sm:h-10 rounded border-2 border-gray-600 flex items-center justify-center text-sm sm:text-lg cursor-pointer active:scale-95 transition-transform" style="background-color: ${bg}40; border-color: ${bg}; box-shadow: 0 0 5px ${bg}80">${icon}</div>`;
+            }
+        }
+
+        function updateBagUI() {
+            document.getElementById('ui-rawstones').innerText = player.inventory.rawStones; document.getElementById('ui-craftlevel').innerText = `Lv ${Math.floor(state.craftingExp/10) + 1} (${state.craftingExp})`;
+            document.getElementById('ui-gem-count').innerText = player.inventory.gems.length;
+            const grid = document.getElementById('inventory-grid'); grid.innerHTML = '';
+            player.inventory.gems.forEach((gem, idx) => { grid.innerHTML += `<div onclick="openGemDetail('bag', ${idx})" class="w-full aspect-square rounded border flex items-center justify-center text-xl cursor-pointer" style="background-color: ${gem.rarity.color}20; border-color: ${gem.rarity.color}">${gem.icon}</div>`; });
+            player.recalculateStats(); const statList = document.getElementById('player-stats-list'); statList.innerHTML = '';
+            for(let key in ATTR_NAMES) {
+                let val = player.stats[key]; if(key==='critRate'||key==='dodge') val = (val * 100).toFixed(1) + '%'; else if(key==='critDmg') val = (val * 100).toFixed(0) + '%'; else val = Math.floor(val * 10) / 10;
+                statList.innerHTML += `<div class="flex justify-between border-b border-gray-700 pb-1"><span>${ATTR_NAMES[key]}:</span> <span class="font-bold text-white">${val}</span></div>`;
+            }
+        }
+
+        let currentGemContext = { source: null, index: -1 };
+        function openGemDetail(source, index) {
+            currentGemContext = { source, index }; const gem = source === 'slot' ? player.slots[index] : player.inventory.gems[index];
+            if (!gem && source === 'slot') return;
+            let statsHtml = '';
+            for(let key in gem.bonusStats) {
+                let val = gem.bonusStats[key]; if(key==='critRate'||key==='dodge') val = '+' + (val * 100).toFixed(1) + '%'; else if(key==='critDmg') val = '+' + (val * 100).toFixed(0) + '%'; else val = '+' + Math.floor(val * 10) / 10;
+                statsHtml += `<div class="text-sm text-gray-300">• ${ATTR_NAMES[key]}: <span class="text-green-400">${val}</span></div>`;
+            }
+            document.getElementById('gem-detail-content').innerHTML = `
+                <div class="flex justify-between items-start border-b border-gray-700 pb-2"><div class="flex items-center gap-2"><div class="text-3xl">${gem.icon}</div><div><div class="font-bold text-lg" style="color: ${gem.rarity.color}">${gem.name}</div><div class="text-xs text-gray-400">類型: ${GEM_TYPES.find(t=>t.id===gem.type).name} | 稀有度: ${gem.rarity.name}</div></div></div><button onclick="toggleModal('modal-gem-detail')" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button></div>
+                <div class="py-2"><div class="text-sm text-yellow-300 mb-2">${gem.effect}</div><div class="bg-gray-900 p-2 rounded"><div class="text-xs text-gray-500 mb-1">附加屬性:</div>${statsHtml}</div></div>
+                <div class="flex gap-2 pt-2">${source === 'bag' ? `<button onclick="equipGem(${index})" class="flex-1 bg-green-600 py-2 rounded font-bold text-sm">裝備</button>` : `<button onclick="unequipGem(${index})" class="flex-1 bg-yellow-600 py-2 rounded font-bold text-sm">卸下</button>`}<button onclick="discardGem()" class="flex-1 bg-red-600 py-2 rounded font-bold text-sm">丟棄</button></div>
+            `; toggleModal('modal-gem-detail', true);
+        }
+
+        function equipGem(idx) { let emp = player.slots.indexOf(null); if (emp===-1){showToast('沒有空插槽！');return;} player.slots[emp] = player.inventory.gems.splice(idx, 1)[0]; afterGemAction(); }
+        function unequipGem(idx) { if (player.inventory.gems.length >= GAME_CONFIG.inventoryLimit){showToast('背包已滿！');return;} player.inventory.gems.push(player.slots[idx]); player.slots[idx] = null; afterGemAction(); }
+        function discardGem() { if (currentGemContext.source === 'bag') player.inventory.gems.splice(currentGemContext.index, 1); else player.slots[currentGemContext.index] = null; afterGemAction(); showToast('已丟棄寶石'); }
+        function afterGemAction() { player.recalculateStats(); renderSlots(); updateBagUI(); toggleModal('modal-gem-detail'); }
+
+        function toggleModal(id, forceOpen = false) {
+            const el = document.getElementById(id);
+            if (!forceOpen && (el.style.display === 'flex' || el.classList.contains('flex'))) { el.style.display = 'none'; el.classList.add('hidden'); el.classList.remove('flex'); }
+            else { el.style.display = 'flex'; el.classList.remove('hidden'); el.classList.add('flex'); if (id === 'modal-bag') updateBagUI(); }
+            state.isPaused = !document.getElementById('modal-bag').classList.contains('hidden') || !document.getElementById('modal-file').classList.contains('hidden') || !document.getElementById('modal-gem-detail').classList.contains('hidden');
+            const overlay = document.getElementById('pause-overlay');
+            if (state.isPaused) { state.input.x = 0; state.input.y = 0; if(joystickBase) joystickBase.style.display = 'none'; overlay.style.display = 'flex'; overlay.classList.remove('hidden'); } else { overlay.style.display = 'none'; overlay.classList.add('hidden'); }
+        }
+        function showToast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.style.display = 'block'; setTimeout(() => { t.style.display = 'none'; }, 2000); }
+
+        /** ==========================================
+         * 8. 主迴圈
+         * ========================================== */
+        function gameLoop(now) {
+            const dt = (now - state.lastTime) / 1000; state.lastTime = now;
+            if (dt < 0.1 && !state.isPaused) { update(dt); }
+            if (dt < 0.1) { render(); }
+            requestAnimationFrame(gameLoop);
+        }
+        
+        window.onload = function() {
+            autoLoadGame();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
