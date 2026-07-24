@@ -115,21 +115,21 @@
                 <div class="text-6xl mr-4">🛡️</div>
                 <div>
                     <h2 class="text-2xl font-bold text-red-400">戰士</h2>
-                    <p class="text-xs text-gray-300 mt-1">中等跑速、<span class="text-red-400">射程極短</span>、<span class="text-green-400">血量最多</span>。<br>主：力量 (生命/爆傷)</p>
+                    <p class="text-xs text-gray-300 mt-1">中等跑速、<span class="text-red-400">射程極短</span>、<span class="text-green-400">血量最多</span>。<br>主：力量 (生命/爆傷/防禦)</p>
                 </div>
             </div>
             <div class="glass-panel flex-1 flex flex-row items-center p-4 cursor-pointer hover:bg-slate-800 transition transform hover:scale-[1.02] active:scale-95" onclick="Engine.startGame('rogue')">
                 <div class="text-6xl mr-4">🥷</div>
                 <div>
                     <h2 class="text-2xl font-bold text-emerald-400">盜賊</h2>
-                    <p class="text-xs text-gray-300 mt-1"><span class="text-green-400">最快跑速</span>、射程中等、血量中等。<br>主：敏捷 (爆擊/閃避)</p>
+                    <p class="text-xs text-gray-300 mt-1"><span class="text-green-400">最快跑速</span>、射程中等、血量中等。<br>主：敏捷 (爆擊/閃避/些微生命)</p>
                 </div>
             </div>
             <div class="glass-panel flex-1 flex flex-row items-center p-4 cursor-pointer hover:bg-slate-800 transition transform hover:scale-[1.02] active:scale-95" onclick="Engine.startGame('mage')">
                 <div class="text-6xl mr-4">🧙‍♂️</div>
                 <div>
                     <h2 class="text-2xl font-bold text-purple-400">法師</h2>
-                    <p class="text-xs text-gray-300 mt-1"><span class="text-red-400">最慢跑速</span>、<span class="text-green-400">最遠射程</span>、<span class="text-red-400">血量最少</span>。<br>主：智力 (法傷/範圍)</p>
+                    <p class="text-xs text-gray-300 mt-1"><span class="text-red-400">最慢跑速</span>、<span class="text-green-400">最遠射程</span>、<span class="text-red-400">血量最少</span>。<br>主：智力 (法傷/範圍/遠程防禦)</p>
                 </div>
             </div>
         </div>
@@ -138,14 +138,22 @@
 
     <!-- 天賦樹 Modal -->
     <div id="skillTreeModal" class="absolute inset-0 bg-slate-900/95 interactive flex flex-col hidden z-50">
-        <div class="p-4 flex justify-between items-center border-b border-slate-700 bg-slate-800 z-30">
+        <div class="p-4 flex justify-between items-start border-b border-slate-700 bg-slate-800 z-30">
             <div>
                 <h2 class="text-xl font-bold text-yellow-400">天賦樹 (支援拖曳/WASD)</h2>
                 <p class="text-sm text-gray-300">剩餘點數：<span id="treeSp" class="font-bold text-white text-lg">0</span></p>
             </div>
-            <div class="flex gap-2">
-                <button onclick="UI.resetTalents()" class="px-3 py-2 bg-red-700 hover:bg-red-600 rounded text-sm font-bold text-white active:scale-95 transition-transform">重置</button>
-                <button onclick="UI.closeTree()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded font-bold text-white active:scale-95 transition-transform">關閉</button>
+            <div class="flex flex-col items-end gap-2">
+                <div class="flex gap-2">
+                    <button onclick="UI.resetTalents()" class="px-3 py-2 bg-red-700 hover:bg-red-600 rounded text-sm font-bold text-white active:scale-95 transition-transform">重置</button>
+                    <button onclick="UI.closeTree()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded font-bold text-white active:scale-95 transition-transform">關閉</button>
+                </div>
+                <!-- 屬性顯示面板 -->
+                <div class="flex gap-3 text-sm font-bold bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-600 mt-1">
+                    <div class="text-red-400">力量: <span id="statStr">0</span></div>
+                    <div class="text-emerald-400">敏捷: <span id="statAgi">0</span></div>
+                    <div class="text-purple-400">智力: <span id="statInt">0</span></div>
+                </div>
             </div>
         </div>
         <div class="flex-1 overflow-auto relative bg-slate-900 select-none z-10" id="treeScrollWrapper">
@@ -233,35 +241,35 @@ const DB = {
     ],
     SKILL_TREE: {
         'core': { x: 750, y: 750, name: '萬物之源', desc: '全屬性+10', effects: { str: 10, agi: 10, int: 10 }, links: [] },
-        'm_start': { x: 750, y: 350, name: '法師起點', desc: '解鎖魔法飛彈，+5智力\n可重複投資升級', effects: { int: 5, skills: ['magic_missile'] }, links: ['m_t4', 'm_p1', 'm_p2', 'm_p3'] },
+        'm_start': { x: 750, y: 350, name: '法師起點', desc: '解鎖魔法飛彈，+5智力\n可重複投資升級，每次+5智力', effects: { int: 5, skills: ['magic_missile'] }, links: ['m_t4', 'm_p1', 'm_p2', 'm_p3'] },
         'm_p1': { x: 650, y: 400, name: '護盾', desc: '【被動】每10秒產生抵擋傷害的護盾', effects: { passive_mana_shield: true }, links: ['m_start'] },
         'm_p2': { x: 850, y: 400, name: '共鳴', desc: '【被動】法術命中產生爆炸', effects: { passive_resonance: true }, links: ['m_start'] },
         'm_p3': { x: 750, y: 250, name: '湧動', desc: '【被動】擊殺減CD', effects: { passive_mana_cascade: true }, links: ['m_start'] },
         'm_t4': { x: 750, y: 450, name: '擴張', desc: '+25% 範圍', effects: { aoe: 0.25 }, links: ['m_t3L', 'm_t3R'] },
-        'm_t3L': { x: 620, y: 520, name: '火球術', desc: '【法術】發射爆炸火球', effects: { skills: ['fireball'] }, links: ['m_t2'] },
-        'm_t3R': { x: 880, y: 520, name: '冰霜新星', desc: '【法術】爆發緩速', effects: { skills: ['frost_nova'] }, links: ['m_t2'] },
+        'm_t3L': { x: 620, y: 520, name: '火球術', desc: '【法術】發射爆炸火球\n升級加成：+5智力', effects: { skills: ['fireball'], int: 5 }, links: ['m_t2'] },
+        'm_t3R': { x: 880, y: 520, name: '冰霜新星', desc: '【法術】爆發緩速\n升級加成：+5智力', effects: { skills: ['frost_nova'], int: 5 }, links: ['m_t2'] },
         'm_t2': { x: 750, y: 550, name: '加速', desc: '+15% 攻速', effects: { atkSpeed: 0.15 }, links: ['m_t1L', 'm_t1R', 'm_a1', 'm_a2'] },
-        'm_a1': { x: 660, y: 600, name: '黑洞', desc: '【主動】引力場持續牽引', effects: { skills: ['black_hole'] }, links: ['m_t2'] },
-        'm_a2': { x: 840, y: 600, name: '隕石術', desc: '【主動】召喚隕石', effects: { skills: ['meteor_strike'] }, links: ['m_t2'] },
-        'm_t1L': { x: 650, y: 680, name: '閃電鏈', desc: '【法術】彈跳閃電', effects: { skills: ['chain_lightning'] }, links: ['m_hub'] },
+        'm_a1': { x: 660, y: 600, name: '黑洞', desc: '【主動】引力場持續牽引\n升級加成：+5智力', effects: { skills: ['black_hole'], int: 5 }, links: ['m_t2'] },
+        'm_a2': { x: 840, y: 600, name: '隕石術', desc: '【主動】召喚隕石\n升級加成：+5智力', effects: { skills: ['meteor_strike'], int: 5 }, links: ['m_t2'] },
+        'm_t1L': { x: 650, y: 680, name: '閃電鏈', desc: '【法術】彈跳閃電\n升級加成：+5智力', effects: { skills: ['chain_lightning'], int: 5 }, links: ['m_hub'] },
         'm_t1R': { x: 850, y: 680, name: '連續施法', desc: '【被動】法術連放兩次', effects: { passive_multicast: true }, links: ['m_hub'] },
         'm_hub': { x: 750, y: 650, name: '智力樞紐', desc: '+10 智力', effects: { int: 10 }, links: ['core'] },
         
-        'b_start': { x: 400, y: 1100, name: '戰士起點', desc: '解鎖重擊，+5力量', effects: { str: 5, skills: ['heavy_strike'] }, links: ['b_t4', 'b_p1', 'b_p2', 'b_p3'] },
+        'b_start': { x: 400, y: 1100, name: '戰士起點', desc: '解鎖重擊，+5力量\n可重複投資升級，每次+5力量', effects: { str: 5, skills: ['heavy_strike'] }, links: ['b_t4', 'b_p1', 'b_p2', 'b_p3'] },
         'b_p1': { x: 480, y: 1160, name: '反擊', desc: '【被動】受擊反擊', effects: { passive_counter: true }, links: ['b_start'] },
         'b_p2': { x: 320, y: 1040, name: '防禦', desc: '【被動】遠程減傷', effects: { passive_ranged_def: true }, links: ['b_start'] },
         'b_p3': { x: 320, y: 1160, name: '餘震', desc: '【被動】近戰爆破', effects: { passive_tremor: true }, links: ['b_start'] },
         'b_t4': { x: 470, y: 1040, name: '強壯', desc: '+50 生命', effects: { maxHp: 50 }, links: ['b_t3L', 'b_t3R'] },
-        'b_t3L': { x: 580, y: 1090, name: '旋風斬', desc: '【近戰】持續範圍傷害', effects: { skills: ['whirlwind'] }, links: ['b_t2'] },
+        'b_t3L': { x: 580, y: 1090, name: '旋風斬', desc: '【近戰】持續範圍傷害\n升級加成：+5力量', effects: { skills: ['whirlwind'], str: 5 }, links: ['b_t2'] },
         'b_t3R': { x: 480, y: 920, name: '嗜血', desc: '【被動】近戰吸血', effects: { passive_lifesteal: true }, links: ['b_t2'] },
         'b_t2': { x: 570, y: 980, name: '狂暴', desc: '+30% 爆傷', effects: { critDmg: 0.3 }, links: ['b_t1L', 'b_t1R', 'b_a1', 'b_a2'] },
-        'b_a1': { x: 510, y: 880, name: '衝鋒', desc: '【主動】突進攻擊', effects: { skills: ['dash_attack'] }, links: ['b_t2'] },
-        'b_a2': { x: 670, y: 1020, name: '戰吼', desc: '【主動】震懾護盾', effects: { skills: ['warcry'] }, links: ['b_t2'] },
-        'b_t1L': { x: 680, y: 920, name: '地震', desc: '【近戰】物理震波', effects: { skills: ['earthquake'] }, links: ['b_hub'] },
+        'b_a1': { x: 510, y: 880, name: '衝鋒', desc: '【主動】突進攻擊\n升級加成：+5力量', effects: { skills: ['dash_attack'], str: 5 }, links: ['b_t2'] },
+        'b_a2': { x: 670, y: 1020, name: '戰吼', desc: '【主動】震懾護盾\n升級加成：+5力量', effects: { skills: ['warcry'], str: 5 }, links: ['b_t2'] },
+        'b_t1L': { x: 680, y: 920, name: '地震', desc: '【近戰】物理震波\n升級加成：+5力量', effects: { skills: ['earthquake'], str: 5 }, links: ['b_hub'] },
         'b_t1R': { x: 590, y: 820, name: '生生不息', desc: '【被動】回血+5/秒', effects: { hpRegen: 5 }, links: ['b_hub'] },
         'b_hub': { x: 660, y: 840, name: '力量樞紐', desc: '+10 力量', effects: { str: 10 }, links: ['core'] },
         
-        'r_start': { x: 1100, y: 1100, name: '盜賊起點', desc: '解鎖飛刀，+5敏捷', effects: { agi: 5, skills: ['throwing_knife'] }, links: ['r_t4', 'r_p1', 'r_p2', 'r_p3'] },
+        'r_start': { x: 1100, y: 1100, name: '盜賊起點', desc: '解鎖飛刀，+5敏捷\n可重複投資升級，每次+5敏捷', effects: { agi: 5, skills: ['throwing_knife'] }, links: ['r_t4', 'r_p1', 'r_p2', 'r_p3'] },
         'r_p1': { x: 1180, y: 1040, name: '毒爆', desc: '【被動】中毒死後毒霧', effects: { passive_toxic_bloom: true }, links: ['r_start'] },
         'r_p2': { x: 1020, y: 1160, name: '暗影', desc: '【被動】閃避提升跑速', effects: { passive_shadow_step: true }, links: ['r_start'] },
         'r_p3': { x: 1180, y: 1160, name: '彈射', desc: '【被動】投擲彈射一次', effects: { passive_ricochet: true }, links: ['r_start'] },
@@ -269,9 +277,9 @@ const DB = {
         'r_t3L': { x: 1020, y: 920, name: '淬毒刃', desc: '【被動】附加中毒', effects: { passive_poison: true }, links: ['r_t2'] },
         'r_t3R': { x: 920, y: 1090, name: '多重', desc: '【被動】投擲物增多', effects: { passive_multishot: true }, links: ['r_t2'] },
         'r_t2': { x: 930, y: 980, name: '弱點', desc: '+15% 爆擊率', effects: { critRate: 0.15 }, links: ['r_t1L', 'r_t1R', 'r_a1', 'r_a2'] },
-        'r_a1': { x: 990, y: 880, name: '暗影步', desc: '【主動】瞬移背刺', effects: { skills: ['shadow_strike'] }, links: ['r_t2'] },
-        'r_a2': { x: 830, y: 1020, name: '迴旋刃', desc: '【主動】穿透飛刃', effects: { skills: ['boomerang_blade'] }, links: ['r_t2'] },
-        'r_t1L': { x: 820, y: 920, name: '環刃', desc: '【暗殺】全方位發射', effects: { skills: ['shuriken_ring'] }, links: ['r_hub'] },
+        'r_a1': { x: 990, y: 880, name: '暗影步', desc: '【主動】瞬移背刺\n升級加成：+5敏捷', effects: { skills: ['shadow_strike'], agi: 5 }, links: ['r_t2'] },
+        'r_a2': { x: 830, y: 1020, name: '迴旋刃', desc: '【主動】穿透飛刃\n升級加成：+5敏捷', effects: { skills: ['boomerang_blade'], agi: 5 }, links: ['r_t2'] },
+        'r_t1L': { x: 820, y: 920, name: '環刃', desc: '【暗殺】全方位發射\n升級加成：+5敏捷', effects: { skills: ['shuriken_ring'], agi: 5 }, links: ['r_hub'] },
         'r_t1R': { x: 910, y: 820, name: '穿透', desc: '【被動】投擲物穿透+2', effects: { passive_pierce: true }, links: ['r_hub'] },
         'r_hub': { x: 840, y: 840, name: '敏捷樞紐', desc: '+10 敏捷', effects: { agi: 10 }, links: ['core'] }
     }
@@ -309,16 +317,17 @@ const Behaviors = {
     }
 };
 
+// 技能威力已全部修改為不吃等級倍率，改吃主屬性
 const SkillRegistry = {
-    'magic_missile': { cooldown: 1.5, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t){ let d = Math.sqrt(distSq(t.x, t.y, c.x, c.y))||1; let p = new Projectile(c.x, c.y, (t.x-c.x)/d, (t.y-c.y)/d, 300, c.getMagicDmg()*(1+(lvl-1)*0.4), c.getAoeMult(), 'magic', '#a855f7', c.faction); p.life = GAME_HEIGHT*c.getAoeMult()/p.speed; Engine.projectiles.push(p); } } },
-    'fireball': { cooldown: 3.0, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t){ let d = Math.sqrt(distSq(t.x, t.y, c.x, c.y))||1; let p = new Projectile(c.x, c.y, (t.x-c.x)/d, (t.y-c.y)/d, 250, c.getMagicDmg()*2*(1+(lvl-1)*0.5), c.getAoeMult()*(1+(lvl-1)*0.075), 'magic_explosive', '#ef4444', c.faction); p.radius = 8*p.aoeMult; Engine.projectiles.push(p); } } },
-    'frost_nova': { cooldown: 4.0, cast: (c, lvl) => { let aoe=c.getAoeMult()*(1+(lvl-1)*0.05), r=100*aoe, dmg=c.getMagicDmg()*0.8*(1+(lvl-1)*0.4); createRingExplosion(c.x, c.y, '#60a5fa', r, 0.5); addParticle(c.x, c.y, '#bfdbfe', 20, 3); Engine.getAllTargets(c.faction).forEach(e => { if(e.isDead) return; if(distSq(e.x, e.y, c.x, c.y) <= r*r){ Engine.applyDamage(e, dmg, 'magic', c.faction); if(e.speedMod!==undefined){ e.speedMod=0.5; e.speedTimer=2.0+(lvl-1)*0.5; } else e.buffs.slow=2.0+(lvl-1)*0.5; } }); } },
-    'chain_lightning': { cooldown: 2.5, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(!t)return; let jumps=4+Math.floor((lvl-1)/2), dmg=c.getMagicDmg()*1.2*(1+(lvl-1)*0.3), hit=new Set(), sx=c.x, sy=c.y; while(jumps>0 && t){ hit.add(t); Engine.applyDamage(t, dmg, 'magic', c.faction); let points = []; for(let k=1; k<4; k++) points.push({x: sx + (t.x-sx)*(k/4) + (Math.random()-0.5)*30, y: sy + (t.y-sy)*(k/4) + (Math.random()-0.5)*30}); Engine.particles.push({type:'lightning', x:sx, y:sy, tx:t.x, ty:t.y, pts: points, life:0.3, maxLife:0.3, color:'#fef08a'}); sx=t.x; sy=t.y; dmg*=0.8; jumps--; let next=null, mdSq=Math.pow(GAME_HEIGHT*0.3*c.getAoeMult(), 2); Engine.getAllTargets(c.faction).forEach(e=>{ if(e.isDead || hit.has(e)) return; let dSq=distSq(e.x, e.y, sx, sy); if(dSq<mdSq){mdSq=dSq;next=e;} }); t=next; } } },
-    'black_hole': { cooldown: 8.0, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t) { let p = new PersistentAoe({x:t.x,y:t.y}, 60*c.getAoeMult()*(1+(lvl-1)*0.05), 3.0, c.getMagicDmg()*0.4*(1+(lvl-1)*0.3), 'magic', '#7c3aed', c.faction, true); p.isBlackHole = true; Engine.projectiles.push(p); } } },
-    'meteor_strike': { cooldown: 6.0, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t){ let tx=t.x, ty=t.y; addFloatingText('⚠️', tx, ty, '#ef4444', 30); Engine.particles.push({ type: 'ring_collapse', x: tx, y: ty, color: '#ef4444', radius: 75*c.getAoeMult()*(1+(lvl-1)*0.1), maxRadius: 75*c.getAoeMult()*(1+(lvl-1)*0.1), life: 1.0, maxLife: 1.0 }); setTimeout(()=>{ if(!Engine.isGameRunning||Engine.isPaused)return; let r=75*c.getAoeMult()*(1+(lvl-1)*0.1); createRingExplosion(tx, ty, '#f97316', r, 0.5); addParticle(tx, ty, '#f59e0b', 30, 4); Engine.getAllTargets(c.faction).forEach(e=>{ if(e.isDead) return; if(distSq(e.x, e.y, tx, ty) <= r*r){ Engine.applyDamage(e, c.getMagicDmg()*4*(1+(lvl-1)*0.5), 'magic', c.faction); if(e.speedMod!==undefined){e.speedMod=0;e.speedTimer=1.5;}else e.buffs.slow=1.5; } }); }, 1000); } } },
-    'heavy_strike': { cooldown: 1.0, cast: (c, lvl) => { let r=100*c.getAoeMult()*(1+(lvl-1)*0.05), t=Engine.getClosestTarget(c.x, c.y, c.faction, r), pa=t?Math.atan2(t.y-c.y,t.x-c.x):Math.atan2(c.dirY,c.dirX); Engine.projectiles.push(new MeleeArcVisual(c.x, c.y, pa, r, Math.PI/1.5, 'rgba(239, 68, 68, 0.5)')); Engine.getAllTargets(c.faction).forEach(e=>{ if(e.isDead) return; if(distSq(e.x, e.y, c.x, c.y) <= r*r){ let ad=Math.abs(Math.atan2(e.y-c.y, e.x-c.x)-pa); if(ad>Math.PI)ad=2*Math.PI-ad; if(ad<=Math.PI/3) Engine.applyDamage(e, c.getMeleeDmg()*(1+(lvl-1)*0.5), 'melee', c.faction); } }); } },
-    'whirlwind': { cooldown: 2.0, cast: (c, lvl) => { let p = new PersistentAoe(c, 90*c.getAoeMult()*(1+(lvl-1)*0.05), 1.0, c.getMeleeDmg()*0.5*(1+(lvl-1)*0.3), 'melee', '#fca5a5', c.faction); p.isWhirlwind = true; Engine.projectiles.push(p); } },
-    'earthquake': { cooldown: 3.5, cast: (c, lvl) => { let r=120*c.getAoeMult()*(1+(lvl-1)*0.05); createRingExplosion(c.x, c.y, '#a16207', r, 0.6); createRingExplosion(c.x, c.y, '#78350f', r*0.6, 0.4); addParticle(c.x, c.y, '#92400e', 15, 2); Engine.getAllTargets(c.faction).forEach(e=>{ if(e.isDead) return; if(distSq(e.x, e.y, c.x, c.y) <= r*r){ Engine.applyDamage(e, c.getMeleeDmg()*1.5*(1+(lvl-1)*0.6), 'melee', c.faction); if(e.speedMod!==undefined){e.speedMod=0.2;e.speedTimer=1;}else e.buffs.slow=1; } }); } },
+    'magic_missile': { cooldown: 1.5, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t){ let d = Math.sqrt(distSq(t.x, t.y, c.x, c.y))||1; let p = new Projectile(c.x, c.y, (t.x-c.x)/d, (t.y-c.y)/d, 300, c.getMagicDmg(), c.getAoeMult(), 'magic', '#a855f7', c.faction); p.life = GAME_HEIGHT*c.getAoeMult()/p.speed; Engine.projectiles.push(p); } } },
+    'fireball': { cooldown: 3.0, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t){ let d = Math.sqrt(distSq(t.x, t.y, c.x, c.y))||1; let p = new Projectile(c.x, c.y, (t.x-c.x)/d, (t.y-c.y)/d, 250, c.getMagicDmg()*2, c.getAoeMult()*(1+(lvl-1)*0.075), 'magic_explosive', '#ef4444', c.faction); p.radius = 8*p.aoeMult; Engine.projectiles.push(p); } } },
+    'frost_nova': { cooldown: 4.0, cast: (c, lvl) => { let aoe=c.getAoeMult()*(1+(lvl-1)*0.05), r=100*aoe, dmg=c.getMagicDmg()*0.8; createRingExplosion(c.x, c.y, '#60a5fa', r, 0.5); addParticle(c.x, c.y, '#bfdbfe', 20, 3); Engine.getAllTargets(c.faction).forEach(e => { if(e.isDead) return; if(distSq(e.x, e.y, c.x, c.y) <= r*r){ Engine.applyDamage(e, dmg, 'magic', c.faction); if(e.speedMod!==undefined){ e.speedMod=0.5; e.speedTimer=2.0+(lvl-1)*0.5; } else e.buffs.slow=2.0+(lvl-1)*0.5; } }); } },
+    'chain_lightning': { cooldown: 2.5, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(!t)return; let jumps=4+Math.floor((lvl-1)/2), dmg=c.getMagicDmg()*1.2, hit=new Set(), sx=c.x, sy=c.y; while(jumps>0 && t){ hit.add(t); Engine.applyDamage(t, dmg, 'magic', c.faction); let points = []; for(let k=1; k<4; k++) points.push({x: sx + (t.x-sx)*(k/4) + (Math.random()-0.5)*30, y: sy + (t.y-sy)*(k/4) + (Math.random()-0.5)*30}); Engine.particles.push({type:'lightning', x:sx, y:sy, tx:t.x, ty:t.y, pts: points, life:0.3, maxLife:0.3, color:'#fef08a'}); sx=t.x; sy=t.y; dmg*=0.8; jumps--; let next=null, mdSq=Math.pow(GAME_HEIGHT*0.3*c.getAoeMult(), 2); Engine.getAllTargets(c.faction).forEach(e=>{ if(e.isDead || hit.has(e)) return; let dSq=distSq(e.x, e.y, sx, sy); if(dSq<mdSq){mdSq=dSq;next=e;} }); t=next; } } },
+    'black_hole': { cooldown: 8.0, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t) { let p = new PersistentAoe({x:t.x,y:t.y}, 60*c.getAoeMult()*(1+(lvl-1)*0.05), 3.0, c.getMagicDmg()*0.4, 'magic', '#7c3aed', c.faction, true); p.isBlackHole = true; Engine.projectiles.push(p); } } },
+    'meteor_strike': { cooldown: 6.0, cast: (c, lvl) => { let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_HEIGHT*c.getAoeMult()); if(t){ let tx=t.x, ty=t.y; addFloatingText('⚠️', tx, ty, '#ef4444', 30); Engine.particles.push({ type: 'ring_collapse', x: tx, y: ty, color: '#ef4444', radius: 75*c.getAoeMult()*(1+(lvl-1)*0.1), maxRadius: 75*c.getAoeMult()*(1+(lvl-1)*0.1), life: 1.0, maxLife: 1.0 }); setTimeout(()=>{ if(!Engine.isGameRunning||Engine.isPaused)return; let r=75*c.getAoeMult()*(1+(lvl-1)*0.1); createRingExplosion(tx, ty, '#f97316', r, 0.5); addParticle(tx, ty, '#f59e0b', 30, 4); Engine.getAllTargets(c.faction).forEach(e=>{ if(e.isDead) return; if(distSq(e.x, e.y, tx, ty) <= r*r){ Engine.applyDamage(e, c.getMagicDmg()*4, 'magic', c.faction); if(e.speedMod!==undefined){e.speedMod=0;e.speedTimer=1.5;}else e.buffs.slow=1.5; } }); }, 1000); } } },
+    'heavy_strike': { cooldown: 1.0, cast: (c, lvl) => { let r=100*c.getAoeMult()*(1+(lvl-1)*0.05), t=Engine.getClosestTarget(c.x, c.y, c.faction, r), pa=t?Math.atan2(t.y-c.y,t.x-c.x):Math.atan2(c.dirY,c.dirX); Engine.projectiles.push(new MeleeArcVisual(c.x, c.y, pa, r, Math.PI/1.5, 'rgba(239, 68, 68, 0.5)')); Engine.getAllTargets(c.faction).forEach(e=>{ if(e.isDead) return; if(distSq(e.x, e.y, c.x, c.y) <= r*r){ let ad=Math.abs(Math.atan2(e.y-c.y, e.x-c.x)-pa); if(ad>Math.PI)ad=2*Math.PI-ad; if(ad<=Math.PI/3) Engine.applyDamage(e, c.getMeleeDmg(), 'melee', c.faction); } }); } },
+    'whirlwind': { cooldown: 2.0, cast: (c, lvl) => { let p = new PersistentAoe(c, 90*c.getAoeMult()*(1+(lvl-1)*0.05), 1.0, c.getMeleeDmg()*0.5, 'melee', '#fca5a5', c.faction); p.isWhirlwind = true; Engine.projectiles.push(p); } },
+    'earthquake': { cooldown: 3.5, cast: (c, lvl) => { let r=120*c.getAoeMult()*(1+(lvl-1)*0.05); createRingExplosion(c.x, c.y, '#a16207', r, 0.6); createRingExplosion(c.x, c.y, '#78350f', r*0.6, 0.4); addParticle(c.x, c.y, '#92400e', 15, 2); Engine.getAllTargets(c.faction).forEach(e=>{ if(e.isDead) return; if(distSq(e.x, e.y, c.x, c.y) <= r*r){ Engine.applyDamage(e, c.getMeleeDmg()*1.5, 'melee', c.faction); if(e.speedMod!==undefined){e.speedMod=0.2;e.speedTimer=1;}else e.buffs.slow=1; } }); } },
     'dash_attack': { cooldown: 4.0, cast: (c, lvl) => { 
         let t = Engine.getClosestTarget(c.x, c.y, c.faction, 350 * c.getAoeMult());
         let a = t ? Math.atan2(t.y - c.y, t.x - c.x) : Math.atan2(c.dirY, c.dirX);
@@ -328,14 +337,14 @@ const SkillRegistry = {
             time: 0.2, maxTime: 0.2, 
             dx: Math.cos(a) * 1200 * c.getAoeMult(), 
             dy: Math.sin(a) * 1200 * c.getAoeMult(), 
-            dmg: c.getMeleeDmg() * 2 * (1 + (lvl - 1) * 0.4),
+            dmg: c.getMeleeDmg() * 2,
             hitSet: new Set()
         };
         addFloatingText('衝鋒!', c.x, c.y - 20, '#f87171', 20);
     }},
     'warcry': { cooldown: 12.0, cast: (c, lvl) => { let r=200*c.getAoeMult(); createRingExplosion(c.x, c.y, '#dc2626', r, 0.6); addFloatingText('WAAAGH!', c.x, c.y-30, '#ef4444', 24); c.buffs.frenzy=3+(lvl-1)*1; c.hasShield=true; UI.update(); Engine.getAllTargets(c.faction).forEach(e=>{ if(e.isDead) return; if(distSq(e.x, e.y, c.x, c.y) <= r*r && e.speedMod!==undefined){ e.speedMod=0.3; e.speedTimer=2.0; } }); } },
-    'throwing_knife': { cooldown: 0.8, cast: (c, lvl) => { let t=Engine.getClosestTarget(c.x, c.y, c.faction, GAME_WIDTH*c.getAoeMult()); if(!t)return; let cnt=(c.mods.passive_multishot?3:1)+Math.floor((lvl-1)/2), ba=Math.atan2(t.y-c.y, t.x-c.x); for(let i=0;i<cnt;i++){ let a=ba+(i-(cnt-1)/2)*0.3; let p=new Projectile(c.x, c.y, Math.cos(a), Math.sin(a), 400, c.getAssassinationDmg()*(1+(lvl-1)*0.3), c.getAoeMult(), 'assassination', '#10b981', c.faction); p.isKnife=true; p.life=GAME_WIDTH*c.getAoeMult()/p.speed; if(c.mods.passive_pierce)p.pierce=2; Engine.projectiles.push(p); } } },
-    'shuriken_ring': { cooldown: 3.0, cast: (c, lvl) => { let cnt=8+(lvl-1)*2; for(let i=0;i<cnt;i++){ let a=(Math.PI*2/cnt)*i; let p=new Projectile(c.x, c.y, Math.cos(a), Math.sin(a), 350, c.getAssassinationDmg()*(1+(lvl-1)*0.4), c.getAoeMult(), 'assassination', '#14b8a6', c.faction); p.isKnife=true; p.life=GAME_WIDTH*c.getAoeMult()/p.speed; if(c.mods.passive_pierce)p.pierce=2; Engine.projectiles.push(p); } } },
+    'throwing_knife': { cooldown: 0.8, cast: (c, lvl) => { let t=Engine.getClosestTarget(c.x, c.y, c.faction, GAME_WIDTH*c.getAoeMult()); if(!t)return; let cnt=(c.mods.passive_multishot?3:1)+Math.floor((lvl-1)/2), ba=Math.atan2(t.y-c.y, t.x-c.x); for(let i=0;i<cnt;i++){ let a=ba+(i-(cnt-1)/2)*0.3; let p=new Projectile(c.x, c.y, Math.cos(a), Math.sin(a), 400, c.getAssassinationDmg(), c.getAoeMult(), 'assassination', '#10b981', c.faction); p.isKnife=true; p.life=GAME_WIDTH*c.getAoeMult()/p.speed; if(c.mods.passive_pierce)p.pierce=2; Engine.projectiles.push(p); } } },
+    'shuriken_ring': { cooldown: 3.0, cast: (c, lvl) => { let cnt=8+(lvl-1)*2; for(let i=0;i<cnt;i++){ let a=(Math.PI*2/cnt)*i; let p=new Projectile(c.x, c.y, Math.cos(a), Math.sin(a), 350, c.getAssassinationDmg(), c.getAoeMult(), 'assassination', '#14b8a6', c.faction); p.isKnife=true; p.life=GAME_WIDTH*c.getAoeMult()/p.speed; if(c.mods.passive_pierce)p.pierce=2; Engine.projectiles.push(p); } } },
     'shadow_strike': { cooldown: 5.0, cast: (c, lvl) => { 
         let t = Engine.getClosestTarget(c.x, c.y, c.faction, GAME_WIDTH * 0.4);
         let a = t ? Math.atan2(t.y - c.y, t.x - c.x) : Math.atan2(c.dirY, c.dirX);
@@ -349,11 +358,11 @@ const SkillRegistry = {
         if(!isNaN(tx) && !isNaN(ty)){ 
             c.x = tx; c.y = ty; 
             addParticle(c.x, c.y, '#34d399', 15, 2); 
-            if(t) Engine.applyDamage(t, c.getAssassinationDmg()*3*(1+(lvl-1)*0.5), 'assassination', c.faction); 
+            if(t) Engine.applyDamage(t, c.getAssassinationDmg()*3, 'assassination', c.faction); 
             createRingExplosion(c.x, c.y, '#34d399', 50, 0.4); 
         } 
     }},
-    'boomerang_blade': { cooldown: 4.0, cast: (c, lvl) => { let t=Engine.getClosestTarget(c.x, c.y, c.faction, GAME_WIDTH*0.8*c.getAoeMult()); if(!t)return; let cnt=c.mods.passive_multishot?3:1, ba=Math.atan2(t.y-c.y, t.x-c.x); for(let i=0;i<cnt;i++){ let a=ba+(i-(cnt-1)/2)*0.3; let p=new Projectile(c.x, c.y, Math.cos(a), Math.sin(a), 500, c.getAssassinationDmg()*1.5*(1+(lvl-1)*0.4), c.getAoeMult(), 'assassination', '#059669', c.faction); p.isKnife=true; p.pierce=999; p.life=GAME_WIDTH*0.8*c.getAoeMult()/p.speed*2; p.boomerang=true; p.owner=c; p.returnTime=p.life/2; Engine.projectiles.push(p); } } }
+    'boomerang_blade': { cooldown: 4.0, cast: (c, lvl) => { let t=Engine.getClosestTarget(c.x, c.y, c.faction, GAME_WIDTH*0.8*c.getAoeMult()); if(!t)return; let cnt=c.mods.passive_multishot?3:1, ba=Math.atan2(t.y-c.y, t.x-c.x); for(let i=0;i<cnt;i++){ let a=ba+(i-(cnt-1)/2)*0.3; let p=new Projectile(c.x, c.y, Math.cos(a), Math.sin(a), 500, c.getAssassinationDmg()*1.5, c.getAoeMult(), 'assassination', '#059669', c.faction); p.isKnife=true; p.pierce=999; p.life=GAME_WIDTH*0.8*c.getAoeMult()/p.speed*2; p.boomerang=true; p.owner=c; p.returnTime=p.life/2; Engine.projectiles.push(p); } } }
 };
 
 const Engine = {
@@ -488,11 +497,25 @@ const Engine = {
     },
     applyDamage: function(target, baseDmg, type, attackerFaction) {
         let isCrit = false, finalDmg = baseDmg;
-        if (attackerFaction === 'player') { isCrit = Math.random() < this.player.getCritRate(); finalDmg = isCrit ? baseDmg * this.player.getCritDmg() : baseDmg; }
+        if (attackerFaction === 'player') { 
+            isCrit = Math.random() < this.player.getCritRate(); 
+            finalDmg = isCrit ? baseDmg * this.player.getCritDmg() : baseDmg; 
+        }
+        
+        // 防禦減傷計算
+        if (target === this.player || this.partyMercenaries.includes(target)) {
+            let def = 0;
+            if (type === 'melee' || type === 'melee_tremor') def = target.getMeleeDef ? target.getMeleeDef() : 0;
+            if (type === 'magic' || type === 'assassination' || type === 'magic_resonance' || type === 'enemy_magic') def = target.getRangedDef ? target.getRangedDef() : 0;
+            
+            // 護甲公式：減傷百分比 = 護甲 / (護甲 + 100)，最高 75%
+            let dmgReduction = Math.min(0.75, def / (def + 100));
+            finalDmg = finalDmg * (1 - dmgReduction);
+        }
+
         finalDmg = Math.max(1, Math.floor(finalDmg * (0.9 + Math.random() * 0.2)));
 
         let wasDead = target.isDead;
-        // 核心傷害套用交給角色的 takeDamage 去執行（會連帶觸發 UI 更新）
         if (target.takeDamage) target.takeDamage(finalDmg); else { target.hp -= finalDmg; target.hitTimer = 0.1; if (target.hp <= 0) target.isDead = true; }
         if(isCrit) addParticle(target.x, target.y, '#fef08a', 4); else addParticle(target.x, target.y, '#fff', 2);
 
@@ -519,7 +542,8 @@ const Engine = {
                     this.player.skills.forEach(s => s.timer = Math.max(0, s.timer - 1.0));
                 }
                 if (this.player.mods.passive_toxic_bloom && target.poisonTimer > 0) {
-                    this.projectiles.push(new PersistentAoe({x: target.x, y: target.y}, 60 * this.player.getAoeMult(), 2.0, this.player.getAssassinationDmg() * 0.5, 'assassination', 'rgba(16, 185, 129, 0.4)', 'player'));
+                    // 毒霧範圍減半 60 -> 30，顏色透明度 0.4 -> 0.15
+                    this.projectiles.push(new PersistentAoe({x: target.x, y: target.y}, 30 * this.player.getAoeMult(), 2.0, this.player.getAssassinationDmg() * 0.5, 'assassination', 'rgba(16, 185, 129, 0.15)', 'player'));
                 }
                 this.checkStageProgress();
             }
@@ -570,18 +594,34 @@ class BaseCharacter {
         this.buffs = { frenzy: 0, slow: 0, shadow: 0 }; this.skills = []; this.skillLevels = {}; this.faction = 'player'; this.isDead = false; this.regenTimer = 1.0; this.shieldCooldown = 0; this.hasShield = false;
         this.forcedMove = null; 
     }
-    getStr() { return this.baseStr + this.mods.str; } getAgi() { return this.baseAgi + this.mods.agi; } getInt() { return this.baseInt + this.mods.int; }
-    getMaxHp() { return this.baseMaxHp + this.mods.maxHp + (this.getStr() * 5); }
+    getStr() { return this.baseStr + this.mods.str; } 
+    getAgi() { return this.baseAgi + this.mods.agi; } 
+    getInt() { return this.baseInt + this.mods.int; }
+    
+    // 主屬性加成調整
+    // 力量：大量生命 / 敏捷：些微生命
+    getMaxHp() { return this.baseMaxHp + this.mods.maxHp + (this.getStr() * 5) + (this.getAgi() * 2); }
     getMoveSpeed() { let s = this.baseMoveSpeed * (1 + this.mods.moveSpeed); if (this.buffs.slow > 0) s *= 0.5; if (this.buffs.shadow > 0) s *= 1.5; return s; }
     
-    getCritRate() { return Math.min(0.7, this.baseCritRate + this.mods.critRate + (this.getAgi() * 0.005) + (this.buffs.shadow > 0 ? 0.3 : 0)); }
+    // 敏捷：增加爆擊率(0.5%/點) / 智力：些微增加爆擊率(0.2%/點)
+    getCritRate() { return Math.min(0.7, this.baseCritRate + this.mods.critRate + (this.getAgi() * 0.005) + (this.getInt() * 0.002) + (this.buffs.shadow > 0 ? 0.3 : 0)); }
+    // 力量：增加爆擊傷害(1%/點)
     getCritDmg() { return this.baseCritDmg + this.mods.critDmg + (this.getStr() * 0.01); } 
-    getDodgeRate() { return Math.min(0.7, this.mods.dodge + (this.getAgi() * 0.005)); }
+    // 敏捷：增加閃避率(0.5%/點) / 智力：些微增加閃避率(0.2%/點)
+    getDodgeRate() { return Math.min(0.7, this.mods.dodge + (this.getAgi() * 0.005) + (this.getInt() * 0.002)); }
     
-    getMeleeDmg() { return 10 + this.getStr() * 2; } getAssassinationDmg() { return 8 + this.getAgi() * 2.5; } getMagicDmg() { return 12 + this.getInt() * 2.2; }
-    getSpeedMult() { let m = 1 + this.mods.atkSpeed; if (this.buffs.frenzy > 0) m += 1.0; return m; } getAoeMult() { return this.baseRange + this.mods.aoe + (this.getInt() * 0.01); }
+    // 防禦屬性：力量 -> 近戰防禦 | 智力 -> 遠程防禦
+    getMeleeDef() { return this.getStr(); }
+    getRangedDef() { return this.getInt(); }
     
-    // 【修改點】讓補血時同步刷新 UI
+    // 技能威力：完全依賴主屬性
+    getMeleeDmg() { return 10 + this.getStr() * 3; } 
+    getAssassinationDmg() { return 8 + this.getAgi() * 3.5; } 
+    getMagicDmg() { return 12 + this.getInt() * 3.2; }
+    
+    getSpeedMult() { let m = 1 + this.mods.atkSpeed; if (this.buffs.frenzy > 0) m += 1.0; return m; } 
+    getAoeMult() { return this.baseRange + this.mods.aoe + (this.getInt() * 0.01); }
+    
     heal(amt) { 
         if(this.hp < this.getMaxHp()) {
             this.hp = Math.min(this.getMaxHp(), this.hp + amt); 
@@ -589,7 +629,6 @@ class BaseCharacter {
         }
     }
     
-    // 【修改點】讓受傷時同步刷新 UI，包含扣血或破盾
     takeDamage(amt) {
         if (Math.random() < this.getDodgeRate()) { addFloatingText('閃避!', this.x, this.y - 20, '#10b981'); if (this.mods.passive_shadow_step) this.buffs.shadow = 2.0; return; }
         if (this.hasShield) { 
@@ -601,7 +640,7 @@ class BaseCharacter {
         this.hp -= amt; 
         addParticle(this.x, this.y, '#ef4444', 5); 
         
-        if (this === Engine.player) UI.update(); // <- 即時更新 UI 的關鍵
+        if (this === Engine.player) UI.update(); 
         
         if (this.hp <= 0 && !this.isDead) { this.hp = 0; this.die(); }
     }
@@ -673,6 +712,13 @@ class Player extends BaseCharacter {
         this.hp = Math.max(1, this.getMaxHp() * hpPct);
         if (this.hp > this.getMaxHp()) this.hp = this.getMaxHp(); 
         UI.update();
+        
+        // 更新天賦面板屬性 UI
+        if(document.getElementById('statStr')) {
+            document.getElementById('statStr').innerText = this.getStr();
+            document.getElementById('statAgi').innerText = this.getAgi();
+            document.getElementById('statInt').innerText = this.getInt();
+        }
     }
     update(dt) {
         if (this.forcedMove && this.forcedMove.time > 0) {
@@ -1001,7 +1047,7 @@ class PersistentAoe {
             ctx.beginPath(); ctx.arc(0,0,this.radius,0,Math.PI*2); ctx.fillStyle='rgba(252,165,165,0.1)'; ctx.fill();
         } else {
             ctx.strokeStyle = this.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2); ctx.stroke(); 
-            ctx.fillStyle = this.color.replace(')', ', 0.2)').replace('rgb', 'rgba'); ctx.fill(); 
+            ctx.fillStyle = this.color; ctx.fill(); // 顏色屬性由傳入端控制透明度
         }
         ctx.restore(); 
     }
