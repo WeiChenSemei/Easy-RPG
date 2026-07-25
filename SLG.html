@@ -207,7 +207,7 @@
                 <!-- 2. 氣候類型 -->
                 <section>
                     <h3 class="text-lg text-white font-bold border-b border-gray-600 pb-1 mb-2">☁️ 氣象變化</h3>
-                    <p class="mb-2 text-xs text-gray-400">戰鬥中會遭遇隨機氣候（迷霧與機關迷宮不受天氣影響）：</p>
+                    <p class="mb-2 text-xs text-gray-400">戰鬥區域會遭遇隨機氣候（雨天、狂風、洪水會導致視線不良影響神器射程加成）：</p>
                     <div class="grid grid-cols-2 gap-2 text-xs">
                         <div>☀️ <b class="text-white">晴朗：</b>無特別效果</div>
                         <div>🌧️ <b class="text-blue-300">暴雨：</b>全體移動力 -1</div>
@@ -434,11 +434,11 @@
 
         const WEATHERS = [
             { name: '晴朗', icon: '☀️', desc: '無特別效果' },
-            { name: '暴雨', icon: '🌧️', desc: '所有角色移動力 -1' },
-            { name: '雷雨', icon: '⛈️', desc: '機率出現閃電(移動2)，接近並電擊目標' },
-            { name: '狂風', icon: '💨', desc: '機率出現龍捲風(移動3)，強迫接觸的目標位移' },
+            { name: '暴雨', icon: '🌧️', desc: '(視線不良)所有角色移動力 -1' },
+            { name: '雷雨', icon: '⛈️', desc: '(視線不良)機率出現閃電(移動2)，接近並電擊目標' },
+            { name: '狂風', icon: '💨', desc: '(視線不良)機率出現龍捲風(移動3)，強迫接觸的目標位移' },
             { name: '乾旱', icon: '🏜️', desc: '機率出現火焰(移動1)，燒傷接觸的目標' },
-            { name: '洪水', icon: '🌊', desc: '全體移動力剩1。機率出現漩渦(移動1)傳送目標' },
+            { name: '洪水', icon: '🌊', desc: '(視線不良)全體移動力剩1。機率出現漩渦(移動1)傳送目標' },
             { name: '冰雹', icon: '🌨️', desc: '每回合對隨機目標造成傷害' }
         ];
 
@@ -450,7 +450,7 @@
         const artifactPool = [
             { id: 'a1', name: '吸血戒指', icon: '💍', desc: '攻擊時恢復造成傷害 30% 的生命值。' }, { id: 'a2', name: '神速之靴', icon: '👢', desc: '全體英雄戰鬥中的移動力 +1。' },
             { id: 'a3', name: '巨人之心', icon: '❤️', desc: '全體英雄基礎最大生命值永久 +5！' }, { id: 'a4', name: '勇氣徽章', icon: '🎖️', desc: '全體英雄基礎攻擊力永久 +2！' },
-            { id: 'a5', name: '鷹眼面罩', icon: '🦅', desc: '遠程與敏捷系英雄，攻擊與技能範圍 +1。' }, { id: 'a6', name: '守護者之盾', icon: '🛡️', desc: '全體英雄基礎最大生命值永久 +10！' },
+            { id: 'a5', name: '鷹眼面罩', icon: '🦅', desc: '遠程與敏捷系英雄，視線良好時，攻擊與技能範圍 +1。' }, { id: 'a6', name: '守護者之盾', icon: '🛡️', desc: '全體英雄基礎最大生命值永久 +10！' },
             { id: 'a7', name: '狂戰士手環', icon: '💪', desc: '全體英雄基礎攻擊力永久 +4！' }, { id: 'a8', name: '刺客袖劍', icon: '🗡️', desc: '全體「敏捷」英雄基礎攻擊力永久 +3！' },
             { id: 'a9', name: '法師之書', icon: '📖', desc: '全體「遠程」英雄基礎攻擊力永久 +3！' }, { id: 'a10', name: '騎士榮耀', icon: '👑', desc: '全體「近戰」英雄基礎最大生命值永久 +8！' },
             { id: 'a11', name: '再生墜飾', icon: '🍀', desc: '每回合開始時，全體英雄自動恢復 2 點生命。' }, { id: 'a12', name: '戰神之刃', icon: '⚔️', desc: '全體英雄基礎攻擊力 +3、最大生命值 +3！' },
@@ -666,8 +666,14 @@
 
         function getArtifactBoosts() {
             let boosts = { move: 0, rangeMod: false, lifesteal: false, skillPower: false, thorns: false, agileMove: false };
+            
+            // 設定壞天氣
+            let currentWeather = globalState.currentLevelData?.weather?.name;
+            let badWeathers = ['暴雨', '雷雨', '狂風', '洪水'];
+            let isBadWeather = badWeathers.includes(currentWeather);
+            
             globalState.artifacts.forEach(aid => { 
-                if(aid === 'a1') boosts.lifesteal = true; if(aid === 'a2') boosts.move += 1; if(aid === 'a5') boosts.rangeMod = true; 
+                if(aid === 'a1') boosts.lifesteal = true; if(aid === 'a2') boosts.move += 1; if(aid === 'a5' && !isBadWeather) boosts.rangeMod = true; 
                 if(aid === 'a13') boosts.skillPower = true; if(aid === 'a14') boosts.thorns = true; if(aid === 'a15') boosts.agileMove = true;
             });
             return boosts;
@@ -1800,4 +1806,3 @@
     </script>
 </body>
 </html>
-
