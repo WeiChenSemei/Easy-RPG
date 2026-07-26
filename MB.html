@@ -25,6 +25,7 @@
             <div class="flex flex-col text-xs font-bold text-gray-300">
                 <span>🌊 波次: <span id="ui-wave" class="text-white">1</span></span>
                 <span>💀 死亡: <span id="ui-deaths" class="text-red-400">0</span></span>
+                <span>🏰 城鎮: <span id="ui-town-lvl" class="text-yellow-400">1</span></span>
             </div>
             <div class="flex gap-2">
                 <button onclick="toggleModal('modal-bag')" class="bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded shadow active:scale-95 transition-transform flex items-center gap-1 font-bold">🎒 背包</button>
@@ -185,8 +186,14 @@
             camera: { x: 0, y: 0 }, craftingExp: 0,
             input: { x: 0, y: 0 }, autoAimTarget: null, shootTimer: 0,
             enemySpawnTimer: 0, isPaused: false,
-            keys: {} // 記錄鍵盤狀態
+            keys: {}, // 記錄鍵盤狀態
+            townLevel: 1, townExp: 0 // 城鎮等級與經驗
         };
+
+        function getTownRadius() {
+            // 城鎮每升級一級，安全區範圍擴大 0.1%
+            return GAME_CONFIG.town.radius * (1 + (state.townLevel - 1) * 0.001);
+        }
 
         class Player {
             constructor() {
@@ -209,7 +216,8 @@
                 this.hp = this.baseHp; this.spd = 135; this.state = 'idle'; this.cooldown = 0; this.isFollowing = false;
             }
             update(dt, inTown) {
-                let maxHp = this.baseHp * (1 + state.wave * 0.5); let atk = this.baseAtk * (1 + state.wave * 0.3);
+                // 傭兵強度隨著城鎮等級成長
+                let maxHp = this.baseHp * (1 + state.townLevel * 0.5); let atk = this.baseAtk * (1 + state.townLevel * 0.3);
                 if (this.hp > maxHp) this.hp = maxHp;
 
                 if (inTown && this.hp > 0) {
@@ -281,14 +289,14 @@
                             if (lowestPct < 0.7) allyToHeal = player;
                             entities.mercs.forEach(m => {
                                 if(m.state === 'follow' && m !== this) {
-                                    let mMaxHp = m.baseHp * (1 + state.wave * 0.5); let pct = m.hp / mMaxHp;
+                                    let mMaxHp = m.baseHp * (1 + state.townLevel * 0.5); let pct = m.hp / mMaxHp;
                                     if (pct < 0.7 && pct < lowestPct) { lowestPct = pct; allyToHeal = m; }
                                 }
                             });
                             if (allyToHeal) {
                                 let healAmt = atk * 3;
                                 if (allyToHeal === player) player.hp = Math.min(player.stats.maxHp, player.hp + healAmt);
-                                else allyToHeal.hp = Math.min(allyToHeal.baseHp * (1 + state.wave * 0.5), allyToHeal.hp + healAmt);
+                                else allyToHeal.hp = Math.min(allyToHeal.baseHp * (1 + state.townLevel * 0.5), allyToHeal.hp + healAmt);
                                 addHitEffect(allyToHeal.x, allyToHeal.y, '✨', '#4ade80'); addFloatingText(allyToHeal.x, allyToHeal.y - 20, `+${Math.floor(healAmt)}`, '#4ade80');
                                 this.cooldown = 2.0;
                             } else if (closestEnemy && minEnemyDist <= 250 && !inTown) {
@@ -315,18 +323,30 @@
 
         function initWorld() {
             entities.scenery = []; entities.ores = []; entities.enemies = []; entities.bullets = []; entities.hitEffects = []; entities.altars = []; entities.mines = [];
+            entities.townBuildings = [];
             entities.mercs = [new Mercenary('warrior', '🛡️', GAME_CONFIG.town.x - 20, GAME_CONFIG.town.y + 20), new Mercenary('priest', '🪄', GAME_CONFIG.town.x + 20, GAME_CONFIG.town.y + 20)];
-            entities.scenery.push({ x: GAME_CONFIG.town.x, y: GAME_CONFIG.town.y - 30, emoji: '🏰', isTown: true });
+            generateTownBuildings();
             for(let i=0; i<150; i++) {
                 let rx = (Math.random() - 0.5) * 3000; let ry = (Math.random() - 0.5) * 3000;
-                if (Math.hypot(rx - GAME_CONFIG.town.x, ry - GAME_CONFIG.town.y) > GAME_CONFIG.town.radius) entities.scenery.push({ x: rx, y: ry, emoji: Math.random() > 0.5 ? '🌳' : '🌲' });
+                if (Math.hypot(rx - GAME_CONFIG.town.x, ry - GAME_CONFIG.town.y) > getTownRadius()) entities.scenery.push({ x: rx, y: ry, emoji: Math.random() > 0.5 ? '🌳' : '🌲' });
             }
             for(let i=0; i<40; i++) spawnRandomEntity(entities.ores, '🪨', 15, 800);
             for(let i=0; i<5; i++) spawnRandomEntity(entities.altars, '🗿', 20, 1500);
         }
 
+        function generateTownBuildings() {
+            entities.townBuildings = [{ x: GAME_CONFIG.town.x, y: GAME_CONFIG.town.y - 30, emoji: '🏰', isTown: true }];
+            let numHouses = Math.floor((state.townLevel - 1) / 2); // 隨著等級提高增加房子數量
+            let emojis = ['🏠', '🛖', '🏚️', '🏫', '⛪', '🏛️'];
+            for(let i=0; i<numHouses; i++) {
+                let angle = Math.random() * Math.PI * 2;
+                let dist = 40 + Math.random() * (getTownRadius() - 60);
+                entities.townBuildings.push({ x: GAME_CONFIG.town.x + Math.cos(angle)*dist, y: GAME_CONFIG.town.y + Math.sin(angle)*dist, emoji: emojis[Math.floor(Math.random()*emojis.length)], isTown: true });
+            }
+        }
+
         function spawnRandomEntity(arr, emoji, size, maxDist) {
-            let angle = Math.random() * Math.PI * 2; let dist = GAME_CONFIG.town.radius + 50 + Math.random() * maxDist;
+            let angle = Math.random() * Math.PI * 2; let dist = getTownRadius() + 50 + Math.random() * maxDist;
             let x = GAME_CONFIG.town.x + Math.cos(angle)*dist; let y = GAME_CONFIG.town.y + Math.sin(angle)*dist;
             arr.push({ x, y, emoji, size });
         }
@@ -373,7 +393,7 @@
         /** ==========================================
          * 4. 存檔與系統 (改為自動存檔)
          * ========================================== */
-        function getSaveData() { return { player: { inventory: player.inventory, slots: player.slots, stats: player.baseStats, hp: player.hp, mp: player.mp }, state: { wave: state.wave, deaths: state.deaths, craftingExp: state.craftingExp } }; }
+        function getSaveData() { return { player: { inventory: player.inventory, slots: player.slots, stats: player.baseStats, hp: player.hp, mp: player.mp }, state: { wave: state.wave, deaths: state.deaths, craftingExp: state.craftingExp, townLevel: state.townLevel, townExp: state.townExp } }; }
         function applySaveData(parsed) {
             player.inventory = parsed.player.inventory || { rawStones: 0, gems: [] };
             let loadedSlots = parsed.player.slots || []; player.slots = new Array(GAME_CONFIG.maxSlots).fill(null);
@@ -381,6 +401,7 @@
             player.baseStats = { ...player.baseStats, ...parsed.player.stats }; player.recalculateStats();
             player.hp = Math.min(parsed.player.hp, player.stats.maxHp); player.mp = Math.min(parsed.player.mp, player.stats.maxMp);
             state.wave = parsed.state.wave || 1; state.deaths = parsed.state.deaths || 0; state.craftingExp = parsed.state.craftingExp || 0;
+            state.townLevel = parsed.state.townLevel || 1; state.townExp = parsed.state.townExp || 0;
             player.x = GAME_CONFIG.town.x; player.y = GAME_CONFIG.town.y; state.aggro = 0; state.isBossFight = false;
             initWorld(); updateUI(); renderSlots();
         }
@@ -393,13 +414,22 @@
 
         function exportSave() { const blob = new Blob([JSON.stringify(getSaveData())], { type: 'application/json' }); const url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = 'magic_bullet_save.json'; a.click(); URL.revokeObjectURL(url); showToast("存檔已匯出！"); }
         function handleImportSave(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (e) => { try { applySaveData(JSON.parse(e.target.result)); showToast("存檔匯入成功！"); toggleModal('modal-file'); } catch (err) { showToast("存檔格式錯誤！"); } }; reader.readAsText(file); event.target.value = ''; }
-        function fullResetGame() { localStorage.removeItem('magicBulletSave'); player = new Player(); state.wave = 1; state.deaths = 0; state.craftingExp = 0; state.aggro = 0; state.isBossFight = false; initWorld(); updateUI(); renderSlots(); toggleModal('modal-file'); showToast("已重新開始遊戲"); }
+        function fullResetGame() { localStorage.removeItem('magicBulletSave'); player = new Player(); state.wave = 1; state.deaths = 0; state.craftingExp = 0; state.townLevel = 1; state.townExp = 0; state.aggro = 0; state.isBossFight = false; initWorld(); updateUI(); renderSlots(); toggleModal('modal-file'); showToast("已重新開始遊戲"); }
 
         function handleDeath() {
             state.deaths++; player.x = GAME_CONFIG.town.x; player.y = GAME_CONFIG.town.y; player.hp = player.stats.maxHp; player.mp = player.stats.maxMp;
             state.aggro = 0; state.isBossFight = false; entities.enemies = []; entities.bullets = []; entities.hitEffects = []; entities.mines = [];
             entities.mercs.forEach(m => { m.state = 'idle'; m.x = GAME_CONFIG.town.x + (Math.random()*40-20); m.y = GAME_CONFIG.town.y + (Math.random()*40-20); m.hp = m.baseHp; });
-            updateUI(); showToast("你死亡了！返回起始城鎮。"); autoSaveGame();
+            
+            if (state.townLevel > 1) {
+                state.townLevel--;
+                state.townExp = 0;
+                generateTownBuildings();
+                showToast(`你死亡了！城鎮降級至 Lv.${state.townLevel}`);
+            } else {
+                showToast("你死亡了！返回起始城鎮。");
+            }
+            updateUI(); autoSaveGame();
         }
 
         /** ==========================================
@@ -407,7 +437,7 @@
          * ========================================== */
         function update(dt) {
             if (player.hp <= 0) return;
-            const inTown = Math.hypot(player.x - GAME_CONFIG.town.x, player.y - GAME_CONFIG.town.y) < GAME_CONFIG.town.radius;
+            const inTown = Math.hypot(player.x - GAME_CONFIG.town.x, player.y - GAME_CONFIG.town.y) < getTownRadius();
 
             player.hp = Math.min(player.stats.maxHp, player.hp + (inTown ? player.stats.maxHp * 0.2 : player.stats.hpRegen) * dt);
             player.mp = Math.min(player.stats.maxMp, player.mp + (inTown ? player.stats.maxMp * 0.2 : player.stats.mpRegen) * dt);
@@ -428,14 +458,14 @@
             }
 
             const despawnDist = 1800;
-            entities.scenery = entities.scenery.filter(s => s.isTown || Math.hypot(player.x - s.x, player.y - s.y) < despawnDist);
+            entities.scenery = entities.scenery.filter(s => Math.hypot(player.x - s.x, player.y - s.y) < despawnDist);
             entities.ores = entities.ores.filter(o => Math.hypot(player.x - o.x, player.y - o.y) < despawnDist);
             entities.enemies = entities.enemies.filter(e => Math.hypot(player.x - e.x, player.y - e.y) < despawnDist * 1.5);
             entities.altars = entities.altars.filter(a => Math.hypot(player.x - a.x, player.y - a.y) < despawnDist);
 
             while (entities.scenery.length < 150) {
                 let rx = player.x + (Math.random() - 0.5) * 2000; let ry = player.y + (Math.random() - 0.5) * 2000;
-                if (Math.hypot(rx - GAME_CONFIG.town.x, ry - GAME_CONFIG.town.y) > GAME_CONFIG.town.radius) entities.scenery.push({ x: rx, y: ry, emoji: Math.random() > 0.5 ? '🌳' : '🌲' });
+                if (Math.hypot(rx - GAME_CONFIG.town.x, ry - GAME_CONFIG.town.y) > getTownRadius()) entities.scenery.push({ x: rx, y: ry, emoji: Math.random() > 0.5 ? '🌳' : '🌲' });
             }
             if (entities.ores.length < 40 && Math.random() < 0.05) spawnRandomEntity(entities.ores, '🪨', 15, 1000);
             if (entities.altars.length < 3 && Math.random() < 0.01) spawnRandomEntity(entities.altars, '🗿', 20, 1500);
@@ -478,7 +508,7 @@
         function findAutoAimTarget() {
             let nearest = null; let minDist = 300;
             entities.enemies.forEach(e => { 
-                if (!e.isDead) {
+                if (!e.isDead && (!e.isInvincible || e.isInvincible <= 0)) {
                     let d = Math.hypot(player.x - e.x, player.y - e.y); 
                     if (d < minDist) { minDist = d; nearest = e; } 
                 }
@@ -546,6 +576,7 @@
         function updateBullets(dt) {
             for (let i = entities.bullets.length - 1; i >= 0; i--) {
                 let b = entities.bullets[i];
+                if (!b) continue; // 避免玩家死亡陣列被清空時出現 undefined 錯誤
                 
                 if (b.effects.includes('homing') && b.owner === 'player') {
                     let target = null; let minDist = 250;
@@ -568,7 +599,7 @@
                 
                 if (b.effects.includes('gravity') && b.owner === 'player') {
                     entities.enemies.forEach(e => {
-                        if (!e.isDead && !e.isBoss) {
+                        if (!e.isDead && !e.isBoss && (!e.isInvincible || e.isInvincible <= 0)) {
                             // 優化: 將開根號運算轉為平方比較
                             let dx = b.x - e.x; let dy = b.y - e.y;
                             if (dx*dx + dy*dy < 22500) {
@@ -588,8 +619,8 @@
                 if (b.owner === 'player') {
                     for (let j = entities.enemies.length - 1; j >= 0; j--) {
                         let e = entities.enemies[j];
-                        // 修正: 檢查 b.hitTargets.has(e) 防止對同一個怪物每幀重複造成傷害
-                        if (!e || e.isDead || b.hitTargets.has(e)) continue; 
+                        // 修正: 檢查 b.hitTargets.has(e) 與無敵狀態
+                        if (!e || e.isDead || b.hitTargets.has(e) || (e.isInvincible && e.isInvincible > 0)) continue; 
                         let dx = b.x - e.x; let dy = b.y - e.y;
                         if (dx*dx + dy*dy < (b.size + e.size)*(b.size + e.size)) { 
                             hitTarget = true; b.hitTargets.add(e); hitEnemy(e, b); b.pierce--; 
@@ -612,6 +643,7 @@
                             }
                         }
                     });
+                    if (player.hp <= 0) break; // 玩家死亡立即中斷迴圈，避免錯誤
                     if (hitTarget) b.pierce--;
                 }
 
@@ -672,7 +704,7 @@
                     // 偵測是否有怪物踩到
                     for (let j = 0; j < entities.enemies.length; j++) {
                         let e = entities.enemies[j];
-                        if (!e.isDead && Math.hypot(m.x - e.x, m.y - e.y) < m.triggerRadius + e.size) {
+                        if (!e.isDead && (!e.isInvincible || e.isInvincible <= 0) && Math.hypot(m.x - e.x, m.y - e.y) < m.triggerRadius + e.size) {
                             triggered = true; break;
                         }
                     }
@@ -684,7 +716,7 @@
                     
                     // 對範圍內敵人造成爆炸傷害
                     entities.enemies.forEach(e => {
-                        if (!e.isDead && Math.hypot(m.x - e.x, m.y - e.y) < m.explosionRadius + e.size) {
+                        if (!e.isDead && (!e.isInvincible || e.isInvincible <= 0) && Math.hypot(m.x - e.x, m.y - e.y) < m.explosionRadius + e.size) {
                             let isCrit = Math.random() < player.stats.critRate;
                             let finalDmg = isCrit ? m.dmg * player.stats.critDmg : m.dmg;
                             e.hp -= finalDmg;
@@ -718,7 +750,16 @@
             let validTargets = [player]; entities.mercs.forEach(m => { if(m.state === 'follow' && m.hp > 0) validTargets.push(m); });
 
             entities.enemies.forEach(e => {
-                if (e.isDead) return;
+                if (player.hp <= 0 || e.isDead) return; // 玩家死亡時立即停止敵人的判定運算
+                
+                // 處理隱形無敵散開邏輯
+                if (e.isInvincible && e.isInvincible > 0) {
+                    e.isInvincible -= dt;
+                    e.x += Math.cos(e.scatterAngle) * e.baseSpd * 3 * dt;
+                    e.y += Math.sin(e.scatterAngle) * e.baseSpd * 3 * dt;
+                    return; // 隱形無敵時間內不可被指定、不發動攻擊
+                }
+
                 if (e.stun && e.stun > 0) { e.stun -= dt; return; }
                 if (e.spd < e.baseSpd) e.spd += (e.baseSpd - e.spd) * dt * 0.5; // 解凍
                 
@@ -736,7 +777,7 @@
                 let distToTown = Math.hypot(e.x - GAME_CONFIG.town.x, e.y - GAME_CONFIG.town.y);
 
                 if (inTown) {
-                    if (distToTown < GAME_CONFIG.town.radius + 150) {
+                    if (distToTown < getTownRadius() + 150) {
                         let angle = Math.atan2(e.y - GAME_CONFIG.town.y, e.x - GAME_CONFIG.town.x);
                         e.x += Math.cos(angle) * (actualSpd * 0.6) * dt; e.y += Math.sin(angle) * (actualSpd * 0.6) * dt;
                     } else {
@@ -756,7 +797,7 @@
                             let angle = Math.atan2(closestTarget.y - e.y, closestTarget.x - e.x);
                             let nextX = e.x + Math.cos(angle) * actualSpd * dt; let nextY = e.y + Math.sin(angle) * actualSpd * dt;
                             let distToTownCenter = Math.hypot(nextX - GAME_CONFIG.town.x, nextY - GAME_CONFIG.town.y);
-                            let townBarrier = GAME_CONFIG.town.radius + (e.size / 2);
+                            let townBarrier = getTownRadius() + (e.size / 2);
                             if (distToTownCenter < townBarrier) {
                                 let pushAngle = Math.atan2(nextY - GAME_CONFIG.town.y, nextX - GAME_CONFIG.town.x);
                                 nextX = GAME_CONFIG.town.x + Math.cos(pushAngle) * townBarrier; nextY = GAME_CONFIG.town.y + Math.sin(pushAngle) * townBarrier;
@@ -795,7 +836,7 @@
                         e.stateTime = 0; addFloatingText(e.x, e.y - 30, "召喚!", "#c084fc");
                         for(let i=0; i<3; i++) {
                             let tmpl = NORMAL_BEHAVIORS.find(b=>b.id==='swarm'); let w = 1 + (state.wave * 0.2);
-                            entities.enemies.push({ x: e.x + (Math.random()*60-30), y: e.y + (Math.random()*60-30), emoji: NORMAL_EMOJIS[Math.floor(Math.random()*NORMAL_EMOJIS.length)], size: tmpl.size, hp: 30*tmpl.hpMulti*w, maxHp: 30*tmpl.hpMulti*w, atk: 5*tmpl.atkMulti*w, spd: 40*tmpl.spdMulti, baseSpd: 40*tmpl.spdMulti, atkCooldown: 0, isBoss: false, behavior: tmpl.id, isRanged: tmpl.ranged });
+                            entities.enemies.push({ x: e.x + (Math.random()*60-30), y: e.y + (Math.random()*60-30), emoji: NORMAL_EMOJIS[Math.floor(Math.random()*NORMAL_EMOJIS.length)], size: tmpl.size, hp: 30*tmpl.hpMulti*w, maxHp: 30*tmpl.hpMulti*w, atk: 5*tmpl.atkMulti*w, spd: 40*tmpl.spdMulti, baseSpd: 40*tmpl.spdMulti, atkCooldown: 0, isBoss: false, behavior: tmpl.id, isRanged: tmpl.ranged, isInvincible: 1.0, scatterAngle: Math.random() * Math.PI * 2 });
                         }
                     }
                 }
@@ -828,7 +869,7 @@
                 let atkMult = 1 + (state.wave * 0.2);
                 let angle = Math.random() * Math.PI * 2; let actualSpd = 40 * tmpl.spdMulti;
                 
-                let eObj = { x: player.x + Math.cos(angle)*600, y: player.y + Math.sin(angle)*600, emoji: BOSS_EMOJIS[Math.floor(Math.random()*BOSS_EMOJIS.length)], size: tmpl.size, hp: 100*tmpl.hpMulti*hpMult, maxHp: 100*tmpl.hpMulti*hpMult, atk: 10*tmpl.atkMulti*atkMult, spd: actualSpd, baseSpd: actualSpd, atkCooldown: 0, isBoss: true, behavior: tmpl.id, isRanged: tmpl.ranged };
+                let eObj = { x: player.x + Math.cos(angle)*600, y: player.y + Math.sin(angle)*600, emoji: BOSS_EMOJIS[Math.floor(Math.random()*BOSS_EMOJIS.length)], size: tmpl.size, hp: 100*tmpl.hpMulti*hpMult, maxHp: 100*tmpl.hpMulti*hpMult, atk: 10*tmpl.atkMulti*atkMult, spd: actualSpd, baseSpd: actualSpd, atkCooldown: 0, isBoss: true, behavior: tmpl.id, isRanged: tmpl.ranged, isInvincible: 1.0, scatterAngle: Math.random() * Math.PI * 2 };
                 
                 if (tmpl.ranged) eObj.shootPattern = ['circle', 'cross', 'fan'][Math.floor(Math.random() * 3)];
                 entities.enemies.push(eObj);
@@ -848,7 +889,7 @@
                     let angle = Math.random() * Math.PI * 2; let actualSpd = 40 * tmpl.spdMulti;
                     
                     let spread = (Math.random() - 0.5) * 150; 
-                    let eObj = { x: player.x + Math.cos(angle)*(400 + spread), y: player.y + Math.sin(angle)*(400 + spread), emoji: NORMAL_EMOJIS[Math.floor(Math.random()*NORMAL_EMOJIS.length)], size: tmpl.size, hp: 30*tmpl.hpMulti*hpMult, maxHp: 30*tmpl.hpMulti*hpMult, atk: 5*tmpl.atkMulti*atkMult, spd: actualSpd, baseSpd: actualSpd, atkCooldown: 0, isBoss: false, behavior: tmpl.id, isRanged: tmpl.ranged };
+                    let eObj = { x: player.x + Math.cos(angle)*(400 + spread), y: player.y + Math.sin(angle)*(400 + spread), emoji: NORMAL_EMOJIS[Math.floor(Math.random()*NORMAL_EMOJIS.length)], size: tmpl.size, hp: 30*tmpl.hpMulti*hpMult, maxHp: 30*tmpl.hpMulti*hpMult, atk: 5*tmpl.atkMulti*atkMult, spd: actualSpd, baseSpd: actualSpd, atkCooldown: 0, isBoss: false, behavior: tmpl.id, isRanged: tmpl.ranged, isInvincible: 1.0, scatterAngle: Math.random() * Math.PI * 2 };
                     
                     if (tmpl.ranged) eObj.shootPattern = ['single', 'fan', 'cross', 'circle', 'shotgun'][Math.floor(Math.random() * 5)];
                     entities.enemies.push(eObj);
@@ -893,7 +934,7 @@
             
             ctx.save(); ctx.translate(-state.camera.x, -state.camera.y);
 
-            ctx.beginPath(); ctx.arc(GAME_CONFIG.town.x, GAME_CONFIG.town.y, GAME_CONFIG.town.radius, 0, Math.PI*2);
+            ctx.beginPath(); ctx.arc(GAME_CONFIG.town.x, GAME_CONFIG.town.y, getTownRadius(), 0, Math.PI*2);
             ctx.fillStyle = 'rgba(150, 150, 150, 0.3)'; ctx.fill();
             ctx.strokeStyle = 'rgba(100, 200, 255, 0.6)'; ctx.setLineDash([10, 10]); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
 
@@ -902,6 +943,11 @@
             ctx.globalAlpha = 1.0;
 
             ctx.font = '24px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            if (entities.townBuildings) {
+                entities.townBuildings.forEach(b => {
+                    if(b.x>state.camera.x-50 && b.x<state.camera.x+canvas.width+50 && b.y>state.camera.y-50 && b.y<state.camera.y+canvas.height+50) ctx.fillText(b.emoji, b.x, b.y);
+                });
+            }
             entities.scenery.forEach(s => { if(s.x>state.camera.x-50 && s.x<state.camera.x+canvas.width+50 && s.y>state.camera.y-50 && s.y<state.camera.y+canvas.height+50) ctx.fillText(s.emoji, s.x, s.y); });
             ctx.font = '20px sans-serif'; entities.ores.forEach(o => { ctx.fillText(o.emoji, o.x, o.y); });
             ctx.font = '28px sans-serif'; entities.altars.forEach(a => { ctx.fillText(a.emoji, a.x, a.y); });
@@ -914,6 +960,7 @@
             
             ctx.fillStyle = '#ffffff'; // 畫完血條後，再重置一次給敵人與玩家使用
             entities.enemies.forEach(e => {
+                if (e.isInvincible && e.isInvincible > 0) return; // 隱形無敵狀態不渲染
                 ctx.font = `${e.size * 1.5}px sans-serif`; ctx.fillText(e.emoji, e.x, e.y);
                 if (e.stun && e.stun > 0) { ctx.font = '16px sans-serif'; ctx.fillText('💫', e.x, e.y - e.size); }
             });
@@ -1060,6 +1107,7 @@
 
         function updateUI() {
             document.getElementById('ui-wave').innerText = state.wave; document.getElementById('ui-deaths').innerText = state.deaths;
+            if(document.getElementById('ui-town-lvl')) document.getElementById('ui-town-lvl').innerText = state.townLevel;
             document.getElementById('bar-hp').style.width = `${Math.max(0, Math.min(100, (player.hp/player.stats.maxHp)*100))}%`; document.getElementById('text-hp').innerText = `${Math.floor(player.hp)} / ${Math.floor(player.stats.maxHp)}`;
             document.getElementById('bar-mp').style.width = `${Math.max(0, Math.min(100, (player.mp/player.stats.maxMp)*100))}%`; document.getElementById('text-mp').innerText = `${Math.floor(player.mp)} / ${Math.floor(player.stats.maxMp)}`;
             const aggroPct = (state.aggro / GAME_CONFIG.maxAggro) * 100; document.getElementById('bar-aggro').style.width = `${aggroPct}%`;
@@ -1132,16 +1180,52 @@
                 let val = gem.bonusStats[key]; if(key==='critRate'||key==='dodge') val = '+' + (val * 100).toFixed(1) + '%'; else if(key==='critDmg') val = '+' + (val * 100).toFixed(0) + '%'; else val = '+' + Math.floor(val * 10) / 10;
                 statsHtml += `<div class="text-sm text-gray-300">• ${ATTR_NAMES[key]}: <span class="text-green-400">${val}</span></div>`;
             }
+            
+            const inTown = Math.hypot(player.x - GAME_CONFIG.town.x, player.y - GAME_CONFIG.town.y) < getTownRadius();
+            const discardBtnText = inTown ? "捐獻" : "丟棄";
+            const discardBtnClass = inTown ? "bg-pink-600 hover:bg-pink-500" : "bg-red-600 hover:bg-red-500";
+            
             document.getElementById('gem-detail-content').innerHTML = `
                 <div class="flex justify-between items-start border-b border-gray-700 pb-2"><div class="flex items-center gap-2"><div class="text-3xl">${gem.icon}</div><div><div class="font-bold text-lg" style="color: ${gem.rarity.color}">${gem.name}</div><div class="text-xs text-gray-400">類型: ${GEM_TYPES.find(t=>t.id===gem.type).name} | 稀有度: ${gem.rarity.name}</div></div></div><button onclick="toggleModal('modal-gem-detail')" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button></div>
                 <div class="py-2"><div class="text-sm text-yellow-300 mb-2">${gem.effect}</div><div class="bg-gray-900 p-2 rounded"><div class="text-xs text-gray-500 mb-1">附加屬性:</div>${statsHtml}</div></div>
-                <div class="flex gap-2 pt-2">${source === 'bag' ? `<button onclick="equipGem(${index})" class="flex-1 bg-green-600 py-2 rounded font-bold text-sm">裝備</button>` : `<button onclick="unequipGem(${index})" class="flex-1 bg-yellow-600 py-2 rounded font-bold text-sm">卸下</button>`}<button onclick="discardGem()" class="flex-1 bg-red-600 py-2 rounded font-bold text-sm">丟棄</button></div>
+                <div class="flex gap-2 pt-2">${source === 'bag' ? `<button onclick="equipGem(${index})" class="flex-1 bg-green-600 py-2 rounded font-bold text-sm">裝備</button>` : `<button onclick="unequipGem(${index})" class="flex-1 bg-yellow-600 py-2 rounded font-bold text-sm">卸下</button>`}<button onclick="discardGem()" class="flex-1 ${discardBtnClass} py-2 rounded font-bold text-sm">${discardBtnText}</button></div>
             `; toggleModal('modal-gem-detail', true);
         }
 
         function equipGem(idx) { let emp = player.slots.indexOf(null); if (emp===-1){showToast('沒有空插槽！');return;} player.slots[emp] = player.inventory.gems.splice(idx, 1)[0]; afterGemAction(); }
         function unequipGem(idx) { if (player.inventory.gems.length >= GAME_CONFIG.inventoryLimit){showToast('背包已滿！');return;} player.inventory.gems.push(player.slots[idx]); player.slots[idx] = null; afterGemAction(); }
-        function discardGem() { if (currentGemContext.source === 'bag') player.inventory.gems.splice(currentGemContext.index, 1); else player.slots[currentGemContext.index] = null; afterGemAction(); showToast('已丟棄寶石'); }
+        
+        function discardGem() { 
+            const inTown = Math.hypot(player.x - GAME_CONFIG.town.x, player.y - GAME_CONFIG.town.y) < getTownRadius();
+            const gem = currentGemContext.source === 'bag' ? player.inventory.gems[currentGemContext.index] : player.slots[currentGemContext.index];
+            
+            if (currentGemContext.source === 'bag') {
+                player.inventory.gems.splice(currentGemContext.index, 1); 
+            } else {
+                player.slots[currentGemContext.index] = null; 
+            }
+            
+            if (inTown) {
+                let exp = gem.rarity.valueReq > 0 ? gem.rarity.valueReq : 1;
+                state.townExp += exp;
+                let levelUp = false;
+                while (state.townExp >= state.townLevel * 20) {
+                    state.townExp -= state.townLevel * 20;
+                    state.townLevel++;
+                    levelUp = true;
+                }
+                if (levelUp) {
+                    showToast(`捐獻成功！城鎮升級至 Lv.${state.townLevel}！`);
+                    generateTownBuildings();
+                } else {
+                    showToast(`捐獻成功！城鎮獲得 ${exp} 點經驗`);
+                }
+            } else {
+                showToast('已丟棄寶石'); 
+            }
+            afterGemAction(); 
+        }
+
         function afterGemAction() { player.recalculateStats(); renderSlots(); updateBagUI(); toggleModal('modal-gem-detail'); }
 
         function toggleModal(id, forceOpen = false) {
