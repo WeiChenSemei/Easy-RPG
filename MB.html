@@ -178,16 +178,16 @@
         const BOSS_EMOJIS = ['🐉', '👿', '👁️', '👹', '🦑', '👽', '🦖', '🤖', '🎃', '🤡', '🦍', '🐅', '🐘', '🦏', '🦅'];
 
         const ENEMY_TEMPLATES = [
-            { emojiPool: ENEMY_EMOJIS, baseHp: 30, baseAtk: 5, spd: 40, isRanged: false },
-            { emojiPool: ENEMY_EMOJIS, baseHp: 50, baseAtk: 10, spd: 60, isRanged: false },
-            { emojiPool: ENEMY_EMOJIS, baseHp: 20, baseAtk: 8, spd: 90, isRanged: false },
-            { emojiPool: ENEMY_EMOJIS, baseHp: 80, baseAtk: 15, spd: 30, isRanged: false },
-            { emojiPool: RANGED_EMOJIS, baseHp: 40, baseAtk: 12, spd: 50, isRanged: true }
+            { emojiPool: ENEMY_EMOJIS, baseHp: 20, baseAtk: 8, spd: 40, isRanged: false },
+            { emojiPool: ENEMY_EMOJIS, baseHp: 20, baseAtk: 9, spd: 60, isRanged: false },
+            { emojiPool: ENEMY_EMOJIS, baseHp: 10, baseAtk: 7, spd: 90, isRanged: false },
+            { emojiPool: ENEMY_EMOJIS, baseHp: 30, baseAtk: 10, spd: 30, isRanged: false },
+            { emojiPool: RANGED_EMOJIS, baseHp: 20, baseAtk: 8, spd: 50, isRanged: true }
         ];
         const BOSS_TEMPLATES = [
-            { emojiPool: BOSS_EMOJIS, hpMulti: 20, atkMulti: 5, spdMulti: 1.5, isRanged: false },
-            { emojiPool: BOSS_EMOJIS, hpMulti: 15, atkMulti: 8, spdMulti: 1.2, isRanged: false },
-            { emojiPool: BOSS_EMOJIS, hpMulti: 18, atkMulti: 5, spdMulti: 1.0, isRanged: true }
+            { emojiPool: BOSS_EMOJIS, baseHp: 150, baseAtk: 25, spdMulti: 1.5, isRanged: false },
+            { emojiPool: BOSS_EMOJIS, baseHp: 150, baseAtk: 20, spdMulti: 1.2, isRanged: false },
+            { emojiPool: BOSS_EMOJIS, baseHp: 150, baseAtk: 15, spdMulti: 1.0, isRanged: true }
         ];
 
         /** ==========================================
@@ -210,28 +210,32 @@
             recalculateStats() {
           this.stats = { ...this.baseStats };
           this.slots.forEach(gem => { if (gem) for (let attr in gem.bonusStats) this.stats[attr] += gem.bonusStats[attr]; });
-          // 城鎮等級加成 (核心數值平衡)
-          let townMulti = Math.pow(1.3, state.townLevel - 1);
-          // 給予額外基礎血量 (每升1級多給30基礎血)，再乘上指數倍率
-          this.stats.maxHp = Math.floor((this.stats.maxHp + (state.townLevel - 1) * 30) * townMulti);
-          // 防禦力同理，每級給一點基礎防禦，再乘上指數倍率
-          this.stats.def = Math.floor((this.stats.def + (state.townLevel - 1) * 2) * townMulti);
-          // 校正當前血量不超過上限
+          
+          this.stats.maxHp = this.stats.maxHp + (state.townLevel - 1) * 20;
+          this.stats.atk = this.stats.atk + (state.townLevel - 1) * 10;
+          this.stats.def = this.stats.def + (state.townLevel - 1) * 5;
+
           this.hp = Math.min(this.hp, this.stats.maxHp);
           this.mp = Math.min(this.mp, this.stats.maxMp);
          }
         }
 
         class Mercenary {
-            constructor(type, emoji, bx, by) {
+            constructor(type, emoji, bx, by, isSummoned = false) {
                 this.type = type; this.emoji = emoji; this.x = bx; this.y = by; this.size = 15;
-                this.baseHp = type === 'warrior' ? 250 : 150; this.baseAtk = type === 'warrior' ? 15 : 10;
+                this.baseHp = type === 'warrior' ? 150 : 100; this.baseAtk = type === 'warrior' ? 5 : 8;this.baseDef = type === 'warrior' ? 10 : 8;
                 this.hp = this.baseHp; this.spd = 135; this.state = 'idle'; this.cooldown = 0; this.isFollowing = false;
+                this.isSummoned = isSummoned;
             }
             update(dt, inTown) {
-                let maxHp = this.baseHp * (1 + (state.townLevel - 1) * 0.5);
-                let atk = this.baseAtk * (1 + (state.townLevel - 1) * 0.3);
-                
+                let hpGrowth = this.type === 'warrior' ? 30 : 20;
+                let atkGrowth = this.type === 'warrior' ? 5 : 8;
+                let defGrowth = this.type === 'warrior' ? 10 : 8;
+
+                let maxHp = this.baseHp + (state.townLevel - 1) * hpGrowth;
+                let atk = this.baseAtk + (state.townLevel - 1) * atkGrowth;
+                let def = this.baseDef + (state.townLevel - 1) * defGrowth;
+
                 if (this.hp > maxHp) this.hp = maxHp;
 
                 if (this.state === 'idle' || inTown) {
@@ -245,9 +249,10 @@
 
                 if (this.state === 'follow') {
                     if (this.hp <= 0) {
-                        this.state = 'idle'; this.hp = maxHp;
-                        this.x = GAME_CONFIG.town.x + (Math.random()*40-20); this.y = GAME_CONFIG.town.y + (Math.random()*40-20);
-                        showToast(`${this.emoji} 受到重傷，已撤退回城鎮！`); return;
+                        if (this.isSummoned) {this.isDead = true; showToast(`${this.emoji} 已消散...`);return;} 
+                        else { this.state = 'idle'; this.hp = maxHp;
+                    this.x = GAME_CONFIG.town.x + (Math.random()*40-20); this.y = GAME_CONFIG.town.y + (Math.random()*40-20);
+                    showToast(`${this.emoji} 受到重傷，已撤退回城鎮！`); return;}
                     }
                     this.cooldown -= dt;
                     let distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
@@ -291,19 +296,22 @@
                             if (lowestPct < 0.7) allyToHeal = player;
                             entities.mercs.forEach(m => {
                                 if(m.state === 'follow' && m !== this) {
-                                    let mMaxHp = m.baseHp * (1 + (state.townLevel - 1) * 0.5); let pct = m.hp / mMaxHp;
+                                    let mHpGrowth = m.type === 'warrior' ? 30 : 20;
+                                    let mMaxHp = m.baseHp + (state.townLevel - 1) * mHpGrowth;
+                                    let pct = m.hp / mMaxHp;
                                     if (pct < 0.7 && pct < lowestPct) { lowestPct = pct; allyToHeal = m; }
                                 }
                             });
                             if (allyToHeal) {
                                 let healAmt = atk * 3;
                                 if (allyToHeal === player) player.hp = Math.min(player.stats.maxHp, player.hp + healAmt);
-                                else allyToHeal.hp = Math.min(allyToHeal.baseHp * (1 + (state.townLevel - 1) * 0.5), allyToHeal.hp + healAmt);
-                                addHitEffect(allyToHeal.x, allyToHeal.y, '✨', '#4ade80'); addFloatingText(allyToHeal.x, allyToHeal.y - 20, `+${Math.floor(healAmt)}`, '#4ade80'); this.cooldown = 2.0;
+                                else {let tHpGrowth = allyToHeal.type === 'warrior' ? 30 : 20;
+                                 allyToHeal.hp = Math.min(allyToHeal.baseHp + (state.townLevel - 1) * tHpGrowth, allyToHeal.hp + healAmt);}
+                                 addFloatingText(allyToHeal.x, allyToHeal.y - 20, `+${Math.floor(healAmt)}`, '#4ade80'); this.cooldown = 2.0;
                             } else if (closestEnemy && minEnemyDist <= 250 && !inTown) {
                                 closestEnemy.hp -= atk * 1.5; addHitEffect(closestEnemy.x, closestEnemy.y, '✨', '#fef08a');
                                 let angle = Math.atan2(closestEnemy.y - this.y, closestEnemy.x - this.x);
-                                closestEnemy.x += Math.cos(angle) * 50; closestEnemy.y += Math.sin(angle) * 50; this.cooldown = 1.2;
+                                closestEnemy.x += Math.cos(angle) * 25; closestEnemy.y += Math.sin(angle) * 50; this.cooldown = 1.2;
                             }
                         }
                     }
@@ -529,6 +537,7 @@
             }
 
             entities.mercs.forEach(m => m.update(dt, inTown));
+            entities.mercs = entities.mercs.filter(m => !m.isDead);
 
             if (!inTown) {
                 findAutoAimTarget(); state.shootTimer -= dt;
@@ -688,7 +697,7 @@
                             hitTarget = true; b.hitTargets.add(t);
                             if (t === player && Math.random() < player.stats.dodge) { addFloatingText(player.x, player.y, '閃躲!', '#a0aec0'); }
                             else {
-                                let def = t === player ? player.stats.def : (t.type === 'warrior' ? 10 : 5);
+                                let def = t === player ? player.stats.def : (t.baseDef + (state.townLevel - 1) * (t.type === 'warrior' ? 10 : 8));
                                 let dmg = Math.max(1, b.dmg - def); t.hp -= dmg; addHitEffect(t.x, t.y, '🩸', '#ff0000');
                             }
                         }
@@ -747,7 +756,7 @@
                let type = Math.random() < 0.5 ? 'warrior' : 'priest';
                let emoji = type === 'warrior' ? '🛡️' : '🪄';
                // 在怪物死亡的位置生成傭兵，並加入隊伍陣列
-               entities.mercs.push(new Mercenary(type, emoji, e.x, e.y));
+               entities.mercs.push(new Mercenary(type, emoji, e.x, e.y, true));
                addFloatingText(e.x, e.y - 20, '召喚!', '#d6bcfa');
               }
              }
@@ -853,7 +862,7 @@
                 if (!inTown && minDistToTargetSq < hitDist*hitDist && e.atkCooldown <= 0 && !e.isRanged) {
                     if (closestTarget === player && Math.random() < player.stats.dodge) { addFloatingText(player.x, player.y, '閃躲!', '#a0aec0'); }
                     else {
-                        let def = closestTarget === player ? player.stats.def : (closestTarget.type === 'warrior' ? 10 : 5);
+                        let def = closestTarget === player ? player.stats.def : (closestTarget.baseDef + (state.townLevel - 1) * (closestTarget.type === 'warrior' ? 10 : 8));
                         let dmg = Math.max(1, e.atk - def); closestTarget.hp -= dmg; addHitEffect(closestTarget.x, closestTarget.y, '🩸', '#ff0000');
                     }
                     e.atkCooldown = 1.0;
@@ -872,9 +881,9 @@
                 state.isBossFight = true; showToast("⚠️ 魔王降臨 ⚠️");
                 let t = BOSS_TEMPLATES[Math.floor(Math.random() * BOSS_TEMPLATES.length)];
                 let emoji = t.emojiPool[Math.floor(Math.random() * t.emojiPool.length)];
-                let w = Math.pow(1.3, state.wave - 1); 
+                let w = state.wave;
                 let angle = Math.random() * Math.PI * 2; let actualSpd = 40 * t.spdMulti;
-                entities.enemies.push({ x: player.x + Math.cos(angle)*600, y: player.y + Math.sin(angle)*600, emoji: emoji, size: 40, hp: 500*t.hpMulti*w, maxHp: 500*t.hpMulti*w, atk: 20*t.atkMulti*w, spd: actualSpd, baseSpd: actualSpd, atkCooldown: 0, isBoss: true, isRanged: t.isRanged, attackPattern: patterns[Math.floor(Math.random()*patterns.length)], isDead: false, invulnerable: 1.0, wanderAngle: angle });
+                entities.enemies.push({ x: player.x + Math.cos(angle)*600, y: player.y + Math.sin(angle)*600, emoji: emoji, size: 40, hp: t.baseHp * w, maxHp: t.baseHp * w,  atk: t.baseAtk * w, spd: actualSpd, baseSpd: actualSpd, atkCooldown: 0, isBoss: true, isRanged: t.isRanged, attackPattern: patterns[Math.floor(Math.random()*patterns.length)], isDead: false, invulnerable: 1.0, wanderAngle: angle });
             }
             
             let aggroRatio = state.aggro / GAME_CONFIG.maxAggro;
@@ -883,7 +892,7 @@
             if (!state.isBossFight && Math.random() < spawnChance && entities.enemies.length < 60) {
                 let t = ENEMY_TEMPLATES[Math.floor(Math.random() * ENEMY_TEMPLATES.length)];
                 let emoji = t.emojiPool[Math.floor(Math.random() * t.emojiPool.length)];
-                let w = Math.pow(1.2, state.wave - 1); 
+                let w = state.wave;
                 let angle = Math.random() * Math.PI * 2;
                 entities.enemies.push({ x: player.x + Math.cos(angle)*400, y: player.y + Math.sin(angle)*400, emoji: emoji, size: 15, hp: t.baseHp*w, maxHp: t.baseHp*w, atk: t.baseAtk*w, spd: t.spd, baseSpd: t.spd, atkCooldown: 0, isBoss: false, isRanged: t.isRanged, attackPattern: t.isRanged ? patterns[Math.floor(Math.random()*patterns.length)] : 'single', isDead: false, invulnerable: 1.0, wanderAngle: angle });
             }
