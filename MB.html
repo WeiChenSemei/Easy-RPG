@@ -311,15 +311,21 @@
                                 }
                             });
                             if (allyToHeal) {
-                                let healAmt = atk * 3;
-                                if (allyToHeal === player) player.hp = Math.min(player.stats.maxHp, player.hp + healAmt);
-                                else {let tHpGrowth = allyToHeal.type === 'warrior' ? 30 : 20;
-                                 allyToHeal.hp = Math.min(allyToHeal.baseHp + (state.townLevel - 1) * tHpGrowth, allyToHeal.hp + healAmt);}
-                                 addFloatingText(allyToHeal.x, allyToHeal.y - 20, `+${Math.floor(healAmt)}`, '#4ade80'); this.cooldown = 2.0;
-                            } else if (closestEnemy && minEnemyDist <= 250 && !inTown) {
-                                closestEnemy.hp -= atk * 1.5; addHitEffect(closestEnemy.x, closestEnemy.y, '✨', '#fef08a');
-                                let angle = Math.atan2(closestEnemy.y - this.y, closestEnemy.x - this.x);
-                                closestEnemy.x += Math.cos(angle) * 25; closestEnemy.y += Math.sin(angle) * 50; this.cooldown = 1.2;
+                                let healAmt = 0;
+                                // 1. 如果補的是玩家
+                                if (allyToHeal === player) {
+                                    healAmt = player.stats.maxHp * 0.25; // 玩家最大生命的 25%
+                                    player.hp = Math.min(player.stats.maxHp, player.hp + healAmt);
+                                } 
+                                // 2. 如果補的是傭兵 (包含戰士或別的牧師)
+                                else {
+                                    let tHpGrowth = allyToHeal.type === 'warrior' ? 30 : 20;
+                                    let targetMaxHp = allyToHeal.baseHp + (state.townLevel - 1) * tHpGrowth; // 先算出目標的最大生命
+                                    healAmt = targetMaxHp * 0.25; // 目標最大生命的 25%
+                                    allyToHeal.hp = Math.min(targetMaxHp, allyToHeal.hp + healAmt);
+                                }
+                                addFloatingText(allyToHeal.x, allyToHeal.y - 20, `+${Math.floor(healAmt)}`, '#4ade80'); 
+                                this.cooldown = 2.0;
                             }
                         }
                     }
