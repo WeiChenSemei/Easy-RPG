@@ -134,7 +134,7 @@
          * 1. 遊戲設定與資料驅動字典
          * ========================================== */
         const GAME_CONFIG = {
-            maxAggro: 100, aggroPerMove: 0.1, aggroPerMine: 2,
+            maxAggro: 100, aggroPerMove: 0.05, aggroPerMine: 1,
             inventoryLimit: 20, maxSlots: 8, town: { x: 0, y: 0, radius: 80 }
         };
 
@@ -178,16 +178,16 @@
         const BOSS_EMOJIS = ['🐉', '👿', '👁️', '👹', '🦑', '👽', '🦖', '🤖', '🎃', '🤡', '🦍', '🐅', '🐘', '🦏', '🦅'];
 
         const ENEMY_TEMPLATES = [
-            { emojiPool: ENEMY_EMOJIS, baseHp: 20, baseAtk: 8, spd: 40, isRanged: false },
-            { emojiPool: ENEMY_EMOJIS, baseHp: 20, baseAtk: 9, spd: 60, isRanged: false },
-            { emojiPool: ENEMY_EMOJIS, baseHp: 10, baseAtk: 7, spd: 90, isRanged: false },
-            { emojiPool: ENEMY_EMOJIS, baseHp: 30, baseAtk: 10, spd: 30, isRanged: false },
-            { emojiPool: RANGED_EMOJIS, baseHp: 20, baseAtk: 8, spd: 50, isRanged: true }
+            { emojiPool: ENEMY_EMOJIS, baseHp: 30, baseAtk: 8, spd: 40, isRanged: false },
+            { emojiPool: ENEMY_EMOJIS, baseHp: 30, baseAtk: 9, spd: 60, isRanged: false },
+            { emojiPool: ENEMY_EMOJIS, baseHp: 15, baseAtk: 7, spd: 90, isRanged: false },
+            { emojiPool: ENEMY_EMOJIS, baseHp: 45, baseAtk: 10, spd: 30, isRanged: false },
+            { emojiPool: RANGED_EMOJIS, baseHp: 30, baseAtk: 8, spd: 50, isRanged: true }
         ];
         const BOSS_TEMPLATES = [
-            { emojiPool: BOSS_EMOJIS, baseHp: 150, baseAtk: 25, spdMulti: 1.5, isRanged: false },
-            { emojiPool: BOSS_EMOJIS, baseHp: 150, baseAtk: 20, spdMulti: 1.2, isRanged: false },
-            { emojiPool: BOSS_EMOJIS, baseHp: 150, baseAtk: 15, spdMulti: 1.0, isRanged: true }
+            { emojiPool: BOSS_EMOJIS, baseHp: 225, baseAtk: 25, spdMulti: 1.5, isRanged: false },
+            { emojiPool: BOSS_EMOJIS, baseHp: 225, baseAtk: 20, spdMulti: 1.2, isRanged: false },
+            { emojiPool: BOSS_EMOJIS, baseHp: 225, baseAtk: 15, spdMulti: 1.0, isRanged: true }
         ];
 
         /** ==========================================
@@ -226,8 +226,16 @@
                 this.baseHp = type === 'warrior' ? 150 : 100; this.baseAtk = type === 'warrior' ? 5 : 8;this.baseDef = type === 'warrior' ? 10 : 8;
                 this.hp = this.baseHp; this.spd = 135; this.state = 'idle'; this.cooldown = 0; this.isFollowing = false;
                 this.isSummoned = isSummoned;
+                this.state = isSummoned ? 'follow' : 'idle'; 
+                // 給予 10 秒壽命
+                this.lifeTimer = 10.0;
             }
             update(dt, inTown) {
+                if (this.isSummoned) {
+                this.lifeTimer -= dt;
+                if (this.lifeTimer <= 0) {this.isDead = true;showToast(`${this.emoji} 靈力耗盡已消散...`);return;}
+                }
+                
                 let hpGrowth = this.type === 'warrior' ? 30 : 20;
                 let atkGrowth = this.type === 'warrior' ? 5 : 8;
                 let defGrowth = this.type === 'warrior' ? 10 : 8;
@@ -481,7 +489,7 @@
 
             entities.mercs.forEach(m => { 
                 m.state = 'idle'; m.x = GAME_CONFIG.town.x + (Math.random()*40-20); m.y = GAME_CONFIG.town.y + (Math.random()*40-20); 
-                m.hp = m.baseHp * (1 + (state.townLevel - 1) * 0.5); 
+                m.hp = m.baseHp + (state.townLevel - 1) * (m.type === 'warrior' ? 30 : 20);
             });
             
             state.isDeadModalOpen = false;
@@ -950,7 +958,11 @@
             entities.mercs.forEach(m => {
                 ctx.fillStyle = '#ffffff'; 
                 ctx.font = '20px sans-serif'; ctx.fillText(m.emoji, m.x, m.y);
-                if(m.state === 'follow' && m.hp < m.baseHp * (1+(state.townLevel-1)*0.5)){ ctx.fillStyle='#000'; ctx.fillRect(m.x-10, m.y-18, 20, 3); ctx.fillStyle='#0f0'; ctx.fillRect(m.x-10, m.y-18, 20*(m.hp/(m.baseHp*(1+(state.townLevel-1)*0.5))), 3); }
+                let mMaxHp = m.baseHp + (state.townLevel - 1) * (m.type === 'warrior' ? 30 : 20);
+                if(m.state === 'follow' && m.hp < mMaxHp) { 
+                   ctx.fillStyle='#000'; ctx.fillRect(m.x-10, m.y-18, 20, 3); 
+                   ctx.fillStyle='#0f0'; ctx.fillRect(m.x-10, m.y-18, 20 * (m.hp / mMaxHp), 3); 
+                   }
             });
             
             entities.enemies.forEach(e => {
