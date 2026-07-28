@@ -154,7 +154,7 @@
             { id: 'ice', icon: '❄️', name: '寒霜', effect: '子彈能穿透並大幅減速敵人', color: '#90cdf4' },
             { id: 'thunder', icon: '⚡', name: '雷霆', effect: '命中時觸發連鎖閃電', color: '#faf089' },
             { id: 'poison', icon: '🐍', name: '劇毒', effect: '子彈附加毒傷(基礎爆擊提升)', color: '#9ae6b4' },
-            { id: 'summon', icon: '👻', name: '靈魂', effect: '殺敵有機率召喚友軍', color: '#d6bcfa' },
+            { id: 'summon', icon: '🛡️', name: '護衛', effect: '殺敵有機率召喚友軍', color: '#d6bcfa' },
             { id: 'wind', icon: '🌪️', name: '颶風', effect: '扇狀發射三枚子彈', color: '#cbd5e0' },
             { id: 'light', icon: '✨', name: '聖光', effect: '十字方向發射子彈', color: '#fef08a' },
             { id: 'arcane', icon: '🔮', name: '奧術', effect: '子彈會自動追蹤敵人', color: '#c084fc' },
@@ -170,11 +170,22 @@
             { id: 'time', icon: '⏳', name: '時停', effect: '機率讓一般怪物長時間暈眩', color: '#6ee7b7' },
             { id: 'greed', icon: '💰', name: '貪婪', effect: '擊殺怪物時機率掉落原石', color: '#fbbf24' },
             { id: 'phantom', icon: '👻', name: '幻影', effect: '子彈可以無限穿透', color: '#e2e8f0' },
-            { id: 'meteor', icon: '☄️', name: '隕石', effect: '超大、超痛、超慢', color: '#ef4444' }
+            { id: 'meteor', icon: '☄️', name: '隕石', effect: '超大、超痛、超慢', color: '#ef4444' },
+            { id: 'siphon', icon: '🧛‍♂️', name: '汲取', effect: '擊殺敵人時回復 5 點魔力', color: '#b91c1c' },
+            { id: 'frugal', icon: '🪶', name: '節制', effect: '射擊時有 25% 機率不消耗魔力', color: '#a7f3d0' },
+            { id: 'boomerang', icon: '🪃', name: '迴旋', effect: '子彈飛到極限距離時會折返', color: '#fb923c' },
+            { id: 'spiral', icon: '🌀', name: '螺旋', effect: '子彈呈波浪螺旋狀飛行', color: '#38bdf8' },
+            { id: 'sunder', icon: '💔', name: '破甲', effect: '擊中後使敵人受到的傷害提升50%', color: '#fca5a5' },
+            { id: 'petrify', icon: '🧱', name: '石化', effect: '機率使敵人定身且受到的傷害增加', color: '#a8a29e' },
+            { id: 'cluster', icon: '🎆', name: '煙火', effect: '子彈消失時散射出多枚碎片', color: '#f472b6' },
+            { id: 'tether', icon: '🔗', name: '連結', effect: '飛行時持續電擊附近的敵人', color: '#2dd4bf' },
+            { id: 'growth', icon: '🌱', name: '生長', effect: '子彈隨飛行時間變大且傷害增加', color: '#86efac' },
+            { id: 'mirage', icon: '🪞', name: '鏡像', effect: '背後產生幻象，額外發射一次子彈', color: '#e0e7ff' },
+            { id: 'blackhole', icon: '🕳️', name: '黑洞', effect: '子彈消失時化為黑洞，吸引並撕裂敵人', color: '#4c1d95' }
         ];
 
         const ENEMY_EMOJIS = ['💧', '👺', '🦇', '💀', '🕷️', '🐺', '🐗', '🦂', '🧟', '🦅', '🐍', '🐸', '🐀', '🦖', '🐊', '🐛', '🐜', '🐌', '🦀', '🦎'];
-        const RANGED_EMOJIS = ['🏹', '🧙', '🧝', '🧚', '🧞', '🧜', '🧛', '🛸', '🛰️', '🐙'];
+        const RANGED_EMOJIS = ['🏹', '🥷', '🧝', '🧚', '🧞', '🧜', '🧛', '🛸', '🛰️', '🐙'];
         const BOSS_EMOJIS = ['🐉', '👿', '👁️', '👹', '🦑', '👽', '🦖', '🤖', '🎃', '🤡', '🦍', '🐅', '🐘', '🦏', '🦅'];
 
         const ENEMY_TEMPLATES = [
@@ -326,6 +337,13 @@
                                 }
                                 addFloatingText(allyToHeal.x, allyToHeal.y - 20, `+${Math.floor(healAmt)}`, '#4ade80'); 
                                 this.cooldown = 2.0;
+                            }else if (closestEnemy && minEnemyDist <= 350 && !inTown) {
+                                closestEnemy.hp -= atk * 1.5; 
+                                addHitEffect(closestEnemy.x, closestEnemy.y, '✨', '#fef08a');
+                                let angle = Math.atan2(closestEnemy.y - this.y, closestEnemy.x - this.x);
+                                closestEnemy.x += Math.cos(angle) * 50; 
+                                closestEnemy.y += Math.sin(angle) * 50;
+                                this.cooldown = 1.2; 
                             }
                         }
                     }
@@ -343,7 +361,7 @@
             entities.scenery = entities.scenery.filter(s => !s.isTown);
             entities.scenery.push({ x: GAME_CONFIG.town.x, y: GAME_CONFIG.town.y , emoji: '🏰', isTown: true });
             
-            let buildingCount = Math.min(20, Math.floor(state.townLevel * 1.5));
+            let buildingCount = Math.min(20, Math.floor(state.townLevel-1));
             const townEmojis = ['🏠', '🏡', '🛖', '⛪', '⛲', '🎪'];
             
             // 規則排列：利用同心圓與固定角度分佈建築，使其整齊
@@ -454,7 +472,7 @@
             player.hp = Math.min(parsed.player.hp, player.stats.maxHp); player.mp = Math.min(parsed.player.mp, player.stats.maxMp);
             state.wave = parsed.state.wave || 1; state.deaths = parsed.state.deaths || 0; state.craftingExp = parsed.state.craftingExp || 0;
             state.townLevel = parsed.state.townLevel || 1; state.townExp = parsed.state.townExp || 0;
-            GAME_CONFIG.town.radius = 80 * Math.pow(1.001, state.townLevel - 1);
+            GAME_CONFIG.town.radius = 80 * Math.pow(1.01, state.townLevel - 1);
             player.x = GAME_CONFIG.town.x; player.y = GAME_CONFIG.town.y; state.aggro = 0; state.isBossFight = false;
             initWorld(); updateUI(); renderSlots();
         }
@@ -565,7 +583,7 @@
         }
 
         // --- 進階射擊邏輯 ---
-        function getShootCost() { return 2 + player.slots.filter(g=>g).length; }
+        function getShootCost() { return 2 + player.slots.filter(g=>g).length*2; }
         function findAutoAimTarget() {
             let nearest = null; let minDist = 300;
             entities.enemies.forEach(e => { let d = Math.hypot(player.x - e.x, player.y - e.y); if (d < minDist) { minDist = d; nearest = e; } });
@@ -573,7 +591,13 @@
         }
 
         function shoot() {
-            player.mp -= getShootCost();
+            // 檢查身上有沒有「節制 (frugal)」寶石
+            let hasFrugal = player.slots.some(g => g && g.type === 'frugal');
+            // 如果有節制寶石，而且隨機數小於 0.25，就不扣魔力；否則正常扣
+            if (hasFrugal && Math.random() < 0.25) {
+            addFloatingText(player.x, player.y - 30, '省魔!', '#a7f3d0'); // 跳出特效字提醒玩家
+            } else { player.mp -= getShootCost();}
+
             const centerAngle = Math.atan2(state.autoAimTarget.y - player.y, state.autoAimTarget.x - player.x);
             
             let hasFan = player.slots.some(g => g && g.type === 'wind');
@@ -606,30 +630,40 @@
                 finalAngles = [...new Set(expanded)]; 
             }
 
-            finalAngles.forEach(ang => {
-                let speedMulti = 1.0;
-                let dmgMulti = 1.0;
-                let bSize = 5;
-                let lifeTime = 1.5;
-                let bColor = '#ffff00';
-                
-                if (player.slots.some(g => g && g.type === 'sniper')) { speedMulti *= 3.0; dmgMulti *= 2.0; }
-                if (player.slots.some(g => g && g.type === 'meteor')) { speedMulti *= 0.3; dmgMulti *= 2.5; bSize += 15; lifeTime = 4.0; }
-                if (player.slots.some(g => g && g.type === 'star')) { speedMulti *= 0.5; lifeTime = 3.0; }
-                if (player.slots.some(g => g && g.type === 'shotgun')) { speedMulti *= 0.8; lifeTime = 0.6; }
-                if (player.slots.some(g => g && g.type === 'chaos')) { 
-                    speedMulti *= (0.5 + Math.random() * 2); 
-                    dmgMulti *= (0.1 + Math.random() * 3); 
-                    bSize = 2 + Math.random() * 15; 
-                    bColor = `hsl(${Math.random()*360}, 100%, 50%)`;
-                }
+            let origins = [{ x: player.x, y: player.y }];
 
-                let b = { 
-                    owner: 'player', x: player.x, y: player.y, 
-                    vx: Math.cos(ang) * 300 * speedMulti, vy: Math.sin(ang) * 300 * speedMulti, 
-                    life: lifeTime, size: bSize, color: bColor, 
-                    dmg: player.stats.atk * dmgMulti, pierce: 1, effects: [], isSplit: false, hitTargets: new Set() 
-                };
+            if (player.slots.some(g => g && g.type === 'mirage')) {
+                // 幻象出現在玩家背後 40 像素處
+                origins.push({ 
+                    x: player.x - Math.cos(centerAngle) * 40, 
+                    y: player.y - Math.sin(centerAngle) * 40 
+                });
+            }
+
+            origins.forEach(origin => {
+                finalAngles.forEach(ang => {
+                    let speedMulti = 1.0;
+                    let dmgMulti = 1.0;
+                    let bSize = 5;
+                    let lifeTime = 1.5;
+                    let bColor = '#ffff00';
+                    
+                    if (player.slots.some(g => g && g.type === 'sniper')) { speedMulti *= 3.0; dmgMulti *= 2.0; }
+                    if (player.slots.some(g => g && g.type === 'meteor')) { speedMulti *= 0.3; dmgMulti *= 2.5; bSize += 15; lifeTime = 4.0; }
+                    if (player.slots.some(g => g && g.type === 'star')) { speedMulti *= 0.5; lifeTime = 3.0; }
+                    if (player.slots.some(g => g && g.type === 'shotgun')) { speedMulti *= 0.8; lifeTime = 0.6; }
+                    if (player.slots.some(g => g && g.type === 'chaos')) { 
+                        speedMulti *= (0.5 + Math.random() * 2); dmgMulti *= (0.1 + Math.random() * 3); 
+                        bSize = 2 + Math.random() * 15; bColor = `hsl(${Math.random()*360}, 100%, 50%)`;
+                    }
+                
+
+                let b = { owner: 'player', 
+                        x: origin.x, y: origin.y, // ✨ 這裡把 player.x/y 換成 origin.x/y
+                        vx: Math.cos(ang) * 300 * speedMulti, vy: Math.sin(ang) * 300 * speedMulti, 
+                        life: lifeTime, size: bSize, color: bColor, 
+                        dmg: player.stats.atk * dmgMulti, pierce: 1, effects: [], isSplit: false, hitTargets: new Set() 
+                    };
                 
                 player.slots.forEach(gem => {
                     if(!gem) return;
@@ -645,11 +679,19 @@
                     if (gem.type === 'gravity') b.effects.push('gravity');
                     if (gem.type === 'time') b.effects.push('time');
                     if (gem.type === 'greed') b.effects.push('greed');
-                    if (gem.type === 'phantom') { b.pierce = 999; b.color = '#e2e8f0'; }
+                    if (gem.type === 'phantom') { b.pierce = 999; b.color = '#e2e8f0'; };
+                    if (gem.type === 'siphon') b.effects.push('siphon');
+                    if (gem.type === 'boomerang') b.effects.push('boomerang');
+                    if (gem.type === 'spiral') b.effects.push('spiral');
+                    if (gem.type === 'cluster') b.effects.push('cluster');
+                    if (gem.type === 'tether') b.effects.push('tether');
+                    if (gem.type === 'growth') b.effects.push('growth');
+                    if (gem.type === 'blackhole') b.effects.push('blackhole');
                 });
                 entities.bullets.push(b);
             });
-        }
+         });
+       }
 
         function updateBullets(dt) {
             for (let i = entities.bullets.length - 1; i >= 0; i--) {
@@ -667,6 +709,36 @@
                     }
                 }
 
+                if (b.effects.includes('tether') && b.owner === 'player') {
+                    entities.enemies.forEach(e => {
+                    if (e.invulnerable > 0) return;
+                    let dSq = (b.x - e.x) ** 2 + (b.y - e.y) ** 2;
+                     // 如果敵人在半徑 120 像素內
+                     if (dSq < 14400) { 
+                    e.hp -= (b.dmg * 0.5) * dt; // 每秒造成 50% 基礎傷害
+                    // 產生連線特效 (控制機率避免畫面太亂)
+                    if (Math.random() < 0.2) {
+                    entities.hitEffects.push({ type: 'line', x: b.x, y: b.y, tx: e.x, ty: e.y, color: '#2dd4bf', life: 0.1 });
+                    }
+                    // 因為是持續扣血，所以也要檢查死亡
+                    if (e.hp <= 0 && !e.isDead) {
+                        e.isDead = true; // 標記死亡，交給主迴圈清理屍體與判斷魔王
+                        // 觸發擊殺效果 (汲取、召喚)
+                        if (b.effects.includes('siphon')) {
+                            player.mp = Math.min(player.stats.maxMp, player.mp + 5);
+                            addFloatingText(e.x, e.y - 20, '+5 MP', '#b91c1c');
+                        }
+                        if (b.effects.includes('summon') && Math.random() < 0.2) {
+                            let type = Math.random() < 0.5 ? 'warrior' : 'priest';
+                            let emoji = type === 'warrior' ? '🛡️' : '🪄';
+                            entities.mercs.push(new Mercenary(type, emoji, e.x, e.y, true));
+                            addFloatingText(e.x, e.y - 20, '召喚!', '#d6bcfa');
+                        }
+                    }
+                    }
+                  });
+                } 
+
                 if (b.effects.includes('gravity') && b.owner === 'player') {
                     entities.enemies.forEach(e => {
                         if(e.invulnerable > 0 || e.isBoss) return;
@@ -679,8 +751,20 @@
                         }
                     });
                 }
-
+                if (b.effects.includes('spiral')) {
+                    let waveSpeed = 15; // 旋轉速度
+                    let waveSize = 250; // 波浪振幅
+                    // 加上額外的偏移量
+                     b.x += Math.cos(b.life * waveSpeed) * waveSize * dt;
+                     b.y += Math.sin(b.life * waveSpeed) * waveSize * dt;
+                }
+                
                 b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+
+                if (b.effects.includes('growth') && b.owner === 'player') {
+                    b.size += 15 * dt; // 每秒體積加 15
+                    b.dmg += 5 * dt;   // 每秒傷害加 5
+                }
                 
                 // 減少尾跡頻率，優化效能
                 if (Math.random() < 0.15) { entities.hitEffects.push({ type: 'trail', x: b.x, y: b.y, color: b.color, size: b.size * 0.8, life: 0.2, isPlayer: b.owner === 'player' }); }
@@ -719,12 +803,42 @@
                     if (hitTarget) b.pierce--;
                 }
 
-                if (b.pierce <= 0 || b.life <= 0) {
+                if (b.life <= 0 && b.effects.includes('boomerang') && !b.isReturning && b.owner === 'player') {
+                 b.vx = -b.vx; // 速度反轉 (掉頭)
+                 b.vy = -b.vy;
+                 b.life = 1.5; // 重新給予回程壽命
+                 b.isReturning = true; // 標記為已回程，避免無限來回
+                 b.hitTargets.clear(); // ✨ 清空已擊中清單，讓回程可以對同一隻怪再造成一次傷害！
+                 } else if (b.pierce <= 0 || b.life <= 0) {
                     if (b.effects.includes('split') && !b.isSplit && b.owner === 'player') {
                         let currentAngle = Math.atan2(b.vy, b.vx); let speed = Math.hypot(b.vx, b.vy);
                         entities.bullets.push({ ...b, vx: Math.cos(currentAngle - 0.5)*speed, vy: Math.sin(currentAngle - 0.5)*speed, life: 1.0, size: Math.max(2, b.size - 2), pierce: 1, isSplit: true, hitTargets: new Set() });
                         entities.bullets.push({ ...b, vx: Math.cos(currentAngle + 0.5)*speed, vy: Math.sin(currentAngle + 0.5)*speed, life: 1.0, size: Math.max(2, b.size - 2), pierce: 1, isSplit: true, hitTargets: new Set() });
                     }
+
+                    if (b.effects.includes('cluster') && !b.isSplit && b.owner === 'player') {
+                        for (let k = 0; k < 5; k++) {
+                        let angle = Math.random() * Math.PI * 2; // 隨機四面八方
+                        entities.bullets.push({ ...b, vx: Math.cos(angle) * 150, vy: Math.sin(angle) * 150, life: 0.5, size: Math.max(2, b.size - 3), dmg: b.dmg * 0.3, pierce: 1, isSplit: true, hitTargets: new Set() });
+                        }
+                    }
+
+                    if (b.effects.includes('blackhole') && !b.isBlackhole && b.owner === 'player') {
+                        entities.bullets.push({ 
+                            owner: 'player', 
+                            x: b.x, y: b.y, 
+                            vx: 0, vy: 0, // 停在原地
+                            life: 3.0, // 黑洞存在 3 秒
+                            size: 30, // 黑洞體積
+                            color: '#4c1d95', // 深紫色
+                            dmg: b.dmg * 0.2, // 傷害降為 20%（因為是持續電擊）
+                            pierce: 9999, // 超高穿透，確保不會因為怪碰到底而消失
+                            effects: ['gravity', 'tether'], // ✨ 核心魔法：結合重力吸引與雷射傷害！
+                            isBlackhole: true, // 標記為黑洞，防止黑洞消失時又產黑洞
+                            hitTargets: new Set() 
+                        });
+                    }
+
                     if (entities.bullets[i]) entities.bullets.splice(i, 1);
                 }
             }
@@ -763,7 +877,32 @@
         function hitEnemy(e, b) {
             let isCrit = Math.random() < player.stats.critRate + (b.effects.includes('crit_boost') ? 0.2 : 0);
             let finalDmg = isCrit ? b.dmg * player.stats.critDmg : b.dmg;
-            e.hp -= finalDmg; addHitEffect(e.x, e.y, isCrit ? '💥' : '✨', isCrit ? '#fbbf24' : '#ffffff');
+            
+            if (e.sunderTimer > 0) {
+                finalDmg *= 1.5; // 破甲狀態下傷害 1.5 倍
+                addHitEffect(e.x, e.y, '💔', '#fca5a5'); // 額外飄個破甲特效
+            }
+
+            if (e.petrifyTimer > 0) {
+                finalDmg *= 0.5; 
+            }
+
+             e.hp -= finalDmg; addHitEffect(e.x, e.y, isCrit ? '💥' : '✨', isCrit ? '#fbbf24' : '#ffffff'); 
+
+            if (b.effects.includes('sunder')) {
+                e.sunderTimer = 3.0; // 破甲狀態持續 3 秒
+            }
+
+            if (b.effects.includes('petrify') && Math.random() < 0.15 && !e.isBoss) {
+                e.petrifyTimer = 4.0; // 石化狀態持續 4 秒
+                e.stun = 4.0;         // 借用原本的暈眩變數讓怪物定身
+                addFloatingText(e.x, e.y - 15, '🧱石化', '#a8a29e');
+            }
+            
+            if (e.hp <= 0 && b.effects.includes('siphon')) {
+                player.mp = Math.min(player.stats.maxMp, player.mp + 5);
+                addFloatingText(e.x, e.y - 20, '+5 MP', '#b91c1c');
+            }
 
             if (e.hp <= 0 && b.effects.includes('summon')) {
              if (Math.random() < 0.2) {
@@ -781,6 +920,11 @@
                 player.hp = Math.min(player.stats.maxHp, player.hp + finalDmg * 0.1);
                 addFloatingText(player.x, player.y - 10, '+HP', '#f43f5e');
             }
+            if (b.effects.includes('poison')) {
+                e.poisonTimer = 3.0; // 中毒持續 3 秒
+                e.poisonDmg = b.dmg * 0.3; // 每秒受到子彈基礎傷害 30% 的毒傷
+            }
+
             if (b.effects.includes('time') && Math.random() < 0.15 && !e.isBoss) {
                 e.stun = 3.0; addFloatingText(e.x, e.y - 15, '⏳時停', '#6ee7b7');
             }
@@ -809,6 +953,14 @@
 
             entities.enemies.forEach(e => {
                 if (e.hp <= 0) e.isDead = true;
+                if (e.sunderTimer > 0) e.sunderTimer -= dt;
+                if (e.petrifyTimer > 0) e.petrifyTimer -= dt;
+                if (e.poisonTimer > 0) {
+                 e.poisonTimer -= dt;
+                 e.hp -= e.poisonDmg * dt; // 持續扣血
+                 // 偶爾冒出毒泡泡特效，讓玩家知道怪物中毒了
+                 if (Math.random() < 0.1) addHitEffect(e.x, e.y, '🫧', '#9ae6b4');
+                 }
             });
 
             for (let i = entities.enemies.length - 1; i >= 0; i--) {
@@ -895,7 +1047,7 @@
                 state.isBossFight = true; showToast("⚠️ 魔王降臨 ⚠️");
                 let t = BOSS_TEMPLATES[Math.floor(Math.random() * BOSS_TEMPLATES.length)];
                 let emoji = t.emojiPool[Math.floor(Math.random() * t.emojiPool.length)];
-                let w = state.wave;
+                let w = 1 + ((state.wave - 1) * 0.3);
                 let angle = Math.random() * Math.PI * 2; let actualSpd = 40 * t.spdMulti;
                 entities.enemies.push({ x: player.x + Math.cos(angle)*600, y: player.y + Math.sin(angle)*600, emoji: emoji, size: 40, hp: t.baseHp * w, maxHp: t.baseHp * w,  atk: t.baseAtk * w, spd: actualSpd, baseSpd: actualSpd, atkCooldown: 0, isBoss: true, isRanged: t.isRanged, attackPattern: patterns[Math.floor(Math.random()*patterns.length)], isDead: false, invulnerable: 1.0, wanderAngle: angle });
             }
@@ -906,9 +1058,9 @@
             if (!state.isBossFight && Math.random() < spawnChance && entities.enemies.length < 60) {
                 let t = ENEMY_TEMPLATES[Math.floor(Math.random() * ENEMY_TEMPLATES.length)];
                 let emoji = t.emojiPool[Math.floor(Math.random() * t.emojiPool.length)];
-                let w = state.wave;
+                let w = 1 + ((state.wave - 1) * 0.2);
                 let angle = Math.random() * Math.PI * 2;
-                entities.enemies.push({ x: player.x + Math.cos(angle)*400, y: player.y + Math.sin(angle)*400, emoji: emoji, size: 15, hp: t.baseHp*w, maxHp: t.baseHp*w, atk: t.baseAtk*w, spd: t.spd, baseSpd: t.spd, atkCooldown: 0, isBoss: false, isRanged: t.isRanged, attackPattern: t.isRanged ? patterns[Math.floor(Math.random()*patterns.length)] : 'single', isDead: false, invulnerable: 1.0, wanderAngle: angle });
+                entities.enemies.push({ x: player.x + Math.cos(angle)*400, y: player.y + Math.sin(angle)*400, emoji: emoji, size: 15, hp: t.baseH * w, maxHp: t.baseHp * w, atk: t.baseAtk * w, spd: t.spd, baseSpd: t.spd, atkCooldown: 0, isBoss: false, isRanged: t.isRanged, attackPattern: t.isRanged ? patterns[Math.floor(Math.random()*patterns.length)] : 'single', isDead: false, invulnerable: 1.0, wanderAngle: angle });
             }
         }
 
@@ -980,11 +1132,24 @@
                 
                 if (e.stun && e.stun > 0) { ctx.font = '16px sans-serif'; ctx.fillText('💫', e.x, e.y - e.size); }
             });
+
+            // ⚠️ 關鍵修復：將 inTown 的宣告移到上面
+            const inTown = Math.hypot(player.x - GAME_CONFIG.town.x, player.y - GAME_CONFIG.town.y) < GAME_CONFIG.town.radius;
+
+            if (player.slots.some(g => g && g.type === 'mirage') && state.autoAimTarget && !inTown) {
+              const centerAngle = Math.atan2(state.autoAimTarget.y - player.y, state.autoAimTarget.x - player.x);
+              let mx = player.x - Math.cos(centerAngle) * 40;
+              let my = player.y - Math.sin(centerAngle) * 40;
+        
+              ctx.globalAlpha = 0.4; // 設定為 40% 半透明
+              ctx.font = '24px sans-serif'; 
+              ctx.fillText('🧙‍♂️', mx, my); // 畫出幻影
+              ctx.globalAlpha = 1.0; // 畫完後恢復不透明
+             }
             
             ctx.fillStyle = '#ffffff'; 
             ctx.font = '24px sans-serif'; ctx.fillText('🧙‍♂️', player.x, player.y);
             
-            const inTown = Math.hypot(player.x - GAME_CONFIG.town.x, player.y - GAME_CONFIG.town.y) < GAME_CONFIG.town.radius;
             if (!inTown && state.autoAimTarget && player.mp >= getShootCost()) {
                 ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(state.autoAimTarget.x, state.autoAimTarget.y);
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
@@ -1153,7 +1318,7 @@
                 let reqExp = state.townLevel * 10;
                 if (state.townExp >= reqExp) {
                     state.townLevel++; state.townExp -= reqExp;
-                    GAME_CONFIG.town.radius = 80 * Math.pow(1.001, state.townLevel - 1);
+                    GAME_CONFIG.town.radius = 80 * Math.pow(1.01, state.townLevel - 1);
                     updateTownBuildings();
                     showToast(`城鎮升級到了 Lv.${state.townLevel}！安全區擴大了！`);
                 } else {
