@@ -539,9 +539,10 @@
             }
 
             const despawnDist = 1800;
-            entities.scenery = entities.scenery.filter(s => s.isTown || Math.hypot(player.x - s.x, player.y - s.y) < despawnDist);
-            entities.ores = entities.ores.filter(o => Math.hypot(player.x - o.x, player.y - o.y) < despawnDist);
-            entities.enemies = entities.enemies.filter(e => Math.hypot(player.x - e.x, player.y - e.y) < despawnDist * 1.5);
+            // 只要 X 距離或 Y 距離大於 despawnDist 就刪除，運算速度極快
+            entities.scenery = entities.scenery.filter(s => s.isTown || (Math.abs(player.x - s.x) < despawnDist && Math.abs(player.y - s.y) < despawnDist));
+            entities.ores = entities.ores.filter(o => Math.abs(player.x - o.x) < despawnDist && Math.abs(player.y - o.y) < despawnDist);
+            entities.enemies = entities.enemies.filter(e => Math.abs(player.x - e.x) < despawnDist * 1.5 && Math.abs(player.y - e.y) < despawnDist * 1.5);
             entities.altars = entities.altars.filter(a => Math.hypot(player.x - a.x, player.y - a.y) < despawnDist);
             entities.mines = entities.mines.filter(m => Math.hypot(player.x - m.x, player.y - m.y) < despawnDist);
 
@@ -767,7 +768,7 @@
                 }
                 
                 // 減少尾跡頻率，優化效能
-                if (Math.random() < 0.15) { entities.hitEffects.push({ type: 'trail', x: b.x, y: b.y, color: b.color, size: b.size * 0.8, life: 0.2, isPlayer: b.owner === 'player' }); }
+                if (Math.random() < 0.05) { entities.hitEffects.push({ type: 'trail', x: b.x, y: b.y, color: b.color, size: b.size * 0.8, life: 0.2, isPlayer: b.owner === 'player' }); }
                 
                 let hitTarget = false;
                 if (b.owner === 'player') {
@@ -821,22 +822,6 @@
                         let angle = Math.random() * Math.PI * 2; // 隨機四面八方
                         entities.bullets.push({ ...b, vx: Math.cos(angle) * 150, vy: Math.sin(angle) * 150, life: 0.5, size: Math.max(2, b.size - 3), dmg: b.dmg * 0.3, pierce: 1, isSplit: true, hitTargets: new Set() });
                         }
-                    }
-
-                    if (b.effects.includes('blackhole') && !b.isBlackhole && b.owner === 'player') {
-                        entities.bullets.push({ 
-                            owner: 'player', 
-                            x: b.x, y: b.y, 
-                            vx: 0, vy: 0, // 停在原地
-                            life: 3.0, // 黑洞存在 3 秒
-                            size: 30, // 黑洞體積
-                            color: '#4c1d95', // 深紫色
-                            dmg: b.dmg * 0.2, // 傷害降為 20%（因為是持續電擊）
-                            pierce: 9999, // 超高穿透，確保不會因為怪碰到底而消失
-                            effects: ['gravity', 'tether'], // ✨ 核心魔法：結合重力吸引與雷射傷害！
-                            isBlackhole: true, // 標記為黑洞，防止黑洞消失時又產黑洞
-                            hitTargets: new Set() 
-                        });
                     }
 
                     if (entities.bullets[i]) entities.bullets.splice(i, 1);
@@ -897,6 +882,24 @@
                 e.petrifyTimer = 4.0; // 石化狀態持續 4 秒
                 e.stun = 4.0;         // 借用原本的暈眩變數讓怪物定身
                 addFloatingText(e.x, e.y - 15, '🧱石化', '#a8a29e');
+            }
+
+            // 🕳️ 黑洞寶石：擊殺敵人時，在敵人死亡的位置產生黑洞
+            if (e.hp <= 0 && b.effects.includes('blackhole') && !e.hasBlackholeSpawned) {
+                e.hasBlackholeSpawned = true; // 加上這個標記，防止同一瞬間被多顆子彈打中而重複產生好幾個黑洞
+                entities.bullets.push({ 
+                    owner: 'player', 
+                    x: e.x, y: e.y, // 👈 注意！這裡把原本的 b.x/b.y 改成了敵人的座標 e.x/e.y
+                    vx: 0, vy: 0, // 停在原地
+                    life: 3.0, // 黑洞存在 3 秒
+                    size: 30, // 黑洞體積
+                    color: '#4c1d95', // 深紫色
+                    dmg: b.dmg * 0.2, // 傷害設定為基礎的 20%
+                    pierce: 9999, // 超高穿透不消失
+                    effects: ['gravity', 'tether'], // 結合重力吸引與持續電擊傷害
+                    isBlackhole: true, // 標記為黑洞，避免無限套娃
+                    hitTargets: new Set() 
+                });
             }
             
             if (e.hp <= 0 && b.effects.includes('siphon')) {
@@ -1060,7 +1063,7 @@
                 let emoji = t.emojiPool[Math.floor(Math.random() * t.emojiPool.length)];
                 let w = 1 + ((state.wave - 1) * 0.2);
                 let angle = Math.random() * Math.PI * 2;
-                entities.enemies.push({ x: player.x + Math.cos(angle)*400, y: player.y + Math.sin(angle)*400, emoji: emoji, size: 15, hp: t.baseH * w, maxHp: t.baseHp * w, atk: t.baseAtk * w, spd: t.spd, baseSpd: t.spd, atkCooldown: 0, isBoss: false, isRanged: t.isRanged, attackPattern: t.isRanged ? patterns[Math.floor(Math.random()*patterns.length)] : 'single', isDead: false, invulnerable: 1.0, wanderAngle: angle });
+                entities.enemies.push({ x: player.x + Math.cos(angle)*400, y: player.y + Math.sin(angle)*400, emoji: emoji, size: 15, hp: t.baseHp * w, maxHp: t.baseHp * w, atk: t.baseAtk * w, spd: t.spd, baseSpd: t.spd, atkCooldown: 0, isBoss: false, isRanged: t.isRanged, attackPattern: t.isRanged ? patterns[Math.floor(Math.random()*patterns.length)] : 'single', isDead: false, invulnerable: 1.0, wanderAngle: angle });
             }
         }
 
@@ -1159,10 +1162,12 @@
             entities.bullets.forEach(b => {
                 ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx));
                 if (b.owner === 'player') {
-                    let grad = ctx.createRadialGradient(0, 0, 0, 0, 0, b.size);
-                    grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.5, b.color); grad.addColorStop(1, 'transparent');
                     ctx.beginPath(); ctx.ellipse(0, 0, b.size*1.5, b.size*0.8, 0, 0, Math.PI*2);
-                    ctx.fillStyle = grad; ctx.fill();
+                    ctx.fillStyle = b.color; ctx.globalAlpha = 0.4; ctx.fill();
+                    // 畫內圈實體 (不透明白核心)
+                    ctx.globalAlpha = 1.0;
+                    ctx.beginPath(); ctx.ellipse(0, 0, b.size*0.8, b.size*0.4, 0, 0, Math.PI*2);
+                    ctx.fillStyle = '#ffffff'; ctx.fill();
                 } else {
                     ctx.beginPath(); ctx.moveTo(b.size*1.2, 0); ctx.lineTo(-b.size, b.size*0.8); ctx.lineTo(-b.size*0.5, 0); ctx.lineTo(-b.size, -b.size*0.8); ctx.closePath();
                     let grad = ctx.createLinearGradient(-b.size, 0, b.size*1.2, 0);
