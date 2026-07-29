@@ -884,23 +884,7 @@
                 addFloatingText(e.x, e.y - 15, '🧱石化', '#a8a29e');
             }
 
-            // 🕳️ 黑洞寶石：擊殺敵人時，在敵人死亡的位置產生黑洞
-            if (e.hp <= 0 && b.effects.includes('blackhole') && !e.hasBlackholeSpawned) {
-                e.hasBlackholeSpawned = true; // 加上這個標記，防止同一瞬間被多顆子彈打中而重複產生好幾個黑洞
-                entities.bullets.push({ 
-                    owner: 'player', 
-                    x: e.x, y: e.y, // 👈 注意！這裡把原本的 b.x/b.y 改成了敵人的座標 e.x/e.y
-                    vx: 0, vy: 0, // 停在原地
-                    life: 3.0, // 黑洞存在 3 秒
-                    size: 30, // 黑洞體積
-                    color: '#4c1d95', // 深紫色
-                    dmg: b.dmg * 0.2, // 傷害設定為基礎的 20%
-                    pierce: 9999, // 超高穿透不消失
-                    effects: ['gravity', 'tether'], // 結合重力吸引與持續電擊傷害
-                    isBlackhole: true, // 標記為黑洞，避免無限套娃
-                    hitTargets: new Set() 
-                });
-            }
+            
             
             if (e.hp <= 0 && b.effects.includes('siphon')) {
                 player.mp = Math.min(player.stats.maxMp, player.mp + 5);
@@ -1056,9 +1040,9 @@
             }
             
             let aggroRatio = state.aggro / GAME_CONFIG.maxAggro;
-            let spawnChance = 0.02 + Math.pow(aggroRatio, 2) * 0.15;
+            let spawnChance = 0.1 + Math.pow(aggroRatio, 2) * 0.5;
             
-            if (!state.isBossFight && Math.random() < spawnChance && entities.enemies.length < 60) {
+            if (!state.isBossFight && Math.random() < spawnChance && entities.enemies.length < 100) {
                 let t = ENEMY_TEMPLATES[Math.floor(Math.random() * ENEMY_TEMPLATES.length)];
                 let emoji = t.emojiPool[Math.floor(Math.random() * t.emojiPool.length)];
                 let w = 1 + ((state.wave - 1) * 0.2);
