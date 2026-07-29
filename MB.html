@@ -716,7 +716,9 @@
                     let dSq = (b.x - e.x) ** 2 + (b.y - e.y) ** 2;
                      // 如果敵人在半徑 120 像素內
                      if (dSq < 14400) { 
-                    e.hp -= (b.dmg * 0.5) * dt; // 每秒造成 50% 基礎傷害
+                     let finalDmg = (b.dmg * 0.5) * dt;
+                     if (e.isBoss) { let damageCap = e.maxHp * 0.1;if (finalDmg > damageCap) { finalDmg = damageCap; }}
+                     e.hp -= finalDmg;
                     // 產生連線特效 (控制機率避免畫面太亂)
                     if (Math.random() < 0.2) {
                     entities.hitEffects.push({ type: 'line', x: b.x, y: b.y, tx: e.x, ty: e.y, color: '#2dd4bf', life: 0.1 });
@@ -782,7 +784,7 @@
                         if (!b.hitTargets.has(e) && distSq < hitDist*hitDist) {
                             if (e.isBoss && e.damageCooldown > 0) {
                             hitTarget = true; b.hitTargets.add(e);
-                            hitEnemy(e, b); b.pierce--;
+                            b.pierce--;
                             if (b.pierce <= 0) break;
                             continue;
                             }
@@ -858,7 +860,16 @@
                         if (e.invulnerable > 0) return;
                         let dx = e.x - m.x; let dy = e.y - m.y;
                         let blastRad = m.radius * 1.5;
-                        if (dx*dx + dy*dy < blastRad*blastRad) { e.hp -= m.dmg; addHitEffect(e.x, e.y, '✨', '#ff4444'); }
+                        if (dx*dx + dy*dy < blastRad*blastRad) {
+                            if (e.isBoss && e.damageCooldown > 0) return;
+                            let finalDmg = m.dmg;
+                            if (e.isBoss) { let damageCap = e.maxHp * 0.1; 
+                            if (finalDmg > damageCap) { 
+                                    finalDmg = damageCap;addFloatingText(e.x, e.y - e.size - 20, '🛡️', '#a0aec0');
+                                }
+                                e.damageCooldown = 0.2; // 給予無敵幀
+                            }
+                             e.hp -= finalDmg; addHitEffect(e.x, e.y, '✨', '#ff4444'); }
                     });
                     entities.mines.splice(i, 1);
                 }
@@ -886,7 +897,7 @@
                     // (可選) 飄個小盾牌特效，讓玩家知道魔王觸發了鎖血保護
                     addFloatingText(e.x, e.y - e.size - 20, '🛡️', '#a0aec0'); 
                 }
-                e.damageCooldown = 1;
+                e.damageCooldown = 0.2;
             }
             
              e.hp -= finalDmg; addHitEffect(e.x, e.y, isCrit ? '💥' : '✨', isCrit ? '#fbbf24' : '#ffffff'); 
@@ -905,6 +916,13 @@
             if (e.hp <= 0 && b.effects.includes('siphon')) {
                 player.mp = Math.min(player.stats.maxMp, player.mp + 5);
                 addFloatingText(e.x, e.y - 20, '+5 MP', '#b91c1c');
+            }
+
+            if (e.hp <= 0 && b.effects.includes('blackhole') && !b.isBlackhole && !e.hasBlackholeSpawned) {
+                e.hasBlackholeSpawned = true; // 加上這個標記，防止同一瞬間被多顆子彈打中而重複產生好幾個黑洞
+                entities.bullets.push({ owner: 'player', x: e.x, y: e.y, vx: 0, vy: 0, life: 3.0, size: 30, color: '#4c1d95',
+                 dmg: b.dmg * 0.2,pierce: 9999, effects: ['gravity', 'tether'], isBlackhole: true,hitTargets: new Set() 
+                });
             }
 
             if (e.hp <= 0 && b.effects.includes('summon')) {
@@ -960,7 +978,9 @@
                 if (e.petrifyTimer > 0) e.petrifyTimer -= dt;
                 if (e.poisonTimer > 0) {
                  e.poisonTimer -= dt;
-                 e.hp -= e.poisonDmg * dt; // 持續扣血
+                 let finalDmg = e.poisonDmg * dt;
+                 if (e.isBoss) {let damageCap = e.maxHp * 0.1; if (finalDmg > damageCap) finalDmg = damageCap;}
+                 e.hp -= finalDmg;
                  // 偶爾冒出毒泡泡特效，讓玩家知道怪物中毒了
                  if (Math.random() < 0.1) addHitEffect(e.x, e.y, '🫧', '#9ae6b4');
                  }
