@@ -780,6 +780,12 @@
                         let hitDist = b.size + e.size;
                         
                         if (!b.hitTargets.has(e) && distSq < hitDist*hitDist) {
+                            if (e.isBoss && e.damageCooldown > 0) {
+                            hitTarget = true; b.hitTargets.add(e);
+                            hitEnemy(e, b); b.pierce--;
+                            if (b.pierce <= 0) break;
+                            continue;
+                            }
                             hitTarget = true; b.hitTargets.add(e);
                             hitEnemy(e, b); b.pierce--;
                             if (b.pierce <= 0) break;
@@ -872,6 +878,17 @@
                 finalDmg *= 0.5; 
             }
 
+            // 👇 新增：魔王鎖血機制 (單次傷害不得超過最大血量的 10%)
+            if (e.isBoss) {
+                let damageCap = e.maxHp * 0.1; // 計算 1/10 血量上限
+                if (finalDmg > damageCap) {
+                    finalDmg = damageCap; // 強制將傷害壓制在上限
+                    // (可選) 飄個小盾牌特效，讓玩家知道魔王觸發了鎖血保護
+                    addFloatingText(e.x, e.y - e.size - 20, '🛡️', '#a0aec0'); 
+                }
+                e.damageCooldown = 0.1;
+            }
+            
              e.hp -= finalDmg; addHitEffect(e.x, e.y, isCrit ? '💥' : '✨', isCrit ? '#fbbf24' : '#ffffff'); 
 
             if (b.effects.includes('sunder')) {
@@ -884,7 +901,6 @@
                 addFloatingText(e.x, e.y - 15, '🧱石化', '#a8a29e');
             }
 
-            
             
             if (e.hp <= 0 && b.effects.includes('siphon')) {
                 player.mp = Math.min(player.stats.maxMp, player.mp + 5);
@@ -968,6 +984,7 @@
 
                 if (e.stun && e.stun > 0) { e.stun -= dt; continue; }
                 if (e.spd < e.baseSpd) e.spd += (e.baseSpd - e.spd) * dt * 0.5;
+                if (e.damageCooldown && e.damageCooldown > 0) { e.damageCooldown -= dt; }
 
                 let closestTarget = player; let minDistToTargetSq = (player.x - e.x)*(player.x - e.x) + (player.y - e.y)*(player.y - e.y);
                 validTargets.forEach(t => { let dSq = (t.x - e.x)*(t.x - e.x) + (t.y - e.y)*(t.y - e.y); if (dSq < minDistToTargetSq) { minDistToTargetSq = dSq; closestTarget = t; } });
@@ -1036,7 +1053,7 @@
                 let emoji = t.emojiPool[Math.floor(Math.random() * t.emojiPool.length)];
                 let w = 1 + ((state.wave - 1) * 0.3);
                 let angle = Math.random() * Math.PI * 2; let actualSpd = 40 * t.spdMulti;
-                entities.enemies.push({ x: player.x + Math.cos(angle)*600, y: player.y + Math.sin(angle)*600, emoji: emoji, size: 40, hp: t.baseHp * w, maxHp: t.baseHp * w,  atk: t.baseAtk * w, spd: actualSpd, baseSpd: actualSpd, atkCooldown: 0, isBoss: true, isRanged: t.isRanged, attackPattern: patterns[Math.floor(Math.random()*patterns.length)], isDead: false, invulnerable: 1.0, wanderAngle: angle });
+                entities.enemies.push({ x: player.x + Math.cos(angle)*600, y: player.y + Math.sin(angle)*600, emoji: emoji, size: 40, hp: t.baseHp * w, maxHp: t.baseHp * w,  atk: t.baseAtk * w, spd: actualSpd, baseSpd: actualSpd, atkCooldown: 0, damageCooldown: 0, isBoss: true, isRanged: t.isRanged, attackPattern: patterns[Math.floor(Math.random()*patterns.length)], isDead: false, invulnerable: 1.0, wanderAngle: angle });
             }
             
             let aggroRatio = state.aggro / GAME_CONFIG.maxAggro;
@@ -1047,7 +1064,7 @@
                 let emoji = t.emojiPool[Math.floor(Math.random() * t.emojiPool.length)];
                 let w = 1 + ((state.wave - 1) * 0.2);
                 let angle = Math.random() * Math.PI * 2;
-                entities.enemies.push({ x: player.x + Math.cos(angle)*400, y: player.y + Math.sin(angle)*400, emoji: emoji, size: 15, hp: t.baseHp * w, maxHp: t.baseHp * w, atk: t.baseAtk * w, spd: t.spd, baseSpd: t.spd, atkCooldown: 0, isBoss: false, isRanged: t.isRanged, attackPattern: t.isRanged ? patterns[Math.floor(Math.random()*patterns.length)] : 'single', isDead: false, invulnerable: 1.0, wanderAngle: angle });
+                entities.enemies.push({ x: player.x + Math.cos(angle)*400, y: player.y + Math.sin(angle)*400, emoji: emoji, size: 15, hp: t.baseHp * w, maxHp: t.baseHp * w, atk: t.baseAtk * w, spd: t.spd, baseSpd: t.spd, atkCooldown: 0, damageCooldown: 0, isBoss: false, isRanged: t.isRanged, attackPattern: t.isRanged ? patterns[Math.floor(Math.random()*patterns.length)] : 'single', isDead: false, invulnerable: 1.0, wanderAngle: angle });
             }
         }
 
