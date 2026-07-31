@@ -652,7 +652,8 @@
                     if (player.slots.some(g => g && g.type === 'sniper')) { speedMulti *= 3.0; dmgMulti *= 2.0; }
                     if (player.slots.some(g => g && g.type === 'meteor')) { speedMulti *= 0.3; dmgMulti *= 2.5; bSize += 15; lifeTime = 4.0; }
                     if (player.slots.some(g => g && g.type === 'star')) { speedMulti *= 0.5; lifeTime = 3.0; }
-                    if (player.slots.some(g => g && g.type === 'shotgun')) { speedMulti *= 0.8; lifeTime = 0.6; }
+                    if (player.slots.some(g => g && g.type === 'shotgun')) { speedMulti *= 0.8; lifeTime = 0.6; dmgMulti *= 0.4;}
+                    if (player.slots.some(g => g && g.type === 'wind')) { dmgMulti *= 0.6; }
                     if (player.slots.some(g => g && g.type === 'chaos')) { 
                         speedMulti *= (0.5 + Math.random() * 2); dmgMulti *= (0.1 + Math.random() * 3); 
                         bSize = 2 + Math.random() * 15; bColor = `hsl(${Math.random()*360}, 100%, 50%)`;
@@ -821,8 +822,8 @@
                  } else if (b.pierce <= 0 || b.life <= 0) {
                     if (b.effects.includes('split') && !b.isSplit && b.owner === 'player') {
                         let currentAngle = Math.atan2(b.vy, b.vx); let speed = Math.hypot(b.vx, b.vy);
-                        entities.bullets.push({ ...b, vx: Math.cos(currentAngle - 0.5)*speed, vy: Math.sin(currentAngle - 0.5)*speed, life: 1.0, size: Math.max(2, b.size - 2), pierce: 1, isSplit: true, hitTargets: new Set() });
-                        entities.bullets.push({ ...b, vx: Math.cos(currentAngle + 0.5)*speed, vy: Math.sin(currentAngle + 0.5)*speed, life: 1.0, size: Math.max(2, b.size - 2), pierce: 1, isSplit: true, hitTargets: new Set() });
+                        entities.bullets.push({ ...b, vx: Math.cos(currentAngle - 0.5)*speed, vy: Math.sin(currentAngle - 0.5)*speed, life: 1.0,dmg: b.dmg * 0.5, size: Math.max(2, b.size - 2), pierce: 1, isSplit: true, hitTargets: new Set() });
+                        entities.bullets.push({ ...b, vx: Math.cos(currentAngle + 0.5)*speed, vy: Math.sin(currentAngle + 0.5)*speed, life: 1.0,dmg: b.dmg * 0.5, size: Math.max(2, b.size - 2), pierce: 1, isSplit: true, hitTargets: new Set() });
                     }
 
                     if (b.effects.includes('cluster') && !b.isSplit && b.owner === 'player') {
@@ -861,7 +862,7 @@
                         let dx = e.x - m.x; let dy = e.y - m.y;
                         let blastRad = m.radius * 1.5;
                         if (dx*dx + dy*dy < blastRad*blastRad) {
-                            if (e.isBoss && e.damageCooldown > 0) return;
+                            if (e.damageCooldown > 0) return;
                             let finalDmg = m.dmg;
                             if (e.isBoss) { let damageCap = e.maxHp * 0.1; 
                             if (finalDmg > damageCap) { 
@@ -898,7 +899,7 @@
                     addFloatingText(e.x, e.y - e.size - 20, '🛡️', '#a0aec0'); 
                 }
                 e.damageCooldown = 0.2;
-            }
+            }else {e.damageCooldown = 0.1;}
             
              e.hp -= finalDmg; addHitEffect(e.x, e.y, isCrit ? '💥' : '✨', isCrit ? '#fbbf24' : '#ffffff'); 
 
