@@ -55,7 +55,8 @@
         .element-icon { position: absolute; top: 2px; right: 2px; font-size: 0.7rem; }
         .select-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         #team-slots { display: flex; gap: 10px; justify-content: center; margin-bottom: 10px; }
-        .slot { width: 50px; height: 50px; border: 2px dashed #888; border-radius: 5px; display: flex; justify-content: center; align-items: center; font-size: 1.8rem; }
+        .slot { width: 50px; height: 50px; border: 2px dashed #888; border-radius: 5px; display: flex; justify-content: center; align-items: center; font-size: 1.8rem; transition: transform 0.1s;}
+        .slot:active { transform: scale(0.9); }
         
         #next-fighter-screen { padding: 20px; flex-direction: column; align-items: center; justify-content: center; }
         .vs-title { font-size: 2rem; color: #f1c40f; font-weight: bold; margin-bottom: 20px; text-align: center; }
@@ -104,9 +105,21 @@
         .flash-anim { animation: flashBang 0.4s ease-out; }
         @keyframes flashBang { 0% { opacity: 1; } 100% { opacity: 0; } }
 
+        /* ========= 新增：Combo UI 樣式 ========= */
+        .combo-container { position: absolute; top: 25%; width: 100%; display: flex; justify-content: space-between; pointer-events: none; z-index: 50; padding: 0 5%; }
+        .combo-text { font-size: 3.5rem; font-weight: 900; font-style: italic; color: #f1c40f; text-shadow: 4px 4px 0 #000, -2px -2px 0 #000, 0 0 20px rgba(255,56,56,0.8); display: none; transform: scale(1); white-space: nowrap; }
+        .combo-anim { animation: comboHit 1.5s ease-out forwards; }
+        @keyframes comboHit {
+            0% { opacity: 1; transform: scale(2.5) rotate(-15deg); }
+            15% { transform: scale(0.8) rotate(10deg); }
+            30% { transform: scale(1.2) rotate(-5deg); }
+            45% { transform: scale(1.0) rotate(0deg); }
+            80% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-40px); }
+        }
+
         .fighter { position: absolute; bottom: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         
-        /* 角色本體特效 (加入受擊閃紅的 hit-flash 類別) */
         .emoji-char { font-size: 3.5rem; display: inline-block; filter: drop-shadow(0px 5px 5px rgba(0,0,0,0.5)); transition: filter 0.1s ease; }
         .hit-flash { filter: brightness(1.8) saturate(3) hue-rotate(-20deg) drop-shadow(0 0 15px red) !important; }
 
@@ -129,7 +142,6 @@
         .fighter-fx { position: absolute; width: 100%; height: 100%; border-radius: 50%; opacity: 0; pointer-events: none; z-index: 5; }
         .status-text { position: absolute; top: -30px; font-size: 1rem; color: #fff; font-weight: bold; white-space: nowrap; text-shadow: 1px 1px 1px #000; z-index: 10;}
         
-        /* 打擊火花特效 */
         .hit-spark { position: absolute; font-size: 2.5rem; pointer-events: none; z-index: 15; animation: sparkAnim 0.3s ease-out forwards; text-shadow: 0 0 5px #fff; }
         @keyframes sparkAnim {
             0% { opacity: 1; transform: scale(0.3) rotate(0deg); }
@@ -158,7 +170,6 @@
 <body>
 
 <script>
-    /* 防縮放保護腳本 */
     document.addEventListener('dblclick', function(event) { event.preventDefault(); }, { passive: false });
     document.addEventListener('gesturestart', function(event) { event.preventDefault(); }, { passive: false });
 </script>
@@ -276,6 +287,13 @@
     
     <div id="arena">
         <div id="arena-flash"></div> <!-- 覺醒閃光層 -->
+        
+        <!-- 新增： Combo 顯示層 -->
+        <div class="combo-container">
+            <div id="p1-combo" class="combo-text"></div>
+            <div id="p2-combo" class="combo-text"></div>
+        </div>
+
         <div id="arena-world">
             <div id="fighter-1" class="fighter" style="left: 10%;">
                 <div class="status-text" id="p1-status"></div>
@@ -315,7 +333,6 @@
 </div>
 
 <script>
-    /* ================= 動態戰鬥背景 ================= */
     const ARENA_BGS = [
         'linear-gradient(to bottom, #87CEEB 0%, #e0f6ff 55%, #2ecc71 55%, #27ae60 100%)', 
         'linear-gradient(to bottom, #2c3e50 0%, #34495e 55%, #145a32 55%, #0b5345 100%)', 
@@ -326,7 +343,6 @@
         'linear-gradient(to bottom, #190a05 0%, #2b044d 55%, #4a235a 55%, #150529 100%)'  
     ];
 
-    /* ================= 遊戲核心數據 ================= */
     const ELEMENTS = {
         'fire': { id:'fire', e:'🔥', name:'火', color:'var(--fire)', strong:'nature', weak:'water' },
         'water': { id:'water', e:'💧', name:'水', color:'var(--water)', strong:'fire', weak:'nature' },
@@ -335,8 +351,8 @@
 
     const CLASSES = {
         'warrior': { id:'warrior', e:'⚔️', name:'戰士', hp: 1200, atk: 120, spd: 40, range: 15 },
-        'mage': { id:'mage', e:'🪄', name:'法師', hp: 800, atk: 150, spd: 30, range: 60 },
-        'rogue': { id:'rogue', e:'🗡️', name:'刺客', hp: 900, atk: 130, spd: 55, range: 12 }
+        'mage': { id:'mage', e:'🪄', name:'法師', hp: 800, atk: 150, spd: 35, range: 60 },
+        'rogue': { id:'rogue', e:'🗡️', name:'刺客', hp: 900, atk: 130, spd: 50, range: 12 }
     };
 
     const SKILL_POOL = {
@@ -442,7 +458,6 @@
 
     /* ================= 狀態管理 ================= */
     let gameState = { wins: 0, stage: 1, playerTeam: [], enemyPool: [], inProgress: false, score: 0, highScore: 0 };
-    // 加入 HitStop (打擊停頓) 與 Shake (震動) 的時間紀錄
     let battleState = { p1Team: [], p2Team: [], p1ActiveIdx: 0, p2ActiveIdx: 0, timer: 60, isPlaying: false, lastTime: 0, cameraX: 50, hitStopTimer: 0, shakeTimer: 0 };
     let f1, f2; 
     let projectiles = [];
@@ -461,7 +476,7 @@
         target.classList.add('active-screen');
     }
 
-    /* ================= 存檔與選角 (加入防呆) ================= */
+    /* ================= 存檔與選角 ================= */
     function loadSave() {
         try {
             const save = localStorage.getItem('kof_save_v18');
@@ -482,16 +497,14 @@
                 document.getElementById('stat-highscore').innerText = '0';
             }
         } catch(e) {
-            console.warn("無法讀取 LocalStorage (可能為隱私模式或 IFrame 限制)", e);
+            console.warn("無法讀取 LocalStorage", e);
             document.getElementById('stat-highscore').innerText = '0';
         }
     }
     function doSave() { 
         try {
             localStorage.setItem('kof_save_v18', JSON.stringify(gameState)); 
-        } catch(e) {
-            console.warn("無法寫入 LocalStorage", e);
-        }
+        } catch(e) {}
     }
     loadSave();
 
@@ -548,15 +561,19 @@
 
         let btnAction = document.getElementById('btn-modal-action');
         if (tempTeam.includes(id)) {
-            btnAction.innerText = "移出隊伍"; btnAction.style.background = "#e84118";
+            btnAction.innerText = "移出隊伍"; 
+            btnAction.style.background = "#e84118";
+            btnAction.disabled = false; 
         } else {
-            btnAction.innerText = "徵召入隊"; btnAction.style.background = tempTeam.length >= 3 ? "#555" : "var(--hp-p1)";
+            btnAction.innerText = "徵召入隊"; 
+            btnAction.style.background = tempTeam.length >= 3 ? "#555" : "var(--hp-p1)";
             btnAction.disabled = (tempTeam.length >= 3 && !tempTeam.includes(id));
         }
         document.getElementById('char-modal').style.display = 'flex';
     }
 
     document.getElementById('btn-modal-cancel').onclick = () => document.getElementById('char-modal').style.display = 'none';
+    
     document.getElementById('btn-modal-action').onclick = () => {
         if (tempTeam.includes(viewingCharId)) tempTeam = tempTeam.filter(x => x !== viewingCharId);
         else if (tempTeam.length < 3) tempTeam.push(viewingCharId);
@@ -577,7 +594,14 @@
             if (id !== undefined) {
                 let c = CHARACTERS[id];
                 slot.innerHTML = c.emoji; slot.style.borderColor = c.element.color;
-            } else { slot.innerHTML = ''; slot.style.borderColor = '#888'; }
+                slot.onclick = () => openCharModal(id);
+                slot.style.cursor = 'pointer';
+            } else { 
+                slot.innerHTML = ''; 
+                slot.style.borderColor = '#888'; 
+                slot.onclick = null;
+                slot.style.cursor = 'default';
+            }
         }
     }
 
@@ -593,22 +617,44 @@
         doSave(); startMatch();
     };
 
-    /* ================= 戰鬥準備 ================= */
+    /* ================= 戰鬥準備與 SP Helper ================= */
     function createFighterObj(baseChar, team) {
         return {
             char: baseChar, team: team,
             maxHp: baseChar.cls.hp, hp: baseChar.cls.hp, atk: baseChar.cls.atk, spd: baseChar.cls.spd, range: baseChar.cls.range,
             x: team === 1 ? 10 : 90, dir: team === 1 ? 1 : -1,
             state: 'idle', stateTimer: 0, isDead: false,
-            skills: baseChar.cls.skills.concat(COMMON_SKILLS).map(s => ({...s, currentCd: 0})),
+            skills: baseChar.cls.skills.concat(COMMON_SKILLS).map(s => {
+                let currentCd = s.cd;
+                if (baseChar.clsId === 'rogue' && s.id === 'dodge') currentCd = 3;
+                if (baseChar.clsId === 'warrior' && s.id === 'defend') currentCd = 4;
+                return {...s, cd: currentCd, currentCd: 0};
+            }),
             buffs: [], nextThink: 0,
             aiAggression: baseChar.isBoss ? 1.15 : 1.0, 
             basicAtkCd: 0, targetX: -1,
             chasingSkill: null, dodgeFleeTimer: 0,
             sp: 0, maxSp: 100, isAwakened: false, awakeTimer: 0,
-            // 打擊感擴充屬性：受擊特效時間與位移
-            hitTimer: 0, hitDir: 1 
+            hitTimer: 0, hitDir: 1,
+            
+            // 新增：連擊計算屬性
+            comboCount: 0, comboTimer: 0
         };
+    }
+
+    function addSp(fighter, amount) {
+        if (fighter.isAwakened || fighter.hp <= 0) return;
+        fighter.sp += amount;
+        if (fighter.sp >= fighter.maxSp) {
+            fighter.sp = fighter.maxSp;
+            fighter.isAwakened = true;
+            fighter.awakeTimer = 2.5; 
+            triggerFlash();
+            // 剛進入覺醒時重置所有CD一次，讓玩家可以立刻出手
+            fighter.skills.forEach(s => s.currentCd = 0);
+            fighter.basicAtkCd = 0;
+            fighter.comboCount = 0; // 重置連擊計數
+        }
     }
 
     function startMatch() {
@@ -663,11 +709,11 @@
         f1 = battleState.p1Team[battleState.p1ActiveIdx];
         f2 = battleState.p2Team[battleState.p2ActiveIdx];
         
-        // Reset properties
         let resetFighter = (f, startX, startDir) => {
             f.x = startX; f.dir = startDir; f.state = 'idle'; f.buffs = []; f.skills.forEach(s=>s.currentCd = 0);
             f.targetX = -1; f.basicAtkCd = 0; f.chasingSkill = null; f.dodgeFleeTimer = 0;
             f.sp = 0; f.isAwakened = false; f.awakeTimer = 0; f.hitTimer = 0;
+            f.comboCount = 0; f.comboTimer = 0; // 重置連擊
         };
         resetFighter(f1, 10, 1);
         resetFighter(f2, 90, -1);
@@ -677,6 +723,10 @@
         battleState.hitStopTimer = 0;
         battleState.shakeTimer = 0;
         
+        // 隱藏 Combo UI
+        document.getElementById('p1-combo').style.display = 'none';
+        document.getElementById('p2-combo').style.display = 'none';
+
         document.getElementById('p1-emoji').innerText = f1.char.emoji; document.getElementById('p2-emoji').innerText = f2.char.emoji;
         document.getElementById('p1-avatar-ui').innerText = f1.char.emoji; document.getElementById('p1-avatar-ui').style.borderColor = f1.char.element.color;
         document.getElementById('p2-avatar-ui').innerText = f2.char.emoji; document.getElementById('p2-avatar-ui').style.borderColor = f2.char.element.color;
@@ -709,7 +759,6 @@
         }
     }
 
-    // 隨機產生打擊火花
     function showHitSpark(target, isCrit, isBlock) {
         let el = document.createElement('div'); 
         el.className = 'hit-spark'; 
@@ -720,22 +769,20 @@
         setTimeout(() => el.remove(), 300);
     }
 
-    // BUG 修復：加入漂浮文字與特效顯示函式
     function showFloatText(target, text, color) {
         let el = document.createElement('div');
         el.className = 'dmg-text';
         el.innerText = text;
         el.style.color = color;
-        // 隨機在目標附近產生
         el.style.left = `calc(${target.x}% + ${(Math.random() - 0.5) * 20}px)`;
         el.style.bottom = `calc(120px + ${Math.random() * 20}px)`;
         document.getElementById('arena-world').appendChild(el);
-        setTimeout(() => el.remove(), 800); // 配合 CSS 動畫時間
+        setTimeout(() => el.remove(), 800);
     }
 
     function showEffect(caster, icon, color) {
         let el = document.createElement('div');
-        el.className = 'dmg-text'; // 借用漂浮動畫的類別
+        el.className = 'dmg-text';
         el.innerText = icon;
         el.style.color = color;
         el.style.fontSize = '2.5rem';
@@ -745,6 +792,26 @@
         setTimeout(() => el.remove(), 800);
     }
 
+    // 新增：顯示震動巨大的 Combo UI
+    function showComboUI(caster) {
+        let elId = caster.team === 1 ? 'p1-combo' : 'p2-combo';
+        let el = document.getElementById(elId);
+        
+        el.innerText = `${caster.comboCount} HITS!`;
+        el.style.display = 'block';
+        
+        // 超過 5 下變為激動的紅色
+        let color = caster.comboCount >= 5 ? '#ff3838' : '#f1c40f'; 
+        el.style.color = color;
+        
+        // 重置並播放彈跳動畫
+        el.classList.remove('combo-anim');
+        void el.offsetWidth;
+        el.classList.add('combo-anim');
+        
+        // Combo 越多，鏡頭震動越大，加強回饋感
+        battleState.shakeTimer = Math.min(0.5, 0.15 + caster.comboCount * 0.05);
+    }
 
     /* ================= 戰鬥核心 ================= */
     function gameLoop(time) {
@@ -752,10 +819,8 @@
         let dt = (time - battleState.lastTime) / 1000;
         battleState.lastTime = time;
 
-        // 【打擊感核心 1：Hit Stop 打擊停頓】
         if (battleState.hitStopTimer > 0) {
             battleState.hitStopTimer -= dt;
-            // 停頓期間只渲染不動的畫面與特效，不更新戰鬥邏輯與位置
             updateFighterRender(0); 
             requestAnimationFrame(gameLoop);
             return;
@@ -778,20 +843,27 @@
     function updateFighter(f, enemy, dt) {
         if(f.isDead) return;
         
+        // 修正點：取消在 SP 狀態下強制將 CD 鎖定為 0，改為讓其像往常一樣隨時間遞減
         if (f.isAwakened) {
             f.awakeTimer -= dt;
-            f.skills.forEach(s => s.currentCd = 0);
-            f.basicAtkCd = 0;
             if (f.awakeTimer <= 0) {
-                f.isAwakened = false; f.sp = 0;
+                f.isAwakened = false; f.sp = 0; f.comboCount = 0;
             }
-        } else {
-            f.skills.forEach(s => { if (s.currentCd > 0) s.currentCd -= dt; });
-            if (f.basicAtkCd > 0) f.basicAtkCd -= dt;
+        }
+        
+        // 所有技能 CD 與普攻 CD 正常隨時間恢復 (包含 0.3 秒 GCD 的冷卻)
+        f.skills.forEach(s => { if (s.currentCd > 0) s.currentCd -= dt; });
+        if (f.basicAtkCd > 0) f.basicAtkCd -= dt;
+        
+        // 處理連擊超時
+        if (f.comboTimer > 0) {
+            f.comboTimer -= dt;
+            if (f.comboTimer <= 0) {
+                f.comboCount = 0; // 超過時間未造成傷害則斷 Combo
+            }
         }
         
         if (f.dodgeFleeTimer > 0) f.dodgeFleeTimer -= dt;
-        // 降低硬直計時
         if (f.hitTimer > 0) f.hitTimer -= dt;
         
         for (let i = f.buffs.length - 1; i >= 0; i--) {
@@ -815,7 +887,7 @@
         let currentSpd = f.spd;
         let actedThisFrame = false;
 
-        if (f.isAwakened) currentSpd *= 1.3;
+        if (f.isAwakened) currentSpd *= 1.6;
         if (f.dodgeFleeTimer > 0) currentSpd = f.spd * 1.7; 
 
         if (f.chasingSkill !== null) {
@@ -827,7 +899,6 @@
             }
         }
 
-        // AI 邏輯
         if (f.team === 2 && !actedThisFrame && !isInvul) {
             let currentAggression = f.isAwakened ? f.aiAggression * 5 : f.aiAggression;
             f.nextThink -= dt;
@@ -865,7 +936,13 @@
 
         if (!actedThisFrame && f.chasingSkill === null && f.state === 'idle') {
             let dirToEnemy = enemy.x > f.x ? 1 : -1;
-            if (f.char.clsId === 'mage') {
+            let allOffensiveOnCd = f.skills.slice(0, 3).every(s => s.currentCd > 0);
+
+            if (f.char.clsId === 'rogue' && enemy.char.clsId === 'warrior' && allOffensiveOnCd) {
+                f.targetX = f.x - dirToEnemy * 25; 
+                currentSpd = f.spd * 1.5; 
+            }
+            else if (f.char.clsId === 'mage') {
                 let safeMin = 45, safeMax = 55;
                 if (f.dodgeFleeTimer > 0) f.targetX = f.x - dirToEnemy * 40; 
                 else if (dist < 20) { f.targetX = f.x - dirToEnemy * 30; currentSpd = f.spd * 1.5; } 
@@ -876,9 +953,10 @@
                 if (dist > f.range) f.targetX = enemy.x; 
                 else { f.targetX = f.x; if (f.team === 2 && f.nextThink <= 0 && Math.random() < 0.3) f.targetX = f.x - dirToEnemy * (Math.random() * 5); }
             }
+            if (f.targetX !== -1) f.targetX = Math.max(5, Math.min(95, f.targetX));
         }
 
-        if (f.state === 'idle' && f.targetX !== -1 && f.targetX !== f.x && f.hitTimer <= 0) { // 挨打硬直中不走路
+        if (f.state === 'idle' && f.targetX !== -1 && f.targetX !== f.x && f.hitTimer <= 0) { 
             let distToTarget = Math.abs(f.x - f.targetX);
             if (distToTarget > 1) {
                 f.dir = enemy.x > f.x ? 1 : -1; 
@@ -890,7 +968,9 @@
 
     function useSkill(idx) {
         if (!battleState.isPlaying || f1.state === 'stunned') return;
-        if (!f1.isAwakened && f1.skills[idx].currentCd > 0) return;
+        // 在 SP 狀態下如果 GCD (0.3s) 還沒跑完，也不允許施放
+        if (f1.skills[idx].currentCd > 0) return;
+        
         f1.chasingSkill = null; 
         if (f1.skills[idx].type === 'melee' && Math.abs(f1.x - f2.x) > f1.range + 5) {
             f1.chasingSkill = idx;
@@ -901,12 +981,19 @@
 
     function activateSkill(caster, target, idx) {
         let skill = caster.skills[idx];
-        skill.currentCd = skill.cd; 
+        
+        // 修正點：若在 SP 狀態，觸發所有招式的全域冷卻 (GCD = 0.3 秒)
+        if (caster.isAwakened) {
+            caster.skills.forEach(s => s.currentCd = Math.max(s.currentCd, 0.3));
+            caster.basicAtkCd = Math.max(caster.basicAtkCd, 0.3);
+        } else {
+            skill.currentCd = skill.cd; 
+        }
+        
         caster.state = 'attacking'; 
         caster.stateTimer = caster.isAwakened ? 0.15 : 0.5; 
         caster.targetX = caster.x;
         
-        // 技能圖示特效
         if(!caster.isAwakened) showEffect(caster, skill.icon, '#fff');
 
         if (skill.type === 'defensive' || skill.type === 'buff') {
@@ -917,6 +1004,7 @@
                 if (dist < 30) {
                     let crossDir = caster.x < target.x ? 1 : -1;
                     caster.x = target.x + crossDir * 25; 
+                    caster.x = Math.max(5, Math.min(95, caster.x)); 
                     caster.targetX = caster.x; 
                     caster.dir = caster.x < target.x ? 1 : -1; 
                     if (caster.char.clsId === 'mage') caster.dodgeFleeTimer = 1.5; 
@@ -933,7 +1021,6 @@
             applyDamage(caster, target, skill.dmg, skill, false);
         }
         else if (skill.type === 'ranged') {
-            // 確保投射物方向正確
             let pDir = caster.x < target.x ? 1 : -1;
             projectiles.push({ x: caster.x, y: 30, dir: pDir, spd: 80, icon: skill.icon, dmg: skill.dmg, caster: caster, target: target, skill: skill });
         }
@@ -943,7 +1030,11 @@
     function doBasicAttack(caster, target) {
         caster.state = 'attacking'; 
         caster.stateTimer = caster.isAwakened ? 0.1 : 0.3; 
-        caster.basicAtkCd = caster.isAwakened ? 0 : 1.5; 
+        
+        // 修正點：若在 SP 狀態，觸發 0.3 秒 GCD
+        caster.basicAtkCd = caster.isAwakened ? 0.3 : 1.5; 
+        if (caster.isAwakened) caster.skills.forEach(s => s.currentCd = Math.max(s.currentCd, 0.3));
+        
         caster.targetX = caster.x; 
 
         if(caster.char.clsId === 'mage') {
@@ -961,7 +1052,7 @@
             let p = projectiles[i];
             p.x += p.dir * p.spd * dt;
             let el = document.createElement('div'); el.className = 'projectile'; el.innerText = p.icon; el.style.left = p.x + '%'; 
-            el.style.transform = `scaleX(${p.dir})`; // 投射物轉向
+            el.style.transform = `scaleX(${p.dir})`;
             arena.appendChild(el);
             
             if (Math.abs(p.x - p.target.x) < 5) {
@@ -974,14 +1065,32 @@
     }
 
     function applyDamage(caster, target, mult, skill, isProjectile = false) {
-        if (target.buffs.some(b => b.type === 'invul')) { showFloatText(target, "迴避!", '#a4b0be'); return; }
+        if (target.buffs.some(b => b.type === 'invul')) { 
+            showFloatText(target, "迴避!", '#a4b0be'); 
+            addSp(target, 15);
+            return; 
+        }
         
         let atk = caster.atk; if (caster.buffs.some(b => b.type === 'atk_up')) atk *= 1.5;
         let eleMult = 1.0;
         if (caster.char.element.strong === target.char.element.id) eleMult = 1.1;
         if (caster.char.element.weak === target.char.element.id) eleMult = 0.9;
 
-        let rawDmg = (atk * mult * eleMult) * 0.25; // 恢復為 1/4
+        let rawDmg = (atk * mult * eleMult) * 0.25;
+
+        // 【新增】：SP 狀態連擊系統與傷害遞減 (Damage Scaling)
+        if (caster.isAwakened) {
+            caster.comboCount++;
+            caster.comboTimer = 2.0; // 2 秒內連續擊中才能維持 Combo
+            
+            // 傷害遞減公式：每多1 hit傷害減少20%，最低保底 20% 傷害
+            let comboScale = Math.max(0.2, 1.0 - (caster.comboCount - 1) * 0.2);
+            rawDmg *= comboScale;
+            
+            if (caster.comboCount > 1) {
+                showComboUI(caster); // 觸發巨大的 Combo UI
+            }
+        }
 
         if (isProjectile) {
             let hitDist = Math.abs(caster.x - target.x);
@@ -995,37 +1104,41 @@
 
         let finalDmg = Math.max(1, Math.floor(rawDmg));
         target.hp -= finalDmg; if (target.hp < 0) target.hp = 0;
+        
+        addSp(caster, 8);
 
         let isCrit = eleMult > 1;
         let color = '#ff4757'; if (isCrit) color = '#ff9f43'; else if (eleMult < 1) color = '#a4b0be';
-        showFloatText(target, `-${finalDmg}`, color);
         
-        // 【打擊感核心 2：受創動作與位移計算】
-        target.hitTimer = 0.15; // 觸發 150ms 的受擊動畫
-        target.hitDir = caster.x < target.x ? 1 : -1; // 被攻擊的方向
+        // 若是在 Combo 狀態，傷害數字會稍大一些以提升回饋
+        let prefix = caster.isAwakened && caster.comboCount > 2 ? '🔥' : '-';
+        showFloatText(target, `${prefix}${finalDmg}`, color);
         
-        // 【打擊感核心 3：命中火花】
+        target.hitTimer = 0.15;
+        target.hitDir = caster.x < target.x ? 1 : -1;
         showHitSpark(target, isCrit, isBlock);
 
-        // 【打擊感核心 4：卡肉 (Hit Stop) 與 鏡頭震動 (Camera Shake)】
-        if (isCrit || skill) {
-            battleState.shakeTimer = 0.2; // 震動 0.2 秒
-            battleState.hitStopTimer = 0.05; // 卡肉 50ms (爆擊或技能)
-        } else {
-            battleState.hitStopTimer = 0.02; // 普攻卡肉 20ms
-        }
-
-        if (!target.isAwakened && target.hp > 0) {
-            target.sp += 20;
-            if (target.sp >= target.maxSp) {
-                target.sp = target.maxSp;
-                target.isAwakened = true;
-                target.awakeTimer = 2.5; 
-                triggerFlash();
-                target.skills.forEach(s => s.currentCd = 0);
-                target.basicAtkCd = 0;
+        if (skill && caster.char.clsId === 'mage' && skill.type === 'ranged' && isProjectile) {
+            if (Math.random() < 0.25) {
+                let pushDir = caster.x < target.x ? 1 : -1;
+                target.x += pushDir * 15; 
+                target.x = Math.max(2, Math.min(98, target.x)); 
+                target.targetX = target.x;
+                showFloatText(target, "擊退!", '#3498db');
+                target.state = 'stunned';
+                target.stateTimer = 0.2; 
             }
         }
+
+        // 基本的卡肉頓挫感 (若正處於高 Combo 狀態，稍微加強頓挫感)
+        if (isCrit || skill || (caster.isAwakened && caster.comboCount > 3)) {
+            battleState.shakeTimer = caster.isAwakened ? 0.3 : 0.2;
+            battleState.hitStopTimer = 0.05;
+        } else {
+            battleState.hitStopTimer = 0.02;
+        }
+
+        addSp(target, 20);
 
         if (skill && skill.effect) {
             if (shieldBuff && ['stun', 'root'].includes(skill.effect)) showFloatText(target, "格擋!", '#f1c40f');
@@ -1110,25 +1223,21 @@
         let charEl = el.querySelector('.emoji-char');
         let hitOffsetX = 0, hitOffsetY = 0, hitRot = 0;
 
-        // 計算受擊震動與傾斜 (硬體加速)
         if (f.hitTimer > 0) {
-            let intensity = f.hitTimer / 0.15; // 1 to 0
-            hitOffsetX = f.hitDir * 20 * intensity; // 被擊退距離
-            hitOffsetY = -15 * Math.sin(intensity * Math.PI); // 微跳躍
-            hitRot = f.hitDir * -25 * intensity; // 仰角傾斜
+            let intensity = f.hitTimer / 0.15; 
+            hitOffsetX = f.hitDir * 20 * intensity; 
+            hitOffsetY = -15 * Math.sin(intensity * Math.PI); 
+            hitRot = f.hitDir * -25 * intensity; 
             
-            // 瞬間受擊閃光
             if (f.hitTimer > 0.05) charEl.classList.add('hit-flash');
             else charEl.classList.remove('hit-flash');
         } else {
             charEl.classList.remove('hit-flash');
         }
 
-        // 統整 Transform 屬性，套用方向反轉
         el.style.left = f.x + '%';
         el.style.transform = `translate(${hitOffsetX}px, ${hitOffsetY}px) rotate(${hitRot}deg) scaleX(${f.dir})`;
         
-        // 解放特效與灰階死亡
         if (f.isAwakened) el.classList.add('awakened'); else el.classList.remove('awakened');
         el.style.filter = f.isDead ? 'grayscale(100%)' : 'none';
     }
@@ -1137,11 +1246,10 @@
         renderFighterVisuals(f1, document.getElementById('fighter-1'), dt);
         renderFighterVisuals(f2, document.getElementById('fighter-2'), dt);
 
-        // 動態攝影機與畫面微震動 (Camera Shake)
         let shakeX = 0, shakeY = 0;
         if (battleState.shakeTimer > 0) {
             battleState.shakeTimer -= dt;
-            let intensity = Math.max(0, battleState.shakeTimer / 0.2); // 1 to 0
+            let intensity = Math.max(0, battleState.shakeTimer / 0.2); 
             shakeX = (Math.random() - 0.5) * 15 * intensity;
             shakeY = (Math.random() - 0.5) * 15 * intensity;
         }
@@ -1151,7 +1259,6 @@
             battleState.cameraX += (targetCameraX - battleState.cameraX) * 5 * dt;
         }
         
-        // 套用平滑追蹤與微震動
         document.getElementById('arena-world').style.transform = `translate(calc(${50 - battleState.cameraX}% + ${shakeX}px), ${shakeY}px)`;
     }
 
@@ -1174,14 +1281,21 @@
     }
 
     function updateSkillCDUI() {
-        for(let i=0; i<3; i++) updateBtnCD(`btn-s${i+1}`, f1.skills[i], f1.isAwakened);
-        updateBtnCD('btn-dodge', f1.skills[3], f1.isAwakened); updateBtnCD('btn-defend', f1.skills[4], f1.isAwakened);
+        for(let i=0; i<3; i++) updateBtnCD(`btn-s${i+1}`, f1.skills[i]);
+        updateBtnCD('btn-dodge', f1.skills[3]); 
+        updateBtnCD('btn-defend', f1.skills[4]);
     }
-    function updateBtnCD(btnId, skill, isAwakened) {
+    
+    // 修改：即便是 SP 狀態，也會顯示 0.3 秒 GCD 的快速倒數給玩家回饋
+    function updateBtnCD(btnId, skill) {
         let overlay = document.getElementById(btnId).querySelector('.cooldown-overlay');
-        if (isAwakened) overlay.style.display = 'none'; 
-        else if (skill.currentCd > 0) { overlay.style.display = 'flex'; overlay.innerText = skill.currentCd.toFixed(1); } 
-        else overlay.style.display = 'none';
+        if (skill.currentCd > 0) { 
+            overlay.style.display = 'flex'; 
+            overlay.innerText = skill.currentCd.toFixed(1); 
+        } 
+        else {
+            overlay.style.display = 'none';
+        }
     }
 
     function updateStatusText(f) {
