@@ -460,7 +460,7 @@
 
     /* ================= 存檔與選角 ================= */
     function loadSave() {
-        const save = localStorage.getItem('kof_save_v15');
+        const save = localStorage.getItem('kof_save_v16');
         if (save) {
             let parsed = JSON.parse(save);
             gameState = { ...gameState, ...parsed };
@@ -479,7 +479,7 @@
             document.getElementById('stat-highscore').innerText = '0';
         }
     }
-    function doSave() { localStorage.setItem('kof_save_v15', JSON.stringify(gameState)); }
+    function doSave() { localStorage.setItem('kof_save_v16', JSON.stringify(gameState)); }
     loadSave();
 
     document.getElementById('btn-new-game').onclick = () => {
@@ -490,7 +490,14 @@
         doSave(); 
         showSelectScreen();
     };
-    document.getElementById('btn-continue').onclick = () => startMatch();
+
+    document.getElementById('btn-continue').onclick = () => {
+        if (!gameState.playerTeam || gameState.playerTeam.length === 0) {
+            showSelectScreen();
+        } else {
+            startMatch();
+        }
+    };
 
     let tempTeam = [];
     let viewingCharId = null;
@@ -717,7 +724,6 @@
     function updateFighter(f, enemy, dt) {
         if(f.isDead) return;
         
-        // 力量解放狀態更新
         if (f.isAwakened) {
             f.awakeTimer -= dt;
             f.skills.forEach(s => s.currentCd = 0);
@@ -982,7 +988,7 @@
             if (target.sp >= target.maxSp) {
                 target.sp = target.maxSp;
                 target.isAwakened = true;
-                target.awakeTimer = 2.5; // 【更新為 2.5 秒】
+                target.awakeTimer = 2.5; 
                 triggerFlash();
                 target.skills.forEach(s => s.currentCd = 0);
                 target.basicAtkCd = 0;
@@ -994,7 +1000,7 @@
             else {
                 if (skill.effect === 'stun') { target.state = 'stunned'; target.stateTimer = skill.dur; showFloatText(target, "暈眩!", '#f1c40f'); target.targetX = target.x; }
                 else if (skill.effect === 'root') { target.buffs.push({type: 'root', dur: skill.dur}); target.targetX = target.x; }
-                else if (skill.effect === 'dot') target.buffs.push({type: 'dot', val: (skill.val * caster.atk) * 0.2, dur: skill.dur, nextTick: 1}); // DoT也下修為0.2
+                else if (skill.effect === 'dot') target.buffs.push({type: 'dot', val: (skill.val * caster.atk) * 0.2, dur: skill.dur, nextTick: 1});
             }
         }
     }
@@ -1094,7 +1100,6 @@
         e1.style.filter = f1.isDead ? 'grayscale(100%)' : 'none';
         e2.style.filter = f2.isDead ? 'grayscale(100%)' : 'none';
 
-        // 力量解放的鬥氣光環與色相偏移切換
         if (f1.isAwakened) e1.classList.add('awakened'); else e1.classList.remove('awakened');
         if (f2.isAwakened) e2.classList.add('awakened'); else e2.classList.remove('awakened');
 
