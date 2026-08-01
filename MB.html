@@ -2,11 +2,38 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>魔彈射手</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #1a202c; font-family: sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+        /* --- 體驗優化：防止縮放與反白 --- */
+        * { 
+            touch-action: manipulation; /* 允許點擊與滑動，但禁止雙擊縮放 */
+            -webkit-tap-highlight-color: transparent; /* 移除手機端點擊閃爍藍底 */
+            box-sizing: border-box;
+        }
+        
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #1a202c; 
+            font-family: sans-serif; 
+            user-select: none; 
+            -webkit-user-select: none; 
+            overscroll-behavior: none; /* 防止下拉刷新與邊緣回彈 */
+        }
+        
+        /* 遊戲區域完全禁用瀏覽器預設觸控，由我們的腳本處理 */
+        #game-container, #gameCanvas, #joystick-zone { 
+            touch-action: none; 
+        }
+        
+        /* 允許背包等需要滾動的地方可以垂直滑動 */
+        .overflow-y-auto { 
+            touch-action: pan-y; 
+            overscroll-behavior-y: contain; 
+        }
+
         .pixelated { image-rendering: pixelated; }
         
         #joystick-zone { position: absolute; bottom: 0; left: 0; width: 100%; height: 50%; z-index: 10; }
@@ -15,7 +42,6 @@
 
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
-        button, .cursor-pointer, input { touch-action: manipulation; }
     </style>
 </head>
 <body class="text-white h-[100dvh] w-screen flex flex-col absolute inset-0">
@@ -130,6 +156,21 @@
     <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-900/90 text-white px-4 py-2 rounded shadow-lg z-50 hidden transition-opacity font-bold"></div>
 
     <script>
+        /** ==========================================
+         * 0. 系統層級的防縮放攔截
+         * ========================================== */
+        // 防止多指縮放 (Pinch to zoom)
+        document.addEventListener('touchmove', function (event) {
+            if (event.scale !== 1 || event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+
+        // 防止某些特定瀏覽器的雙擊行為
+        document.addEventListener('dblclick', function(event) {
+            event.preventDefault();
+        }, { passive: false });
+
         /** ==========================================
          * 1. 遊戲設定與資料驅動字典
          * ========================================== */
