@@ -67,30 +67,86 @@
         
         .team-score { display: flex; gap: 4px;}
         .score-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--hp-p1); transition: 0.3s; }
-        .score-dot.dead { background: #333; border: 1px solid #555; }
+        .p2-dot { background: var(--hp-p2); }
+        .score-dot.dead { background: #333 !important; border: 1px solid #555; }
         
+        /* 血條與氣條介面 */
         .hud { display: flex; justify-content: space-between; padding: 10px; align-items: center; background: rgba(0,0,0,0.5); border-bottom: 2px solid #222; }
-        .hp-container { flex-grow: 1; background: #222; height: 24px; border-radius: 6px; overflow: hidden; margin: 0 10px; position: relative; border: 1px solid #444; }
+        .bars-wrapper { flex-grow: 1; margin: 0 10px; display: flex; flex-direction: column; gap: 4px; }
+        .hp-container { background: #222; height: 22px; border-radius: 4px; overflow: hidden; position: relative; border: 1px solid #444; width: 100%; }
         .hp-bar { height: 100%; transition: width 0.2s linear; }
-        #p1-hp { background: var(--hp-p1); width: 100%; float: left; }
-        #p2-hp { background: var(--hp-p2); width: 100%; float: right; }
-        
+        #p1-hp { background: var(--hp-p1); float: left; }
+        #p2-hp { background: var(--hp-p2); float: right; }
         .hp-text { position: absolute; top:0; left:0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; font-size: 0.9rem; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; z-index: 10; pointer-events: none; }
         
+        /* 必殺計量條 (SP) */
+        .sp-container { background: #111; height: 6px; border-radius: 3px; overflow: hidden; border: 1px solid #333; width: 100%; }
+        .sp-bar { height: 100%; width: 0%; background: #f1c40f; transition: width 0.1s linear; }
+        #p1-sp { float: left; }
+        #p2-sp { float: right; }
+        .sp-bar.awakened { background: linear-gradient(90deg, #f1c40f, #e74c3c, #f1c40f); background-size: 200% 200%; animation: rainbowSp 0.5s linear infinite; }
+        @keyframes rainbowSp { 0% {background-position: 0% 50%;} 100% {background-position: 100% 50%;} }
+
         .avatar-box { font-size: 1.8rem; position: relative; background: var(--panel); border-radius: 5px; padding: 5px; border: 2px solid #555; }
         #timer { font-size: 1.8rem; font-weight: bold; width: 50px; text-align: center; color: #f1c40f; text-shadow: 2px 2px 0 #000; }
         
         /* 競技場 */
         #arena { flex-grow: 1; position: relative; overflow: hidden; border-bottom: 5px solid #111; }
-        .fighter { position: absolute; bottom: 20px; font-size: 3.5rem; transition: transform 0.1s; display: flex; flex-direction: column; align-items: center; }
-        .fighter-fx { position: absolute; width: 100%; height: 100%; border-radius: 50%; opacity: 0; pointer-events: none; }
-        .status-text { position: absolute; top: -20px; font-size: 1rem; color: #fff; font-weight: bold; white-space: nowrap; text-shadow: 1px 1px 1px #000; z-index: 10;}
+        #arena-world { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transition: transform 0s; }
+        
+        /* 全場閃光特效 */
+        #arena-flash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; opacity: 0; pointer-events: none; z-index: 100; }
+        .flash-anim { animation: flashBang 0.4s ease-out; }
+        @keyframes flashBang { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+        /* 角色基礎位置 */
+        .fighter { position: absolute; bottom: 60px; transition: transform 0.1s; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        
+        /* Emoji本體樣式設定 */
+        .emoji-char { font-size: 3.5rem; display: inline-block; transition: filter 0.1s; }
+
+        /* ======== 力量解放：變色、震動與光環特效 ======== */
+        .fighter.awakened .emoji-char {
+            filter: drop-shadow(0 0 10px #ff0000) drop-shadow(0 0 20px #ffea00) hue-rotate(-30deg) saturate(2) brightness(1.3);
+            animation: awakePulse 0.3s infinite alternate;
+        }
+        @keyframes awakePulse {
+            0% { transform: scale(1); filter: drop-shadow(0 0 10px #ff0000) drop-shadow(0 0 20px #ffea00) hue-rotate(-30deg) saturate(2) brightness(1.3); }
+            100% { transform: scale(1.15); filter: drop-shadow(0 0 20px #ffea00) drop-shadow(0 0 30px #ffffff) hue-rotate(20deg) saturate(3) brightness(1.6); }
+        }
+        
+        /* 旋轉的鬥氣光環 */
+        .fighter.awakened::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 100px; height: 100px;
+            margin-top: -35px; margin-left: -50px; 
+            border-radius: 50%;
+            border: 5px solid transparent;
+            border-top-color: #f1c40f;
+            border-bottom-color: #e74c3c;
+            box-shadow: 0 0 15px #f1c40f, inset 0 0 15px #e74c3c;
+            animation: spinAura 0.4s linear infinite;
+            z-index: -1;
+            pointer-events: none;
+        }
+        @keyframes spinAura {
+            0% { transform: rotate(0deg) scale(0.9); opacity: 0.8; }
+            50% { transform: rotate(180deg) scale(1.2); opacity: 1; }
+            100% { transform: rotate(360deg) scale(0.9); opacity: 0.8; }
+        }
+        /* ============================================== */
+
+        .fighter-fx { position: absolute; width: 100%; height: 100%; border-radius: 50%; opacity: 0; pointer-events: none; z-index: 5; }
+        .status-text { position: absolute; top: -30px; font-size: 1rem; color: #fff; font-weight: bold; white-space: nowrap; text-shadow: 1px 1px 1px #000; z-index: 10;}
         .dmg-text { position: absolute; font-size: 1.5rem; font-weight: bold; color: #ff4757; text-shadow: 2px 2px 0 #000; animation: floatUp 1s forwards; pointer-events: none; z-index: 10; }
         @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-60px) scale(1.5); } }
-        .projectile { position: absolute; bottom: 40px; font-size: 1.5rem; z-index: 5; text-shadow: 2px 2px 2px rgba(0,0,0,0.5); }
+        /* 投射物高度調整以配合角色位置 */
+        .projectile { position: absolute; bottom: 80px; font-size: 1.5rem; z-index: 5; text-shadow: 2px 2px 2px rgba(0,0,0,0.5); }
         
         /* 技能面板與防遮擋底部空間 */
-        .controls { height: 130px; background: #000; padding: 8px; display: flex; flex-direction: column; gap: 5px; border-top: 2px solid #333; }
+        .controls { height: 130px; background: #000; padding: 8px; display: flex; flex-direction: column; gap: 5px; border-top: 2px solid #333; z-index: 10; }
         .bottom-spacer { height: 18vh; background: #000; width: 100%; flex-shrink: 0; }
         
         .skill-row { display: flex; gap: 8px; justify-content: center; height: 50%; }
@@ -189,35 +245,46 @@
         <div class="top-bar-center">
             <div class="team-score" id="p1-score"><div class="score-dot"></div><div class="score-dot"></div><div class="score-dot"></div></div>
             <div style="font-size:1.3rem; font-weight:bold; color:#f1c40f; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; margin: 0 5px;">K.O.E</div>
-            <div class="team-score" id="p2-score"><div class="score-dot" style="background:var(--hp-p2)"></div><div class="score-dot" style="background:var(--hp-p2)"></div><div class="score-dot" style="background:var(--hp-p2)"></div></div>
+            <div class="team-score" id="p2-score"><div class="score-dot p2-dot"></div><div class="score-dot p2-dot"></div><div class="score-dot p2-dot"></div></div>
         </div>
         <div class="top-bar-right"></div>
     </div>
     
     <div class="hud">
         <div class="avatar-box" id="p1-avatar-ui">🧑</div>
-        <div class="hp-container">
-            <div id="p1-hp" class="hp-bar"></div>
-            <div class="hp-text" id="p1-hp-txt">1000/1000</div>
+        <div class="bars-wrapper">
+            <div class="hp-container">
+                <div id="p1-hp" class="hp-bar"></div>
+                <div class="hp-text" id="p1-hp-txt">1000/1000</div>
+            </div>
+            <div class="sp-container"><div id="p1-sp" class="sp-bar"></div></div>
         </div>
+        
         <div id="timer">60</div>
-        <div class="hp-container">
-            <div id="p2-hp" class="hp-bar"></div>
-            <div class="hp-text" id="p2-hp-txt">1000/1000</div>
+        
+        <div class="bars-wrapper">
+            <div class="hp-container">
+                <div id="p2-hp" class="hp-bar"></div>
+                <div class="hp-text" id="p2-hp-txt">1000/1000</div>
+            </div>
+            <div class="sp-container"><div id="p2-sp" class="sp-bar"></div></div>
         </div>
         <div class="avatar-box" id="p2-avatar-ui" style="border-color:var(--hp-p2);">👹</div>
     </div>
     
     <div id="arena">
-        <div id="fighter-1" class="fighter" style="left: 10%;">
-            <div class="status-text" id="p1-status"></div>
-            <div class="fighter-fx" id="p1-fx"></div>
-            <span id="p1-emoji">🧑</span>
-        </div>
-        <div id="fighter-2" class="fighter" style="left: 80%;">
-            <div class="status-text" id="p2-status"></div>
-            <div class="fighter-fx" id="p2-fx"></div>
-            <span id="p2-emoji">👹</span>
+        <div id="arena-flash"></div> <!-- 覺醒閃光層 -->
+        <div id="arena-world">
+            <div id="fighter-1" class="fighter" style="left: 10%;">
+                <div class="status-text" id="p1-status"></div>
+                <div class="fighter-fx" id="p1-fx"></div>
+                <span id="p1-emoji" class="emoji-char">🧑</span>
+            </div>
+            <div id="fighter-2" class="fighter" style="left: 90%;">
+                <div class="status-text" id="p2-status"></div>
+                <div class="fighter-fx" id="p2-fx"></div>
+                <span id="p2-emoji" class="emoji-char">👹</span>
+            </div>
         </div>
     </div>
     
@@ -373,7 +440,7 @@
 
     /* ================= 狀態管理 ================= */
     let gameState = { wins: 0, stage: 1, playerTeam: [], enemyPool: [], inProgress: false, score: 0, highScore: 0 };
-    let battleState = { p1Team: [], p2Team: [], p1ActiveIdx: 0, p2ActiveIdx: 0, timer: 60, isPlaying: false, lastTime: 0 };
+    let battleState = { p1Team: [], p2Team: [], p1ActiveIdx: 0, p2ActiveIdx: 0, timer: 60, isPlaying: false, lastTime: 0, cameraX: 50 };
     let f1, f2; 
     let projectiles = [];
 
@@ -393,7 +460,7 @@
 
     /* ================= 存檔與選角 ================= */
     function loadSave() {
-        const save = localStorage.getItem('kof_save_v9');
+        const save = localStorage.getItem('kof_save_v15');
         if (save) {
             let parsed = JSON.parse(save);
             gameState = { ...gameState, ...parsed };
@@ -412,7 +479,7 @@
             document.getElementById('stat-highscore').innerText = '0';
         }
     }
-    function doSave() { localStorage.setItem('kof_save_v9', JSON.stringify(gameState)); }
+    function doSave() { localStorage.setItem('kof_save_v15', JSON.stringify(gameState)); }
     loadSave();
 
     document.getElementById('btn-new-game').onclick = () => {
@@ -514,18 +581,19 @@
         doSave(); startMatch();
     };
 
-    /* ================= 戰鬥準備 ================= */
+    /* ================= 戰鬥準備與力量解放系統 ================= */
     function createFighterObj(baseChar, team) {
         return {
             char: baseChar, team: team,
             maxHp: baseChar.cls.hp, hp: baseChar.cls.hp, atk: baseChar.cls.atk, spd: baseChar.cls.spd, range: baseChar.cls.range,
-            x: team === 1 ? 10 : 80, dir: team === 1 ? 1 : -1,
+            x: team === 1 ? 10 : 90, dir: team === 1 ? 1 : -1,
             state: 'idle', stateTimer: 0, isDead: false,
             skills: baseChar.cls.skills.concat(COMMON_SKILLS).map(s => ({...s, currentCd: 0})),
             buffs: [], nextThink: 0,
             aiAggression: baseChar.isBoss ? 1.15 : 1.0, 
             basicAtkCd: 0, targetX: -1,
-            chasingSkill: null 
+            chasingSkill: null, dodgeFleeTimer: 0,
+            sp: 0, maxSp: 100, isAwakened: false, awakeTimer: 0 
         };
     }
 
@@ -583,9 +651,15 @@
         f1 = battleState.p1Team[battleState.p1ActiveIdx];
         f2 = battleState.p2Team[battleState.p2ActiveIdx];
         
-        f1.x = 10; f1.dir = 1; f1.state = 'idle'; f1.buffs = []; f1.skills.forEach(s=>s.currentCd = 0); f1.targetX = -1; f1.basicAtkCd = 0; f1.chasingSkill = null;
-        f2.x = 80; f2.dir = -1; f2.state = 'idle'; f2.buffs = []; f2.skills.forEach(s=>s.currentCd = 0); f2.targetX = -1; f2.basicAtkCd = 0; f2.chasingSkill = null;
+        f1.x = 10; f1.dir = 1; f1.state = 'idle'; f1.buffs = []; f1.skills.forEach(s=>s.currentCd = 0); f1.targetX = -1; f1.basicAtkCd = 0; f1.chasingSkill = null; f1.dodgeFleeTimer = 0;
+        f1.sp = 0; f1.isAwakened = false; f1.awakeTimer = 0;
+        
+        f2.x = 90; f2.dir = -1; f2.state = 'idle'; f2.buffs = []; f2.skills.forEach(s=>s.currentCd = 0); f2.targetX = -1; f2.basicAtkCd = 0; f2.chasingSkill = null; f2.dodgeFleeTimer = 0;
+        f2.sp = 0; f2.isAwakened = false; f2.awakeTimer = 0;
+        
         projectiles = [];
+        battleState.cameraX = 50;
+        document.getElementById('arena-world').style.transform = `translateX(0%)`;
 
         document.getElementById('p1-emoji').innerText = f1.char.emoji; document.getElementById('p2-emoji').innerText = f2.char.emoji;
         document.getElementById('p1-avatar-ui').innerText = f1.char.emoji; document.getElementById('p1-avatar-ui').style.borderColor = f1.char.element.color;
@@ -599,7 +673,7 @@
         }
         
         document.getElementById('score-display').innerText = gameState.score;
-        updateScoreUI(); updateHpUI(); updateFighterRender();
+        updateScoreUI(); updateBarsUI(); updateFighterRender(0);
     }
 
     function startRound() {
@@ -608,6 +682,16 @@
             battleState.timer = 60; battleState.isPlaying = true; battleState.lastTime = performance.now();
             requestAnimationFrame(gameLoop);
         }, 1500);
+    }
+
+    /* ================= 觸發全場閃光特效 ================= */
+    function triggerFlash() {
+        let flashEl = document.getElementById('arena-flash');
+        if(flashEl) {
+            flashEl.classList.remove('flash-anim');
+            void flashEl.offsetWidth; 
+            flashEl.classList.add('flash-anim');
+        }
     }
 
     /* ================= 戰鬥核心 ================= */
@@ -624,7 +708,7 @@
         updateFighter(f1, f2, dt);
         updateFighter(f2, f1, dt);
         updateProjectiles(dt);
-        updateHpUI(); updateFighterRender(); updateSkillCDUI();
+        updateBarsUI(); updateFighterRender(dt); updateSkillCDUI();
         checkWinCondition();
 
         if (battleState.isPlaying) requestAnimationFrame(gameLoop);
@@ -633,8 +717,22 @@
     function updateFighter(f, enemy, dt) {
         if(f.isDead) return;
         
-        f.skills.forEach(s => { if (s.currentCd > 0) s.currentCd -= dt; });
-        if (f.basicAtkCd > 0) f.basicAtkCd -= dt;
+        // 力量解放狀態更新
+        if (f.isAwakened) {
+            f.awakeTimer -= dt;
+            f.skills.forEach(s => s.currentCd = 0);
+            f.basicAtkCd = 0;
+            
+            if (f.awakeTimer <= 0) {
+                f.isAwakened = false;
+                f.sp = 0;
+            }
+        } else {
+            f.skills.forEach(s => { if (s.currentCd > 0) s.currentCd -= dt; });
+            if (f.basicAtkCd > 0) f.basicAtkCd -= dt;
+        }
+        
+        if (f.dodgeFleeTimer > 0) f.dodgeFleeTimer -= dt;
         
         for (let i = f.buffs.length - 1; i >= 0; i--) {
             f.buffs[i].dur -= dt;
@@ -643,7 +741,7 @@
         updateStatusText(f);
 
         if (f.chasingSkill !== null) {
-            if (f.state === 'stunned' || f.skills[f.chasingSkill].currentCd > 0) {
+            if (f.state === 'stunned' || (!f.isAwakened && f.skills[f.chasingSkill].currentCd > 0)) {
                 f.chasingSkill = null;
             }
         }
@@ -654,69 +752,87 @@
             return; 
         }
 
-        if (f.buffs.some(b => b.type === 'invul')) return;
-
+        let isInvul = f.buffs.some(b => b.type === 'invul');
         let dist = Math.abs(f.x - enemy.x);
         let currentSpd = f.spd;
-        let usedSkill = false;
+        let actedThisFrame = false;
+
+        if (f.isAwakened) currentSpd *= 1.3;
+
+        if (f.dodgeFleeTimer > 0) {
+            currentSpd = f.spd * 1.7; 
+        }
 
         if (f.chasingSkill !== null) {
             if (dist <= f.range + 5) { 
                 activateSkill(f, enemy, f.chasingSkill);
                 f.chasingSkill = null;
-                usedSkill = true;
+                actedThisFrame = true;
             } else {
                 f.targetX = enemy.x; 
                 currentSpd = f.spd * 1.6; 
             }
         }
 
-        if (f.team === 2 && !usedSkill) {
+        // AI 思考發招
+        if (f.team === 2 && !actedThisFrame && !isInvul) {
+            let currentAggression = f.isAwakened ? f.aiAggression * 5 : f.aiAggression;
+            
             f.nextThink -= dt;
             if (f.nextThink <= 0) {
-                f.nextThink = (0.5 + Math.random() * 0.5) / f.aiAggression; 
+                f.nextThink = (0.5 + Math.random() * 0.5) / currentAggression; 
                 
-                if (enemy.state === 'attacking' && Math.random() < (0.25 * f.aiAggression)) {
-                    if (f.skills[3].currentCd <= 0) { activateSkill(f, enemy, 3); usedSkill = true; f.chasingSkill = null; }
-                    else if (f.skills[4].currentCd <= 0) { activateSkill(f, enemy, 4); usedSkill = true; f.chasingSkill = null; }
+                if (enemy.state === 'attacking' && Math.random() < (0.25 * currentAggression)) {
+                    if (f.skills[3].currentCd <= 0) { activateSkill(f, enemy, 3); actedThisFrame = true; f.chasingSkill = null; }
+                    else if (f.skills[4].currentCd <= 0) { activateSkill(f, enemy, 4); actedThisFrame = true; f.chasingSkill = null; }
                 }
                 
-                if (!usedSkill && f.chasingSkill === null) {
+                if (!actedThisFrame && f.chasingSkill === null) {
                     let avail = [0,1,2].filter(i => f.skills[i].currentCd <= 0);
-                    if (avail.length > 0 && Math.random() < (0.35 * f.aiAggression)) {
+                    if (avail.length > 0 && Math.random() < (0.35 * currentAggression)) {
                         let sIdx = avail[Math.floor(Math.random()*avail.length)];
                         if (f.skills[sIdx].type === 'melee' && dist > f.range + 5) {
                             f.chasingSkill = sIdx;
-                            showFloatText(f, "突進!", '#ff9f43');
                         } else {
                             activateSkill(f, enemy, sIdx);
                         }
-                        usedSkill = true; 
+                        actedThisFrame = true; 
                     }
                 }
 
-                if (!usedSkill && f.chasingSkill === null && dist <= f.range && f.basicAtkCd <= 0 && Math.random() < (0.4 * f.aiAggression)) {
-                    doBasicAttack(f, enemy); usedSkill = true;
+                if (!actedThisFrame && f.chasingSkill === null && dist <= f.range && f.basicAtkCd <= 0 && Math.random() < (0.4 * currentAggression)) {
+                    doBasicAttack(f, enemy); actedThisFrame = true;
                 }
             }
-        } else if (f.team === 1 && !usedSkill) {
-            if (f.chasingSkill === null && dist <= f.range && f.state === 'idle' && f.basicAtkCd <= 0 && Math.random() < 0.03) {
+        } else if (f.team === 1 && !actedThisFrame && !isInvul) {
+            let autoAtkChance = f.isAwakened ? 0.3 : 0.03;
+            if (f.chasingSkill === null && dist <= f.range && f.state === 'idle' && f.basicAtkCd <= 0 && Math.random() < autoAtkChance) {
                 doBasicAttack(f, enemy);
-                usedSkill = true;
+                actedThisFrame = true;
             }
         }
 
-        if (!usedSkill && f.chasingSkill === null && f.state === 'idle') {
+        if (!actedThisFrame && f.chasingSkill === null && f.state === 'idle') {
             let dirToEnemy = enemy.x > f.x ? 1 : -1;
 
             if (f.char.clsId === 'mage') {
                 let safeMin = 45;
                 let safeMax = 55;
-                if (dist < safeMin) {
+                
+                if (f.dodgeFleeTimer > 0) {
+                    f.targetX = f.x - dirToEnemy * 40; 
+                }
+                else if (dist < 20) {
+                    f.targetX = f.x - dirToEnemy * 30; 
+                    currentSpd = f.spd * 1.5; 
+                } 
+                else if (dist < safeMin) {
                     f.targetX = f.x - dirToEnemy * 15; 
-                } else if (dist > safeMax) {
+                } 
+                else if (dist > safeMax) {
                     f.targetX = f.x + dirToEnemy * 15; 
-                } else {
+                } 
+                else {
                     f.targetX = f.x; 
                     if (f.team === 2 && f.nextThink <= 0 && Math.random() < 0.3) {
                         f.targetX = f.x + (Math.random() > 0.5 ? 5 : -5);
@@ -732,7 +848,6 @@
                     }
                 }
             }
-            f.targetX = Math.max(2, Math.min(98, f.targetX)); 
         }
 
         if (f.state === 'idle' && f.targetX !== -1 && f.targetX !== f.x) {
@@ -741,19 +856,18 @@
                 f.dir = enemy.x > f.x ? 1 : -1; 
                 let moveDir = f.targetX > f.x ? 1 : -1;
                 f.x += moveDir * currentSpd * 0.1 * dt;
-                f.x = Math.max(2, Math.min(98, f.x));
             }
         }
     }
 
     function useSkill(idx) {
-        if (!battleState.isPlaying || f1.state === 'stunned' || f1.skills[idx].currentCd > 0) return;
+        if (!battleState.isPlaying || f1.state === 'stunned') return;
+        if (!f1.isAwakened && f1.skills[idx].currentCd > 0) return;
         
         f1.chasingSkill = null; 
 
         if (f1.skills[idx].type === 'melee' && Math.abs(f1.x - f2.x) > f1.range + 5) {
             f1.chasingSkill = idx;
-            showFloatText(f1, "突進!", '#f1c40f');
             return;
         }
         activateSkill(f1, f2, idx);
@@ -761,24 +875,32 @@
 
     function activateSkill(caster, target, idx) {
         let skill = caster.skills[idx];
-        skill.currentCd = skill.cd; caster.state = 'attacking'; caster.stateTimer = 0.5; caster.targetX = caster.x;
-        showEffect(caster, skill.icon, '#fff');
+        skill.currentCd = skill.cd; 
+        
+        caster.state = 'attacking'; 
+        caster.stateTimer = caster.isAwakened ? 0.15 : 0.5; 
+        caster.targetX = caster.x;
+        
+        if(!caster.isAwakened) showEffect(caster, skill.icon, '#fff');
 
         if (skill.type === 'defensive' || skill.type === 'buff') {
             caster.buffs.push({type: skill.effect, val: skill.val, dur: skill.dur});
             
-            // 【新增】閃避的瞬身繞背邏輯
             if (skill.id === 'dodge') {
+                caster.stateTimer = caster.isAwakened ? 0.1 : 0.2; 
+                
                 let dist = Math.abs(caster.x - target.x);
-                if (dist < 30) { // 如果與對手距離小於 30，觸發繞背
-                    let crossDir = caster.x < target.x ? 1 : -1; // 判斷要往左穿還是往右穿
-                    let newX = target.x + crossDir * 25; // 瞬移到對手背後 25 單位處
+                if (dist < 30) {
+                    let crossDir = caster.x < target.x ? 1 : -1;
+                    let newX = target.x + crossDir * 25; 
                     
-                    caster.x = Math.max(2, Math.min(98, newX)); // 防出界限制
-                    caster.targetX = caster.x; // 更新尋路目標，避免自動拉扯
-                    caster.dir = caster.x < target.x ? 1 : -1; // 瞬間轉頭面向對手
+                    caster.x = newX; 
+                    caster.targetX = caster.x; 
+                    caster.dir = caster.x < target.x ? 1 : -1; 
                     
-                    showFloatText(caster, "瞬身!", '#00d2d3'); // 繞背專屬特效字
+                    if (caster.char.clsId === 'mage') caster.dodgeFleeTimer = 1.5; 
+                } else {
+                    if (caster.char.clsId === 'mage') caster.dodgeFleeTimer = 1.0; 
                 }
             }
         } 
@@ -796,20 +918,21 @@
     }
 
     function doBasicAttack(caster, target) {
-        caster.state = 'attacking'; caster.stateTimer = 0.3; 
-        caster.basicAtkCd = 1.5; 
+        caster.state = 'attacking'; 
+        caster.stateTimer = caster.isAwakened ? 0.1 : 0.3; 
+        caster.basicAtkCd = caster.isAwakened ? 0 : 1.5; 
         caster.targetX = caster.x; 
 
         if(caster.char.clsId === 'mage') {
              projectiles.push({ x: caster.x, y: 30, dir: caster.dir, spd: 60, icon: '✨', dmg: 1.0, caster: caster, target: target, skill: null });
         } else {
-            setTimeout(() => { if (Math.abs(caster.x - target.x) <= caster.range + 5) applyDamage(caster, target, 1.0, null, false); }, 100);
+            setTimeout(() => { if (Math.abs(caster.x - target.x) <= caster.range + 5) applyDamage(caster, target, 1.0, null, false); }, caster.isAwakened ? 50 : 100);
         }
     }
 
     function updateProjectiles(dt) {
         document.querySelectorAll('.projectile').forEach(e => e.remove());
-        let arena = document.getElementById('arena');
+        let arena = document.getElementById('arena-world'); 
         for (let i = projectiles.length - 1; i >= 0; i--) {
             let p = projectiles[i];
             p.x += p.dir * p.spd * dt;
@@ -818,19 +941,22 @@
             if (Math.abs(p.x - p.target.x) < 5) {
                 applyDamage(p.caster, p.target, p.dmg, p.skill, true); 
                 projectiles.splice(i, 1);
-            } else if (p.x < -10 || p.x > 110) projectiles.splice(i, 1);
+            } else if (Math.abs(p.x - battleState.cameraX) > 100) {
+                projectiles.splice(i, 1);
+            }
         }
     }
 
     function applyDamage(caster, target, mult, skill, isProjectile = false) {
-        if (target.buffs.some(b => b.type === 'invul')) { showFloatText(target, "閃避!"); return; }
+        if (target.buffs.some(b => b.type === 'invul')) { showFloatText(target, "迴避!", '#a4b0be'); return; }
         
         let atk = caster.atk; if (caster.buffs.some(b => b.type === 'atk_up')) atk *= 1.5;
         let eleMult = 1.0;
         if (caster.char.element.strong === target.char.element.id) eleMult = 1.1;
         if (caster.char.element.weak === target.char.element.id) eleMult = 0.9;
 
-        let rawDmg = (atk * mult * eleMult) * 0.25; 
+        // 傷害基礎回調為 0.2 (1/5)
+        let rawDmg = (atk * mult * eleMult) * 0.2; 
 
         if (isProjectile) {
             let hitDist = Math.abs(caster.x - target.x);
@@ -850,12 +976,25 @@
         let targetEl = document.getElementById(`fighter-${target.team}`);
         targetEl.style.transform = `translateX(${caster.dir * 10}px)`; setTimeout(() => targetEl.style.transform = 'translateX(0)', 100);
 
+        // 累積必殺技計量條
+        if (!target.isAwakened && target.hp > 0) {
+            target.sp += 20;
+            if (target.sp >= target.maxSp) {
+                target.sp = target.maxSp;
+                target.isAwakened = true;
+                target.awakeTimer = 2.5; // 【更新為 2.5 秒】
+                triggerFlash();
+                target.skills.forEach(s => s.currentCd = 0);
+                target.basicAtkCd = 0;
+            }
+        }
+
         if (skill && skill.effect) {
             if (shieldBuff && ['stun', 'root'].includes(skill.effect)) showFloatText(target, "格擋!", '#f1c40f');
             else {
                 if (skill.effect === 'stun') { target.state = 'stunned'; target.stateTimer = skill.dur; showFloatText(target, "暈眩!", '#f1c40f'); target.targetX = target.x; }
                 else if (skill.effect === 'root') { target.buffs.push({type: 'root', dur: skill.dur}); target.targetX = target.x; }
-                else if (skill.effect === 'dot') target.buffs.push({type: 'dot', val: (skill.val * caster.atk) * 0.25, dur: skill.dur, nextTick: 1});
+                else if (skill.effect === 'dot') target.buffs.push({type: 'dot', val: (skill.val * caster.atk) * 0.2, dur: skill.dur, nextTick: 1}); // DoT也下修為0.2
             }
         }
     }
@@ -868,19 +1007,9 @@
     }
 
     function handleTimeUp() {
-        if (f1.hp > f2.hp) {
-            f2.hp = 0; 
-            endRound(1);
-        }
-        else if (f2.hp > f1.hp) {
-            f1.hp = 0; 
-            endRound(2);
-        }
-        else {
-            f1.hp = 0;
-            f2.hp = 0;
-            endRound(0);
-        }
+        if (f1.hp > f2.hp) { f2.hp = 0; endRound(1); }
+        else if (f2.hp > f1.hp) { f1.hp = 0; endRound(2); }
+        else { f1.hp = 0; f2.hp = 0; endRound(0); }
     }
 
     function endRound(winner) {
@@ -890,7 +1019,7 @@
         if(f2.hp <= 0) f2.isDead = true;
         
         updateScoreUI();
-        updateHpUI(); 
+        updateBarsUI(); 
 
         let subMsg = "";
         if (winner === 1) {
@@ -931,9 +1060,7 @@
     function handleMatchResult(playerWon) {
         if (playerWon) {
             if (gameState.stage === 22) {
-                gameState.wins++; 
-                gameState.inProgress = false; 
-                
+                gameState.wins++; gameState.inProgress = false; 
                 let isNewHigh = gameState.score > gameState.highScore;
                 if (isNewHigh) gameState.highScore = gameState.score;
                 doSave();
@@ -956,29 +1083,59 @@
         }
     }
 
-    /* ================= UI 更新 ================= */
-    function updateFighterRender() {
-        let e1 = document.getElementById('fighter-1'); e1.style.left = f1.x + '%'; e1.style.transform = `scaleX(${f1.dir})`;
-        let e2 = document.getElementById('fighter-2'); e2.style.left = f2.x + '%'; e2.style.transform = `scaleX(${f2.dir})`;
+    /* ================= UI 與 Camera 更新 ================= */
+    function updateFighterRender(dt) {
+        let e1 = document.getElementById('fighter-1'); 
+        e1.style.left = f1.x + '%'; e1.style.transform = `scaleX(${f1.dir})`;
+        
+        let e2 = document.getElementById('fighter-2'); 
+        e2.style.left = f2.x + '%'; e2.style.transform = `scaleX(${f2.dir})`;
+        
         e1.style.filter = f1.isDead ? 'grayscale(100%)' : 'none';
         e2.style.filter = f2.isDead ? 'grayscale(100%)' : 'none';
+
+        // 力量解放的鬥氣光環與色相偏移切換
+        if (f1.isAwakened) e1.classList.add('awakened'); else e1.classList.remove('awakened');
+        if (f2.isAwakened) e2.classList.add('awakened'); else e2.classList.remove('awakened');
+
+        if (dt > 0) {
+            let targetCameraX = (f1.x + f2.x) / 2;
+            battleState.cameraX += (targetCameraX - battleState.cameraX) * 5 * dt;
+            document.getElementById('arena-world').style.transform = `translateX(${50 - battleState.cameraX}%)`;
+        }
     }
 
-    function updateHpUI() {
+    function updateBarsUI() {
         let p1Pct = Math.max(0, (f1.hp / f1.maxHp) * 100);
         let p2Pct = Math.max(0, (f2.hp / f2.maxHp) * 100);
         document.getElementById('p1-hp').style.width = p1Pct + '%'; document.getElementById('p2-hp').style.width = p2Pct + '%';
         document.getElementById('p1-hp-txt').innerText = `${Math.floor(f1.hp)} / ${f1.maxHp}`; document.getElementById('p2-hp-txt').innerText = `${Math.floor(f2.hp)} / ${f2.maxHp}`;
+        
+        let p1SpPct = Math.min(100, (f1.sp / f1.maxSp) * 100);
+        let p2SpPct = Math.min(100, (f2.sp / f2.maxSp) * 100);
+        let elSp1 = document.getElementById('p1-sp');
+        let elSp2 = document.getElementById('p2-sp');
+        
+        elSp1.style.width = p1SpPct + '%';
+        elSp2.style.width = p2SpPct + '%';
+        
+        if (f1.isAwakened) elSp1.classList.add('awakened'); else elSp1.classList.remove('awakened');
+        if (f2.isAwakened) elSp2.classList.add('awakened'); else elSp2.classList.remove('awakened');
     }
 
     function updateSkillCDUI() {
-        for(let i=0; i<3; i++) updateBtnCD(`btn-s${i+1}`, f1.skills[i]);
-        updateBtnCD('btn-dodge', f1.skills[3]); updateBtnCD('btn-defend', f1.skills[4]);
+        for(let i=0; i<3; i++) updateBtnCD(`btn-s${i+1}`, f1.skills[i], f1.isAwakened);
+        updateBtnCD('btn-dodge', f1.skills[3], f1.isAwakened); updateBtnCD('btn-defend', f1.skills[4], f1.isAwakened);
     }
-    function updateBtnCD(btnId, skill) {
+    function updateBtnCD(btnId, skill, isAwakened) {
         let overlay = document.getElementById(btnId).querySelector('.cooldown-overlay');
-        if (skill.currentCd > 0) { overlay.style.display = 'flex'; overlay.innerText = skill.currentCd.toFixed(1); } 
-        else overlay.style.display = 'none';
+        if (isAwakened) {
+            overlay.style.display = 'none'; 
+        } else if (skill.currentCd > 0) { 
+            overlay.style.display = 'flex'; overlay.innerText = skill.currentCd.toFixed(1); 
+        } else {
+            overlay.style.display = 'none';
+        }
     }
 
     function updateStatusText(f) {
@@ -1002,8 +1159,10 @@
 
     function showFloatText(target, msg, color='#ff4757') {
         let el = document.createElement('div'); el.className = 'dmg-text'; el.innerText = msg; el.style.color = color;
-        el.style.left = `calc(${target.x}% + ${(Math.random() - 0.5) * 30}px)`; el.style.bottom = '90px';
-        document.getElementById('arena').appendChild(el); setTimeout(() => el.remove(), 1000);
+        el.style.left = `calc(${target.x}% + ${(Math.random() - 0.5) * 30}px)`; 
+        el.style.bottom = '120px'; 
+        document.getElementById('arena-world').appendChild(el); 
+        setTimeout(() => el.remove(), 1000);
     }
 
     function showEffect(target, icon, color) {
@@ -1016,7 +1175,7 @@
         let p1Dots = document.getElementById('p1-score').children;
         let p2Dots = document.getElementById('p2-score').children;
         battleState.p1Team.forEach((f, i) => p1Dots[i].className = 'score-dot' + (f.isDead ? ' dead' : ''));
-        battleState.p2Team.forEach((f, i) => p2Dots[i].className = 'score-dot' + (f.isDead ? ' dead' : ''));
+        battleState.p2Team.forEach((f, i) => p2Dots[i].className = 'score-dot p2-dot' + (f.isDead ? ' dead' : ''));
     }
 
     function showOverlay(msg, sub, callback, autoCloseTime = null, showBtn = false) {
@@ -1035,5 +1194,3 @@
 </script>
 </body>
 </html>
-
-
