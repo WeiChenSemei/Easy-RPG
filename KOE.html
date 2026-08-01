@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Emoji格鬥天王 (K.O.E)</title>
     <style>
         :root {
@@ -10,13 +10,30 @@
             --hp-p1: #4cd137; --hp-p2: #e84118;
             --fire: #ff7979; --water: #7ed6df; --nature: #6ab04c;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', sans-serif; }
-        body { background-color: var(--bg); color: var(--text); touch-action: none; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Segoe UI', sans-serif;
+            /* 禁用選取與預設長按選單，防止手機干擾 */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none; 
+        }
+        body { 
+            background-color: var(--bg); color: var(--text); 
+            /* 防止整體滑動與縮放 */
+            touch-action: none; 
+            overflow: hidden; height: 100vh; display: flex; flex-direction: column; 
+        }
         
         .screen { display: none; flex-direction: column; height: 100%; width: 100%; max-width: 600px; margin: 0 auto; position: relative; background-color: var(--bg); }
         .active-screen { display: flex; }
         
-        .btn { background: var(--accent); color: white; border: none; padding: 12px 20px; font-size: 1.1rem; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: 0.1s; }
+        /* 加入 touch-action: manipulation 防止雙擊放大 */
+        .btn { touch-action: manipulation; background: var(--accent); color: white; border: none; padding: 12px 20px; font-size: 1.1rem; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: 0.1s; }
         .btn:active { transform: scale(0.95); }
         .btn:disabled { background: #555; cursor: not-allowed; transform: none; }
         .title { text-align: center; font-size: 2rem; margin: 20px 0; color: #f1c40f; text-shadow: 2px 2px #000; }
@@ -38,7 +55,7 @@
         /* 選角畫面 */
         #select-screen { padding: 10px; }
         .char-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; overflow-y: auto; flex-grow: 1; padding: 5px; align-content: flex-start; }
-        .char-cell { background: var(--panel); border: 2px solid transparent; border-radius: 5px; text-align: center; font-size: 1.6rem; padding: 8px 0; cursor: pointer; position: relative; }
+        .char-cell { touch-action: manipulation; background: var(--panel); border: 2px solid transparent; border-radius: 5px; text-align: center; font-size: 1.6rem; padding: 8px 0; cursor: pointer; position: relative; }
         .char-cell.selected { border-color: #f1c40f; background: #2c3e50; }
         .char-cell.disabled { opacity: 0.2; pointer-events: none; }
         .element-icon { position: absolute; top: 2px; right: 2px; font-size: 0.7rem; }
@@ -51,7 +68,7 @@
         .vs-title { font-size: 2rem; color: #f1c40f; font-weight: bold; margin-bottom: 20px; text-align: center; }
         .enemy-preview { background: #333; border: 2px solid var(--hp-p2); border-radius: 10px; padding: 15px; width: 100%; text-align: center; margin-bottom: 20px; }
         .roster-select { display: flex; gap: 15px; justify-content: center; width: 100%; }
-        .roster-btn { flex: 1; background: var(--panel); border: 2px solid var(--hp-p1); border-radius: 10px; padding: 15px 5px; font-size: 2rem; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; transition: 0.2s;}
+        .roster-btn { touch-action: manipulation; flex: 1; background: var(--panel); border: 2px solid var(--hp-p1); border-radius: 10px; padding: 15px 5px; font-size: 2rem; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; transition: 0.2s;}
         .roster-btn:active { transform: scale(0.9); }
         .roster-btn.dead { filter: grayscale(100%); opacity: 0.5; pointer-events: none; border-color: #555; }
         .roster-hp-bar { width: 80%; height: 5px; background: #555; margin-top: 10px; border-radius: 3px; overflow: hidden; }
@@ -150,7 +167,8 @@
         .bottom-spacer { height: 18vh; background: #000; width: 100%; flex-shrink: 0; }
         
         .skill-row { display: flex; gap: 8px; justify-content: center; height: 50%; }
-        .skill-btn { flex: 1; background: var(--panel); border: 2px solid #444; border-radius: 8px; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; padding: 5px 0; }
+        /* touch-action: manipulation 是防止雙擊放大的關鍵 */
+        .skill-btn { touch-action: manipulation; flex: 1; background: var(--panel); border: 2px solid #444; border-radius: 8px; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; padding: 5px 0; }
         .skill-btn:active { background: #333; transform: scale(0.95); }
         .skill-icon { font-size: 1.2rem; }
         .skill-name { font-size: 0.75rem; font-weight: bold; margin-top:2px; }
@@ -160,6 +178,17 @@
     </style>
 </head>
 <body>
+
+<script>
+    /* ================= 防縮放保護腳本 (防止手機連續點擊放大) ================= */
+    document.addEventListener('dblclick', function(event) {
+        event.preventDefault();
+    }, { passive: false });
+    
+    document.addEventListener('gesturestart', function(event) {
+        event.preventDefault();
+    }, { passive: false });
+</script>
 
 <!-- 1: 起始畫面 -->
 <div id="start-screen" class="screen active-screen" style="justify-content: center; align-items: center; gap: 20px;">
@@ -460,7 +489,7 @@
 
     /* ================= 存檔與選角 ================= */
     function loadSave() {
-        const save = localStorage.getItem('kof_save_v16');
+        const save = localStorage.getItem('kof_save_v17');
         if (save) {
             let parsed = JSON.parse(save);
             gameState = { ...gameState, ...parsed };
@@ -479,7 +508,7 @@
             document.getElementById('stat-highscore').innerText = '0';
         }
     }
-    function doSave() { localStorage.setItem('kof_save_v16', JSON.stringify(gameState)); }
+    function doSave() { localStorage.setItem('kof_save_v17', JSON.stringify(gameState)); }
     loadSave();
 
     document.getElementById('btn-new-game').onclick = () => {
@@ -724,6 +753,7 @@
     function updateFighter(f, enemy, dt) {
         if(f.isDead) return;
         
+        // 力量解放狀態更新
         if (f.isAwakened) {
             f.awakeTimer -= dt;
             f.skills.forEach(s => s.currentCd = 0);
@@ -961,7 +991,6 @@
         if (caster.char.element.strong === target.char.element.id) eleMult = 1.1;
         if (caster.char.element.weak === target.char.element.id) eleMult = 0.9;
 
-        // 傷害基礎回調為 0.2 (1/5)
         let rawDmg = (atk * mult * eleMult) * 0.2; 
 
         if (isProjectile) {
@@ -1000,7 +1029,7 @@
             else {
                 if (skill.effect === 'stun') { target.state = 'stunned'; target.stateTimer = skill.dur; showFloatText(target, "暈眩!", '#f1c40f'); target.targetX = target.x; }
                 else if (skill.effect === 'root') { target.buffs.push({type: 'root', dur: skill.dur}); target.targetX = target.x; }
-                else if (skill.effect === 'dot') target.buffs.push({type: 'dot', val: (skill.val * caster.atk) * 0.2, dur: skill.dur, nextTick: 1});
+                else if (skill.effect === 'dot') target.buffs.push({type: 'dot', val: (skill.val * caster.atk) * 0.2, dur: skill.dur, nextTick: 1}); 
             }
         }
     }
