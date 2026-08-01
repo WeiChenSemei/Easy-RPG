@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Emoji格鬥天王 (K.O.E)</title>
+    <style>
+        :root {
+            --bg: #1a1a2e; --panel: #16213e; --accent: #e94560; --text: #fff;
+            --hp-p1: #4cd137; --hp-p2: #e84118;
+            --fire: #ff7979; --water: #7ed6df; --nature: #6ab04c;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: var(--bg); color: var(--text); touch-action: none; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        
+        .screen { display: none; flex-direction: column; height: 100%; width: 100%; max-width: 600px; margin: 0 auto; position: relative; background-color: var(--bg); }
+        .active-screen { display: flex; }
+        
+        .btn { background: var(--accent); color: white; border: none; padding: 12px 20px; font-size: 1.1rem; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; transition: 0.1s; }
+        .btn:active { transform: scale(0.95); }
+        .btn:disabled { background: #555; cursor: not-allowed; transform: none; }
+        .title { text-align: center; font-size: 2rem; margin: 20px 0; color: #f1c40f; text-shadow: 2px 2px #000; }
+        
+        /* Modal 樣式 */
+        .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; display: none; justify-content: center; align-items: center; padding: 20px; }
+        .modal-box { background: var(--panel); border: 2px solid #f1c40f; border-radius: 15px; padding: 20px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        /* 角色資訊 Modal */
+        #char-detail-emoji { font-size: 4rem; margin-bottom: 10px; }
+        #char-detail-name { font-size: 1.5rem; font-weight: bold; margin-bottom: 5px; color: #f1c40f; }
+        .char-tags { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+        .tag { padding: 3px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; background: #333; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9rem; text-align: left; background: #0f172a; padding: 10px; border-radius: 8px; margin-bottom: 15px; }
+        .skill-list { text-align: left; font-size: 0.8rem; background: #0f172a; padding: 10px; border-radius: 8px; margin-bottom: 20px; height: 110px; overflow-y: auto;}
+        .skill-item { margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .skill-item:last-child { border: none; margin: 0; padding: 0; }
+        
+        /* 選角畫面 */
+        #select-screen { padding: 10px; }
+        .char-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; overflow-y: auto; flex-grow: 1; padding: 5px; align-content: flex-start; }
+        .char-cell { background: var(--panel); border: 2px solid transparent; border-radius: 5px; text-align: center; font-size: 1.6rem; padding: 8px 0; cursor: pointer; position: relative; }
+        .char-cell.selected { border-color: #f1c40f; background: #2c3e50; }
+        .char-cell.disabled { opacity: 0.2; pointer-events: none; }
+        .element-icon { position: absolute; top: 2px; right: 2px; font-size: 0.7rem; }
+        .select-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        #team-slots { display: flex; gap: 10px; justify-content: center; margin-bottom: 10px; }
+        .slot { width: 50px; height: 50px; border: 2px dashed #888; border-radius: 5px; display: flex; justify-content: center; align-items: center; font-size: 1.8rem; }
+        
+        /* 戰術換人畫面 */
+        #next-fighter-screen { padding: 20px; flex-direction: column; align-items: center; justify-content: center; }
+        .vs-title { font-size: 2rem; color: #f1c40f; font-weight: bold; margin-bottom: 20px; text-align: center; }
+        .enemy-preview { background: #333; border: 2px solid var(--hp-p2); border-radius: 10px; padding: 15px; width: 100%; text-align: center; margin-bottom: 20px; }
+        .roster-select { display: flex; gap: 15px; justify-content: center; width: 100%; }
+        .roster-btn { flex: 1; background: var(--panel); border: 2px solid var(--hp-p1); border-radius: 10px; padding: 15px 5px; font-size: 2rem; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; transition: 0.2s;}
+        .roster-btn:active { transform: scale(0.9); }
+        .roster-btn.dead { filter: grayscale(100%); opacity: 0.5; pointer-events: none; border-color: #555; }
+        .roster-hp-bar { width: 80%; height: 5px; background: #555; margin-top: 10px; border-radius: 3px; overflow: hidden; }
+        .roster-hp-fill { height: 100%; background: var(--hp-p1); }
+        
+        /* 戰鬥畫面 */
+        #battle-screen { flex-direction: column; background: #0f172a; }
+        
+        .top-bar { display: flex; justify-content: space-between; padding: 8px 10px; background: #000; align-items: center; font-size: 0.9rem;}
+        .top-bar-left { flex: 1; display: flex; flex-direction: column; align-items: flex-start;}
+        .top-bar-center { display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .top-bar-right { flex: 1; }
+        
+        .team-score { display: flex; gap: 4px;}
+        .score-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--hp-p1); transition: 0.3s; }
+        .score-dot.dead { background: #333; border: 1px solid #555; }
+        
+        .hud { display: flex; justify-content: space-between; padding: 10px; align-items: center; background: rgba(0,0,0,0.5); border-bottom: 2px solid #222; }
+        .hp-container { flex-grow: 1; background: #222; height: 24px; border-radius: 6px; overflow: hidden; margin: 0 10px; position: relative; border: 1px solid #444; }
+        .hp-bar { height: 100%; transition: width 0.2s linear; }
+        #p1-hp { background: var(--hp-p1); width: 100%; float: left; }
+        #p2-hp { background: var(--hp-p2); width: 100%; float: right; }
+        
+        .hp-text { position: absolute; top:0; left:0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; font-size: 0.9rem; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; z-index: 10; pointer-events: none; }
+        
+        .avatar-box { font-size: 1.8rem; position: relative; background: var(--panel); border-radius: 5px; padding: 5px; border: 2px solid #555; }
+        #timer { font-size: 1.8rem; font-weight: bold; width: 50px; text-align: center; color: #f1c40f; text-shadow: 2px 2px 0 #000; }
+        
+        /* 競技場 */
+        #arena { flex-grow: 1; position: relative; overflow: hidden; border-bottom: 5px solid #111; }
+        .fighter { position: absolute; bottom: 20px; font-size: 3.5rem; transition: transform 0.1s; display: flex; flex-direction: column; align-items: center; }
+        .fighter-fx { position: absolute; width: 100%; height: 100%; border-radius: 50%; opacity: 0; pointer-events: none; }
+        .status-text { position: absolute; top: -20px; font-size: 1rem; color: #fff; font-weight: bold; white-space: nowrap; text-shadow: 1px 1px 1px #000; z-index: 10;}
+        .dmg-text { position: absolute; font-size: 1.5rem; font-weight: bold; color: #ff4757; text-shadow: 2px 2px 0 #000; animation: floatUp 1s forwards; pointer-events: none; z-index: 10; }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-60px) scale(1.5); } }
+        .projectile { position: absolute; bottom: 40px; font-size: 1.5rem; z-index: 5; text-shadow: 2px 2px 2px rgba(0,0,0,0.5); }
+        
+        /* 技能面板與防遮擋底部空間 */
+        .controls { height: 130px; background: #000; padding: 8px; display: flex; flex-direction: column; gap: 5px; border-top: 2px solid #333; }
+        .bottom-spacer { height: 18vh; background: #000; width: 100%; flex-shrink: 0; }
+        
+        .skill-row { display: flex; gap: 8px; justify-content: center; height: 50%; }
+        .skill-btn { flex: 1; background: var(--panel); border: 2px solid #444; border-radius: 8px; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; padding: 5px 0; }
+        .skill-btn:active { background: #333; transform: scale(0.95); }
+        .skill-icon { font-size: 1.2rem; }
+        .skill-name { font-size: 0.75rem; font-weight: bold; margin-top:2px; }
+        .cooldown-overlay { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; font-size: 1.2rem; color: #f1c40f; font-weight: bold; }
+        
+        #overlay-sub { font-size: 1.2rem; margin-bottom: 30px; text-align:center; white-space: pre-wrap; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+<!-- 1: 起始畫面 -->
+<div id="start-screen" class="screen active-screen" style="justify-content: center; align-items: center; gap: 20px;">
+    <div class="title">👑 Emoji格鬥天王 👑<br><span style="font-size:1.2rem; color:#aaa">King of Emoji</span></div>
+    <div style="font-size: 5rem;">🥊</div>
+    <div style="background: var(--panel); padding: 15px; border-radius: 10px; text-align: center; border: 2px solid #f1c40f; width: 80%;">
+        <p>累計奪冠屆數: <span id="stat-wins" style="color:#f1c40f; font-weight:bold; font-size:1.2rem;">0</span></p>
+        <p>歷史最高分: <span id="stat-highscore" style="color:#2ed573; font-weight:bold; font-size:1.5rem;">0</span></p>
+        <p>目前賽程: <span id="stat-stage">未參賽</span></p>
+    </div>
+    <button class="btn" id="btn-new-game" style="width: 80%;">開始新錦標賽</button>
+    <button class="btn" id="btn-continue" style="display: none; background: #2ed573; width: 80%;">繼續錦標賽</button>
+    <div class="bottom-spacer" style="background:var(--bg)"></div>
+</div>
+
+<!-- 2: 選角畫面 -->
+<div id="select-screen" class="screen">
+    <div class="select-header">
+        <h3 style="font-size:1.1rem;">徵召隊伍 (3名)</h3>
+        <button class="btn" id="btn-confirm-team" disabled style="padding: 8px 15px;">確認出戰</button>
+    </div>
+    <div id="team-slots">
+        <div class="slot" id="slot-1"></div>
+        <div class="slot" id="slot-2"></div>
+        <div class="slot" id="slot-3"></div>
+    </div>
+    <div style="font-size:0.8rem; text-align:center; margin-bottom:5px; color:#aaa;">屬性相剋: 🔥剋🌿剋💧剋🔥 (傷害 1.1x / 0.9x)</div>
+    <div class="char-grid" id="roster-grid"></div>
+    <div class="bottom-spacer" style="background:var(--bg); height:12vh;"></div>
+</div>
+
+<!-- 角色資訊 Modal -->
+<div id="char-modal" class="modal-overlay">
+    <div class="modal-box">
+        <div id="char-detail-emoji"></div>
+        <div id="char-detail-name"></div>
+        <div class="char-tags">
+            <span class="tag" id="tag-element"></span>
+            <span class="tag" id="tag-class"></span>
+        </div>
+        <div class="stats-grid">
+            <div id="stat-hp">❤️ 體力: </div>
+            <div id="stat-atk">⚔️ 攻擊: </div>
+            <div id="stat-spd">👟 跑速: </div>
+            <div id="stat-range">🎯 射程: </div>
+        </div>
+        <div class="skill-list" id="char-skill-list"></div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn" id="btn-modal-cancel" style="flex:1; background:#555;">取消</button>
+            <button class="btn" id="btn-modal-action" style="flex:1;">選擇</button>
+        </div>
+    </div>
+</div>
+
+<!-- 3: 戰術換人畫面 -->
+<div id="next-fighter-screen" class="screen">
+    <div class="vs-title">戰術換人<br><span style="font-size:1.2rem; color:#aaa;">( Stage <span id="nf-stage-display">1</span> / 22 )</span></div>
+    <p style="color:#aaa; margin-bottom:10px;">對方場上角色 (勝者留場)</p>
+    <div class="enemy-preview">
+        <div id="nf-enemy-emoji" style="font-size:4rem;"></div>
+        <div id="nf-enemy-name" style="font-size:1.2rem; font-weight:bold; margin-top:5px;"></div>
+        <div style="font-size:0.9rem; margin-bottom:10px;"><span id="nf-enemy-ele"></span> | <span id="nf-enemy-cls"></span></div>
+        <div style="display:flex; justify-content:center; align-items:center; gap:10px;">
+            <span style="font-size:0.8rem;">HP</span>
+            <div style="width:150px; height:12px; background:#333; border-radius:4px; overflow:hidden; position:relative;">
+                <div id="nf-enemy-hp-fill" style="height:100%; background:var(--hp-p2);"></div>
+            </div>
+        </div>
+    </div>
+    
+    <p style="color:#aaa; margin-bottom:10px;">選擇下一位上場的選手</p>
+    <div class="roster-select" id="nf-player-roster"></div>
+    <div class="bottom-spacer" style="background:var(--bg)"></div>
+</div>
+
+<!-- 4: 戰鬥畫面 -->
+<div id="battle-screen" class="screen">
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <div>Stage: <span id="stage-display" style="color:#f1c40f">1</span>/22</div>
+            <div style="font-size:0.75rem; color:#2ed573">Score: <span id="score-display">0</span></div>
+        </div>
+        <div class="top-bar-center">
+            <div class="team-score" id="p1-score"><div class="score-dot"></div><div class="score-dot"></div><div class="score-dot"></div></div>
+            <div style="font-size:1.3rem; font-weight:bold; color:#f1c40f; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; margin: 0 5px;">K.O.E</div>
+            <div class="team-score" id="p2-score"><div class="score-dot" style="background:var(--hp-p2)"></div><div class="score-dot" style="background:var(--hp-p2)"></div><div class="score-dot" style="background:var(--hp-p2)"></div></div>
+        </div>
+        <div class="top-bar-right"></div>
+    </div>
+    
+    <div class="hud">
+        <div class="avatar-box" id="p1-avatar-ui">🧑</div>
+        <div class="hp-container">
+            <div id="p1-hp" class="hp-bar"></div>
+            <div class="hp-text" id="p1-hp-txt">1000/1000</div>
+        </div>
+        <div id="timer">60</div>
+        <div class="hp-container">
+            <div id="p2-hp" class="hp-bar"></div>
+            <div class="hp-text" id="p2-hp-txt">1000/1000</div>
+        </div>
+        <div class="avatar-box" id="p2-avatar-ui" style="border-color:var(--hp-p2);">👹</div>
+    </div>
+    
+    <div id="arena">
+        <div id="fighter-1" class="fighter" style="left: 10%;">
+            <div class="status-text" id="p1-status"></div>
+            <div class="fighter-fx" id="p1-fx"></div>
+            <span id="p1-emoji">🧑</span>
+        </div>
+        <div id="fighter-2" class="fighter" style="left: 80%;">
+            <div class="status-text" id="p2-status"></div>
+            <div class="fighter-fx" id="p2-fx"></div>
+            <span id="p2-emoji">👹</span>
+        </div>
+    </div>
+    
+    <!-- 技能區 -->
+    <div class="controls">
+        <div class="skill-row">
+            <button class="skill-btn" id="btn-s1" onclick="useSkill(0)"><span class="skill-icon"></span><span class="skill-name"></span><div class="cooldown-overlay"></div></button>
+            <button class="skill-btn" id="btn-s2" onclick="useSkill(1)"><span class="skill-icon"></span><span class="skill-name"></span><div class="cooldown-overlay"></div></button>
+            <button class="skill-btn" id="btn-s3" onclick="useSkill(2)"><span class="skill-icon"></span><span class="skill-name"></span><div class="cooldown-overlay"></div></button>
+        </div>
+        <div class="skill-row">
+            <button class="skill-btn" style="background:#2980b9" id="btn-dodge" onclick="useSkill(3)"><span class="skill-icon">💨</span><span class="skill-name">閃避 (無敵/繞背)</span><div class="cooldown-overlay"></div></button>
+            <button class="skill-btn" style="background:#8e44ad" id="btn-defend" onclick="useSkill(4)"><span class="skill-icon">🛡️</span><span class="skill-name">防禦 (減傷免控)</span><div class="cooldown-overlay"></div></button>
+        </div>
+    </div>
+    
+    <!-- 防遮擋底部空間 -->
+    <div class="bottom-spacer"></div>
+</div>
+
+<!-- 系統轉場/結果 -->
+<div id="overlay" class="modal-overlay" style="flex-direction: column;">
+    <div id="overlay-msg" style="font-size: 2.5rem; font-weight: bold; color: #f1c40f; margin-bottom: 20px; text-shadow: 2px 2px 0 #000;">勝利!</div>
+    <div id="overlay-sub" style="font-size: 1.2rem; margin-bottom: 30px; text-align:center;"></div>
+    <button class="btn" id="btn-overlay-next">繼續</button>
+</div>
+
+<script>
+    /* ================= 動態戰鬥背景 ================= */
+    const ARENA_BGS = [
+        'linear-gradient(to bottom, #87CEEB 0%, #e0f6ff 55%, #2ecc71 55%, #27ae60 100%)', // 森林 (白天)
+        'linear-gradient(to bottom, #2c3e50 0%, #34495e 55%, #145a32 55%, #0b5345 100%)', // 森林 (夜晚)
+        'linear-gradient(to bottom, #6dd5ed 0%, #2193b0 55%, #f39c12 55%, #e67e22 100%)', // 沙漠
+        'linear-gradient(to bottom, #2c3e50 0%, #000000 55%, #922b21 55%, #641e16 100%)', // 火山
+        'linear-gradient(to bottom, #aed6f1 0%, #d6eaf8 55%, #ecf0f1 55%, #bdc3c7 100%)', // 雪山
+        'linear-gradient(to bottom, #e74c3c 0%, #f1c40f 55%, #7f8c8d 55%, #34495e 100%)', // 鎮 (黃昏)
+        'linear-gradient(to bottom, #190a05 0%, #2b044d 55%, #4a235a 55%, #150529 100%)'  // 虛空
+    ];
+
+    /* ================= 遊戲核心數據 ================= */
+    const ELEMENTS = {
+        'fire': { id:'fire', e:'🔥', name:'火', color:'var(--fire)', strong:'nature', weak:'water' },
+        'water': { id:'water', e:'💧', name:'水', color:'var(--water)', strong:'fire', weak:'nature' },
+        'nature': { id:'nature', e:'🌿', name:'自然', color:'var(--nature)', strong:'water', weak:'fire' }
+    };
+
+    const CLASSES = {
+        'warrior': { id:'warrior', e:'⚔️', name:'戰士', hp: 1200, atk: 120, spd: 40, range: 15 },
+        'mage': { id:'mage', e:'🪄', name:'法師', hp: 800, atk: 150, spd: 30, range: 60 },
+        'rogue': { id:'rogue', e:'🗡️', name:'刺客', hp: 900, atk: 130, spd: 55, range: 12 }
+    };
+
+    const SKILL_POOL = {
+        'warrior': [
+            {id:'heavy', name:'重擊', icon:'🔨', cd: 4, type:'melee', dmg: 2.0, desc:'近戰造成 200% 傷害'},
+            {id:'charge', name:'衝鋒', icon:'🏃', cd: 7, type:'dash', dmg: 1.0, effect:'stun', dur: 1.0, desc:'突進貼臉並暈眩 1 秒'},
+            {id:'berserk', name:'狂暴', icon:'💢', cd: 12, type:'buff', effect:'atk_up', val: 0.5, dur: 4.0, desc:'攻擊力提升 50% 持續 4 秒'},
+            {id:'cleave', name:'順劈', icon:'🪓', cd: 5, type:'melee', dmg: 1.5, desc:'強力近戰造成 150% 傷害'},
+            {id:'shield_bash', name:'盾擊', icon:'🛡️', cd: 8, type:'melee', dmg: 0.8, effect:'stun', dur: 1.5, desc:'輕微傷害並暈眩 1.5 秒'},
+            {id:'warcry', name:'戰吼', icon:'🗣️', cd: 10, type:'buff', effect:'shield', val: 0.5, dur: 3.0, desc:'獲得 50% 減傷護盾 3 秒'},
+            {id:'leap', name:'躍擊', icon:'🦘', cd: 9, type:'dash', dmg: 1.5, desc:'跳躍突進並造成 150% 傷害'},
+            {id:'rend', name:'撕裂', icon:'🩸', cd: 6, type:'melee', dmg: 1.0, effect:'dot', val: 0.2, dur: 4.0, desc:'附加 4 秒中毒/流血'},
+            {id:'execute', name:'處決', icon:'⚔️', cd: 15, type:'melee', dmg: 3.0, desc:'致命一擊造成 300% 傷害'}
+        ],
+        'mage': [
+            {id:'missile', name:'魔彈', icon:'☄️', cd: 3, type:'ranged', dmg: 1.5, desc:'發射飛彈 (隨距離衰減 100%~50%)'},
+            {id:'freeze', name:'冰結', icon:'❄️', cd: 8, type:'ranged', dmg: 1.0, effect:'root', dur: 2.0, desc:'遠程攻擊使敵人定身 2 秒'},
+            {id:'blast', name:'爆破', icon:'💥', cd: 10, type:'ranged', dmg: 2.5, desc:'遠程爆破 (隨距離衰減 100%~50%)'},
+            {id:'fireball', name:'火球', icon:'🔥', cd: 5, type:'ranged', dmg: 1.8, desc:'發射火球 (隨距離衰減 100%~50%)'},
+            {id:'lightning', name:'閃電', icon:'⚡', cd: 7, type:'ranged', dmg: 1.2, effect:'stun', dur: 1.0, desc:'雷擊造成傷害並暈眩 1 秒'},
+            {id:'poison_cloud', name:'毒霧', icon:'🤢', cd: 9, type:'ranged', dmg: 0.5, effect:'dot', val: 0.4, dur: 4.0, desc:'遠程附加 4 秒持續傷害'},
+            {id:'mana_shield', name:'法力盾', icon:'🔮', cd: 12, type:'buff', effect:'shield', val: 0.2, dur: 3.0, desc:'大幅減傷 80% 持續 3 秒'},
+            {id:'meteor', name:'隕石', icon:'🌠', cd: 14, type:'ranged', dmg: 3.0, desc:'召喚隕石 (隨距離衰減 100%~50%)'},
+            {id:'wind_blade', name:'風刃', icon:'🌪️', cd: 4, type:'ranged', dmg: 1.2, desc:'遠程風刃 (隨距離衰減 100%~50%)'}
+        ],
+        'rogue': [
+            {id:'shiv', name:'刺擊', icon:'🔪', cd: 3, type:'melee', dmg: 1.5, desc:'快速近戰攻擊造成 150% 傷害'},
+            {id:'poison', name:'毒刃', icon:'☠️', cd: 6, type:'melee', dmg: 0.5, effect:'dot', val: 0.3, dur: 3.0, desc:'近戰並附加 3 秒中毒傷害'},
+            {id:'shadow', name:'影襲', icon:'🌫️', cd: 10, type:'teleport', dmg: 2.0, desc:'瞬移至背後造成 200% 傷害'},
+            {id:'knife_throw', name:'飛刀', icon:'🗡️', cd: 4, type:'ranged', dmg: 1.2, desc:'丟擲飛刀 (隨距離衰減 100%~50%)'},
+            {id:'smokescreen', name:'煙幕', icon:'💨', cd: 11, type:'buff', effect:'invul', dur: 1.5, desc:'隱身無敵 1.5 秒'},
+            {id:'throat_slit', name:'割喉', icon:'🩸', cd: 12, type:'melee', dmg: 2.5, desc:'致命近戰造成 250% 傷害'},
+            {id:'dash_strike', name:'瞬步', icon:'🐾', cd: 7, type:'dash', dmg: 1.2, desc:'突進並造成 120% 傷害'},
+            {id:'paralyze', name:'麻痺', icon:'⚡', cd: 8, type:'melee', dmg: 1.0, effect:'root', dur: 2.0, desc:'近戰攻擊並定身 2 秒'},
+            {id:'phantom', name:'幻影', icon:'👥', cd: 15, type:'buff', effect:'atk_up', val: 1.0, dur: 3.0, desc:'攻擊力提升 100% 持續 3 秒'}
+        ]
+    };
+
+    const COMMON_SKILLS = [
+        {id:'dodge', name:'閃避', icon:'💨', cd: 5, type:'defensive', effect:'invul', dur: 0.8},
+        {id:'defend', name:'防禦', icon:'🛡️', cd: 6, type:'defensive', effect:'shield', val: 0.2, dur: 1.5}
+    ];
+
+    const RAW_ROSTER = [
+        {e:'🦁', n:'烈火獅'}, {e:'👹', n:'赤鬼'}, {e:'👺', n:'天狗'}, {e:'🦧', n:'狂暴猿'}, {e:'🌋', n:'熔岩人'}, {e:'🐗', n:'烈焰豬'}, {e:'🦊', n:'火狐'}, {e:'🏮', n:'燈籠鬼'},
+        {e:'🧙‍♂️', n:'火法'}, {e:'🎃', n:'南瓜王'}, {e:'👽', n:'火星客'}, {e:'🤡', n:'小丑火'}, {e:'👻', n:'幽火'}, {e:'👿', n:'惡魔'}, {e:'🦉', n:'赤鴞'},
+        {e:'🦂', n:'毒火蠍'}, {e:'🐍', n:'赤練蛇'}, {e:'🐆', n:'火豹'}, {e:'🦇', n:'火蝙蝠'}, {e:'🦅', n:'火鷹'}, {e:'🕷️', n:'赤炎蛛'}, {e:'🥷', n:'火遁忍'},
+        {e:'🦈', n:'狂鯊'}, {e:'🐋', n:'巨鯨'}, {e:'🐊', n:'鱷霸'}, {e:'🐢', n:'鐵甲龜'}, {e:'🦛', n:'河馬王'}, {e:'🐘', n:'水象'}, {e:'🦏', n:'水犀'},
+        {e:'🧜‍♀️', n:'人魚'}, {e:'🐙', n:'八爪巫'}, {e:'🪼', n:'毒水母'}, {e:'🐡', n:'氣鼓魚'}, {e:'🐬', n:'海豚音'}, {e:'🐧', n:'冰企鵝'}, {e:'🧊', n:'冰人'}, {e:'💧', n:'水滴精'},
+        {e:'🐸', n:'毒水蛙'}, {e:'🦀', n:'巨蟹'}, {e:'🦞', n:'龍蝦兵'}, {e:'🐟', n:'飛魚'}, {e:'🦦', n:'水獺客'}, {e:'🦭', n:'海豹特戰'}, {e:'🐀', n:'水溝鼠'},
+        {e:'🐻', n:'大地熊'}, {e:'🦍', n:'銀背猿'}, {e:'🐂', n:'蠻牛'}, {e:'🦣', n:'猛獁'}, {e:'🐎', n:'鐵騎'}, {e:'🐏', n:'戰羊'}, {e:'🦬', n:'野牛'},
+        {e:'🧚‍♀️', n:'花仙'}, {e:'🍄', n:'毒菇'}, {e:'🌵', n:'仙人掌'}, {e:'🌻', n:'向日葵'}, {e:'🌲', n:'樹精'}, {e:'🦋', n:'幻蝶'}, {e:'🦚', n:'孔雀'},
+        {e:'🐛', n:'毒毛蟲'}, {e:'🐺', n:'森林狼'}, {e:'🐅', n:'叢林虎'}, {e:'🐒', n:'靈猴'}, {e:'🦡', n:'蜜獾'}, {e:'🦔', n:'刺蝟'}, {e:'🦎', n:'變色龍'}, {e:'🦘', n:'拳擊袋鼠'}
+    ];
+    const BOSSES = [
+        {e:'🐲', n:'炎魔龍王', el:'fire'},
+        {e:'🦑', n:'深海巨妖', el:'water'},
+        {e:'🦖', n:'暴君巨獸', el:'nature'}
+    ];
+
+    function shuffleArray(array) {
+        let arr = [...array];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    let CHARACTERS = []; 
+    function initCharacters() {
+        let idx = 0, pointer = 0;
+        let elKeys = ['fire', 'water', 'nature'];
+        let clsKeys = ['warrior', 'mage', 'rogue'];
+        
+        for (let eIdx = 0; eIdx < 3; eIdx++) {
+            let limits = eIdx === 0 ? [8,7,7] : (eIdx === 1 ? [7,8,7] : [7,7,8]);
+            for (let cIdx = 0; cIdx < 3; cIdx++) {
+                for(let k=0; k<limits[cIdx]; k++) {
+                    let d = RAW_ROSTER[pointer++];
+                    let clsBase = CLASSES[clsKeys[cIdx]];
+                    let mySkills = shuffleArray(SKILL_POOL[clsKeys[cIdx]]).slice(0, 3);
+                    CHARACTERS.push({
+                        id: idx++, emoji: d.e, name: d.n, 
+                        element: ELEMENTS[elKeys[eIdx]], clsId: clsKeys[cIdx], 
+                        cls: { ...clsBase, skills: mySkills }, isBoss: false
+                    });
+                }
+            }
+        }
+        BOSSES.forEach(b => {
+            let randomClsId = clsKeys[Math.floor(Math.random() * 3)];
+            let clsBase = CLASSES[randomClsId];
+            let mySkills = shuffleArray(SKILL_POOL[randomClsId]).slice(0, 3);
+            CHARACTERS.push({
+                id: idx++, emoji: b.e, name: b.n,
+                element: ELEMENTS[b.el], clsId: randomClsId, 
+                cls: { ...clsBase, skills: mySkills }, isBoss: true
+            });
+        });
+    }
+    initCharacters();
+
+    /* ================= 狀態管理 ================= */
+    let gameState = { wins: 0, stage: 1, playerTeam: [], enemyPool: [], inProgress: false, score: 0, highScore: 0 };
+    let battleState = { p1Team: [], p2Team: [], p1ActiveIdx: 0, p2ActiveIdx: 0, timer: 60, isPlaying: false, lastTime: 0 };
+    let f1, f2; 
+    let projectiles = [];
+
+    const UI = {
+        screens: document.querySelectorAll('.screen'),
+        start: document.getElementById('start-screen'),
+        select: document.getElementById('select-screen'),
+        nf: document.getElementById('next-fighter-screen'),
+        battle: document.getElementById('battle-screen'),
+        overlay: document.getElementById('overlay')
+    };
+
+    function switchScreen(target) {
+        UI.screens.forEach(s => s.classList.remove('active-screen'));
+        target.classList.add('active-screen');
+    }
+
+    /* ================= 存檔與選角 ================= */
+    function loadSave() {
+        const save = localStorage.getItem('kof_save_v9');
+        if (save) {
+            let parsed = JSON.parse(save);
+            gameState = { ...gameState, ...parsed };
+            
+            document.getElementById('stat-wins').innerText = gameState.wins;
+            document.getElementById('stat-highscore').innerText = gameState.highScore;
+            
+            if (gameState.inProgress) {
+                document.getElementById('stat-stage').innerText = `第 ${gameState.stage} 關`;
+                document.getElementById('btn-continue').style.display = 'block';
+            } else {
+                document.getElementById('stat-stage').innerText = '未參賽';
+                document.getElementById('btn-continue').style.display = 'none';
+            }
+        } else {
+            document.getElementById('stat-highscore').innerText = '0';
+        }
+    }
+    function doSave() { localStorage.setItem('kof_save_v9', JSON.stringify(gameState)); }
+    loadSave();
+
+    document.getElementById('btn-new-game').onclick = () => {
+        gameState.stage = 1; 
+        gameState.playerTeam = []; 
+        gameState.inProgress = true;
+        gameState.score = 0; 
+        doSave(); 
+        showSelectScreen();
+    };
+    document.getElementById('btn-continue').onclick = () => startMatch();
+
+    let tempTeam = [];
+    let viewingCharId = null;
+
+    function showSelectScreen() {
+        switchScreen(UI.select);
+        tempTeam = []; updateTeamSlots();
+        const grid = document.getElementById('roster-grid');
+        grid.innerHTML = '';
+        for (let i = 0; i < 66; i++) {
+            let char = CHARACTERS[i];
+            let cell = document.createElement('div');
+            cell.className = 'char-cell';
+            cell.innerHTML = `${char.emoji}<div class="element-icon">${char.element.e}</div>`;
+            cell.style.borderColor = char.element.color;
+            cell.onclick = () => openCharModal(i);
+            grid.appendChild(cell);
+        }
+        document.getElementById('btn-confirm-team').disabled = true;
+    }
+
+    function openCharModal(id) {
+        let char = CHARACTERS[id];
+        viewingCharId = id;
+        document.getElementById('char-detail-emoji').innerText = char.emoji;
+        document.getElementById('char-detail-name').innerText = char.name;
+        
+        let elTag = document.getElementById('tag-element');
+        elTag.innerText = char.element.name; elTag.style.background = char.element.color; elTag.style.color = '#000';
+        let clsTag = document.getElementById('tag-class');
+        clsTag.innerText = char.cls.name + char.cls.e;
+
+        document.getElementById('stat-hp').innerText = `❤️ 體力: ${char.cls.hp}`;
+        document.getElementById('stat-atk').innerText = `⚔️ 攻擊: ${char.cls.atk}`;
+        document.getElementById('stat-spd').innerText = `👟 跑速: ${char.cls.spd}`;
+        document.getElementById('stat-range').innerText = `🎯 射程: ${char.cls.range}`;
+
+        let skillsHtml = char.cls.skills.map(s => 
+            `<div class="skill-item"><strong>${s.icon}${s.name}</strong> (CD:${s.cd}s)<br><span style="color:#aaa">${s.desc}</span></div>`
+        ).join('');
+        document.getElementById('char-skill-list').innerHTML = skillsHtml;
+
+        let btnAction = document.getElementById('btn-modal-action');
+        if (tempTeam.includes(id)) {
+            btnAction.innerText = "移出隊伍"; btnAction.style.background = "#e84118";
+        } else {
+            btnAction.innerText = "徵召入隊"; btnAction.style.background = tempTeam.length >= 3 ? "#555" : "var(--hp-p1)";
+            btnAction.disabled = (tempTeam.length >= 3 && !tempTeam.includes(id));
+        }
+        document.getElementById('char-modal').style.display = 'flex';
+    }
+
+    document.getElementById('btn-modal-cancel').onclick = () => document.getElementById('char-modal').style.display = 'none';
+    document.getElementById('btn-modal-action').onclick = () => {
+        if (tempTeam.includes(viewingCharId)) tempTeam = tempTeam.filter(x => x !== viewingCharId);
+        else if (tempTeam.length < 3) tempTeam.push(viewingCharId);
+        
+        updateTeamSlots(); document.getElementById('char-modal').style.display = 'none';
+        
+        document.querySelectorAll('.char-cell').forEach((cell, idx) => {
+            if(tempTeam.includes(idx)) cell.classList.add('selected');
+            else cell.classList.remove('selected');
+        });
+        document.getElementById('btn-confirm-team').disabled = tempTeam.length !== 3;
+    };
+
+    function updateTeamSlots() {
+        for(let i=1; i<=3; i++) {
+            let slot = document.getElementById(`slot-${i}`);
+            let id = tempTeam[i-1];
+            if (id !== undefined) {
+                let c = CHARACTERS[id];
+                slot.innerHTML = c.emoji; slot.style.borderColor = c.element.color;
+            } else { slot.innerHTML = ''; slot.style.borderColor = '#888'; }
+        }
+    }
+
+    document.getElementById('btn-confirm-team').onclick = () => {
+        gameState.playerTeam = [...tempTeam];
+        
+        let availIds = [];
+        for(let i=0; i<66; i++) { if(!tempTeam.includes(i)) availIds.push(i); }
+        availIds.sort(() => Math.random() - 0.5);
+        let pool = [];
+        for(let i=0; i<21; i++) { pool.push([availIds[i*3], availIds[i*3+1], availIds[i*3+2]]); }
+        gameState.enemyPool = pool;
+        
+        doSave(); startMatch();
+    };
+
+    /* ================= 戰鬥準備 ================= */
+    function createFighterObj(baseChar, team) {
+        return {
+            char: baseChar, team: team,
+            maxHp: baseChar.cls.hp, hp: baseChar.cls.hp, atk: baseChar.cls.atk, spd: baseChar.cls.spd, range: baseChar.cls.range,
+            x: team === 1 ? 10 : 80, dir: team === 1 ? 1 : -1,
+            state: 'idle', stateTimer: 0, isDead: false,
+            skills: baseChar.cls.skills.concat(COMMON_SKILLS).map(s => ({...s, currentCd: 0})),
+            buffs: [], nextThink: 0,
+            aiAggression: baseChar.isBoss ? 1.15 : 1.0, 
+            basicAtkCd: 0, targetX: -1,
+            chasingSkill: null 
+        };
+    }
+
+    function startMatch() {
+        let randomBg = ARENA_BGS[Math.floor(Math.random() * ARENA_BGS.length)];
+        document.getElementById('arena').style.background = randomBg;
+
+        battleState.p1Team = gameState.playerTeam.map(id => createFighterObj(CHARACTERS[id], 1));
+        
+        if (gameState.stage === 22) {
+            battleState.p2Team = [66, 67, 68].map(id => createFighterObj(CHARACTERS[id], 2));
+        } else {
+            let enemyIds = gameState.enemyPool[gameState.stage - 1];
+            battleState.p2Team = enemyIds.map(id => createFighterObj(CHARACTERS[id], 2));
+        }
+
+        battleState.p2ActiveIdx = 0;
+        document.getElementById('stage-display').innerText = gameState.stage;
+        document.getElementById('nf-stage-display').innerText = gameState.stage;
+        promptNextFighter();
+    }
+
+    function promptNextFighter() {
+        switchScreen(UI.nf);
+        let enemy = battleState.p2Team[battleState.p2ActiveIdx];
+        document.getElementById('nf-enemy-emoji').innerText = enemy.char.emoji;
+        document.getElementById('nf-enemy-name').innerText = enemy.char.name;
+        document.getElementById('nf-enemy-ele').innerText = enemy.char.element.name;
+        document.getElementById('nf-enemy-cls').innerText = enemy.char.cls.name;
+        let hpPct = Math.max(0, (enemy.hp / enemy.maxHp) * 100);
+        document.getElementById('nf-enemy-hp-fill').style.width = hpPct + '%';
+
+        let rosterContainer = document.getElementById('nf-player-roster');
+        rosterContainer.innerHTML = '';
+        
+        battleState.p1Team.forEach((f, idx) => {
+            let btn = document.createElement('div');
+            btn.className = `roster-btn ${f.isDead ? 'dead' : ''}`;
+            btn.style.borderColor = f.char.element.color;
+            
+            let fHpPct = Math.max(0, (f.hp / f.maxHp) * 100);
+            btn.innerHTML = `
+                <div>${f.char.emoji}</div>
+                <div style="font-size:0.8rem; margin-top:5px; color:#ccc">${f.char.element.e}${f.char.cls.e}</div>
+                <div class="roster-hp-bar"><div class="roster-hp-fill" style="width:${fHpPct}%"></div></div>
+            `;
+            if(!f.isDead) {
+                btn.onclick = () => { battleState.p1ActiveIdx = idx; startRound(); };
+            }
+            rosterContainer.appendChild(btn);
+        });
+    }
+
+    function setupUIForRound() {
+        f1 = battleState.p1Team[battleState.p1ActiveIdx];
+        f2 = battleState.p2Team[battleState.p2ActiveIdx];
+        
+        f1.x = 10; f1.dir = 1; f1.state = 'idle'; f1.buffs = []; f1.skills.forEach(s=>s.currentCd = 0); f1.targetX = -1; f1.basicAtkCd = 0; f1.chasingSkill = null;
+        f2.x = 80; f2.dir = -1; f2.state = 'idle'; f2.buffs = []; f2.skills.forEach(s=>s.currentCd = 0); f2.targetX = -1; f2.basicAtkCd = 0; f2.chasingSkill = null;
+        projectiles = [];
+
+        document.getElementById('p1-emoji').innerText = f1.char.emoji; document.getElementById('p2-emoji').innerText = f2.char.emoji;
+        document.getElementById('p1-avatar-ui').innerText = f1.char.emoji; document.getElementById('p1-avatar-ui').style.borderColor = f1.char.element.color;
+        document.getElementById('p2-avatar-ui').innerText = f2.char.emoji; document.getElementById('p2-avatar-ui').style.borderColor = f2.char.element.color;
+        
+        for(let i=0; i<3; i++) {
+            let s = f1.skills[i];
+            let btn = document.getElementById(`btn-s${i+1}`);
+            btn.querySelector('.skill-icon').innerText = s.icon;
+            btn.querySelector('.skill-name').innerText = s.name;
+        }
+        
+        document.getElementById('score-display').innerText = gameState.score;
+        updateScoreUI(); updateHpUI(); updateFighterRender();
+    }
+
+    function startRound() {
+        switchScreen(UI.battle); setupUIForRound();
+        showOverlay("Round Start", `${f1.char.name} VS ${f2.char.name}`, () => {
+            battleState.timer = 60; battleState.isPlaying = true; battleState.lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }, 1500);
+    }
+
+    /* ================= 戰鬥核心 ================= */
+    function gameLoop(time) {
+        if (!battleState.isPlaying) return;
+        let dt = (time - battleState.lastTime) / 1000;
+        battleState.lastTime = time;
+
+        battleState.timer -= dt;
+        document.getElementById('timer').innerText = Math.ceil(Math.max(0, battleState.timer));
+
+        if (battleState.timer <= 0) { handleTimeUp(); return; }
+
+        updateFighter(f1, f2, dt);
+        updateFighter(f2, f1, dt);
+        updateProjectiles(dt);
+        updateHpUI(); updateFighterRender(); updateSkillCDUI();
+        checkWinCondition();
+
+        if (battleState.isPlaying) requestAnimationFrame(gameLoop);
+    }
+
+    function updateFighter(f, enemy, dt) {
+        if(f.isDead) return;
+        
+        f.skills.forEach(s => { if (s.currentCd > 0) s.currentCd -= dt; });
+        if (f.basicAtkCd > 0) f.basicAtkCd -= dt;
+        
+        for (let i = f.buffs.length - 1; i >= 0; i--) {
+            f.buffs[i].dur -= dt;
+            if (f.buffs[i].dur <= 0) f.buffs.splice(i, 1);
+        }
+        updateStatusText(f);
+
+        if (f.chasingSkill !== null) {
+            if (f.state === 'stunned' || f.skills[f.chasingSkill].currentCd > 0) {
+                f.chasingSkill = null;
+            }
+        }
+
+        if (f.state === 'stunned' || f.state === 'attacking') {
+            f.stateTimer -= dt;
+            if (f.stateTimer <= 0) f.state = 'idle';
+            return; 
+        }
+
+        if (f.buffs.some(b => b.type === 'invul')) return;
+
+        let dist = Math.abs(f.x - enemy.x);
+        let currentSpd = f.spd;
+        let usedSkill = false;
+
+        if (f.chasingSkill !== null) {
+            if (dist <= f.range + 5) { 
+                activateSkill(f, enemy, f.chasingSkill);
+                f.chasingSkill = null;
+                usedSkill = true;
+            } else {
+                f.targetX = enemy.x; 
+                currentSpd = f.spd * 1.6; 
+            }
+        }
+
+        if (f.team === 2 && !usedSkill) {
+            f.nextThink -= dt;
+            if (f.nextThink <= 0) {
+                f.nextThink = (0.5 + Math.random() * 0.5) / f.aiAggression; 
+                
+                if (enemy.state === 'attacking' && Math.random() < (0.25 * f.aiAggression)) {
+                    if (f.skills[3].currentCd <= 0) { activateSkill(f, enemy, 3); usedSkill = true; f.chasingSkill = null; }
+                    else if (f.skills[4].currentCd <= 0) { activateSkill(f, enemy, 4); usedSkill = true; f.chasingSkill = null; }
+                }
+                
+                if (!usedSkill && f.chasingSkill === null) {
+                    let avail = [0,1,2].filter(i => f.skills[i].currentCd <= 0);
+                    if (avail.length > 0 && Math.random() < (0.35 * f.aiAggression)) {
+                        let sIdx = avail[Math.floor(Math.random()*avail.length)];
+                        if (f.skills[sIdx].type === 'melee' && dist > f.range + 5) {
+                            f.chasingSkill = sIdx;
+                            showFloatText(f, "突進!", '#ff9f43');
+                        } else {
+                            activateSkill(f, enemy, sIdx);
+                        }
+                        usedSkill = true; 
+                    }
+                }
+
+                if (!usedSkill && f.chasingSkill === null && dist <= f.range && f.basicAtkCd <= 0 && Math.random() < (0.4 * f.aiAggression)) {
+                    doBasicAttack(f, enemy); usedSkill = true;
+                }
+            }
+        } else if (f.team === 1 && !usedSkill) {
+            if (f.chasingSkill === null && dist <= f.range && f.state === 'idle' && f.basicAtkCd <= 0 && Math.random() < 0.03) {
+                doBasicAttack(f, enemy);
+                usedSkill = true;
+            }
+        }
+
+        if (!usedSkill && f.chasingSkill === null && f.state === 'idle') {
+            let dirToEnemy = enemy.x > f.x ? 1 : -1;
+
+            if (f.char.clsId === 'mage') {
+                let safeMin = 45;
+                let safeMax = 55;
+                if (dist < safeMin) {
+                    f.targetX = f.x - dirToEnemy * 15; 
+                } else if (dist > safeMax) {
+                    f.targetX = f.x + dirToEnemy * 15; 
+                } else {
+                    f.targetX = f.x; 
+                    if (f.team === 2 && f.nextThink <= 0 && Math.random() < 0.3) {
+                        f.targetX = f.x + (Math.random() > 0.5 ? 5 : -5);
+                    }
+                }
+            } else {
+                if (dist > f.range) {
+                    f.targetX = enemy.x; 
+                } else {
+                    f.targetX = f.x; 
+                    if (f.team === 2 && f.nextThink <= 0 && Math.random() < 0.3) {
+                        f.targetX = f.x - dirToEnemy * (Math.random() * 5); 
+                    }
+                }
+            }
+            f.targetX = Math.max(2, Math.min(98, f.targetX)); 
+        }
+
+        if (f.state === 'idle' && f.targetX !== -1 && f.targetX !== f.x) {
+            let distToTarget = Math.abs(f.x - f.targetX);
+            if (distToTarget > 1) {
+                f.dir = enemy.x > f.x ? 1 : -1; 
+                let moveDir = f.targetX > f.x ? 1 : -1;
+                f.x += moveDir * currentSpd * 0.1 * dt;
+                f.x = Math.max(2, Math.min(98, f.x));
+            }
+        }
+    }
+
+    function useSkill(idx) {
+        if (!battleState.isPlaying || f1.state === 'stunned' || f1.skills[idx].currentCd > 0) return;
+        
+        f1.chasingSkill = null; 
+
+        if (f1.skills[idx].type === 'melee' && Math.abs(f1.x - f2.x) > f1.range + 5) {
+            f1.chasingSkill = idx;
+            showFloatText(f1, "突進!", '#f1c40f');
+            return;
+        }
+        activateSkill(f1, f2, idx);
+    }
+
+    function activateSkill(caster, target, idx) {
+        let skill = caster.skills[idx];
+        skill.currentCd = skill.cd; caster.state = 'attacking'; caster.stateTimer = 0.5; caster.targetX = caster.x;
+        showEffect(caster, skill.icon, '#fff');
+
+        if (skill.type === 'defensive' || skill.type === 'buff') {
+            caster.buffs.push({type: skill.effect, val: skill.val, dur: skill.dur});
+            
+            // 【新增】閃避的瞬身繞背邏輯
+            if (skill.id === 'dodge') {
+                let dist = Math.abs(caster.x - target.x);
+                if (dist < 30) { // 如果與對手距離小於 30，觸發繞背
+                    let crossDir = caster.x < target.x ? 1 : -1; // 判斷要往左穿還是往右穿
+                    let newX = target.x + crossDir * 25; // 瞬移到對手背後 25 單位處
+                    
+                    caster.x = Math.max(2, Math.min(98, newX)); // 防出界限制
+                    caster.targetX = caster.x; // 更新尋路目標，避免自動拉扯
+                    caster.dir = caster.x < target.x ? 1 : -1; // 瞬間轉頭面向對手
+                    
+                    showFloatText(caster, "瞬身!", '#00d2d3'); // 繞背專屬特效字
+                }
+            }
+        } 
+        else if (skill.type === 'dash') {
+            caster.x = target.x - (caster.dir * 5); applyDamage(caster, target, skill.dmg, skill, false);
+        }
+        else if (skill.type === 'teleport') {
+            caster.x = target.x + (caster.dir * 5); caster.dir = caster.x < target.x ? 1 : -1;
+            applyDamage(caster, target, skill.dmg, skill, false);
+        }
+        else if (skill.type === 'ranged') {
+            projectiles.push({ x: caster.x, y: 30, dir: caster.dir, spd: 80, icon: skill.icon, dmg: skill.dmg, caster: caster, target: target, skill: skill });
+        }
+        else applyDamage(caster, target, skill.dmg, skill, false);
+    }
+
+    function doBasicAttack(caster, target) {
+        caster.state = 'attacking'; caster.stateTimer = 0.3; 
+        caster.basicAtkCd = 1.5; 
+        caster.targetX = caster.x; 
+
+        if(caster.char.clsId === 'mage') {
+             projectiles.push({ x: caster.x, y: 30, dir: caster.dir, spd: 60, icon: '✨', dmg: 1.0, caster: caster, target: target, skill: null });
+        } else {
+            setTimeout(() => { if (Math.abs(caster.x - target.x) <= caster.range + 5) applyDamage(caster, target, 1.0, null, false); }, 100);
+        }
+    }
+
+    function updateProjectiles(dt) {
+        document.querySelectorAll('.projectile').forEach(e => e.remove());
+        let arena = document.getElementById('arena');
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            let p = projectiles[i];
+            p.x += p.dir * p.spd * dt;
+            let el = document.createElement('div'); el.className = 'projectile'; el.innerText = p.icon; el.style.left = p.x + '%'; arena.appendChild(el);
+            
+            if (Math.abs(p.x - p.target.x) < 5) {
+                applyDamage(p.caster, p.target, p.dmg, p.skill, true); 
+                projectiles.splice(i, 1);
+            } else if (p.x < -10 || p.x > 110) projectiles.splice(i, 1);
+        }
+    }
+
+    function applyDamage(caster, target, mult, skill, isProjectile = false) {
+        if (target.buffs.some(b => b.type === 'invul')) { showFloatText(target, "閃避!"); return; }
+        
+        let atk = caster.atk; if (caster.buffs.some(b => b.type === 'atk_up')) atk *= 1.5;
+        let eleMult = 1.0;
+        if (caster.char.element.strong === target.char.element.id) eleMult = 1.1;
+        if (caster.char.element.weak === target.char.element.id) eleMult = 0.9;
+
+        let rawDmg = (atk * mult * eleMult) * 0.25; 
+
+        if (isProjectile) {
+            let hitDist = Math.abs(caster.x - target.x);
+            let falloff = 0.5 + 0.5 * (Math.min(hitDist, 80) / 80);
+            rawDmg *= falloff;
+        }
+
+        let shieldBuff = target.buffs.find(b => b.type === 'shield');
+        if (shieldBuff) rawDmg *= shieldBuff.val;
+
+        let finalDmg = Math.max(1, Math.floor(rawDmg));
+        target.hp -= finalDmg; if (target.hp < 0) target.hp = 0;
+
+        let color = '#ff4757'; if (eleMult > 1) color = '#ff9f43'; else if (eleMult < 1) color = '#a4b0be';
+        showFloatText(target, `-${finalDmg}`, color);
+        
+        let targetEl = document.getElementById(`fighter-${target.team}`);
+        targetEl.style.transform = `translateX(${caster.dir * 10}px)`; setTimeout(() => targetEl.style.transform = 'translateX(0)', 100);
+
+        if (skill && skill.effect) {
+            if (shieldBuff && ['stun', 'root'].includes(skill.effect)) showFloatText(target, "格擋!", '#f1c40f');
+            else {
+                if (skill.effect === 'stun') { target.state = 'stunned'; target.stateTimer = skill.dur; showFloatText(target, "暈眩!", '#f1c40f'); target.targetX = target.x; }
+                else if (skill.effect === 'root') { target.buffs.push({type: 'root', dur: skill.dur}); target.targetX = target.x; }
+                else if (skill.effect === 'dot') target.buffs.push({type: 'dot', val: (skill.val * caster.atk) * 0.25, dur: skill.dur, nextTick: 1});
+            }
+        }
+    }
+
+    /* ================= 戰鬥結算與積分 ================= */
+    function checkWinCondition() {
+        if (f1.hp <= 0 && f2.hp <= 0) endRound(0); 
+        else if (f1.hp <= 0) endRound(2);
+        else if (f2.hp <= 0) endRound(1);
+    }
+
+    function handleTimeUp() {
+        if (f1.hp > f2.hp) {
+            f2.hp = 0; 
+            endRound(1);
+        }
+        else if (f2.hp > f1.hp) {
+            f1.hp = 0; 
+            endRound(2);
+        }
+        else {
+            f1.hp = 0;
+            f2.hp = 0;
+            endRound(0);
+        }
+    }
+
+    function endRound(winner) {
+        battleState.isPlaying = false;
+        
+        if(f1.hp <= 0) f1.isDead = true;
+        if(f2.hp <= 0) f2.isDead = true;
+        
+        updateScoreUI();
+        updateHpUI(); 
+
+        let subMsg = "";
+        if (winner === 1) {
+            let timeLeft = Math.floor(Math.max(0, battleState.timer));
+            let roundScore = 1000 + (timeLeft * 50);
+            gameState.score += roundScore;
+            document.getElementById('score-display').innerText = gameState.score;
+            subMsg = `K.O. 勝利!\n( 時間加成: +${roundScore} )`;
+        } else if (winner === 2) {
+            subMsg = "K.O. 戰敗!";
+        } else {
+            subMsg = "Double K.O.\n雙方淘汰!";
+        }
+        
+        showOverlay(battleState.timer <= 0 ? "Time's Up!" : "Round Over", subMsg, () => {
+            let p1Alive = battleState.p1Team.some(f => !f.isDead);
+            let p2Alive = battleState.p2Team.some(f => !f.isDead);
+
+            if(!p1Alive && !p2Alive) handleMatchResult(false); 
+            else if(!p1Alive) handleMatchResult(false);
+            else if(!p2Alive) handleMatchResult(true);
+            else {
+                if(!f1.isDead) f1.hp = Math.min(f1.maxHp, f1.hp + f1.maxHp * 0.2);
+                if(!f2.isDead) f2.hp = Math.min(f2.maxHp, f2.hp + f2.maxHp * 0.2);
+
+                if (f1.isDead && !f2.isDead) promptNextFighter();
+                else if (!f1.isDead && f2.isDead) {
+                    battleState.p2ActiveIdx = battleState.p2Team.findIndex(f => !f.isDead);
+                    startRound();
+                } else {
+                    battleState.p2ActiveIdx = battleState.p2Team.findIndex(f => !f.isDead);
+                    promptNextFighter();
+                }
+            }
+        }, 2000);
+    }
+
+    function handleMatchResult(playerWon) {
+        if (playerWon) {
+            if (gameState.stage === 22) {
+                gameState.wins++; 
+                gameState.inProgress = false; 
+                
+                let isNewHigh = gameState.score > gameState.highScore;
+                if (isNewHigh) gameState.highScore = gameState.score;
+                doSave();
+                
+                let endMsg = `本次總分: ${gameState.score}\n歷史最高: ${gameState.highScore}`;
+                if (isNewHigh) endMsg += "\n🎉 破紀錄啦！ 🎉";
+                
+                showOverlay("👑 冠軍誕生 👑", `恭喜你擊敗大魔王！\n贏得第 ${gameState.wins} 屆 K.O.E 大賽！\n\n${endMsg}`, () => {
+                    loadSave(); switchScreen(UI.start);
+                }, null, true);
+            } else {
+                gameState.stage++; doSave();
+                showOverlay("STAGE CLEAR", "準備進入下一關", () => { startMatch(); }, null, true);
+            }
+        } else {
+            gameState.inProgress = false; doSave();
+            showOverlay("GAME OVER", "你的隊伍被淘汰了...", () => {
+                loadSave(); switchScreen(UI.start);
+            }, null, true);
+        }
+    }
+
+    /* ================= UI 更新 ================= */
+    function updateFighterRender() {
+        let e1 = document.getElementById('fighter-1'); e1.style.left = f1.x + '%'; e1.style.transform = `scaleX(${f1.dir})`;
+        let e2 = document.getElementById('fighter-2'); e2.style.left = f2.x + '%'; e2.style.transform = `scaleX(${f2.dir})`;
+        e1.style.filter = f1.isDead ? 'grayscale(100%)' : 'none';
+        e2.style.filter = f2.isDead ? 'grayscale(100%)' : 'none';
+    }
+
+    function updateHpUI() {
+        let p1Pct = Math.max(0, (f1.hp / f1.maxHp) * 100);
+        let p2Pct = Math.max(0, (f2.hp / f2.maxHp) * 100);
+        document.getElementById('p1-hp').style.width = p1Pct + '%'; document.getElementById('p2-hp').style.width = p2Pct + '%';
+        document.getElementById('p1-hp-txt').innerText = `${Math.floor(f1.hp)} / ${f1.maxHp}`; document.getElementById('p2-hp-txt').innerText = `${Math.floor(f2.hp)} / ${f2.maxHp}`;
+    }
+
+    function updateSkillCDUI() {
+        for(let i=0; i<3; i++) updateBtnCD(`btn-s${i+1}`, f1.skills[i]);
+        updateBtnCD('btn-dodge', f1.skills[3]); updateBtnCD('btn-defend', f1.skills[4]);
+    }
+    function updateBtnCD(btnId, skill) {
+        let overlay = document.getElementById(btnId).querySelector('.cooldown-overlay');
+        if (skill.currentCd > 0) { overlay.style.display = 'flex'; overlay.innerText = skill.currentCd.toFixed(1); } 
+        else overlay.style.display = 'none';
+    }
+
+    function updateStatusText(f) {
+        let text = [];
+        if (f.state === 'stunned') text.push('💫');
+        if (f.buffs.some(b=>b.type==='invul')) text.push('💨');
+        if (f.buffs.some(b=>b.type==='shield')) text.push('🛡️');
+        if (f.buffs.some(b=>b.type==='atk_up')) text.push('💢');
+        if (f.buffs.some(b=>b.type==='root')) text.push('❄️');
+        
+        let dot = f.buffs.find(b=>b.type==='dot');
+        if (dot) {
+            text.push('☠️'); dot.nextTick -= 1/60;
+            if(dot.nextTick <= 0) {
+                dot.nextTick = 1; let dmg = Math.max(1, Math.floor(dot.val)); f.hp -= dmg; showFloatText(f, `-${dmg}`, '#9b59b6');
+            }
+        }
+        document.getElementById(`p${f.team}-status`).innerText = text.join('');
+        f.spd = text.includes('❄️') ? 0 : f.char.cls.spd;
+    }
+
+    function showFloatText(target, msg, color='#ff4757') {
+        let el = document.createElement('div'); el.className = 'dmg-text'; el.innerText = msg; el.style.color = color;
+        el.style.left = `calc(${target.x}% + ${(Math.random() - 0.5) * 30}px)`; el.style.bottom = '90px';
+        document.getElementById('arena').appendChild(el); setTimeout(() => el.remove(), 1000);
+    }
+
+    function showEffect(target, icon, color) {
+        let fx = document.getElementById(`p${target.team}-fx`);
+        fx.innerText = icon; fx.style.color = color; fx.style.opacity = 1; fx.style.transition = 'none'; fx.style.transform = 'scale(0.5)';
+        setTimeout(() => { fx.style.transition = 'all 0.3s ease-out'; fx.style.opacity = 0; fx.style.transform = 'scale(2)'; }, 50);
+    }
+
+    function updateScoreUI() {
+        let p1Dots = document.getElementById('p1-score').children;
+        let p2Dots = document.getElementById('p2-score').children;
+        battleState.p1Team.forEach((f, i) => p1Dots[i].className = 'score-dot' + (f.isDead ? ' dead' : ''));
+        battleState.p2Team.forEach((f, i) => p2Dots[i].className = 'score-dot' + (f.isDead ? ' dead' : ''));
+    }
+
+    function showOverlay(msg, sub, callback, autoCloseTime = null, showBtn = false) {
+        UI.overlay.style.display = 'flex';
+        document.getElementById('overlay-msg').innerText = msg; document.getElementById('overlay-sub').innerText = sub;
+        let btn = document.getElementById('btn-overlay-next');
+        if (showBtn) {
+            btn.style.display = 'inline-block'; btn.onclick = () => { UI.overlay.style.display = 'none'; if (callback) callback(); };
+        } else {
+            btn.style.display = 'none';
+            if (autoCloseTime) setTimeout(() => { UI.overlay.style.display = 'none'; if (callback) callback(); }, autoCloseTime);
+        }
+    }
+
+    document.querySelectorAll('.skill-btn').forEach(btn => btn.addEventListener('contextmenu', e => e.preventDefault()));
+</script>
+</body>
+</html>
+
+
