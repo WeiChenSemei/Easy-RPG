@@ -35,7 +35,7 @@
         .btn:disabled { background: #555; cursor: not-allowed; transform: none; }
         .title { text-align: center; font-size: 2rem; margin: 20px 0; color: #f1c40f; text-shadow: 2px 2px #000; }
         
-        .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; display: none; justify-content: center; align-items: center; padding: 20px; }
+        .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; display: none; justify-content: center; align-items: center; padding: 20px; touch-action: none; }
         .modal-box { background: var(--panel); border: 2px solid #f1c40f; border-radius: 15px; padding: 20px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
         #char-detail-emoji { font-size: 4rem; margin-bottom: 10px; }
@@ -117,6 +117,10 @@
             80% { opacity: 1; transform: translateY(0); }
             100% { opacity: 0; transform: translateY(-40px); }
         }
+        
+        /* ========= 新增：倒數動畫 ========= */
+        .countdown-pulse { animation: pulse 1s linear infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
 
         .fighter { position: absolute; bottom: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         
@@ -286,9 +290,8 @@
     </div>
     
     <div id="arena">
-        <div id="arena-flash"></div> <!-- 覺醒閃光層 -->
+        <div id="arena-flash"></div> 
         
-        <!-- 新增： Combo 顯示層 -->
         <div class="combo-container">
             <div id="p1-combo" class="combo-text"></div>
             <div id="p2-combo" class="combo-text"></div>
@@ -308,7 +311,6 @@
         </div>
     </div>
     
-    <!-- 技能區 -->
     <div class="controls">
         <div class="skill-row">
             <button class="skill-btn" id="btn-s1" onclick="useSkill(0)"><span class="skill-icon"></span><span class="skill-name"></span><div class="cooldown-overlay"></div></button>
@@ -321,7 +323,6 @@
         </div>
     </div>
     
-    <!-- 防遮擋底部空間 -->
     <div class="bottom-spacer"></div>
 </div>
 
@@ -330,6 +331,16 @@
     <div id="overlay-msg" style="font-size: 2.5rem; font-weight: bold; color: #f1c40f; margin-bottom: 20px; text-shadow: 2px 2px 0 #000;">勝利!</div>
     <div id="overlay-sub" style="font-size: 1.2rem; margin-bottom: 30px; text-align:center;"></div>
     <button class="btn" id="btn-overlay-next">繼續</button>
+</div>
+
+<!-- 新增：接關倒數畫面 (獨立防護縮放) -->
+<div id="continue-overlay" class="modal-overlay" style="flex-direction: column; z-index: 200; touch-action: none; user-select: none;">
+    <div style="font-size: 3rem; color: #e74c3c; font-weight: bold; text-shadow: 2px 2px 0 #000;">CONTINUE?</div>
+    <div id="continue-timer" class="countdown-pulse" style="font-size: 7rem; color: #f1c40f; margin: 20px 0; font-weight: 900; text-shadow: 5px 5px 0 #000;">10</div>
+    <div style="display: flex; gap: 20px; width: 100%; max-width: 300px;">
+        <button class="btn" id="btn-continue-yes" style="flex: 1; font-size: 1.5rem; padding: 15px 0; background: #2ecc71;">YES</button>
+        <button class="btn" id="btn-continue-no" style="flex: 1; font-size: 1.5rem; padding: 15px 0; background: #95a5a6;">NO</button>
+    </div>
 </div>
 
 <script>
@@ -560,6 +571,7 @@
         document.getElementById('char-skill-list').innerHTML = skillsHtml;
 
         let btnAction = document.getElementById('btn-modal-action');
+        
         if (tempTeam.includes(id)) {
             btnAction.innerText = "移出隊伍"; 
             btnAction.style.background = "#e84118";
@@ -617,6 +629,46 @@
         doSave(); startMatch();
     };
 
+    /* ================= 接關倒數系統 ================= */
+    let continueCountdown = 10;
+    let continueTimerId = null;
+
+    function showContinueScreen() {
+        let overlay = document.getElementById('continue-overlay');
+        let timerEl = document.getElementById('continue-timer');
+        overlay.style.display = 'flex';
+        continueCountdown = 10;
+        timerEl.innerText = continueCountdown;
+
+        if (continueTimerId) clearInterval(continueTimerId);
+        continueTimerId = setInterval(() => {
+            continueCountdown--;
+            timerEl.innerText = continueCountdown;
+            if (continueCountdown <= 0) {
+                executeGiveUp();
+            }
+        }, 1000);
+    }
+
+    function executeGiveUp() {
+        if (continueTimerId) clearInterval(continueTimerId);
+        document.getElementById('continue-overlay').style.display = 'none';
+        gameState.inProgress = false; doSave();
+        showOverlay("GAME OVER", "你的隊伍被淘汰了...", () => { loadSave(); switchScreen(UI.start); }, null, true);
+    }
+
+    document.getElementById('btn-continue-yes').onclick = () => {
+        if (continueTimerId) clearInterval(continueTimerId);
+        document.getElementById('continue-overlay').style.display = 'none';
+        // 因為 startMatch 會直接重塑 (re-create) 玩家隊伍物件，所以可以直接回滿血並重啟這關
+        startMatch();
+    };
+
+    document.getElementById('btn-continue-no').onclick = () => {
+        executeGiveUp();
+    };
+
+
     /* ================= 戰鬥準備與 SP Helper ================= */
     function createFighterObj(baseChar, team) {
         return {
@@ -636,8 +688,6 @@
             chasingSkill: null, dodgeFleeTimer: 0,
             sp: 0, maxSp: 100, isAwakened: false, awakeTimer: 0,
             hitTimer: 0, hitDir: 1,
-            
-            // 新增：連擊計算屬性
             comboCount: 0, comboTimer: 0
         };
     }
@@ -650,10 +700,9 @@
             fighter.isAwakened = true;
             fighter.awakeTimer = 2.5; 
             triggerFlash();
-            // 剛進入覺醒時重置所有CD一次，讓玩家可以立刻出手
             fighter.skills.forEach(s => s.currentCd = 0);
             fighter.basicAtkCd = 0;
-            fighter.comboCount = 0; // 重置連擊計數
+            fighter.comboCount = 0;
         }
     }
 
@@ -713,7 +762,7 @@
             f.x = startX; f.dir = startDir; f.state = 'idle'; f.buffs = []; f.skills.forEach(s=>s.currentCd = 0);
             f.targetX = -1; f.basicAtkCd = 0; f.chasingSkill = null; f.dodgeFleeTimer = 0;
             f.sp = 0; f.isAwakened = false; f.awakeTimer = 0; f.hitTimer = 0;
-            f.comboCount = 0; f.comboTimer = 0; // 重置連擊
+            f.comboCount = 0; f.comboTimer = 0; 
         };
         resetFighter(f1, 10, 1);
         resetFighter(f2, 90, -1);
@@ -723,7 +772,6 @@
         battleState.hitStopTimer = 0;
         battleState.shakeTimer = 0;
         
-        // 隱藏 Combo UI
         document.getElementById('p1-combo').style.display = 'none';
         document.getElementById('p2-combo').style.display = 'none';
 
@@ -792,7 +840,6 @@
         setTimeout(() => el.remove(), 800);
     }
 
-    // 新增：顯示震動巨大的 Combo UI
     function showComboUI(caster) {
         let elId = caster.team === 1 ? 'p1-combo' : 'p2-combo';
         let el = document.getElementById(elId);
@@ -800,16 +847,13 @@
         el.innerText = `${caster.comboCount} HITS!`;
         el.style.display = 'block';
         
-        // 超過 5 下變為激動的紅色
         let color = caster.comboCount >= 5 ? '#ff3838' : '#f1c40f'; 
         el.style.color = color;
         
-        // 重置並播放彈跳動畫
         el.classList.remove('combo-anim');
         void el.offsetWidth;
         el.classList.add('combo-anim');
         
-        // Combo 越多，鏡頭震動越大，加強回饋感
         battleState.shakeTimer = Math.min(0.5, 0.15 + caster.comboCount * 0.05);
     }
 
@@ -843,7 +887,6 @@
     function updateFighter(f, enemy, dt) {
         if(f.isDead) return;
         
-        // 修正點：取消在 SP 狀態下強制將 CD 鎖定為 0，改為讓其像往常一樣隨時間遞減
         if (f.isAwakened) {
             f.awakeTimer -= dt;
             if (f.awakeTimer <= 0) {
@@ -851,15 +894,13 @@
             }
         }
         
-        // 所有技能 CD 與普攻 CD 正常隨時間恢復 (包含 0.3 秒 GCD 的冷卻)
         f.skills.forEach(s => { if (s.currentCd > 0) s.currentCd -= dt; });
         if (f.basicAtkCd > 0) f.basicAtkCd -= dt;
         
-        // 處理連擊超時
         if (f.comboTimer > 0) {
             f.comboTimer -= dt;
             if (f.comboTimer <= 0) {
-                f.comboCount = 0; // 超過時間未造成傷害則斷 Combo
+                f.comboCount = 0; 
             }
         }
         
@@ -968,7 +1009,6 @@
 
     function useSkill(idx) {
         if (!battleState.isPlaying || f1.state === 'stunned') return;
-        // 在 SP 狀態下如果 GCD (0.3s) 還沒跑完，也不允許施放
         if (f1.skills[idx].currentCd > 0) return;
         
         f1.chasingSkill = null; 
@@ -982,7 +1022,6 @@
     function activateSkill(caster, target, idx) {
         let skill = caster.skills[idx];
         
-        // 修正點：若在 SP 狀態，觸發所有招式的全域冷卻 (GCD = 0.3 秒)
         if (caster.isAwakened) {
             caster.skills.forEach(s => s.currentCd = Math.max(s.currentCd, 0.3));
             caster.basicAtkCd = Math.max(caster.basicAtkCd, 0.3);
@@ -1031,7 +1070,6 @@
         caster.state = 'attacking'; 
         caster.stateTimer = caster.isAwakened ? 0.1 : 0.3; 
         
-        // 修正點：若在 SP 狀態，觸發 0.3 秒 GCD
         caster.basicAtkCd = caster.isAwakened ? 0.3 : 1.5; 
         if (caster.isAwakened) caster.skills.forEach(s => s.currentCd = Math.max(s.currentCd, 0.3));
         
@@ -1078,17 +1116,15 @@
 
         let rawDmg = (atk * mult * eleMult) * 0.25;
 
-        // 【新增】：SP 狀態連擊系統與傷害遞減 (Damage Scaling)
         if (caster.isAwakened) {
             caster.comboCount++;
-            caster.comboTimer = 2.0; // 2 秒內連續擊中才能維持 Combo
+            caster.comboTimer = 2.0; 
             
-            // 傷害遞減公式：每多1 hit傷害減少20%，最低保底 20% 傷害
             let comboScale = Math.max(0.2, 1.0 - (caster.comboCount - 1) * 0.2);
             rawDmg *= comboScale;
             
             if (caster.comboCount > 1) {
-                showComboUI(caster); // 觸發巨大的 Combo UI
+                showComboUI(caster); 
             }
         }
 
@@ -1110,7 +1146,6 @@
         let isCrit = eleMult > 1;
         let color = '#ff4757'; if (isCrit) color = '#ff9f43'; else if (eleMult < 1) color = '#a4b0be';
         
-        // 若是在 Combo 狀態，傷害數字會稍大一些以提升回饋
         let prefix = caster.isAwakened && caster.comboCount > 2 ? '🔥' : '-';
         showFloatText(target, `${prefix}${finalDmg}`, color);
         
@@ -1130,7 +1165,6 @@
             }
         }
 
-        // 基本的卡肉頓挫感 (若正處於高 Combo 狀態，稍微加強頓挫感)
         if (isCrit || skill || (caster.isAwakened && caster.comboCount > 3)) {
             battleState.shakeTimer = caster.isAwakened ? 0.3 : 0.2;
             battleState.hitStopTimer = 0.05;
@@ -1183,6 +1217,7 @@
             let p1Alive = battleState.p1Team.some(f => !f.isDead);
             let p2Alive = battleState.p2Team.some(f => !f.isDead);
 
+            // 修改點：如果玩家全滅 (!p1Alive)，跳出接關倒數畫面，而不是直接 Game Over
             if(!p1Alive && !p2Alive) handleMatchResult(false); 
             else if(!p1Alive) handleMatchResult(false);
             else if(!p2Alive) handleMatchResult(true);
@@ -1213,8 +1248,8 @@
                 showOverlay("STAGE CLEAR", "準備進入下一關", () => { startMatch(); }, null, true);
             }
         } else {
-            gameState.inProgress = false; doSave();
-            showOverlay("GAME OVER", "你的隊伍被淘汰了...", () => { loadSave(); switchScreen(UI.start); }, null, true);
+            // [修改]：進入 Continue 倒數，取代原本立刻放棄的 GAME OVER
+            showContinueScreen();
         }
     }
 
@@ -1286,7 +1321,6 @@
         updateBtnCD('btn-defend', f1.skills[4]);
     }
     
-    // 修改：即便是 SP 狀態，也會顯示 0.3 秒 GCD 的快速倒數給玩家回饋
     function updateBtnCD(btnId, skill) {
         let overlay = document.getElementById(btnId).querySelector('.cooldown-overlay');
         if (skill.currentCd > 0) { 
