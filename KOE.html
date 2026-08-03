@@ -105,7 +105,7 @@
         .flash-anim { animation: flashBang 0.4s ease-out; }
         @keyframes flashBang { 0% { opacity: 1; } 100% { opacity: 0; } }
 
-        /* ========= 新增：Combo UI 樣式 ========= */
+        /* ========= Combo UI 樣式 ========= */
         .combo-container { position: absolute; top: 25%; width: 100%; display: flex; justify-content: space-between; pointer-events: none; z-index: 50; padding: 0 5%; }
         .combo-text { font-size: 3.5rem; font-weight: 900; font-style: italic; color: #f1c40f; text-shadow: 4px 4px 0 #000, -2px -2px 0 #000, 0 0 20px rgba(255,56,56,0.8); display: none; transform: scale(1); white-space: nowrap; }
         .combo-anim { animation: comboHit 1.5s ease-out forwards; }
@@ -118,7 +118,7 @@
             100% { opacity: 0; transform: translateY(-40px); }
         }
         
-        /* ========= 新增：倒數動畫 ========= */
+        /* ========= 倒數動畫 ========= */
         .countdown-pulse { animation: pulse 1s linear infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
 
@@ -233,7 +233,8 @@
 
 <!-- 戰術換人畫面 -->
 <div id="next-fighter-screen" class="screen">
-    <div class="vs-title">戰術換人<br><span style="font-size:1.2rem; color:#aaa;">( Stage <span id="nf-stage-display">1</span> / 22 )</span></div>
+    <!-- UI修正：最大關卡改為23 -->
+    <div class="vs-title">戰術換人<br><span style="font-size:1.2rem; color:#aaa;">( Stage <span id="nf-stage-display">1</span> / 23 )</span></div>
     <p style="color:#aaa; margin-bottom:10px;">對方場上角色 (勝者留場)</p>
     <div class="enemy-preview">
         <div id="nf-enemy-emoji" style="font-size:4rem;"></div>
@@ -256,7 +257,8 @@
 <div id="battle-screen" class="screen">
     <div class="top-bar">
         <div class="top-bar-left">
-            <div>Stage: <span id="stage-display" style="color:#f1c40f">1</span>/22</div>
+            <!-- UI修正：最大關卡改為23 -->
+            <div>Stage: <span id="stage-display" style="color:#f1c40f">1</span>/23</div>
             <div style="font-size:0.75rem; color:#2ed573">Score: <span id="score-display">0</span></div>
         </div>
         <div class="top-bar-center">
@@ -333,7 +335,7 @@
     <button class="btn" id="btn-overlay-next">繼續</button>
 </div>
 
-<!-- 新增：接關倒數畫面 (獨立防護縮放) -->
+<!-- 接關倒數畫面 -->
 <div id="continue-overlay" class="modal-overlay" style="flex-direction: column; z-index: 200; touch-action: none; user-select: none;">
     <div style="font-size: 3rem; color: #e74c3c; font-weight: bold; text-shadow: 2px 2px 0 #000;">CONTINUE?</div>
     <div id="continue-timer" class="countdown-pulse" style="font-size: 7rem; color: #f1c40f; margin: 20px 0; font-weight: 900; text-shadow: 5px 5px 0 #000;">10</div>
@@ -354,10 +356,12 @@
         'linear-gradient(to bottom, #190a05 0%, #2b044d 55%, #4a235a 55%, #150529 100%)'  
     ];
 
+    // 新增無屬性定義
     const ELEMENTS = {
         'fire': { id:'fire', e:'🔥', name:'火', color:'var(--fire)', strong:'nature', weak:'water' },
         'water': { id:'water', e:'💧', name:'水', color:'var(--water)', strong:'fire', weak:'nature' },
-        'nature': { id:'nature', e:'🌿', name:'自然', color:'var(--nature)', strong:'water', weak:'fire' }
+        'nature': { id:'nature', e:'🌿', name:'自然', color:'var(--nature)', strong:'water', weak:'fire' },
+        'none': { id:'none', e:'⚪', name:'無', color:'#ffffff', strong:null, weak:null }
     };
 
     const CLASSES = {
@@ -424,6 +428,15 @@
         {e:'🦖', n:'暴君巨獸', el:'nature'}
     ];
 
+    // 新增：最終頭目 造物主
+    const CREATOR_CHAR = {
+        id: 999, emoji: '👁️', name: '造物主',
+        element: ELEMENTS['none'], // 無屬性
+        clsId: 'creator',
+        cls: { name:'神', e:'👑', hp: 3000, atk: 150, spd: 45, range: 25, skills: [] }, // 技能稍後動態載入全職業
+        isBoss: true
+    };
+
     function shuffleArray(array) {
         let arr = [...array];
         for (let i = arr.length - 1; i > 0; i--) {
@@ -464,6 +477,9 @@
                 cls: { ...clsBase, skills: mySkills }, isBoss: true
             });
         });
+
+        // 賦予造物主全職業技能 (共27招)
+        CREATOR_CHAR.cls.skills = [...SKILL_POOL.warrior, ...SKILL_POOL.mage, ...SKILL_POOL.rogue];
     }
     initCharacters();
 
@@ -490,7 +506,7 @@
     /* ================= 存檔與選角 ================= */
     function loadSave() {
         try {
-            const save = localStorage.getItem('kof_save_v18');
+            const save = localStorage.getItem('kof_save_v19');
             if (save) {
                 let parsed = JSON.parse(save);
                 gameState = { ...gameState, ...parsed };
@@ -508,14 +524,11 @@
                 document.getElementById('stat-highscore').innerText = '0';
             }
         } catch(e) {
-            console.warn("無法讀取 LocalStorage", e);
             document.getElementById('stat-highscore').innerText = '0';
         }
     }
     function doSave() { 
-        try {
-            localStorage.setItem('kof_save_v18', JSON.stringify(gameState)); 
-        } catch(e) {}
+        try { localStorage.setItem('kof_save_v19', JSON.stringify(gameState)); } catch(e) {}
     }
     loadSave();
 
@@ -660,14 +673,12 @@
     document.getElementById('btn-continue-yes').onclick = () => {
         if (continueTimerId) clearInterval(continueTimerId);
         document.getElementById('continue-overlay').style.display = 'none';
-        // 因為 startMatch 會直接重塑 (re-create) 玩家隊伍物件，所以可以直接回滿血並重啟這關
-        startMatch();
+        startMatch(); // 直接以滿血重新開打這關
     };
 
     document.getElementById('btn-continue-no').onclick = () => {
         executeGiveUp();
     };
-
 
     /* ================= 戰鬥準備與 SP Helper ================= */
     function createFighterObj(baseChar, team) {
@@ -711,7 +722,11 @@
         document.getElementById('arena').style.background = randomBg;
 
         battleState.p1Team = gameState.playerTeam.map(id => createFighterObj(CHARACTERS[id], 1));
-        if (gameState.stage === 22) {
+        
+        // 【關卡處理更新】：第23關為最終頭目，第22關為三小王
+        if (gameState.stage === 23) {
+            battleState.p2Team = [createFighterObj(CREATOR_CHAR, 2)];
+        } else if (gameState.stage === 22) {
             battleState.p2Team = [66, 67, 68].map(id => createFighterObj(CHARACTERS[id], 2));
         } else {
             let enemyIds = gameState.enemyPool[gameState.stage - 1];
@@ -946,21 +961,52 @@
             if (f.nextThink <= 0) {
                 f.nextThink = (0.5 + Math.random() * 0.5) / currentAggression; 
                 
+                // 動態取得防禦與閃避按鈕索引 (因為造物主技能陣列很長)
+                let dodgeIdx = f.skills.findIndex(s => s.id === 'dodge');
+                let defendIdx = f.skills.findIndex(s => s.id === 'defend');
+
                 if (enemy.state === 'attacking' && Math.random() < (0.25 * currentAggression)) {
-                    if (f.skills[3].currentCd <= 0) { activateSkill(f, enemy, 3); actedThisFrame = true; f.chasingSkill = null; }
-                    else if (f.skills[4].currentCd <= 0) { activateSkill(f, enemy, 4); actedThisFrame = true; f.chasingSkill = null; }
+                    if (dodgeIdx !== -1 && f.skills[dodgeIdx].currentCd <= 0) { activateSkill(f, enemy, dodgeIdx); actedThisFrame = true; f.chasingSkill = null; }
+                    else if (defendIdx !== -1 && f.skills[defendIdx].currentCd <= 0) { activateSkill(f, enemy, defendIdx); actedThisFrame = true; f.chasingSkill = null; }
                 }
                 
                 if (!actedThisFrame && f.chasingSkill === null) {
-                    let avail = [0,1,2].filter(i => f.skills[i].currentCd <= 0);
-                    if (avail.length > 0 && Math.random() < (0.35 * currentAggression)) {
-                        let sIdx = avail[Math.floor(Math.random()*avail.length)];
-                        if (f.skills[sIdx].type === 'melee' && dist > f.range + 5) {
-                            f.chasingSkill = sIdx;
-                        } else {
-                            activateSkill(f, enemy, sIdx);
+                    // 【造物主 AI】：動態技能選用
+                    if (f.char.clsId === 'creator') {
+                        let availFar = [], availNear = [];
+                        f.skills.forEach((s, idx) => {
+                            if (s.currentCd <= 0 && !['dodge', 'defend'].includes(s.id)) {
+                                if (['ranged', 'dash', 'teleport', 'buff'].includes(s.type)) availFar.push(idx);
+                                if (['melee', 'buff'].includes(s.type)) availNear.push(idx);
+                            }
+                        });
+                        
+                        if (dist > f.range + 15) { // 遠距離
+                            if (availFar.length > 0 && Math.random() < 0.5 * currentAggression) {
+                                let sIdx = availFar[Math.floor(Math.random() * availFar.length)];
+                                if (f.skills[sIdx].type === 'melee' && dist > f.range + 5) f.chasingSkill = sIdx;
+                                else activateSkill(f, enemy, sIdx);
+                                actedThisFrame = true;
+                            }
+                        } else { // 近距離
+                            if (availNear.length > 0 && Math.random() < 0.5 * currentAggression) {
+                                let sIdx = availNear[Math.floor(Math.random() * availNear.length)];
+                                activateSkill(f, enemy, sIdx);
+                                actedThisFrame = true;
+                            }
                         }
-                        actedThisFrame = true; 
+                    } else {
+                        // 一般 AI
+                        let avail = [0,1,2].filter(i => f.skills[i].currentCd <= 0);
+                        if (avail.length > 0 && Math.random() < (0.35 * currentAggression)) {
+                            let sIdx = avail[Math.floor(Math.random()*avail.length)];
+                            if (f.skills[sIdx].type === 'melee' && dist > f.range + 5) {
+                                f.chasingSkill = sIdx;
+                            } else {
+                                activateSkill(f, enemy, sIdx);
+                            }
+                            actedThisFrame = true; 
+                        }
                     }
                 }
 
@@ -1046,9 +1092,9 @@
                     caster.x = Math.max(5, Math.min(95, caster.x)); 
                     caster.targetX = caster.x; 
                     caster.dir = caster.x < target.x ? 1 : -1; 
-                    if (caster.char.clsId === 'mage') caster.dodgeFleeTimer = 1.5; 
+                    if (caster.char.clsId === 'mage' || caster.char.clsId === 'creator') caster.dodgeFleeTimer = 1.5; 
                 } else {
-                    if (caster.char.clsId === 'mage') caster.dodgeFleeTimer = 1.0; 
+                    if (caster.char.clsId === 'mage' || caster.char.clsId === 'creator') caster.dodgeFleeTimer = 1.0; 
                 }
             }
         } 
@@ -1075,7 +1121,7 @@
         
         caster.targetX = caster.x; 
 
-        if(caster.char.clsId === 'mage') {
+        if(caster.char.clsId === 'mage' || caster.char.clsId === 'creator') {
              let pDir = caster.x < target.x ? 1 : -1;
              projectiles.push({ x: caster.x, y: 30, dir: pDir, spd: 60, icon: '✨', dmg: 1.0, caster: caster, target: target, skill: null });
         } else {
@@ -1111,8 +1157,10 @@
         
         let atk = caster.atk; if (caster.buffs.some(b => b.type === 'atk_up')) atk *= 1.5;
         let eleMult = 1.0;
-        if (caster.char.element.strong === target.char.element.id) eleMult = 1.1;
-        if (caster.char.element.weak === target.char.element.id) eleMult = 0.9;
+        
+        // 屬性相剋邏輯 (無屬性自然不匹配 strong 與 weak)
+        if (caster.char.element.strong === target.char.element.id && target.char.element.id !== 'none') eleMult = 1.1;
+        if (caster.char.element.weak === target.char.element.id && target.char.element.id !== 'none') eleMult = 0.9;
 
         let rawDmg = (atk * mult * eleMult) * 0.25;
 
@@ -1153,7 +1201,7 @@
         target.hitDir = caster.x < target.x ? 1 : -1;
         showHitSpark(target, isCrit, isBlock);
 
-        if (skill && caster.char.clsId === 'mage' && skill.type === 'ranged' && isProjectile) {
+        if (skill && (caster.char.clsId === 'mage' || caster.char.clsId === 'creator') && skill.type === 'ranged' && isProjectile) {
             if (Math.random() < 0.25) {
                 let pushDir = caster.x < target.x ? 1 : -1;
                 target.x += pushDir * 15; 
@@ -1217,7 +1265,6 @@
             let p1Alive = battleState.p1Team.some(f => !f.isDead);
             let p2Alive = battleState.p2Team.some(f => !f.isDead);
 
-            // 修改點：如果玩家全滅 (!p1Alive)，跳出接關倒數畫面，而不是直接 Game Over
             if(!p1Alive && !p2Alive) handleMatchResult(false); 
             else if(!p1Alive) handleMatchResult(false);
             else if(!p2Alive) handleMatchResult(true);
@@ -1233,7 +1280,7 @@
 
     function handleMatchResult(playerWon) {
         if (playerWon) {
-            if (gameState.stage === 22) {
+            if (gameState.stage === 23) {
                 gameState.wins++; gameState.inProgress = false; 
                 let isNewHigh = gameState.score > gameState.highScore;
                 if (isNewHigh) gameState.highScore = gameState.score;
@@ -1242,13 +1289,12 @@
                 let endMsg = `本次總分: ${gameState.score}\n歷史最高: ${gameState.highScore}`;
                 if (isNewHigh) endMsg += "\n🎉 破紀錄啦！ 🎉";
                 
-                showOverlay("👑 冠軍誕生 👑", `恭喜你擊敗大魔王！\n贏得第 ${gameState.wins} 屆 K.O.E 大賽！\n\n${endMsg}`, () => { loadSave(); switchScreen(UI.start); }, null, true);
+                showOverlay("👑 傳說誕生 👑", `恭喜你擊敗造物主！\n贏得第 ${gameState.wins} 屆 K.O.E 總冠軍！\n\n${endMsg}`, () => { loadSave(); switchScreen(UI.start); }, null, true);
             } else {
                 gameState.stage++; doSave();
                 showOverlay("STAGE CLEAR", "準備進入下一關", () => { startMatch(); }, null, true);
             }
         } else {
-            // [修改]：進入 Continue 倒數，取代原本立刻放棄的 GAME OVER
             showContinueScreen();
         }
     }
@@ -1349,11 +1395,22 @@
         f.spd = text.includes('❄️') ? 0 : f.char.cls.spd;
     }
 
+    // 更新存活燈號系統：自動適應隊伍人數，隱藏沒用的燈號
     function updateScoreUI() {
         let p1Dots = document.getElementById('p1-score').children;
         let p2Dots = document.getElementById('p2-score').children;
-        battleState.p1Team.forEach((f, i) => p1Dots[i].className = 'score-dot' + (f.isDead ? ' dead' : ''));
-        battleState.p2Team.forEach((f, i) => p2Dots[i].className = 'score-dot p2-dot' + (f.isDead ? ' dead' : ''));
+        
+        for(let i=0; i<3; i++) {
+            if (i < battleState.p1Team.length) {
+                p1Dots[i].className = 'score-dot' + (battleState.p1Team[i].isDead ? ' dead' : '');
+                p1Dots[i].style.display = 'block';
+            } else { p1Dots[i].style.display = 'none'; }
+            
+            if (i < battleState.p2Team.length) {
+                p2Dots[i].className = 'score-dot p2-dot' + (battleState.p2Team[i].isDead ? ' dead' : '');
+                p2Dots[i].style.display = 'block';
+            } else { p2Dots[i].style.display = 'none'; }
+        }
     }
 
     function showOverlay(msg, sub, callback, autoCloseTime = null, showBtn = false) {
