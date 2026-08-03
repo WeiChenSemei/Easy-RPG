@@ -791,8 +791,8 @@ class Enemy {
         this.isDead = false; this.speedMod = 1.0; this.speedTimer = 0; this.poisonTimer = 0; this.poisonTick = 0; this.hitTimer = 0; this.stateTimer = 0; this.wanderDir = Math.random() * Math.PI * 2;
         
         let stage = Engine.gameState.stage;
-        let st = Math.pow(1.35, stage - 1) + (stage - 1) * 0.5;
-        let stDmg = Math.pow(1.15, stage - 1) + (stage - 1) * 0.2;
+        let st = Math.pow(1.06, stage - 1) + (stage - 1) * 0.5;
+        let stDmg = Math.pow(1.03, stage - 1) + (stage - 1) * 0.2;
         let md;
         
         if (type === 'boss') { md = archetype; this.type = archetype.id; this.emoji = customEmoji; } 
@@ -1069,6 +1069,8 @@ class BloodOrb {
         this.radius = 6;     // 血球大小
         this.life = 15.0;    // 存活 15 秒後消失
         this.isDead = false;
+        // 補血量可以固定，也可以參考 Engine.player.getMaxHp() * 0.05 (補5%最大生命)
+        this.healAmount = 15; 
     }
     update(dt) {
         this.life -= dt;
@@ -1078,10 +1080,9 @@ class BloodOrb {
         if (!Engine.player.isDead) {
             let rSum = this.radius + Engine.player.radius;
             if (distSq(this.x, this.y, Engine.player.x, Engine.player.y) < rSum * rSum) {
-                let healAmt = Math.floor(Engine.player.getMaxHp() * 0.05 + 15);
-                Engine.player.heal(healAmt);
+                Engine.player.heal(this.healAmount);
                 addParticle(this.x, this.y, '#ef4444', 10); // 撿起時爆出紅色粒子
-                addFloatingText(`+${healAmt}`, this.x, this.y - 20, '#22c55e'); // 跳綠字
+                addFloatingText(`+${this.healAmount}`, this.x, this.y - 20, '#22c55e'); // 跳綠字
                 this.isDead = true; // 撿起後標記死亡
             }
         }
