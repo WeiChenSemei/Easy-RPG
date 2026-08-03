@@ -371,7 +371,7 @@ const Engine = {
     camera: { x: 0, y: 0 },
     gameState: { stage: 1, kills: 0, bossReq: 50, bossSpawned: false, stageColor: {h:220, s:50, l:15} },
     player: null,
-    enemies: [], projectiles: [], particles: [], floatingTexts: [], shrines: [], obstacles: [], mapMercenaries: [], partyMercenaries: [],
+    enemies: [], orbs: [], projectiles: [], particles: [], floatingTexts: [], shrines: [], obstacles: [], mapMercenaries: [], partyMercenaries: [],
     loadedChunks: {}, unlockedNodes: {},
     joystick: { active: false, dx: 0, dy: 0 },
     keys: {},
@@ -390,7 +390,7 @@ const Engine = {
     startEngine: function() {
         resizeCanvas();
         document.getElementById('classSelectionScreen').classList.add('hidden'); document.getElementById('mainMenu').classList.add('hidden'); document.getElementById('uiLayer').classList.remove('hidden');
-        this.enemies=[]; this.projectiles=[]; this.particles=[]; this.floatingTexts=[]; this.shrines=[]; this.loadedChunks=[]; this.mapMercenaries=[]; this.partyMercenaries=[];
+        this.enemies=[]; this.orbs = []; this.projectiles=[]; this.particles=[]; this.floatingTexts=[]; this.shrines=[]; this.loadedChunks=[]; this.mapMercenaries=[]; this.partyMercenaries=[];
         document.getElementById('uiStageContainer').classList.remove('hidden'); document.getElementById('uiKillsContainer').classList.remove('hidden'); 
         this.isGameRunning = true; this.lastTime = performance.now(); 
         UI.update(); UI.buildTree(); SaveSystem.save();
@@ -420,6 +420,8 @@ const Engine = {
         for(let i = this.enemies.length - 1; i >= 0; i--) { if (this.enemies[i].isDead) this.enemies.splice(i, 1); else this.enemies[i].update(dt); }
         for(let i = this.projectiles.length - 1; i >= 0; i--) { if (this.projectiles[i].isDead) this.projectiles.splice(i, 1); else this.projectiles[i].update(dt); }
         this.shrines.forEach(s => s.update(dt));
+        this.orbs.forEach(o => o.update(dt)); 
+        this.orbs = this.orbs.filter(o => !o.isDead);
 
         if (this.particles.length > 200) this.particles.splice(0, this.particles.length - 200);
 
@@ -441,8 +443,8 @@ const Engine = {
 
         ctx.save(); ctx.translate(-this.camera.x, -this.camera.y);
         this.obstacles.forEach(o => { ctx.font = (o.radius*2.5)+'px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(o.type, o.x, o.y); }); 
-
         this.shrines.forEach(s => s.draw()); this.mapMercenaries.forEach(m => m.draw());
+        this.orbs.forEach(o => o.draw());
         this.projectiles.forEach(p => p.draw()); this.enemies.forEach(e => e.draw()); this.partyMercenaries.forEach(m => m.draw());
         this.player.draw();
 
@@ -532,7 +534,8 @@ const Engine = {
             }
         }
 
-        if (!wasDead && target.isDead && target.xpVal) { 
+        if (!wasDead && target.isDead && target.xpVal) {
+            if (Math.random() < 0.1) { Engine.orbs.push(new BloodOrb(target.x, target.y));}//血球10%掉落
             if(attackerFaction === 'player') {
                 this.player.gainXp(target.xpVal); this.gameState.kills++;
                 if (this.player.mods.passive_mana_cascade && type.includes('magic') && Math.random() < 0.3) {
@@ -576,7 +579,7 @@ const Engine = {
         this.player.forcedMove = null;
 
         this.partyMercenaries = []; this.mapMercenaries = [];
-        this.enemies = []; this.projectiles = []; this.particles = []; this.floatingTexts = []; this.shrines = []; this.loadedChunks = {};
+        this.enemies = []; this.orbs = []; this.projectiles = []; this.particles = []; this.floatingTexts = []; this.shrines = []; this.loadedChunks = {};
         
         document.getElementById('gameOverScreen').classList.add('hidden'); document.getElementById('uiLayer').classList.remove('hidden');
         this.isGameRunning = true; this.lastTime = performance.now(); UI.update();
@@ -1055,6 +1058,50 @@ class Projectile {
         }
         
         ctx.restore(); 
+    }
+}
+
+class BloodOrb {
+    constructor(x, y) {
+        // 讓血球掉落時稍微偏移中心，避免全部疊在一起
+        this.x = x + (Math.random() - 0.5) * 20; 
+        this.y = y + (Math.random() - 0.5) * 20;
+        this.radius = 6;     // 血球大小
+        this.life = 15.0;    // 存活 15 秒後消失
+        this.isDead = false;
+        // 補血量可以固定，也可以參考 Engine.player.getMaxHp() * 0.05 (補5%最大生命)
+        this.healAmount = 15; 
+    }
+    update(dt) {
+        this.life -= dt;
+        if (this.life <= 0) { this.isDead = true; return; }
+
+        // 偵測玩家是否靠近撿取 (利用已經寫好的 distSq 平方距離，效能最好)
+        if (!Engine.player.isDead) {
+            let rSum = this.radius + Engine.player.radius;
+            if (distSq(this.x, this.y, Engine.player.x, Engine.player.y) < rSum * rSum) {
+                Engine.player.heal(this.healAmount);
+                addParticle(this.x, this.y, '#ef4444', 10); // 撿起時爆出紅色粒子
+                addFloatingText(`+${this.healAmount}`, this.x, this.y - 20, '#22c55e'); // 跳綠字
+                this.isDead = true; // 撿起後標記死亡
+            }
+        }
+    }
+    draw() {
+        ctx.save(); 
+        ctx.translate(this.x, this.y);
+        
+        // 畫一個有透明光暈的紅球
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, this.radius * 1.8, 0, Math.PI * 2); 
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.3)'; ctx.fill();
+        
+        // 如果快消失了(剩不到3秒)，讓它閃爍
+        if (this.life < 3.0 && Engine.frameCount % 20 < 10) {
+            ctx.globalAlpha = 0.3;
+        }
+        ctx.restore();
     }
 }
 
