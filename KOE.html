@@ -233,7 +233,6 @@
 
 <!-- 戰術換人畫面 -->
 <div id="next-fighter-screen" class="screen">
-    <!-- UI修正：最大關卡改為23 -->
     <div class="vs-title">戰術換人<br><span style="font-size:1.2rem; color:#aaa;">( Stage <span id="nf-stage-display">1</span> / 23 )</span></div>
     <p style="color:#aaa; margin-bottom:10px;">對方場上角色 (勝者留場)</p>
     <div class="enemy-preview">
@@ -257,7 +256,6 @@
 <div id="battle-screen" class="screen">
     <div class="top-bar">
         <div class="top-bar-left">
-            <!-- UI修正：最大關卡改為23 -->
             <div>Stage: <span id="stage-display" style="color:#f1c40f">1</span>/23</div>
             <div style="font-size:0.75rem; color:#2ed573">Score: <span id="score-display">0</span></div>
         </div>
@@ -356,7 +354,6 @@
         'linear-gradient(to bottom, #190a05 0%, #2b044d 55%, #4a235a 55%, #150529 100%)'  
     ];
 
-    // 新增無屬性定義
     const ELEMENTS = {
         'fire': { id:'fire', e:'🔥', name:'火', color:'var(--fire)', strong:'nature', weak:'water' },
         'water': { id:'water', e:'💧', name:'水', color:'var(--water)', strong:'fire', weak:'nature' },
@@ -364,6 +361,7 @@
         'none': { id:'none', e:'⚪', name:'無', color:'#ffffff', strong:null, weak:null }
     };
 
+    // 平衡調整：戰士range=20，刺客atk=135、range=15
     const CLASSES = {
         'warrior': { id:'warrior', e:'⚔️', name:'戰士', hp: 1000, atk: 120, spd: 40, range: 20 },
         'mage': { id:'mage', e:'🪄', name:'法師', hp: 800, atk: 150, spd: 35, range: 60 },
@@ -428,12 +426,11 @@
         {e:'🦖', n:'暴君巨獸', el:'nature'}
     ];
 
-    // 新增：最終頭目 造物主
     const CREATOR_CHAR = {
         id: 999, emoji: '👁️', name: '造物主',
-        element: ELEMENTS['none'], // 無屬性
+        element: ELEMENTS['none'], 
         clsId: 'creator',
-        cls: { name:'神', e:'👑', hp: 3000, atk: 150, spd: 45, range: 25, skills: [] }, // 技能稍後動態載入全職業
+        cls: { name:'神', e:'👑', hp: 3000, atk: 150, spd: 45, range: 25, skills: [] }, 
         isBoss: true
     };
 
@@ -478,13 +475,12 @@
             });
         });
 
-        // 賦予造物主全職業技能 (共27招)
         CREATOR_CHAR.cls.skills = [...SKILL_POOL.warrior, ...SKILL_POOL.mage, ...SKILL_POOL.rogue];
     }
     initCharacters();
 
-    /* ================= 狀態管理 ================= */
-    let gameState = { wins: 0, stage: 1, playerTeam: [], enemyPool: [], inProgress: false, score: 0, highScore: 0 };
+    /* ================= 狀態管理 (加入 playerSkills 紀錄玩家技能) ================= */
+    let gameState = { wins: 0, stage: 1, playerTeam: [], playerSkills: {}, enemyPool: [], inProgress: false, score: 0, highScore: 0 };
     let battleState = { p1Team: [], p2Team: [], p1ActiveIdx: 0, p2ActiveIdx: 0, timer: 60, isPlaying: false, lastTime: 0, cameraX: 50, hitStopTimer: 0, shakeTimer: 0 };
     let f1, f2; 
     let projectiles = [];
@@ -506,10 +502,26 @@
     /* ================= 存檔與選角 ================= */
     function loadSave() {
         try {
-            const save = localStorage.getItem('kof_save_v19');
+            // 版本號升級為 v20 以支援技能記憶功能
+            const save = localStorage.getItem('kof_save_v20');
             if (save) {
                 let parsed = JSON.parse(save);
                 gameState = { ...gameState, ...parsed };
+                
+                // 還原玩家角色的技能
+                if (gameState.playerTeam && gameState.playerSkills) {
+                    gameState.playerTeam.forEach(id => {
+                        let savedSkillIds = gameState.playerSkills[id];
+                        if (savedSkillIds && CHARACTERS[id]) {
+                            let pool = SKILL_POOL[CHARACTERS[id].clsId] || [];
+                            let restoredSkills = savedSkillIds.map(sid => pool.find(s => s.id === sid)).filter(Boolean);
+                            if (restoredSkills.length === 3) {
+                                CHARACTERS[id].cls.skills = restoredSkills;
+                            }
+                        }
+                    });
+                }
+
                 document.getElementById('stat-wins').innerText = gameState.wins;
                 document.getElementById('stat-highscore').innerText = gameState.highScore;
                 
@@ -528,12 +540,12 @@
         }
     }
     function doSave() { 
-        try { localStorage.setItem('kof_save_v19', JSON.stringify(gameState)); } catch(e) {}
+        try { localStorage.setItem('kof_save_v20', JSON.stringify(gameState)); } catch(e) {}
     }
     loadSave();
 
     document.getElementById('btn-new-game').onclick = () => {
-        gameState.stage = 1; gameState.playerTeam = []; gameState.inProgress = true; gameState.score = 0; 
+        gameState.stage = 1; gameState.playerTeam = []; gameState.playerSkills = {}; gameState.inProgress = true; gameState.score = 0; 
         doSave(); showSelectScreen();
     };
 
@@ -632,6 +644,13 @@
 
     document.getElementById('btn-confirm-team').onclick = () => {
         gameState.playerTeam = [...tempTeam];
+        
+        // 記憶玩家抽到的技能
+        gameState.playerSkills = {};
+        tempTeam.forEach(id => {
+            gameState.playerSkills[id] = CHARACTERS[id].cls.skills.map(s => s.id);
+        });
+
         let availIds = [];
         for(let i=0; i<66; i++) { if(!tempTeam.includes(i)) availIds.push(i); }
         availIds.sort(() => Math.random() - 0.5);
@@ -673,7 +692,7 @@
     document.getElementById('btn-continue-yes').onclick = () => {
         if (continueTimerId) clearInterval(continueTimerId);
         document.getElementById('continue-overlay').style.display = 'none';
-        startMatch(); // 直接以滿血重新開打這關
+        startMatch();
     };
 
     document.getElementById('btn-continue-no').onclick = () => {
@@ -723,7 +742,6 @@
 
         battleState.p1Team = gameState.playerTeam.map(id => createFighterObj(CHARACTERS[id], 1));
         
-        // 【關卡處理更新】：第23關為最終頭目，第22關為三小王
         if (gameState.stage === 23) {
             battleState.p2Team = [createFighterObj(CREATOR_CHAR, 2)];
         } else if (gameState.stage === 22) {
@@ -961,7 +979,6 @@
             if (f.nextThink <= 0) {
                 f.nextThink = (0.5 + Math.random() * 0.5) / currentAggression; 
                 
-                // 動態取得防禦與閃避按鈕索引 (因為造物主技能陣列很長)
                 let dodgeIdx = f.skills.findIndex(s => s.id === 'dodge');
                 let defendIdx = f.skills.findIndex(s => s.id === 'defend');
 
@@ -971,7 +988,6 @@
                 }
                 
                 if (!actedThisFrame && f.chasingSkill === null) {
-                    // 【造物主 AI】：動態技能選用
                     if (f.char.clsId === 'creator') {
                         let availFar = [], availNear = [];
                         f.skills.forEach((s, idx) => {
@@ -981,14 +997,14 @@
                             }
                         });
                         
-                        if (dist > f.range + 15) { // 遠距離
+                        if (dist > f.range + 15) { 
                             if (availFar.length > 0 && Math.random() < 0.5 * currentAggression) {
                                 let sIdx = availFar[Math.floor(Math.random() * availFar.length)];
                                 if (f.skills[sIdx].type === 'melee' && dist > f.range + 5) f.chasingSkill = sIdx;
                                 else activateSkill(f, enemy, sIdx);
                                 actedThisFrame = true;
                             }
-                        } else { // 近距離
+                        } else { 
                             if (availNear.length > 0 && Math.random() < 0.5 * currentAggression) {
                                 let sIdx = availNear[Math.floor(Math.random() * availNear.length)];
                                 activateSkill(f, enemy, sIdx);
@@ -996,7 +1012,6 @@
                             }
                         }
                     } else {
-                        // 一般 AI
                         let avail = [0,1,2].filter(i => f.skills[i].currentCd <= 0);
                         if (avail.length > 0 && Math.random() < (0.35 * currentAggression)) {
                             let sIdx = avail[Math.floor(Math.random()*avail.length)];
@@ -1158,7 +1173,6 @@
         let atk = caster.atk; if (caster.buffs.some(b => b.type === 'atk_up')) atk *= 1.5;
         let eleMult = 1.0;
         
-        // 屬性相剋邏輯 (無屬性自然不匹配 strong 與 weak)
         if (caster.char.element.strong === target.char.element.id && target.char.element.id !== 'none') eleMult = 1.1;
         if (caster.char.element.weak === target.char.element.id && target.char.element.id !== 'none') eleMult = 0.9;
 
@@ -1395,7 +1409,6 @@
         f.spd = text.includes('❄️') ? 0 : f.char.cls.spd;
     }
 
-    // 更新存活燈號系統：自動適應隊伍人數，隱藏沒用的燈號
     function updateScoreUI() {
         let p1Dots = document.getElementById('p1-score').children;
         let p2Dots = document.getElementById('p2-score').children;
