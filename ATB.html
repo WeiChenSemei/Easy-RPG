@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>無限打怪闖關 - 指定目標與獨立倉庫版</title>
+<style>
+    /* 基本重置與全螢幕設定 */
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body { background-color: #111; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; touch-action: none; }
+    
+    /* 遊戲主視窗 */
+    #game-container {
+        position: relative; width: 100vw; height: 100vh; max-width: 540px; margin: 0 auto;
+        background: #222; box-shadow: 0 0 20px rgba(0,0,0,0.8); display: flex; flex-direction: column;
+    }
+    
+    /* 戰鬥畫布 */
+    #game-canvas {
+        flex: 1; width: 100%; display: block;
+        background: linear-gradient(to bottom, #1a2a3a 0%, #2a3a2a 50%, #3a2a2a 100%);
+    }
+
+    /* 戰鬥 UI 區塊 */
+    #battle-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+
+    /* 技能指令選單 */
+    #action-menu {
+        position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0, 0, 0, 0.95);
+        border-top: 2px solid #aaa; padding: 10px; display: none; pointer-events: auto;
+        flex-direction: column; gap: 8px; z-index: 100; animation: slideUp 0.2s ease-out;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    
+    .menu-header { text-align: center; font-weight: bold; color: #ffd700; margin-bottom: 5px; font-size: 1.1em;}
+    .skill-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 250px; overflow-y: auto;}
+    .btn {
+        background: linear-gradient(180deg, #444, #222); border: 1px solid #777; border-radius: 5px;
+        color: white; padding: 12px; font-size: 16px; text-align: center; cursor: pointer; transition: 0.1s;
+    }
+    .btn:active { background: #555; transform: scale(0.98); }
+    .btn.combo { border-color: #ffaa00; color: #ffea88; background: linear-gradient(180deg, #663300, #331100); }
+    .btn.disabled { opacity: 0.5; pointer-events: none; filter: grayscale(1); }
+
+    /* 瞄準模式 UI */
+    #targeting-ui {
+        position: absolute; bottom: 20px; left: 0; width: 100%; display: none; pointer-events: auto;
+        flex-direction: column; align-items: center; gap: 10px; z-index: 100;
+    }
+    .target-msg { background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 20px; color: #00ffcc; border: 1px solid #00ffcc; font-weight: bold;}
+    .cancel-btn { background: #aa3333; padding: 10px 30px; border-radius: 5px; border: 2px solid #ff5555; color: white; font-weight: bold; cursor: pointer;}
+    .cancel-btn:active { background: #772222; }
+
+    /* 時間的盡頭 UI (Hub) */
+    #end-of-time-ui {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.95);
+        display: none; flex-direction: column; pointer-events: auto; z-index: 200; padding: 15px; overflow-y: auto;
+    }
+    .hub-title { text-align: center; color: #bbaaff; font-size: 24px; margin-bottom: 15px; text-shadow: 0 0 10px #7755ff; }
+    .hub-nav { display: flex; gap: 10px; margin-bottom: 15px; }
+    .hub-tab { flex: 1; padding: 10px; text-align: center; background: #333; border-radius: 5px; cursor: pointer; }
+    .hub-tab.active { background: #5544aa; border: 1px solid #9988ff; }
+    .hub-content { flex: 1; display: none; flex-direction: column; gap: 15px; }
+    .hub-content.active { display: flex; }
+
+    /* 隊伍設定介面 */
+    .party-slots { display: flex; justify-content: space-around; background: #222; padding: 15px 5px; border-radius: 8px; border: 1px solid #444; }
+    .party-slot { width: 80px; height: 100px; background: #111; border: 2px dashed #666; border-radius: 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; position: relative;}
+    .party-slot.selected { border-color: #ffaa00; background: #332200; }
+    .party-slot .emoji { font-size: 36px; }
+    .roster-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .roster-char { background: #222; padding: 10px; text-align: center; border-radius: 5px; border: 1px solid #444; cursor: pointer; }
+    .roster-char:active { background: #444; }
+    .roster-char.in-party { opacity: 0.4; pointer-events: none; }
+
+    /* 裝備介面 */
+    .equip-layout { display: flex; gap: 10px; height: 100%; }
+    .equip-chars { width: 30%; display: flex; flex-direction: column; gap: 5px; overflow-y: auto;}
+    .equip-char-btn { padding: 10px; background: #222; border: 1px solid #444; text-align: center; border-radius: 5px; cursor: pointer; }
+    .equip-char-btn.active { background: #44aa44; border-color: #66cc66;}
+    .equip-slots { flex: 1; background: #222; padding: 10px; border-radius: 5px; display: flex; flex-direction: column; gap: 8px; overflow-y:auto;}
+    .equip-item { display: flex; flex-direction: column; background: #111; padding: 10px; border: 1px solid #555; border-radius: 5px; cursor: pointer;}
+    .equip-item:active { background: #333; }
+    .equip-row-top { display: flex; align-items: center; justify-content: space-between; }
+    .equip-type { color: #888; font-size: 12px; width: 45px; }
+    .equip-name { flex: 1; text-align: left; padding-left: 5px; color: #ddd; font-weight: bold;}
+    .equip-stats { font-size: 11px; color: #aaa; margin-top: 5px; padding-left: 50px;}
+
+    /* 物品選擇彈窗 */
+    #item-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; display: none; flex-direction: column; padding: 20px; }
+    .modal-title { font-size: 20px; color: #ffaa00; margin-bottom: 15px; text-align: center;}
+    .item-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    .item-row { background: #222; padding: 12px; border: 1px solid #555; border-radius: 5px; cursor: pointer; display: flex; flex-direction: column;}
+    .item-row.equipped { border-color: #884444; }
+    .item-desc { font-size: 12px; color: #aaa; margin-top: 6px; }
+    .close-modal { margin-top: 15px; padding: 15px; background: #444; text-align: center; border-radius: 5px; font-weight: bold; cursor: pointer;}
+    .close-modal:active { background: #222; }
+
+    .start-btn { padding: 15px; background: linear-gradient(180deg, #008800, #004400); color: white; text-align: center; font-size: 18px; font-weight: bold; border-radius: 8px; border: 2px solid #00aa00; cursor: pointer; margin-top: auto; margin-bottom: 10px;}
+    
+    #stage-msg { position: absolute; top: 35%; left: 0; width: 100%; text-align: center; pointer-events: none; opacity: 0; transition: 0.5s; z-index: 150;}
+    .clear-title { font-size: 40px; font-weight: bold; color: #ffea00; text-shadow: 0 0 15px #ff5500; margin-bottom: 10px;}
+    .loot-text { font-size: 18px; font-weight: bold; color: #00ffaa; text-shadow: 0 0 5px #000; background: rgba(0,0,0,0.6); display: inline-block; padding: 5px 15px; border-radius: 20px; max-width: 90%; word-wrap: break-word;}
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- 戰鬥畫布 -->
+    <canvas id="game-canvas"></canvas>
+    <div id="battle-ui">
+        <div id="stage-msg">
+            <div class="clear-title">Stage Clear!</div>
+            <div class="loot-text" id="loot-info">獲得裝備: 無</div>
+        </div>
+        
+        <div id="action-menu">
+            <div class="menu-header" id="menu-actor-name">Actor Name</div>
+            <div class="skill-grid" id="skill-container"></div>
+        </div>
+
+        <div id="targeting-ui">
+            <div class="target-msg">請點擊目標...</div>
+            <div class="cancel-btn" onclick="cancelTargeting()">取消 (返回選單)</div>
+        </div>
+    </div>
+
+    <!-- 時間的盡頭 UI -->
+    <div id="end-of-time-ui">
+        <div class="hub-title">🌌 時間的盡頭 🌌</div>
+        <div style="text-align:center; color:#ccc; margin-bottom: 10px;">整理你的隊伍與裝備，準備迎接下一關。</div>
+        
+        <div class="hub-nav">
+            <div class="hub-tab active" onclick="switchHubTab('party')">組隊陣容</div>
+            <div class="hub-tab" onclick="switchHubTab('equip')">裝備與倉庫</div>
+        </div>
+
+        <div id="tab-party" class="hub-content active">
+            <div style="color: #aaa; font-size: 14px; text-align:center;">點擊上方空位，再點選下方角色進行替換</div>
+            <div class="party-slots" id="ui-party-slots"></div>
+            <div class="roster-list" id="ui-roster-list"></div>
+        </div>
+
+        <div id="tab-equip" class="hub-content">
+            <div class="equip-layout">
+                <div class="equip-chars" id="ui-equip-chars"></div>
+                <div class="equip-slots" id="ui-equip-slots"></div>
+            </div>
+        </div>
+
+        <div class="start-btn" onclick="startNextStage()">進入下一關 ➔</div>
+    </div>
+
+    <div id="item-modal">
+        <div class="modal-title" id="modal-title">選擇裝備</div>
+        <div class="item-list" id="modal-item-list"></div>
+        <div class="close-modal" onclick="closeItemModal()">關閉</div>
+    </div>
+</div>
+
+<script>
+/* STREAMING_CHUNK: Setting up Database... */
+const DB = {
+    classes: {
+        warrior:   { id: 'warrior', name: '戰士', emoji: '🛡️', hp: 500, atk: 40, def: 30, spd: 40, color: '#e74c3c' },
+        mage:      { id: 'mage', name: '法師', emoji: '🧙‍♀️', hp: 250, atk: 60, def: 10, spd: 55, color: '#3498db' },
+        priest:    { id: 'priest', name: '牧師', emoji: '👼', hp: 300, atk: 25, def: 15, spd: 50, color: '#f1c40f' },
+        rogue:     { id: 'rogue', name: '盜賊', emoji: '🥷', hp: 280, atk: 50, def: 15, spd: 80, color: '#8e44ad' },
+        ranger:    { id: 'ranger', name: '遊俠', emoji: '🧝‍♀️', hp: 320, atk: 45, def: 20, spd: 65, color: '#2ecc71' },
+        swordsman: { id: 'swordsman', name: '劍士', emoji: '⚔️', hp: 400, atk: 55, def: 25, spd: 50, color: '#e67e22' }
+    },
+    skills: {
+        attack:       { name: "普通攻擊", type: "damage", target: "single", power: 1.0, desc: "造成100%攻擊力傷害" },
+        taunt_slash:  { name: "嘲諷斬", type: "damage_pull", target: "single", power: 1.2, aoeRadius: 150, desc: "單體傷害，並將周圍敵人拉向目標" },
+        whirlwind:    { name: "大風車", type: "damage", target: "self_aoe", power: 0.8, aoeRadius: 120, desc: "對自身周圍敵人造成傷害" },
+        meteor:       { name: "隕石術", type: "damage", target: "single_aoe", power: 2.0, aoeRadius: 100, desc: "對指定目標及其周圍造成巨大魔法傷害" },
+        laser:        { name: "貫穿雷射", type: "damage_line", target: "single", power: 1.5, lineWidth: 40, desc: "對指定直線上的敵人造成貫穿傷害" },
+        heal:         { name: "單體大補", type: "heal", target: "ally_single", power: 2.5, desc: "大幅恢復指定隊友血量" },
+        holy_nova:    { name: "神聖新星", type: "heal_damage", target: "self_aoe", power: 1.0, aoeRadius: 150, desc: "自身範圍補血並對敵人造成微量傷害" },
+        poison_dag:   { name: "毒刃", type: "damage", target: "single", power: 2.5, desc: "極高單體傷害" },
+        smoke_bomb:   { name: "煙霧彈", type: "damage", target: "self_aoe", power: 0.5, aoeRadius: 200, desc: "大範圍微量傷害" },
+        arrow_rain:   { name: "箭雨", type: "damage", target: "single_aoe", power: 1.2, aoeRadius: 120, desc: "對指定區域造成範圍傷害" },
+        iai_slash:    { name: "居合斬", type: "damage", target: "single", power: 1.8, desc: "高速拔刀斬" },
+        
+        first_aid:    { name: "急救", type: "heal", target: "ally_single", power: 1.0, desc: "小幅恢復指定隊友血量" },
+        blood_suck:   { name: "吸血打擊", type: "damage_heal_self", target: "single", power: 1.5, desc: "對單體造成傷害並恢復自身血量" },
+        magic_missile:{ name: "魔法飛彈", type: "damage", target: "random_aoe", power: 1.2, aoeRadius: 80, desc: "自動轟炸隨機敵人及其周圍" },
+        earthquake:   { name: "地震", type: "damage", target: "self_aoe", power: 1.2, aoeRadius: 300, desc: "全畫面大範圍震擊傷害" },
+
+        combo_x_strike: { name: "X字斬 (合體)", type: "combo_damage", target: "single", power: 4.0, partners: ['warrior'], desc: "【劍士+戰士】驚人的單體交叉斬擊", color: '#ff5500' },
+        combo_holy_sword: { name: "聖劍降臨 (合體)", type: "combo_damage_heal", target: "single_aoe", power: 3.0, aoeRadius: 150, partners: ['priest'], desc: "【劍士+牧師】神聖範圍傷害+全體恢復", color: '#ffffaa' }
+    },
+    items: {
+        w_broadsword: { id:'w_broadsword', type:'weapon', name:'寬刃劍', exclusive:'warrior', stats:{atk:10, def:10}, skill1:'taunt_slash', skill2:'whirlwind' },
+        w_staff:      { id:'w_staff', type:'weapon', name:'學徒法杖', exclusive:'mage', stats:{atk:20}, skill1:'meteor', skill2:'laser' },
+        w_mace:       { id:'w_mace', type:'weapon', name:'神聖錘', exclusive:'priest', stats:{atk:5, hp:50}, skill1:'heal', skill2:'holy_nova' },
+        w_dagger:     { id:'w_dagger', type:'weapon', name:'暗殺匕首', exclusive:'rogue', stats:{atk:15, spd:10}, skill1:'poison_dag', skill2:'smoke_bomb' },
+        w_bow:        { id:'w_bow', type:'weapon', name:'長弓', exclusive:'ranger', stats:{atk:15, spd:5}, skill1:'arrow_rain' },
+        w_katana:     { id:'w_katana', type:'weapon', name:'武士刀', exclusive:'swordsman', stats:{atk:25}, skill1:'iai_slash' },
+        w_excalibur:  { id:'w_excalibur', type:'weapon', name:'王者之劍', exclusive:'swordsman', stats:{atk:40, hp:100}, skill1:'iai_slash', skill2:'combo_x_strike', desc:'解鎖合體技:X字斬(需戰士)' },
+        
+        h_vampire_mask:  { id:'h_vampire_mask', type:'head', name:'吸血鬼面具', stats:{def:10, hp:50}, skill1:'blood_suck', desc:'賦予: 吸血打擊' },
+        h_wizard_hat:    { id:'h_wizard_hat', type:'head', name:'大賢者之帽', stats:{def:5, spd:10}, skill1:'magic_missile', desc:'賦予: 魔法飛彈' },
+        h_ninja_headband:{ id:'h_ninja_headband', type:'head', name:'忍野頭巾', stats:{def:8, spd:15}, skill1:'smoke_bomb', desc:'賦予: 煙霧彈' },
+        
+        b_holy_robe:     { id:'b_holy_robe', type:'body', name:'神聖法袍', stats:{def:10, hp:120}, skill1:'first_aid', desc:'賦予: 急救' },
+        b_spike_armor:   { id:'b_spike_armor', type:'body', name:'反甲風衣', stats:{def:15, hp:80}, skill1:'poison_dag', desc:'賦予: 毒刃' },
+        b_berserker_mail:{ id:'b_berserker_mail', type:'body', name:'狂戰士鎧甲', stats:{def:30, hp:200, spd:-10}, skill1:'whirlwind', desc:'賦予: 大風車' },
+        
+        a_earth_core:    { id:'a_earth_core', type:'acc', name:'大地核心', stats:{hp:200, def:10}, skill1:'earthquake', desc:'賦予: 地震' },
+        a_phoenix_feather:{ id:'a_phoenix_feather', type:'acc', name:'鳳凰羽毛', stats:{spd:25}, skill1:'holy_nova', desc:'賦予: 神聖新星' },
+        a_hero_badge:    { id:'a_hero_badge', type:'acc', name:'英雄徽章', stats:{atk:15, hp:100}, skill1:'combo_x_strike', desc:'解鎖合體技:X字斬(需戰士)' },
+        a_holy_gem:      { id:'a_holy_gem', type:'acc', name:'聖光寶石', stats:{atk:10}, skill1:'combo_holy_sword', desc:'解鎖合體技:聖劍降臨(需牧師)' }
+    },
+    enemies: {
+        goblin: { name: '哥布林', emoji: '👺', hp: 150, atk: 15, def: 5, spd: 35, type: 'melee', radius: 20 },
+        orc:    { name: '半獸人', emoji: '👹', hp: 300, atk: 25, def: 15, spd: 25, type: 'melee', radius: 24 },
+        bat:    { name: '吸血蝙蝠', emoji: '🦇', hp: 100, atk: 20, def: 0, spd: 60, type: 'melee', radius: 18 },
+        shaman: { name: '薩滿', emoji: '💀', hp: 200, atk: 30, def: 5, spd: 40, type: 'ranged', radius: 20 }
+    }
+};
+
+/* STREAMING_CHUNK: Initializing Player State... */
+function generateUID() { return 'uid_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5); }
+
+const PlayerState = {
+    stage: 1, inventory: [], roster: [], activePartyIds: ['warrior', 'mage', 'priest'],
+    
+    init() {
+        Object.keys(DB.classes).forEach(clsId => {
+            this.roster.push({
+                id: clsId, classId: clsId,
+                equip: { weapon: null, head: null, body: null, acc1: null, acc2: null }
+            });
+        });
+        
+        this.addAndEquipItem('w_broadsword', 'warrior', 'weapon');
+        this.addAndEquipItem('w_staff', 'mage', 'weapon');
+        this.addAndEquipItem('w_mace', 'priest', 'weapon');
+        this.addAndEquipItem('w_dagger', 'rogue', 'weapon');
+        this.addAndEquipItem('w_bow', 'ranger', 'weapon');
+        this.addAndEquipItem('w_katana', 'swordsman', 'weapon');
+
+        this.addItems(['h_vampire_mask', 'h_wizard_hat', 'b_holy_robe', 'b_berserker_mail', 'a_earth_core']);
+    },
+    addItems(itemIds) {
+        let added = [];
+        itemIds.forEach(id => {
+            let uid = generateUID();
+            this.inventory.push({ uid, itemId: id });
+            added.push({ uid, itemId: id });
+        });
+        return added;
+    },
+    addAndEquipItem(itemId, heroId, slot) {
+        let added = this.addItems([itemId])[0];
+        let hero = this.getHero(heroId);
+        if (hero) hero.equip[slot] = added.uid;
+    },
+    getHero(id) { return this.roster.find(h => h.id === id); },
+    getCalculatedStats(heroData) {
+        const base = DB.classes[heroData.classId];
+        let stats = { hp: base.hp, maxHp: base.hp, atk: base.atk, def: base.def, spd: base.spd };
+        let skills = ['attack'];
+        
+        Object.values(heroData.equip).forEach(uid => {
+            if (uid) {
+                let invItem = this.inventory.find(i => i.uid === uid);
+                if (invItem && DB.items[invItem.itemId]) {
+                    let item = DB.items[invItem.itemId];
+                    if (item.stats) {
+                        if (item.stats.hp) { stats.maxHp += item.stats.hp; stats.hp += item.stats.hp; }
+                        if (item.stats.atk) stats.atk += item.stats.atk;
+                        if (item.stats.def) stats.def += item.stats.def;
+                        if (item.stats.spd) stats.spd += item.stats.spd;
+                    }
+                    if (item.skill1) skills.push(item.skill1);
+                    if (item.skill2) skills.push(item.skill2);
+                }
+            }
+        });
+        return { stats, skills };
+    }
+};
+
+/* STREAMING_CHUNK: Setting up Entities and Physics... */
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+let GAME_WIDTH = 540; let GAME_HEIGHT = 960;
+let battleActive = false; let entities = []; let effects = [];
+let menuOpen = false; let targetingMode = false; let victoryTriggered = false;
+let currentActor = null; 
+let pendingSkill = null; let pendingSkillId = null; let pendingPartners = []; let validTargets = [];
+let lastTime = 0; let difficultyMultiplier = 1.0;
+
+function resizeCanvas() { canvas.width = GAME_WIDTH; canvas.height = GAME_HEIGHT; }
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+class Entity {
+    constructor(isHero, data) {
+        this.isHero = isHero; this.id = data.id || generateUID();
+        this.emoji = data.emoji; this.name = data.name;
+        this.maxHp = data.stats.maxHp; this.hp = this.maxHp;
+        this.atk = data.stats.atk; this.def = data.stats.def; this.spd = data.stats.spd;
+        this.skills = data.skills || []; this.color = data.color || '#fff';
+        this.radius = data.radius || 20;
+        this.atb = (Math.random() * 200); this.atbMax = 1000;
+        this.state = 'idle'; this.baseX = 0; this.baseY = 0; this.x = 0; this.y = 0;
+        this.targetX = 0; this.targetY = 0; this.wanderTimer = 0;
+        this.aiType = data.aiType || 'melee';
+    }
+    get isDead() { return this.hp <= 0; }
+    takeDamage(amount, isHeal = false) {
+        if (this.isDead) return;
+        if (isHeal) {
+            let actualHeal = Math.floor(amount); this.hp = Math.min(this.maxHp, this.hp + actualHeal);
+            effects.push(new TextEffect(this.x, this.y - 20, `+${actualHeal}`, '#00ff00'));
+        } else {
+            let actualDmg = Math.max(1, Math.floor(amount - this.def * 0.5)); this.hp -= actualDmg;
+            effects.push(new TextEffect(this.x, this.y - 20, `-${actualDmg}`, '#ff3333'));
+            this.y += this.isHero ? 5 : -5;
+            if (this.hp <= 0) { this.hp = 0; this.state = 'dead'; this.atb = 0; }
+        }
+    }
+    update(dt) {
+        if (this.isDead || menuOpen || targetingMode || this.state === 'acting' || victoryTriggered) return;
+
+        if (this.state === 'idle') {
+            this.atb += this.spd * (dt / 100); 
+            if (this.atb >= this.atbMax) {
+                this.atb = this.atbMax; this.state = 'ready';
+                if (this.isHero) openMenu(this);
+            }
+        }
+        if (!this.isHero && this.state === 'ready') this.monsterAI();
+
+        if (this.state === 'idle' || this.state === 'ready') {
+            this.wanderTimer -= dt;
+            if (this.wanderTimer <= 0) {
+                this.wanderTimer = 800 + Math.random() * 1200;
+                this.targetX = Math.max(50, Math.min(GAME_WIDTH - 50, this.baseX + (Math.random() - 0.5) * 80));
+                this.targetY = this.baseY + (Math.random() - 0.5) * 60;
+            }
+            this.x += (this.targetX - this.x) * 0.03; this.y += (this.targetY - this.y) * 0.03;
+        }
+    }
+    draw(ctx) {
+        if (this.isDead) return;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath(); ctx.ellipse(this.x, this.y + this.radius, this.radius, this.radius * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+
+        if (targetingMode && validTargets.includes(this)) {
+            let t = performance.now() / 200; let pulse = Math.abs(Math.sin(t)) * 5;
+            ctx.strokeStyle = this.isHero ? '#00ff00' : '#ff3333'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.radius + 10 + pulse, 0, Math.PI * 2); ctx.stroke();
+        }
+
+        ctx.font = `${this.radius * 2}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(this.emoji, this.x, this.y);
+
+        const barW = 40; const barH = 6;
+        ctx.fillStyle = '#000'; ctx.fillRect(this.x - barW/2, this.y - this.radius - 15, barW, barH);
+        ctx.fillStyle = this.isHero ? '#2ecc71' : '#e74c3c';
+        ctx.fillRect(this.x - barW/2, this.y - this.radius - 15, barW * (this.hp / this.maxHp), barH);
+
+        ctx.fillStyle = '#000'; ctx.fillRect(this.x - barW/2, this.y - this.radius - 7, barW, 4);
+        ctx.fillStyle = this.state === 'ready' ? '#f1c40f' : '#3498db';
+        ctx.fillRect(this.x - barW/2, this.y - this.radius - 7, barW * (this.atb / this.atbMax), 4);
+        
+        if (this.state === 'ready' && this.isHero && !targetingMode) {
+            ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 2;
+            ctx.strokeRect(this.x - barW/2 - 2, this.y - this.radius - 17, barW + 4, barH + 16);
+        }
+    }
+    monsterAI() {
+        let heroes = entities.filter(e => e.isHero && !e.isDead); if (heroes.length === 0) return;
+        let target = heroes[Math.floor(Math.random() * heroes.length)];
+        this.state = 'acting'; this.atb = 0;
+        if (this.aiType === 'melee') effects.push(new DashEffect(this, target.x, target.y, () => { target.takeDamage(this.atk); this.finishTurn(); }));
+        else effects.push(new ProjectileEffect(this.x, this.y, target.x, target.y, '#ff00ff', () => { target.takeDamage(this.atk); this.finishTurn(); }));
+    }
+    finishTurn() { this.atb = 0; this.state = 'idle'; this.targetX = this.baseX; this.targetY = this.baseY; }
+}
+
+/* STREAMING_CHUNK: Defining Visual Effects... */
+class TextEffect {
+    constructor(x,y,t,c){this.x=x;this.y=y;this.t=t;this.c=c;this.l=1;}
+    update(dt){this.l-=dt/1000;this.y-=0.5;return this.l>0;}
+    draw(ctx){ctx.globalAlpha=Math.max(0,this.l);ctx.fillStyle=this.c;ctx.font='bold 20px Arial';ctx.textAlign='center';ctx.fillText(this.t,this.x,this.y);ctx.globalAlpha=1;}
+}
+class DashEffect {
+    constructor(a,dx,dy,cb){this.a=a;this.sx=a.x;this.sy=a.y;this.dx=dx;this.dy=dy;this.p=0;this.cb=cb;this.ht=false;}
+    update(dt){
+        this.p+=dt/300;
+        if(this.p>=1){
+            if(!this.ht){this.cb();this.ht=true;}
+            this.a.x+=(this.sx-this.a.x)*0.2; this.a.y+=(this.sy-this.a.y)*0.2; // Return to origin smoothly
+            if(Math.abs(this.a.x-this.sx)<5){this.a.x=this.sx;this.a.y=this.sy;return false;}
+            return true;
+        }
+        this.a.x=this.sx+(this.dx-this.sx)*Math.min(1,this.p); this.a.y=this.sy+(this.dy-this.sy)*Math.min(1,this.p);
+        return true;
+    }
+    draw(){}
+}
+class ProjectileEffect {
+    constructor(sx,sy,tx,ty,c,cb){this.x=sx;this.y=sy;this.tx=tx;this.ty=ty;this.c=c;this.cb=cb;let d=Math.hypot(tx-sx,ty-sy);this.vx=(tx-sx)/d*15;this.vy=(ty-sy)/d*15;}
+    update(dt){this.x+=this.vx;this.y+=this.vy;if(Math.hypot(this.tx-this.x,this.ty-this.y)<20){this.cb();return false;}return true;}
+    draw(ctx){ctx.fillStyle=this.c;ctx.beginPath();ctx.arc(this.x,this.y,8,0,Math.PI*2);ctx.fill();}
+}
+class ExplosionEffect {
+    constructor(x,y,r,c,cb){this.x=x;this.y=y;this.r=r;this.c=c;this.l=0.5;this.m=0.5;this.cb=cb;}
+    update(dt){this.l-=dt/1000;if(this.l<=0){if(this.cb)this.cb();return false;}return true;}
+    draw(ctx){let p=1-(this.l/this.m);ctx.globalAlpha=1-p;ctx.fillStyle=this.c;ctx.beginPath();ctx.arc(this.x,this.y,this.r*p,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
+}
+class LaserEffect {
+    constructor(sx,sy,tx,ty,w,cb){this.sx=sx;this.sy=sy;this.w=w;let d=Math.hypot(tx-sx,ty-sy);this.ex=sx+(tx-sx)/d*1000;this.ey=sy+(ty-sy)/d*1000;this.l=0.4;this.m=0.4;this.cb=cb;}
+    update(dt){this.l-=dt/1000;if(this.l<=0){if(this.cb)this.cb();return false;}return true;}
+    draw(ctx){ctx.globalAlpha=this.l/this.m;ctx.strokeStyle='#00ffff';ctx.lineWidth=this.w;ctx.beginPath();ctx.moveTo(this.sx,this.sy);ctx.lineTo(this.ex,this.ey);ctx.stroke();ctx.globalAlpha=1;}
+}
+class ScreenFlashEffect {
+    constructor(c,d){this.c=c;this.l=d;this.d=d;}
+    update(dt){this.l-=dt/1000;return this.l>0;}
+    draw(ctx){ctx.globalAlpha=(this.l/this.d)*0.5;ctx.fillStyle=this.c;ctx.fillRect(0,0,GAME_WIDTH,GAME_HEIGHT);ctx.globalAlpha=1;}
+}
+
+/* STREAMING_CHUNK: Initializing Battle Logic... */
+function getDistance(e1, e2) { return Math.hypot(e1.x - e2.x, e1.y - e2.y); }
+
+function initBattle() {
+    entities = []; effects = []; menuOpen = false; targetingMode = false; victoryTriggered = false;
+    document.getElementById('action-menu').style.display = 'none';
+    document.getElementById('targeting-ui').style.display = 'none';
+    
+    const activeHeroes = PlayerState.activePartyIds.map(id => PlayerState.getHero(id)).filter(h => h);
+    const heroSpacing = GAME_WIDTH / (activeHeroes.length + 1);
+    
+    const meleeHeroIds = ['warrior', 'rogue', 'swordsman'];
+    
+    activeHeroes.forEach((hData, index) => {
+        const { stats, skills } = PlayerState.getCalculatedStats(hData);
+        let hero = new Entity(true, { id: hData.id, emoji: DB.classes[hData.classId].emoji, name: DB.classes[hData.classId].name, stats, skills, color: DB.classes[hData.classId].color });
+        
+        hero.baseX = heroSpacing * (index + 1);
+        let isMelee = meleeHeroIds.includes(hData.classId);
+        hero.baseY = GAME_HEIGHT * (isMelee ? 0.58 : 0.72) + (Math.random() * 20 - 10);
+        
+        hero.x = hero.baseX; hero.y = hero.baseY;
+        entities.push(hero);
+    });
+
+    const enemyCount = 3 + Math.floor(Math.random() * 3);
+    const enemySpacing = GAME_WIDTH / (enemyCount + 1);
+    const enemyTypes = Object.keys(DB.enemies);
+    
+    for (let i = 0; i < enemyCount; i++) {
+        let baseData = DB.enemies[enemyTypes[Math.floor(Math.random() * enemyTypes.length)]];
+        let enemy = new Entity(false, {
+            emoji: baseData.emoji, name: baseData.name, aiType: baseData.type, radius: baseData.radius,
+            stats: { maxHp: baseData.hp * difficultyMultiplier, atk: baseData.atk * difficultyMultiplier, def: baseData.def * difficultyMultiplier, spd: baseData.spd }
+        });
+        
+        enemy.baseX = enemySpacing * (i + 1); 
+        let isEnemyMelee = baseData.type === 'melee';
+        enemy.baseY = GAME_HEIGHT * (isEnemyMelee ? 0.42 : 0.28) + (Math.random() * 20 - 10);
+        
+        enemy.x = enemy.baseX; enemy.y = enemy.baseY;
+        entities.push(enemy);
+    }
+    
+    battleActive = true; lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+}
+
+/* STREAMING_CHUNK: Managing Skill Actions and Targeting... */
+function openMenu(hero) {
+    if (menuOpen || targetingMode || victoryTriggered) return;
+    menuOpen = true; currentActor = hero;
+    document.getElementById('action-menu').style.display = 'flex';
+    document.getElementById('menu-actor-name').innerText = hero.name + " 的回合";
+    document.getElementById('menu-actor-name').style.color = hero.color;
+    
+    const container = document.getElementById('skill-container'); container.innerHTML = '';
+    const uniqueSkills = [...new Set(hero.skills)];
+    
+    uniqueSkills.forEach(skillId => {
+        const skill = DB.skills[skillId]; if(!skill) return;
+        let isCombo = skill.type.startsWith('combo'); let canCast = true; let partnersInBattle = [];
+        
+        if (isCombo) {
+            skill.partners.forEach(pClass => {
+                let partner = entities.find(e => e.isHero && !e.isDead && DB.classes[PlayerState.getHero(e.id).classId].id === pClass);
+                if (partner) partnersInBattle.push(partner);
+            });
+            if (partnersInBattle.length !== skill.partners.length) canCast = false;
+        }
+
+        let btn = document.createElement('div');
+        btn.className = 'btn' + (isCombo ? ' combo' : '') + (!canCast ? ' disabled' : '');
+        btn.innerHTML = `<strong>${skill.name}</strong><div style="font-size:11px; margin-top:4px;">${skill.desc}</div>`;
+        if (canCast) btn.onclick = () => prepareSkill(hero, skillId, skill, partnersInBattle);
+        container.appendChild(btn);
+    });
+}
+
+function prepareSkill(actor, skillId, skill, partners) {
+    if (skill.target === 'self_aoe' || skill.target === 'random_aoe') {
+        document.getElementById('action-menu').style.display = 'none';
+        executeSkillWithTarget(actor, skillId, skill, partners, actor);
+    } else {
+        pendingSkill = skill; pendingSkillId = skillId; pendingPartners = partners;
+        document.getElementById('action-menu').style.display = 'none';
+        
+        validTargets = [];
+        if (skill.target === 'ally_single') {
+            validTargets = entities.filter(e => e.isHero && !e.isDead);
+        } else {
+            validTargets = entities.filter(e => !e.isHero && !e.isDead);
+        }
+        
+        if (validTargets.length > 0) {
+            targetingMode = true;
+            document.getElementById('targeting-ui').style.display = 'flex';
+        } else {
+            cancelTargeting();
+        }
+    }
+}
+
+function cancelTargeting() {
+    targetingMode = false;
+    document.getElementById('targeting-ui').style.display = 'none';
+    if (!victoryTriggered && currentActor) {
+        document.getElementById('action-menu').style.display = 'flex';
+    }
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+    if (!targetingMode || !battleActive) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    let clickedEntity = validTargets.find(ent => Math.hypot(ent.x - x, ent.y - y) <= ent.radius + 15);
+    
+    if (clickedEntity) {
+        document.getElementById('targeting-ui').style.display = 'none';
+        targetingMode = false;
+        executeSkillWithTarget(currentActor, pendingSkillId, pendingSkill, pendingPartners, clickedEntity);
+    }
+});
+
+/* STREAMING_CHUNK: Executing Actions and Dash calculations... */
+function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
+    actor.state = 'acting'; actor.atb = 0; partners.forEach(p => { p.atb = 0; });
+    menuOpen = false;
+    
+    let enemies = entities.filter(e => !e.isHero && !e.isDead);
+    let allies = entities.filter(e => e.isHero && !e.isDead);
+    let dmg = actor.atk * skill.power;
+    const finish = () => { actor.finishTurn(); };
+
+    if (skill.type === 'damage') {
+        if (skill.target === 'single') {
+            effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => { mainTarget.takeDamage(dmg); })); setTimeout(finish, 400); 
+        } else if (skill.target === 'self_aoe') {
+            if (enemies.length > 0) {
+                let nearestEnemy = enemies.reduce((nearest, current) => getDistance(actor, current) < getDistance(actor, nearest) ? current : nearest);
+                let dist = getDistance(actor, nearestEnemy);
+                let dashRadius = Math.max(10, skill.aoeRadius * 0.6); // move well into the AoE range
+                let moveDist = Math.max(0, dist - dashRadius);
+                
+                let destX = actor.x, destY = actor.y;
+                if (dist > 0 && moveDist > 0) {
+                    destX = actor.x + (nearestEnemy.x - actor.x) * (moveDist / dist);
+                    destY = actor.y + (nearestEnemy.y - actor.y) * (moveDist / dist);
+                }
+                
+                // Dash to optimized position, explode using actor's new X/Y, then automatically bounce back!
+                effects.push(new DashEffect(actor, destX, destY, () => {
+                    effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#aaaaaa', finish));
+                    enemies.forEach(e => { if (getDistance(actor, e) <= skill.aoeRadius) e.takeDamage(dmg); });
+                }));
+            } else {
+                effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#aaaaaa', finish));
+            }
+        } else if (skill.target === 'single_aoe') {
+            effects.push(new ProjectileEffect(actor.x, actor.y - 300, mainTarget.x, mainTarget.y, '#ff4400', () => {
+                effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, skill.aoeRadius, '#ff4400', finish));
+                enemies.forEach(e => { if (getDistance(mainTarget, e) <= skill.aoeRadius) e.takeDamage(dmg); });
+            }));
+        } else if (skill.target === 'random_aoe') {
+            let rTarget = enemies[Math.floor(Math.random() * enemies.length)];
+            let tx = rTarget.x + (Math.random()-0.5)*50;
+            let ty = rTarget.y + (Math.random()-0.5)*50;
+            effects.push(new ExplosionEffect(tx, ty, skill.aoeRadius, '#00ff00', finish));
+            enemies.forEach(e => { if (Math.hypot(e.x-tx, e.y-ty) <= skill.aoeRadius) e.takeDamage(dmg); });
+        }
+    } 
+    else if (skill.type === 'damage_pull') {
+        effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => {
+            mainTarget.takeDamage(dmg);
+            enemies.forEach(e => { if (e !== mainTarget && getDistance(mainTarget, e) <= skill.aoeRadius) { e.targetX = mainTarget.x + (Math.random()-0.5)*20; e.targetY = mainTarget.y + (Math.random()-0.5)*20; } });
+            setTimeout(finish, 200);
+        }));
+    }
+    else if (skill.type === 'damage_heal_self') {
+        effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => {
+            mainTarget.takeDamage(dmg);
+            actor.takeDamage(dmg * 0.5, true);
+            setTimeout(finish, 200);
+        }));
+    }
+    else if (skill.type === 'damage_line') {
+        effects.push(new LaserEffect(actor.x, actor.y, mainTarget.x, mainTarget.y, skill.lineWidth, finish));
+        enemies.forEach(e => { 
+            let l2 = (mainTarget.x-actor.x)**2 + (mainTarget.y-actor.y)**2; if (l2===0) return;
+            let t = ((e.x-actor.x)*(mainTarget.x-actor.x) + (e.y-actor.y)*(mainTarget.y-actor.y))/l2; 
+            t = Math.max(0, Math.min(1, t)); 
+            let dist = Math.hypot(e.x-(actor.x+t*(mainTarget.x-actor.x)), e.y-(actor.y+t*(mainTarget.y-actor.y))); 
+            if (dist <= skill.lineWidth/2 + e.radius) e.takeDamage(dmg); 
+        });
+    }
+    else if (skill.type === 'heal') {
+        effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 40, '#00ff00', finish)); mainTarget.takeDamage(actor.atk * skill.power, true);
+    }
+    else if (skill.type === 'heal_damage') {
+        if (enemies.length > 0) {
+            let nearestEnemy = enemies.reduce((nearest, current) => getDistance(actor, current) < getDistance(actor, nearest) ? current : nearest);
+            let dist = getDistance(actor, nearestEnemy);
+            let dashRadius = Math.max(10, skill.aoeRadius * 0.6);
+            let moveDist = Math.max(0, dist - dashRadius);
+            
+            let destX = actor.x, destY = actor.y;
+            if (dist > 0 && moveDist > 0) {
+                destX = actor.x + (nearestEnemy.x - actor.x) * (moveDist / dist);
+                destY = actor.y + (nearestEnemy.y - actor.y) * (moveDist / dist);
+            }
+            
+            effects.push(new DashEffect(actor, destX, destY, () => {
+                effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#ffffaa', finish));
+                allies.forEach(a => { if(getDistance(actor, a) <= skill.aoeRadius) a.takeDamage(actor.atk * skill.power, true); });
+                enemies.forEach(e => { if(getDistance(actor, e) <= skill.aoeRadius) e.takeDamage(actor.atk * 0.5); });
+            }));
+        } else {
+            effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#ffffaa', finish));
+            allies.forEach(a => { if(getDistance(actor, a) <= skill.aoeRadius) a.takeDamage(actor.atk * skill.power, true); });
+        }
+    }
+    else if (skill.type.startsWith('combo')) {
+        effects.push(new ScreenFlashEffect(skill.color, 0.5));
+        let totalAtk = actor.atk; partners.forEach(p => { totalAtk += p.atk; }); let comboDmg = totalAtk * (skill.power / (partners.length+1));
+        if (skillId === 'combo_x_strike') {
+            let p1 = actor, p2 = partners[0];
+            effects.push(new DashEffect(p1, mainTarget.x - 30, mainTarget.y - 30, () => { p1.finishTurn(); }));
+            effects.push(new DashEffect(p2, mainTarget.x + 30, mainTarget.y - 30, () => {
+                effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 60, '#ff5500', () => { mainTarget.takeDamage(comboDmg); })); p2.finishTurn();
+            }));
+        } else if (skillId === 'combo_holy_sword') {
+            effects.push(new ExplosionEffect(GAME_WIDTH/2, GAME_HEIGHT/2, 300, '#ffffaa', () => {
+                enemies.forEach(e => e.takeDamage(comboDmg)); allies.forEach(a => a.takeDamage(comboDmg * 0.5, true));
+                actor.finishTurn(); partners.forEach(p=>p.finishTurn());
+            }));
+        }
+    }
+}
+
+/* STREAMING_CHUNK: Validating Win State... */
+function processVictory() {
+    victoryTriggered = true; menuOpen = false; targetingMode = false;
+    document.getElementById('action-menu').style.display = 'none';
+    document.getElementById('targeting-ui').style.display = 'none';
+    
+    entities.forEach(e => { if (e.isHero && (e.state === 'ready' || e.state === 'acting')) { e.state = 'idle'; e.atb = 0; } });
+
+    let itemKeys = Object.keys(DB.items);
+    let dropCount = 1 + Math.floor(Math.random() * 2);
+    let droppedItems = [];
+    for (let i = 0; i < dropCount; i++) {
+        let randomItemId = itemKeys[Math.floor(Math.random() * itemKeys.length)];
+        droppedItems.push(randomItemId);
+    }
+    PlayerState.addItems(droppedItems);
+    
+    let droppedNames = droppedItems.map(id => DB.items[id].name);
+    let msg = document.getElementById('stage-msg');
+    document.getElementById('loot-info').innerText = `獲得裝備: ${droppedNames.join(', ')}`;
+    msg.style.opacity = 1;
+    
+    setTimeout(() => {
+        msg.style.opacity = 0; battleActive = false; difficultyMultiplier *= 1.2;
+        PlayerState.stage++; openEndOfTimeHub();
+    }, 3000);
+}
+
+function gameLoop(timestamp) {
+    if (!battleActive) return;
+    let dt = timestamp - lastTime; lastTime = timestamp;
+
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    let aliveEnemies = entities.filter(e => !e.isHero && !e.isDead);
+    let aliveHeroes = entities.filter(e => e.isHero && !e.isDead);
+
+    if (aliveHeroes.length === 0) { battleActive = false; alert("全軍覆沒... F5 重新開始"); return; }
+    if (aliveEnemies.length === 0 && effects.length === 0 && !victoryTriggered) processVictory();
+
+    entities.sort((a, b) => a.y - b.y);
+    entities.forEach(e => { e.update(dt); e.draw(ctx); });
+    for (let i = effects.length - 1; i >= 0; i--) { if (!effects[i].update(dt)) effects.splice(i, 1); else effects[i].draw(ctx); }
+
+    requestAnimationFrame(gameLoop);
+}
+
+/* STREAMING_CHUNK: Managing End of Time UI... */
+function openEndOfTimeHub() {
+    document.getElementById('end-of-time-ui').style.display = 'flex';
+    renderPartyHub();
+}
+
+function switchHubTab(tabName) {
+    document.querySelectorAll('.hub-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.hub-content').forEach(c => c.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+    if (tabName === 'party') renderPartyHub();
+    if (tabName === 'equip') renderEquipHub();
+}
+
+let selectedPartySlotIndex = -1;
+function renderPartyHub() {
+    const slotsContainer = document.getElementById('ui-party-slots'); slotsContainer.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+        let heroId = PlayerState.activePartyIds[i]; let hero = heroId ? PlayerState.getHero(heroId) : null;
+        let div = document.createElement('div'); div.className = `party-slot ${selectedPartySlotIndex === i ? 'selected' : ''}`;
+        if (hero) div.innerHTML = `<div class="emoji">${DB.classes[hero.classId].emoji}</div><div>${DB.classes[hero.classId].name}</div>`;
+        else div.innerHTML = `<div>空位</div>`;
+        div.onclick = () => { selectedPartySlotIndex = i; renderPartyHub(); }; slotsContainer.appendChild(div);
+    }
+    const rosterContainer = document.getElementById('ui-roster-list'); rosterContainer.innerHTML = '';
+    PlayerState.roster.forEach(hero => {
+        let inParty = PlayerState.activePartyIds.includes(hero.id);
+        let div = document.createElement('div'); div.className = `roster-char ${inParty ? 'in-party' : ''}`;
+        div.innerHTML = `<div style="font-size:24px">${DB.classes[hero.classId].emoji}</div><div>${DB.classes[hero.classId].name}</div>`;
+        div.onclick = () => { if (selectedPartySlotIndex !== -1 && !inParty) { PlayerState.activePartyIds[selectedPartySlotIndex] = hero.id; selectedPartySlotIndex = -1; renderPartyHub(); } };
+        rosterContainer.appendChild(div);
+    });
+}
+
+let equipSelectedHeroId = null;
+function renderEquipHub() {
+    const charContainer = document.getElementById('ui-equip-chars'); charContainer.innerHTML = '';
+    PlayerState.roster.forEach(hero => {
+        let div = document.createElement('div'); div.className = `equip-char-btn ${equipSelectedHeroId === hero.id ? 'active' : ''}`;
+        div.innerHTML = `${DB.classes[hero.classId].emoji} ${DB.classes[hero.classId].name}`;
+        div.onclick = () => { equipSelectedHeroId = hero.id; renderEquipHub(); }; charContainer.appendChild(div);
+    });
+
+    const slotsContainer = document.getElementById('ui-equip-slots'); slotsContainer.innerHTML = '';
+    if (equipSelectedHeroId) {
+        let hero = PlayerState.getHero(equipSelectedHeroId);
+        const slotTypes = [{ key: 'weapon', label: '武器' }, { key: 'head', label: '頭部' }, { key: 'body', label: '身體' }, { key: 'acc1', label: '飾品1' }, { key: 'acc2', label: '飾品2' }];
+        
+        slotTypes.forEach(st => {
+            let uid = hero.equip[st.key]; 
+            let invItem = uid ? PlayerState.inventory.find(i => i.uid === uid) : null;
+            let item = invItem ? DB.items[invItem.itemId] : null;
+            
+            let div = document.createElement('div'); div.className = 'equip-item';
+            
+            let statsText = '';
+            if (item && item.stats) {
+                statsText = Object.entries(item.stats).map(([k,v]) => `${k}:${v}`).join(', ');
+            }
+
+            div.innerHTML = `
+                <div class="equip-row-top">
+                    <div class="equip-type">${st.label}</div>
+                    <div class="equip-name">${item ? item.name : '<span style="color:#666">尚未裝備</span>'}</div>
+                </div>
+                ${item ? `<div class="equip-stats">${statsText}</div>` : ''}
+            `;
+            div.onclick = () => openItemModal(st.key, hero); 
+            slotsContainer.appendChild(div);
+        });
+        
+        const { skills } = PlayerState.getCalculatedStats(hero);
+        let skillInfoDiv = document.createElement('div');
+        skillInfoDiv.style.cssText = "margin-top:10px; font-size:12px; color:#00ffaa; text-align:center; padding:10px; border:1px dashed #00ffaa;";
+        skillInfoDiv.innerHTML = `裝備賦予技能:<br>${skills.map(sid => DB.skills[sid].name).join(', ')}`;
+        slotsContainer.appendChild(skillInfoDiv);
+    }
+}
+
+function openItemModal(slotKey, hero) {
+    const modal = document.getElementById('item-modal'); const listContainer = document.getElementById('modal-item-list');
+    listContainer.innerHTML = ''; document.getElementById('modal-title').innerText = `選擇裝備 (點擊替換)`;
+
+    let unequipDiv = document.createElement('div'); unequipDiv.className = 'item-row'; 
+    unequipDiv.innerHTML = `<div style="text-align:center; color:#ffaa00; font-weight:bold;">[ 卸下目前裝備 ]</div>`;
+    unequipDiv.onclick = () => { hero.equip[slotKey] = null; closeItemModal(); renderEquipHub(); }; 
+    listContainer.appendChild(unequipDiv);
+
+    let equipMap = {};
+    PlayerState.roster.forEach(h => { 
+        Object.values(h.equip).forEach(uid => { 
+            if (uid) equipMap[uid] = DB.classes[h.classId].name; 
+        }); 
+    });
+
+    PlayerState.inventory.forEach(invItem => {
+        let item = DB.items[invItem.itemId]; if (!item) return;
+        let itemType = slotKey.startsWith('acc') ? 'acc' : slotKey;
+        if (item.type !== itemType || (item.exclusive && item.exclusive !== hero.classId)) return;
+
+        let equippedBy = equipMap[invItem.uid];
+        let isWornByMe = (hero.equip[slotKey] === invItem.uid);
+        
+        let div = document.createElement('div'); 
+        div.className = 'item-row' + (isWornByMe ? ' equipped' : '');
+        
+        let equipStatus = '';
+        if (isWornByMe) equipStatus = '<span style="color:#00ffcc;">(目前裝備中)</span>';
+        else if (equippedBy) equipStatus = `<span style="color:#ff6666;">(${equippedBy} 穿戴中)</span>`;
+
+        div.innerHTML = `
+            <div style="display:flex; justify-content:space-between;">
+                <strong>${item.name}</strong>
+                <span style="font-size:12px;">${equipStatus}</span>
+            </div>
+            <div class="item-desc">${item.desc || Object.entries(item.stats||{}).map(([k,v])=>`${k}:${v}`).join(', ')}</div>
+        `;
+        
+        div.onclick = () => {
+            if (equippedBy && !isWornByMe) {
+                PlayerState.roster.forEach(h => {
+                    Object.keys(h.equip).forEach(k => {
+                        if (h.equip[k] === invItem.uid) h.equip[k] = null;
+                    });
+                });
+            }
+            hero.equip[slotKey] = invItem.uid; 
+            closeItemModal(); 
+            renderEquipHub(); 
+        };
+        listContainer.appendChild(div);
+    });
+    modal.style.display = 'flex';
+}
+
+function closeItemModal() { document.getElementById('item-modal').style.display = 'none'; }
+
+function startNextStage() {
+    if (PlayerState.activePartyIds.filter(id => id).length === 0) { alert("至少需要派一名隊員上場！"); return; }
+    document.getElementById('end-of-time-ui').style.display = 'none';
+    initBattle();
+}
+
+PlayerState.init();
+initBattle();
+</script>
+</body>
+</html>
