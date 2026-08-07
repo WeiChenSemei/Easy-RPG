@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>無限打怪闖關 - 指定目標與獨立倉庫版</title>
+<title>無限打怪闖關 - 隨機關卡與魔王版</title>
 <style>
     /* 基本重置與全螢幕設定 */
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
@@ -15,14 +15,12 @@
         background: #222; box-shadow: 0 0 20px rgba(0,0,0,0.8); display: flex; flex-direction: column;
     }
     
-    /* 戰鬥畫布 */
-    #game-canvas {
-        flex: 1; width: 100%; display: block;
-        background: linear-gradient(to bottom, #1a2a3a 0%, #2a3a2a 50%, #3a2a2a 100%);
-    }
+    /* 戰鬥畫布 (背景色改由 JS 動態控制) */
+    #game-canvas { flex: 1; width: 100%; display: block; transition: background 1s ease-in-out; }
 
     /* 戰鬥 UI 區塊 */
     #battle-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+    #stage-info { position: absolute; top: 10px; left: 15px; font-size: 18px; font-weight: bold; color: #fff; text-shadow: 1px 1px 3px #000; }
 
     /* 技能指令選單 */
     #action-menu {
@@ -40,6 +38,7 @@
     }
     .btn:active { background: #555; transform: scale(0.98); }
     .btn.combo { border-color: #ffaa00; color: #ffea88; background: linear-gradient(180deg, #663300, #331100); }
+    .btn.combo-ultimate { border-color: #ff00ff; color: #ffccff; background: linear-gradient(180deg, #440044, #110011); }
     .btn.disabled { opacity: 0.5; pointer-events: none; filter: grayscale(1); }
 
     /* 瞄準模式 UI */
@@ -100,18 +99,19 @@
     
     #stage-msg { position: absolute; top: 35%; left: 0; width: 100%; text-align: center; pointer-events: none; opacity: 0; transition: 0.5s; z-index: 150;}
     .clear-title { font-size: 40px; font-weight: bold; color: #ffea00; text-shadow: 0 0 15px #ff5500; margin-bottom: 10px;}
+    .boss-title { font-size: 45px; font-weight: bold; color: #ff0000; text-shadow: 0 0 20px #ffea00; margin-bottom: 10px;}
     .loot-text { font-size: 18px; font-weight: bold; color: #00ffaa; text-shadow: 0 0 5px #000; background: rgba(0,0,0,0.6); display: inline-block; padding: 5px 15px; border-radius: 20px; max-width: 90%; word-wrap: break-word;}
 </style>
 </head>
 <body>
 
 <div id="game-container">
-    <!-- 戰鬥畫布 -->
     <canvas id="game-canvas"></canvas>
     <div id="battle-ui">
+        <div id="stage-info">Stage <span id="ui-stage-num">1</span></div>
         <div id="stage-msg">
-            <div class="clear-title">Stage Clear!</div>
-            <div class="loot-text" id="loot-info">獲得裝備: 無</div>
+            <div class="clear-title" id="stage-msg-title">Stage Clear!</div>
+            <div class="loot-text" id="loot-info" style="display:none;">獲得裝備: 無</div>
         </div>
         
         <div id="action-menu">
@@ -125,10 +125,9 @@
         </div>
     </div>
 
-    <!-- 時間的盡頭 UI -->
     <div id="end-of-time-ui">
         <div class="hub-title">🌌 時間的盡頭 🌌</div>
-        <div style="text-align:center; color:#ccc; margin-bottom: 10px;">整理你的隊伍與裝備，準備迎接下一關。</div>
+        <div style="text-align:center; color:#ccc; margin-bottom: 10px;">整理隊伍與裝備，迎接未知的挑戰。</div>
         
         <div class="hub-nav">
             <div class="hub-tab active" onclick="switchHubTab('party')">組隊陣容</div>
@@ -159,7 +158,7 @@
 </div>
 
 <script>
-/* STREAMING_CHUNK: Setting up Database... */
+/* STREAMING_CHUNK: Setting up Database & Biomes... */
 const DB = {
     classes: {
         warrior:   { id: 'warrior', name: '戰士', emoji: '🛡️', hp: 500, atk: 40, def: 30, spd: 40, color: '#e74c3c' },
@@ -168,6 +167,26 @@ const DB = {
         rogue:     { id: 'rogue', name: '盜賊', emoji: '🥷', hp: 280, atk: 50, def: 15, spd: 80, color: '#8e44ad' },
         ranger:    { id: 'ranger', name: '遊俠', emoji: '🧝‍♀️', hp: 320, atk: 45, def: 20, spd: 65, color: '#2ecc71' },
         swordsman: { id: 'swordsman', name: '劍士', emoji: '⚔️', hp: 400, atk: 55, def: 25, spd: 50, color: '#e67e22' }
+    },
+    biomes: {
+        forest: { bg: 'linear-gradient(to bottom, #0f2027, #203a43, #2c5364)', enemies: ['slime', 'goblin', 'wolf'], boss: 'treant', scenery: ['🌲', '🌳', '🍄', '🌿'] },
+        graveyard: { bg: 'linear-gradient(to bottom, #141e30, #243b55, #000000)', enemies: ['skeleton', 'bat', 'zombie'], boss: 'lich', scenery: ['🪦', '💀', '🥀', '🦴'] },
+        volcano: { bg: 'linear-gradient(to bottom, #4a0000, #220000, #110000)', enemies: ['imp', 'hellhound', 'bat'], boss: 'dragon', scenery: ['🌋', '🔥', '🔥', '☄️'] }
+    },
+    enemies: {
+        // 普通怪物
+        slime:    { name: '史萊姆', emoji: '💧', hp: 120, atk: 12, def: 2, spd: 30, type: 'melee', radius: 18 },
+        wolf:     { name: '野狼', emoji: '🐺', hp: 180, atk: 25, def: 5, spd: 55, type: 'melee', radius: 22 },
+        goblin:   { name: '哥布林', emoji: '👺', hp: 150, atk: 15, def: 5, spd: 35, type: 'melee', radius: 20 },
+        skeleton: { name: '骷髏兵', emoji: '💀', hp: 140, atk: 25, def: 10, spd: 40, type: 'melee', radius: 18 },
+        zombie:   { name: '殭屍', emoji: '🧟', hp: 350, atk: 20, def: 15, spd: 20, type: 'melee', radius: 22 },
+        bat:      { name: '吸血蝙蝠', emoji: '🦇', hp: 100, atk: 20, def: 0, spd: 65, type: 'melee', radius: 15 },
+        imp:      { name: '火焰小鬼', emoji: '👹', hp: 160, atk: 35, def: 5, spd: 50, type: 'ranged', radius: 18 },
+        hellhound:{ name: '地獄犬', emoji: '🐕‍🦺', hp: 250, atk: 30, def: 10, spd: 60, type: 'melee', radius: 24 },
+        // 魔王 (大體積、高數值)
+        treant:   { name: '千年樹妖', emoji: '🌳', hp: 1800, atk: 60, def: 40, spd: 25, type: 'melee', radius: 45, isBoss: true },
+        lich:     { name: '巫妖', emoji: '🧙‍♂️', hp: 1500, atk: 80, def: 20, spd: 45, type: 'ranged', radius: 40, isBoss: true },
+        dragon:   { name: '遠古紅龍', emoji: '🐉', hp: 2500, atk: 90, def: 50, spd: 35, type: 'melee', radius: 55, isBoss: true }
     },
     skills: {
         attack:       { name: "普通攻擊", type: "damage", target: "single", power: 1.0, desc: "造成100%攻擊力傷害" },
@@ -185,10 +204,17 @@ const DB = {
         first_aid:    { name: "急救", type: "heal", target: "ally_single", power: 1.0, desc: "小幅恢復指定隊友血量" },
         blood_suck:   { name: "吸血打擊", type: "damage_heal_self", target: "single", power: 1.5, desc: "對單體造成傷害並恢復自身血量" },
         magic_missile:{ name: "魔法飛彈", type: "damage", target: "random_aoe", power: 1.2, aoeRadius: 80, desc: "自動轟炸隨機敵人及其周圍" },
-        earthquake:   { name: "地震", type: "damage", target: "self_aoe", power: 1.2, aoeRadius: 300, desc: "全畫面大範圍震擊傷害" },
+        earthquake:   { name: "地震", type: "damage", target: "self_aoe", power: 1.2, aoeRadius: 500, desc: "全畫面大範圍震擊傷害" }, // 超大範圍，不會走位
+        
+        // 新增特化技能
+        snipe:        { name: "狙擊", type: "damage", target: "single", power: 3.5, desc: "超高單體貫穿傷害" },
+        chain_light:  { name: "連鎖閃電", type: "random_multi", target: "random_aoe", power: 0.6, hits: 4, color: '#00ffff', desc: "隨機劈落四道閃電" },
 
-        combo_x_strike: { name: "X字斬 (合體)", type: "combo_damage", target: "single", power: 4.0, partners: ['warrior'], desc: "【劍士+戰士】驚人的單體交叉斬擊", color: '#ff5500' },
-        combo_holy_sword: { name: "聖劍降臨 (合體)", type: "combo_damage_heal", target: "single_aoe", power: 3.0, aoeRadius: 150, partners: ['priest'], desc: "【劍士+牧師】神聖範圍傷害+全體恢復", color: '#ffffaa' }
+        // 合體技
+        combo_x_strike: { name: "X字斬 (合體)", type: "combo_damage", target: "single", power: 4.0, partners: ['warrior'], desc: "【與戰士合體】驚人的單體交叉斬擊", color: '#ff5500' },
+        combo_holy_sword: { name: "聖劍降臨 (合體)", type: "combo_damage_heal", target: "single_aoe", power: 3.0, aoeRadius: 150, partners: ['priest'], desc: "【與牧師合體】神聖範圍傷害+全體恢復", color: '#ffffaa' },
+        combo_shadow:     { name: "影襲 (合體)", type: "combo_damage", target: "single", power: 5.0, partners: ['rogue'], desc: "【與盜賊合體】瞬獄殺級別單體傷害", color: '#8800ff' },
+        combo_trinity:    { name: "三位一體大爆破", type: "combo_trinity", target: "self_aoe", power: 6.0, partners: ['mage', 'priest'], desc: "【終極合體:戰+法+牧】全體秒殺級傷害與回滿血！", color: '#ffffff', isUltimate: true }
     },
     items: {
         w_broadsword: { id:'w_broadsword', type:'weapon', name:'寬刃劍', exclusive:'warrior', stats:{atk:10, def:10}, skill1:'taunt_slash', skill2:'whirlwind' },
@@ -197,6 +223,10 @@ const DB = {
         w_dagger:     { id:'w_dagger', type:'weapon', name:'暗殺匕首', exclusive:'rogue', stats:{atk:15, spd:10}, skill1:'poison_dag', skill2:'smoke_bomb' },
         w_bow:        { id:'w_bow', type:'weapon', name:'長弓', exclusive:'ranger', stats:{atk:15, spd:5}, skill1:'arrow_rain' },
         w_katana:     { id:'w_katana', type:'weapon', name:'武士刀', exclusive:'swordsman', stats:{atk:25}, skill1:'iai_slash' },
+        
+        // 擴充武器
+        w_sniper_bow: { id:'w_sniper_bow', type:'weapon', name:'神射手大弓', exclusive:'ranger', stats:{atk:35, spd:-10}, skill1:'snipe', desc:'賦予: 狙擊' },
+        w_thunder:    { id:'w_thunder', type:'weapon', name:'雷霆法杖', exclusive:'mage', stats:{atk:30, spd:15}, skill1:'chain_light', desc:'賦予: 連鎖閃電' },
         w_excalibur:  { id:'w_excalibur', type:'weapon', name:'王者之劍', exclusive:'swordsman', stats:{atk:40, hp:100}, skill1:'iai_slash', skill2:'combo_x_strike', desc:'解鎖合體技:X字斬(需戰士)' },
         
         h_vampire_mask:  { id:'h_vampire_mask', type:'head', name:'吸血鬼面具', stats:{def:10, hp:50}, skill1:'blood_suck', desc:'賦予: 吸血打擊' },
@@ -210,13 +240,9 @@ const DB = {
         a_earth_core:    { id:'a_earth_core', type:'acc', name:'大地核心', stats:{hp:200, def:10}, skill1:'earthquake', desc:'賦予: 地震' },
         a_phoenix_feather:{ id:'a_phoenix_feather', type:'acc', name:'鳳凰羽毛', stats:{spd:25}, skill1:'holy_nova', desc:'賦予: 神聖新星' },
         a_hero_badge:    { id:'a_hero_badge', type:'acc', name:'英雄徽章', stats:{atk:15, hp:100}, skill1:'combo_x_strike', desc:'解鎖合體技:X字斬(需戰士)' },
-        a_holy_gem:      { id:'a_holy_gem', type:'acc', name:'聖光寶石', stats:{atk:10}, skill1:'combo_holy_sword', desc:'解鎖合體技:聖劍降臨(需牧師)' }
-    },
-    enemies: {
-        goblin: { name: '哥布林', emoji: '👺', hp: 150, atk: 15, def: 5, spd: 35, type: 'melee', radius: 20 },
-        orc:    { name: '半獸人', emoji: '👹', hp: 300, atk: 25, def: 15, spd: 25, type: 'melee', radius: 24 },
-        bat:    { name: '吸血蝙蝠', emoji: '🦇', hp: 100, atk: 20, def: 0, spd: 60, type: 'melee', radius: 18 },
-        shaman: { name: '薩滿', emoji: '💀', hp: 200, atk: 30, def: 5, spd: 40, type: 'ranged', radius: 20 }
+        a_holy_gem:      { id:'a_holy_gem', type:'acc', name:'聖光寶石', stats:{atk:10}, skill1:'combo_holy_sword', desc:'解鎖合體技:聖劍降臨(需牧師)' },
+        a_assassin_scroll:{ id:'a_assassin_scroll', type:'acc', name:'暗殺者密卷', stats:{atk:25, spd:20}, skill1:'combo_shadow', desc:'解鎖合體技:影襲(需盜賊)' },
+        a_trinity_force: { id:'a_trinity_force', type:'acc', name:'三相之力', exclusive:'warrior', stats:{hp:300, atk:30, def:30, spd:20}, skill1:'combo_trinity', desc:'限定戰士。解鎖終極合體技:三位一體(需法師+牧師)' }
     }
 };
 
@@ -228,10 +254,7 @@ const PlayerState = {
     
     init() {
         Object.keys(DB.classes).forEach(clsId => {
-            this.roster.push({
-                id: clsId, classId: clsId,
-                equip: { weapon: null, head: null, body: null, acc1: null, acc2: null }
-            });
+            this.roster.push({ id: clsId, classId: clsId, equip: { weapon: null, head: null, body: null, acc1: null, acc2: null } });
         });
         
         this.addAndEquipItem('w_broadsword', 'warrior', 'weapon');
@@ -241,7 +264,8 @@ const PlayerState = {
         this.addAndEquipItem('w_bow', 'ranger', 'weapon');
         this.addAndEquipItem('w_katana', 'swordsman', 'weapon');
 
-        this.addItems(['h_vampire_mask', 'h_wizard_hat', 'b_holy_robe', 'b_berserker_mail', 'a_earth_core']);
+        // 給予初始有趣散件
+        this.addItems(['h_vampire_mask', 'h_wizard_hat', 'b_holy_robe', 'b_berserker_mail', 'a_earth_core', 'w_sniper_bow', 'w_thunder', 'a_assassin_scroll', 'a_trinity_force']);
     },
     addItems(itemIds) {
         let added = [];
@@ -287,7 +311,7 @@ const PlayerState = {
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 let GAME_WIDTH = 540; let GAME_HEIGHT = 960;
-let battleActive = false; let entities = []; let effects = [];
+let battleActive = false; let entities = []; let effects = []; let sceneryObjects = [];
 let menuOpen = false; let targetingMode = false; let victoryTriggered = false;
 let currentActor = null; 
 let pendingSkill = null; let pendingSkillId = null; let pendingPartners = []; let validTargets = [];
@@ -309,6 +333,7 @@ class Entity {
         this.state = 'idle'; this.baseX = 0; this.baseY = 0; this.x = 0; this.y = 0;
         this.targetX = 0; this.targetY = 0; this.wanderTimer = 0;
         this.aiType = data.aiType || 'melee';
+        this.isBoss = data.isBoss || false;
     }
     get isDead() { return this.hp <= 0; }
     takeDamage(amount, isHeal = false) {
@@ -347,6 +372,7 @@ class Entity {
     }
     draw(ctx) {
         if (this.isDead) return;
+        
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.beginPath(); ctx.ellipse(this.x, this.y + this.radius, this.radius, this.radius * 0.4, 0, 0, Math.PI * 2); ctx.fill();
 
@@ -359,7 +385,8 @@ class Entity {
         ctx.font = `${this.radius * 2}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(this.emoji, this.x, this.y);
 
-        const barW = 40; const barH = 6;
+        // 魔王血條加寬
+        const barW = this.isBoss ? 80 : 40; const barH = 6;
         ctx.fillStyle = '#000'; ctx.fillRect(this.x - barW/2, this.y - this.radius - 15, barW, barH);
         ctx.fillStyle = this.isHero ? '#2ecc71' : '#e74c3c';
         ctx.fillRect(this.x - barW/2, this.y - this.radius - 15, barW * (this.hp / this.maxHp), barH);
@@ -377,8 +404,9 @@ class Entity {
         let heroes = entities.filter(e => e.isHero && !e.isDead); if (heroes.length === 0) return;
         let target = heroes[Math.floor(Math.random() * heroes.length)];
         this.state = 'acting'; this.atb = 0;
+        
         if (this.aiType === 'melee') effects.push(new DashEffect(this, target.x, target.y, () => { target.takeDamage(this.atk); this.finishTurn(); }));
-        else effects.push(new ProjectileEffect(this.x, this.y, target.x, target.y, '#ff00ff', () => { target.takeDamage(this.atk); this.finishTurn(); }));
+        else effects.push(new ProjectileEffect(this.x, this.y, target.x, target.y, this.isBoss ? '#ff0000' : '#ff00ff', () => { target.takeDamage(this.atk); this.finishTurn(); }));
     }
     finishTurn() { this.atb = 0; this.state = 'idle'; this.targetX = this.baseX; this.targetY = this.baseY; }
 }
@@ -392,10 +420,10 @@ class TextEffect {
 class DashEffect {
     constructor(a,dx,dy,cb){this.a=a;this.sx=a.x;this.sy=a.y;this.dx=dx;this.dy=dy;this.p=0;this.cb=cb;this.ht=false;}
     update(dt){
-        this.p+=dt/300;
+        this.p+=dt/250;
         if(this.p>=1){
             if(!this.ht){this.cb();this.ht=true;}
-            this.a.x+=(this.sx-this.a.x)*0.2; this.a.y+=(this.sy-this.a.y)*0.2; // Return to origin smoothly
+            this.a.x+=(this.sx-this.a.x)*0.2; this.a.y+=(this.sy-this.a.y)*0.2;
             if(Math.abs(this.a.x-this.sx)<5){this.a.x=this.sx;this.a.y=this.sy;return false;}
             return true;
         }
@@ -425,48 +453,100 @@ class ScreenFlashEffect {
     draw(ctx){ctx.globalAlpha=(this.l/this.d)*0.5;ctx.fillStyle=this.c;ctx.fillRect(0,0,GAME_WIDTH,GAME_HEIGHT);ctx.globalAlpha=1;}
 }
 
-/* STREAMING_CHUNK: Initializing Battle Logic... */
+/* STREAMING_CHUNK: Initializing Battle Logic & Biomes... */
 function getDistance(e1, e2) { return Math.hypot(e1.x - e2.x, e1.y - e2.y); }
 
 function initBattle() {
-    entities = []; effects = []; menuOpen = false; targetingMode = false; victoryTriggered = false;
+    entities = []; effects = []; sceneryObjects = []; menuOpen = false; targetingMode = false; victoryTriggered = false;
     document.getElementById('action-menu').style.display = 'none';
     document.getElementById('targeting-ui').style.display = 'none';
     
+    document.getElementById('ui-stage-num').innerText = PlayerState.stage;
+    document.getElementById('stage-msg').style.opacity = 0;
+    document.getElementById('loot-info').style.display = 'none';
+
+    // 決定環境 Biome
+    const biomeKeys = Object.keys(DB.biomes);
+    const selectedBiome = DB.biomes[biomeKeys[Math.floor(Math.random() * biomeKeys.length)]];
+    document.getElementById('game-canvas').style.background = selectedBiome.bg;
+
+    // 產生裝飾景物
+    for(let i=0; i<8; i++) {
+        sceneryObjects.push({
+            x: Math.random() * GAME_WIDTH,
+            y: Math.random() * (GAME_HEIGHT * 0.4) + GAME_HEIGHT * 0.05, // 主要散佈在畫面上半部
+            emoji: selectedBiome.scenery[Math.floor(Math.random() * selectedBiome.scenery.length)],
+            size: 30 + Math.random() * 20
+        });
+    }
+
+    // 生成英雄
     const activeHeroes = PlayerState.activePartyIds.map(id => PlayerState.getHero(id)).filter(h => h);
     const heroSpacing = GAME_WIDTH / (activeHeroes.length + 1);
-    
     const meleeHeroIds = ['warrior', 'rogue', 'swordsman'];
     
     activeHeroes.forEach((hData, index) => {
         const { stats, skills } = PlayerState.getCalculatedStats(hData);
         let hero = new Entity(true, { id: hData.id, emoji: DB.classes[hData.classId].emoji, name: DB.classes[hData.classId].name, stats, skills, color: DB.classes[hData.classId].color });
-        
         hero.baseX = heroSpacing * (index + 1);
         let isMelee = meleeHeroIds.includes(hData.classId);
         hero.baseY = GAME_HEIGHT * (isMelee ? 0.58 : 0.72) + (Math.random() * 20 - 10);
-        
         hero.x = hero.baseX; hero.y = hero.baseY;
         entities.push(hero);
     });
 
-    const enemyCount = 3 + Math.floor(Math.random() * 3);
-    const enemySpacing = GAME_WIDTH / (enemyCount + 1);
-    const enemyTypes = Object.keys(DB.enemies);
-    
-    for (let i = 0; i < enemyCount; i++) {
-        let baseData = DB.enemies[enemyTypes[Math.floor(Math.random() * enemyTypes.length)]];
-        let enemy = new Entity(false, {
-            emoji: baseData.emoji, name: baseData.name, aiType: baseData.type, radius: baseData.radius,
-            stats: { maxHp: baseData.hp * difficultyMultiplier, atk: baseData.atk * difficultyMultiplier, def: baseData.def * difficultyMultiplier, spd: baseData.spd }
+    // 決定是否為魔王戰 (每 5 關必定，平時 5% 機率)
+    let isBossWave = (PlayerState.stage % 5 === 0) || (Math.random() < 0.05);
+
+    if (isBossWave) {
+        // 魔王戰
+        let bossData = DB.enemies[selectedBiome.boss];
+        let boss = new Entity(false, {
+            emoji: bossData.emoji, name: bossData.name, aiType: bossData.type, radius: bossData.radius, isBoss: true,
+            stats: { maxHp: bossData.hp * difficultyMultiplier, atk: bossData.atk * difficultyMultiplier, def: bossData.def * difficultyMultiplier, spd: bossData.spd }
         });
+        boss.baseX = GAME_WIDTH / 2; boss.baseY = GAME_HEIGHT * 0.3; boss.x = boss.baseX; boss.y = boss.baseY;
+        entities.push(boss);
         
-        enemy.baseX = enemySpacing * (i + 1); 
-        let isEnemyMelee = baseData.type === 'melee';
-        enemy.baseY = GAME_HEIGHT * (isEnemyMelee ? 0.42 : 0.28) + (Math.random() * 20 - 10);
+        // 給魔王配 1~2 隻小怪
+        let minionCount = 1 + Math.floor(Math.random() * 2);
+        for(let i=0; i<minionCount; i++) {
+            let mType = selectedBiome.enemies[Math.floor(Math.random() * selectedBiome.enemies.length)];
+            let mData = DB.enemies[mType];
+            let minion = new Entity(false, {
+                emoji: mData.emoji, name: mData.name, aiType: mData.type, radius: mData.radius,
+                stats: { maxHp: mData.hp * difficultyMultiplier, atk: mData.atk * difficultyMultiplier, def: mData.def * difficultyMultiplier, spd: mData.spd }
+            });
+            minion.baseX = (i===0) ? GAME_WIDTH*0.2 : GAME_WIDTH*0.8; 
+            minion.baseY = GAME_HEIGHT * 0.4; minion.x = minion.baseX; minion.y = minion.baseY;
+            entities.push(minion);
+        }
         
-        enemy.x = enemy.baseX; enemy.y = enemy.baseY;
-        entities.push(enemy);
+        // 顯示警告
+        let msg = document.getElementById('stage-msg');
+        document.getElementById('stage-msg-title').className = 'boss-title';
+        document.getElementById('stage-msg-title').innerText = '⚠️ BOSS BATTLE ⚠️';
+        msg.style.opacity = 1;
+        setTimeout(() => { if(battleActive) msg.style.opacity = 0; }, 2000);
+
+    } else {
+        // 普通戰鬥
+        const enemyCount = 3 + Math.floor(Math.random() * 3);
+        const enemySpacing = GAME_WIDTH / (enemyCount + 1);
+        
+        for (let i = 0; i < enemyCount; i++) {
+            let mType = selectedBiome.enemies[Math.floor(Math.random() * selectedBiome.enemies.length)];
+            let baseData = DB.enemies[mType];
+            let enemy = new Entity(false, {
+                emoji: baseData.emoji, name: baseData.name, aiType: baseData.type, radius: baseData.radius,
+                stats: { maxHp: baseData.hp * difficultyMultiplier, atk: baseData.atk * difficultyMultiplier, def: baseData.def * difficultyMultiplier, spd: baseData.spd }
+            });
+            enemy.baseX = enemySpacing * (i + 1); 
+            let isEnemyMelee = baseData.type === 'melee';
+            enemy.baseY = GAME_HEIGHT * (isEnemyMelee ? 0.42 : 0.28) + (Math.random() * 20 - 10);
+            enemy.x = enemy.baseX; enemy.y = enemy.baseY;
+            entities.push(enemy);
+        }
     }
     
     battleActive = true; lastTime = performance.now();
@@ -497,7 +577,7 @@ function openMenu(hero) {
         }
 
         let btn = document.createElement('div');
-        btn.className = 'btn' + (isCombo ? ' combo' : '') + (!canCast ? ' disabled' : '');
+        btn.className = 'btn' + (isCombo ? (skill.isUltimate ? ' combo-ultimate' : ' combo') : '') + (!canCast ? ' disabled' : '');
         btn.innerHTML = `<strong>${skill.name}</strong><div style="font-size:11px; margin-top:4px;">${skill.desc}</div>`;
         if (canCast) btn.onclick = () => prepareSkill(hero, skillId, skill, partnersInBattle);
         container.appendChild(btn);
@@ -513,15 +593,11 @@ function prepareSkill(actor, skillId, skill, partners) {
         document.getElementById('action-menu').style.display = 'none';
         
         validTargets = [];
-        if (skill.target === 'ally_single') {
-            validTargets = entities.filter(e => e.isHero && !e.isDead);
-        } else {
-            validTargets = entities.filter(e => !e.isHero && !e.isDead);
-        }
+        if (skill.target === 'ally_single') validTargets = entities.filter(e => e.isHero && !e.isDead);
+        else validTargets = entities.filter(e => !e.isHero && !e.isDead);
         
         if (validTargets.length > 0) {
-            targetingMode = true;
-            document.getElementById('targeting-ui').style.display = 'flex';
+            targetingMode = true; document.getElementById('targeting-ui').style.display = 'flex';
         } else {
             cancelTargeting();
         }
@@ -529,26 +605,19 @@ function prepareSkill(actor, skillId, skill, partners) {
 }
 
 function cancelTargeting() {
-    targetingMode = false;
-    document.getElementById('targeting-ui').style.display = 'none';
-    if (!victoryTriggered && currentActor) {
-        document.getElementById('action-menu').style.display = 'flex';
-    }
+    targetingMode = false; document.getElementById('targeting-ui').style.display = 'none';
+    if (!victoryTriggered && currentActor) document.getElementById('action-menu').style.display = 'flex';
 }
 
 canvas.addEventListener('pointerdown', (e) => {
     if (!targetingMode || !battleActive) return;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-    
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
     let clickedEntity = validTargets.find(ent => Math.hypot(ent.x - x, ent.y - y) <= ent.radius + 15);
     
     if (clickedEntity) {
-        document.getElementById('targeting-ui').style.display = 'none';
-        targetingMode = false;
+        document.getElementById('targeting-ui').style.display = 'none'; targetingMode = false;
         executeSkillWithTarget(currentActor, pendingSkillId, pendingSkill, pendingPartners, clickedEntity);
     }
 });
@@ -567,10 +636,13 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
         if (skill.target === 'single') {
             effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => { mainTarget.takeDamage(dmg); })); setTimeout(finish, 400); 
         } else if (skill.target === 'self_aoe') {
-            if (enemies.length > 0) {
+            if (skill.aoeRadius > 300) { // 全畫面技能(如地震)，不移動原地放
+                effects.push(new ExplosionEffect(GAME_WIDTH/2, GAME_HEIGHT/2, skill.aoeRadius, '#aaaaaa', finish));
+                enemies.forEach(e => { e.takeDamage(dmg); });
+            } else if (enemies.length > 0) { // 近戰範圍技(如大風車)，切入最近敵人
                 let nearestEnemy = enemies.reduce((nearest, current) => getDistance(actor, current) < getDistance(actor, nearest) ? current : nearest);
                 let dist = getDistance(actor, nearestEnemy);
-                let dashRadius = Math.max(10, skill.aoeRadius * 0.6); // move well into the AoE range
+                let dashRadius = Math.max(10, skill.aoeRadius * 0.6); 
                 let moveDist = Math.max(0, dist - dashRadius);
                 
                 let destX = actor.x, destY = actor.y;
@@ -578,8 +650,6 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
                     destX = actor.x + (nearestEnemy.x - actor.x) * (moveDist / dist);
                     destY = actor.y + (nearestEnemy.y - actor.y) * (moveDist / dist);
                 }
-                
-                // Dash to optimized position, explode using actor's new X/Y, then automatically bounce back!
                 effects.push(new DashEffect(actor, destX, destY, () => {
                     effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#aaaaaa', finish));
                     enemies.forEach(e => { if (getDistance(actor, e) <= skill.aoeRadius) e.takeDamage(dmg); });
@@ -592,14 +662,22 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
                 effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, skill.aoeRadius, '#ff4400', finish));
                 enemies.forEach(e => { if (getDistance(mainTarget, e) <= skill.aoeRadius) e.takeDamage(dmg); });
             }));
-        } else if (skill.target === 'random_aoe') {
-            let rTarget = enemies[Math.floor(Math.random() * enemies.length)];
-            let tx = rTarget.x + (Math.random()-0.5)*50;
-            let ty = rTarget.y + (Math.random()-0.5)*50;
-            effects.push(new ExplosionEffect(tx, ty, skill.aoeRadius, '#00ff00', finish));
-            enemies.forEach(e => { if (Math.hypot(e.x-tx, e.y-ty) <= skill.aoeRadius) e.takeDamage(dmg); });
-        }
+        } 
     } 
+    else if (skill.type === 'random_multi') {
+        let hits = skill.hits || 3;
+        for(let i=0; i<hits; i++) {
+            setTimeout(() => {
+                let aliveEnemies = entities.filter(e => !e.isHero && !e.isDead);
+                if(aliveEnemies.length === 0) return;
+                let rt = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
+                effects.push(new ProjectileEffect(actor.x, actor.y - 50, rt.x, rt.y, skill.color || '#ffff00', () => {
+                    rt.takeDamage(dmg); effects.push(new ExplosionEffect(rt.x, rt.y, 30, skill.color || '#ffff00'));
+                }));
+            }, i * 200);
+        }
+        setTimeout(finish, hits * 200 + 400);
+    }
     else if (skill.type === 'damage_pull') {
         effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => {
             mainTarget.takeDamage(dmg);
@@ -609,17 +687,14 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
     }
     else if (skill.type === 'damage_heal_self') {
         effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => {
-            mainTarget.takeDamage(dmg);
-            actor.takeDamage(dmg * 0.5, true);
-            setTimeout(finish, 200);
+            mainTarget.takeDamage(dmg); actor.takeDamage(dmg * 0.5, true); setTimeout(finish, 200);
         }));
     }
     else if (skill.type === 'damage_line') {
         effects.push(new LaserEffect(actor.x, actor.y, mainTarget.x, mainTarget.y, skill.lineWidth, finish));
         enemies.forEach(e => { 
             let l2 = (mainTarget.x-actor.x)**2 + (mainTarget.y-actor.y)**2; if (l2===0) return;
-            let t = ((e.x-actor.x)*(mainTarget.x-actor.x) + (e.y-actor.y)*(mainTarget.y-actor.y))/l2; 
-            t = Math.max(0, Math.min(1, t)); 
+            let t = ((e.x-actor.x)*(mainTarget.x-actor.x) + (e.y-actor.y)*(mainTarget.y-actor.y))/l2; t = Math.max(0, Math.min(1, t)); 
             let dist = Math.hypot(e.x-(actor.x+t*(mainTarget.x-actor.x)), e.y-(actor.y+t*(mainTarget.y-actor.y))); 
             if (dist <= skill.lineWidth/2 + e.radius) e.takeDamage(dmg); 
         });
@@ -630,16 +705,9 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
     else if (skill.type === 'heal_damage') {
         if (enemies.length > 0) {
             let nearestEnemy = enemies.reduce((nearest, current) => getDistance(actor, current) < getDistance(actor, nearest) ? current : nearest);
-            let dist = getDistance(actor, nearestEnemy);
-            let dashRadius = Math.max(10, skill.aoeRadius * 0.6);
-            let moveDist = Math.max(0, dist - dashRadius);
-            
+            let dist = getDistance(actor, nearestEnemy); let dashRadius = Math.max(10, skill.aoeRadius * 0.6); let moveDist = Math.max(0, dist - dashRadius);
             let destX = actor.x, destY = actor.y;
-            if (dist > 0 && moveDist > 0) {
-                destX = actor.x + (nearestEnemy.x - actor.x) * (moveDist / dist);
-                destY = actor.y + (nearestEnemy.y - actor.y) * (moveDist / dist);
-            }
-            
+            if (dist > 0 && moveDist > 0) { destX = actor.x + (nearestEnemy.x - actor.x) * (moveDist / dist); destY = actor.y + (nearestEnemy.y - actor.y) * (moveDist / dist); }
             effects.push(new DashEffect(actor, destX, destY, () => {
                 effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#ffffaa', finish));
                 allies.forEach(a => { if(getDistance(actor, a) <= skill.aoeRadius) a.takeDamage(actor.atk * skill.power, true); });
@@ -653,15 +721,23 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
     else if (skill.type.startsWith('combo')) {
         effects.push(new ScreenFlashEffect(skill.color, 0.5));
         let totalAtk = actor.atk; partners.forEach(p => { totalAtk += p.atk; }); let comboDmg = totalAtk * (skill.power / (partners.length+1));
-        if (skillId === 'combo_x_strike') {
+        
+        if (skillId === 'combo_x_strike' || skillId === 'combo_shadow') {
             let p1 = actor, p2 = partners[0];
             effects.push(new DashEffect(p1, mainTarget.x - 30, mainTarget.y - 30, () => { p1.finishTurn(); }));
             effects.push(new DashEffect(p2, mainTarget.x + 30, mainTarget.y - 30, () => {
-                effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 60, '#ff5500', () => { mainTarget.takeDamage(comboDmg); })); p2.finishTurn();
+                effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 60, skill.color, () => { mainTarget.takeDamage(comboDmg); })); p2.finishTurn();
             }));
         } else if (skillId === 'combo_holy_sword') {
-            effects.push(new ExplosionEffect(GAME_WIDTH/2, GAME_HEIGHT/2, 300, '#ffffaa', () => {
+            effects.push(new ExplosionEffect(GAME_WIDTH/2, GAME_HEIGHT/2, 300, skill.color, () => {
                 enemies.forEach(e => e.takeDamage(comboDmg)); allies.forEach(a => a.takeDamage(comboDmg * 0.5, true));
+                actor.finishTurn(); partners.forEach(p=>p.finishTurn());
+            }));
+        } else if (skillId === 'combo_trinity') {
+            // 三位一體大爆破
+            effects.push(new ExplosionEffect(GAME_WIDTH/2, GAME_HEIGHT/2, 600, skill.color, () => {
+                enemies.forEach(e => e.takeDamage(comboDmg * 2)); 
+                allies.forEach(a => a.takeDamage(9999, true)); // 全滿血
                 actor.finishTurn(); partners.forEach(p=>p.finishTurn());
             }));
         }
@@ -687,7 +763,10 @@ function processVictory() {
     
     let droppedNames = droppedItems.map(id => DB.items[id].name);
     let msg = document.getElementById('stage-msg');
+    document.getElementById('stage-msg-title').className = 'clear-title';
+    document.getElementById('stage-msg-title').innerText = 'Stage Clear!';
     document.getElementById('loot-info').innerText = `獲得裝備: ${droppedNames.join(', ')}`;
+    document.getElementById('loot-info').style.display = 'inline-block';
     msg.style.opacity = 1;
     
     setTimeout(() => {
@@ -701,6 +780,14 @@ function gameLoop(timestamp) {
     let dt = timestamp - lastTime; lastTime = timestamp;
 
     ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // 繪製背景裝飾物
+    ctx.globalAlpha = 0.3;
+    sceneryObjects.forEach(s => {
+        ctx.font = `${s.size}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(s.emoji, s.x, s.y);
+    });
+    ctx.globalAlpha = 1.0;
 
     let aliveEnemies = entities.filter(e => !e.isHero && !e.isDead);
     let aliveHeroes = entities.filter(e => e.isHero && !e.isDead);
@@ -864,3 +951,4 @@ initBattle();
 </script>
 </body>
 </html>
+```eof
