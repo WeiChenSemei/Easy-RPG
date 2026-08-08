@@ -269,13 +269,13 @@ const DB = {
         absolute_guard: { name: "絕對防禦", type: "buff", target: "self_aoe", aoeRadius: 100, status: {type:'def_up', dur:5, val:3.0}, cd: 5, desc: "自身周圍友軍防禦力暴增3倍" },
 
         combo_x_strike: { name: "X字斬 (合體)", type: "combo_damage", target: "single", power: 4.0, partners: ['warrior'], cd: 4, desc: "【戰士合體】單體交叉斬擊", color: '#ff5500' },
-        combo_holy_sword: { name: "聖劍降臨 (合體)", type: "combo_damage", target: "single_aoe", power: 3.0, aoeRadius: 150, partners: ['priest'], cd: 5, desc: "【牧師合體】範圍傷害+全體恢復", color: '#ffffaa' },
+        combo_holy_sword: { name: "聖劍降臨 (合體)", type: "combo_damage_heal", target: "single_aoe", power: 3.0, aoeRadius: 150, partners: ['priest'], cd: 5, desc: "【牧師合體】範圍傷害+全體恢復", color: '#ffffaa' },
         combo_shadow:     { name: "影襲 (合體)", type: "combo_damage", target: "single", power: 5.0, partners: ['rogue'], cd: 5, desc: "【盜賊合體】瞬獄殺級別單體傷害", color: '#8800ff' },
         combo_gale:       { name: "颶風連擊 (合體)", type: "combo_damage", target: "single_aoe", power: 3.5, aoeRadius: 100, partners: ['swordsman'], cd: 4, desc: "【劍士合體】範圍暴風傷害", color: '#00ffaa' },
         combo_arcane_blade: { name: "魔力劍刃 (合體)", type: "combo_damage", target: "single", power: 4.5, partners: ['mage'], cd: 4, desc: "【法師合體】強大單體魔法斬擊", color: '#55aaff' },
-        combo_sanctuary:  { name: "神聖庇護 (合體)", type: "heal_status", target: "self_aoe", power: 2.0, aoeRadius: 300, partners: ['ranger'], status: {type:'regen', dur:5, val:20}, cd: 6, desc: "【遊俠合體】全體大補血與持續恢復", color: '#aaffaa' },
+        combo_sanctuary:  { name: "神聖庇護 (合體)", type: "combo_heal_status", target: "self_aoe", power: 2.0, aoeRadius: 300, partners: ['ranger'], status: {type:'regen', dur:5, val:20}, cd: 6, desc: "【遊俠合體】全體大補血與持續恢復", color: '#aaffaa' },
         
-        combo_trinity:    { name: "三位一體大爆破", type: "combo_trinity", target: "self_aoe", power: 6.0, partners: ['mage', 'priest'], cd: 8, desc: "【終極合體:戰+法+牧】全體秒殺級傷害與回滿血！", color: '#ffffff', isUltimate: true },
+        combo_trinity:    { name: "三位一體大爆破", type: "combo_damage_heal", target: "self_aoe", power: 6.0, partners: ['mage', 'priest'], cd: 8, desc: "【終極合體:戰+法+牧】全體秒殺級傷害與回滿血！", color: '#ffffff', isUltimate: true },
         combo_apocalypse: { name: "終焉時刻 (合體)", type: "combo_damage_status", target: "self_aoe", power: 5.0, aoeRadius: 400, partners: ['ranger', 'rogue'], status: {type:'bleed', dur:5, val:0.1}, cd: 8, desc: "【終極合體:法+遊+盜】全螢幕毀滅傷害並附加嚴重流血", color: '#ff0055', isUltimate: true },
         combo_absolute_zero: { name: "絕對零度 (合體)", type: "combo_damage_status", target: "self_aoe", power: 4.5, aoeRadius: 400, partners: ['mage', 'ranger'], status: {type:'petrify', dur:4, val:0}, cd: 8, desc: "【終極合體:劍+法+遊】全螢幕極寒傷害並大範圍石化", color: '#00ccff', isUltimate: true },
         combo_valhalla: { name: "英靈殿呼喚 (合體)", type: "combo_heal_buff", target: "self_aoe", power: 3.0, aoeRadius: 400, partners: ['warrior', 'swordsman'], status: {type:'atk_up', dur:5, val:2.0}, cd: 8, desc: "【終極合體:牧+戰+劍】全體大補血並賦予攻擊力翻倍", color: '#ffdd00', isUltimate: true },
@@ -469,7 +469,7 @@ class Entity {
     takeDamage(dmgInfo) {
         if (this.isDead) return 0;
         if (dmgInfo.isHeal) {
-            let actualHeal = Math.floor(dmgInfo.amount); this.hp = Math.min(this.maxHp, this.hp + actualHeal);
+            let actualHeal = Math.floor(dmgInfo.amount || 0); this.hp = Math.min(this.maxHp, this.hp + actualHeal);
             effects.push(new TextEffect(this.x, this.y - 20, `+${actualHeal}`, '#00ff00'));
             return actualHeal;
         } else {
@@ -483,13 +483,14 @@ class Entity {
             let sleepIdx = this.status.findIndex(s => s.type === 'sleep');
             if (sleepIdx > -1) { this.status.splice(sleepIdx, 1); effects.push(new TextEffect(this.x, this.y-30, "醒來!", '#ffffff')); }
 
-            let finalAmt = dmgInfo.amount;
+            let finalAmt = dmgInfo.amount || 0;
             let blocked = Math.random() < this.blk;
             if (blocked) finalAmt *= 0.5;
             
             // Petrify def bonus (Def * 2)
             let currentDef = this.status.find(s=>s.type==='petrify') ? this.def * 2 : this.def;
-            let actualDmg = Math.max(1, Math.floor(finalAmt - currentDef * 0.5));
+            let actualDmg = Math.max(1, Math.floor(finalAmt - (currentDef || 0) * 0.5));
+            if (isNaN(actualDmg)) actualDmg = 1; // 防止傷害計算出現 NaN 導致無敵的終極防護
             this.hp -= actualDmg;
             
             let color = dmgInfo.isCrit ? '#ff8800' : '#ff3333';
@@ -919,7 +920,7 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
         return actualDmg;
     };
 
-    if (skill.type.includes('damage') && !skill.type.startsWith('combo') || skill.type === 'buff') {
+    if (skill.type.includes('damage') && !skill.type.startsWith('combo')) {
         if (skill.target === 'single') {
             effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => { 
                 applyDamage(mainTarget, dmg); 
