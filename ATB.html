@@ -201,7 +201,7 @@ const DB = {
         forest: { bg: 'linear-gradient(to bottom, #0f2027, #203a43, #2c5364)', enemies: [{proto:'slime',name:'草史萊姆',emoji:'🌿'}, {proto:'goblin',name:'哥布林',emoji:'👺'}, {proto:'wolf',name:'森林狼',emoji:'🐺'}], boss: {proto:'treant',name:'千年樹妖',emoji:'🌳'}, scenery: ['🌲', '🌳', '🍄', '🌿'] },
         graveyard: { bg: 'linear-gradient(to bottom, #141e30, #243b55, #000000)', enemies: [{proto:'skeleton',name:'骷髏兵',emoji:'💀'}, {proto:'bat',name:'吸血蝙蝠',emoji:'🦇'}, {proto:'zombie',name:'殭屍',emoji:'🧟'}], boss: {proto:'lich',name:'巫妖',emoji:'🧙‍♂️'}, scenery: ['🪦', '💀', '🥀', '🦴'] },
         volcano: { bg: 'linear-gradient(to bottom, #4a0000, #220000, #110000)', enemies: [{proto:'imp',name:'火焰小鬼',emoji:'👹'}, {proto:'hellhound',name:'地獄犬',emoji:'🐕‍🦺'}, {proto:'bat',name:'焰蝙蝠',emoji:'🦇'}], boss: {proto:'dragon',name:'遠古紅龍',emoji:'🐉'}, scenery: ['🌋', '🔥', '🔥', '☄️'] },
-        ocean: { bg: 'linear-gradient(to bottom, #001f3f, #0074D9, #7FDBFF)', enemies: [{proto:'slime',name:'水史萊姆',emoji:'💧'}, {proto:'goblin',name:'魚人',emoji:'🧜‍♂️'}, {proto:'wolf',name:'海豹',emoji:'🦭'}], boss: {proto:'dragon',name:'深海龍王',emoji:'🐲'}, scenery: ['🌊', '🐚', '珊瑚', '🐟'] },
+        ocean: { bg: 'linear-gradient(to bottom, #001f3f, #0074D9, #7FDBFF)', enemies: [{proto:'slime',name:'水史萊姆',emoji:'💧'}, {proto:'goblin',name:'魚人',emoji:'🧜‍♂️'}, {proto:'wolf',name:'海豹',emoji:'🦭'}], boss: {proto:'dragon',name:'深海龍王',emoji:'🐲'}, scenery: ['🌊', '🐚', '🪸', '🐟'] },
         desert: { bg: 'linear-gradient(to bottom, #873600, #D35400, #F39C12)', enemies: [{proto:'slime',name:'砂史萊姆',emoji:'🧽'}, {proto:'skeleton',name:'木乃伊',emoji:'🤕'}, {proto:'wolf',name:'巨蠍',emoji:'🦂'}], boss: {proto:'lich',name:'獅身人面像',emoji:'🦁'}, scenery: ['🌵', '🏜️', '🐪', '☀️'] },
         snow: { bg: 'linear-gradient(to bottom, #bdc3c7, #2c3e50)', enemies: [{proto:'slime',name:'冰史萊姆',emoji:'🧊'}, {proto:'wolf',name:'雪狼',emoji:'🐺'}, {proto:'zombie',name:'雪人',emoji:'⛄'}], boss: {proto:'dragon',name:'冰霜巨龍',emoji:'🦕'}, scenery: ['❄️', '🏔️', '☃️', '🌲'] },
         sky: { bg: 'linear-gradient(to bottom, #83a4d4, #b6fbff)', enemies: [{proto:'slime',name:'雲史萊姆',emoji:'☁️'}, {proto:'bat',name:'鳥人',emoji:'🦅'}, {proto:'hellhound',name:'鷹獅',emoji:'🪽'}], boss: {proto:'treant',name:'天空泰坦',emoji:'🗿'}, scenery: ['☁️', '☀️', '🕊️', '🌈'] },
@@ -1190,6 +1190,27 @@ function renderEquipHub() {
     const slotsContainer = document.getElementById('ui-equip-slots'); slotsContainer.innerHTML = '';
     if (equipSelectedHeroId) {
         let hero = PlayerState.getHero(equipSelectedHeroId);
+        
+        // 將數值計算提到最前方，用於繪製全新的數值面板
+        const { stats, skills } = PlayerState.getCalculatedStats(hero);
+        
+        // 新增詳細角色數值面板 UI
+        let statsDiv = document.createElement('div');
+        statsDiv.style.cssText = "background: #111; border: 1px solid #555; border-radius: 5px; padding: 10px; margin-bottom: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 12px; color: #ccc;";
+        statsDiv.innerHTML = `
+            <div style="grid-column: span 2; text-align: center; color: #00ffaa; font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 5px;">${DB.classes[hero.classId].name} 的詳細數值</div>
+            <div>❤️ 生命: <span style="color:#2ecc71">${stats.maxHp}</span></div>
+            <div>⚔️ 攻擊: <span style="color:#e74c3c">${stats.atk}</span></div>
+            <div>🛡️ 防禦: <span style="color:#3498db">${stats.def}</span></div>
+            <div>👟 速度: <span style="color:#f1c40f">${stats.spd}</span></div>
+            <div>🎯 爆擊率: <span style="color:#e67e22">${Math.round(stats.critR*100)}%</span></div>
+            <div>🔥 爆傷: <span style="color:#e67e22">${Math.round(stats.critD*100)}%</span></div>
+            <div>💨 閃避率: <span style="color:#9b59b6">${Math.round(stats.eva*100)}%</span></div>
+            <div>🧱 格檔率: <span style="color:#95a5a6">${Math.round(stats.blk*100)}%</span></div>
+            <div style="grid-column: span 2;">💖 每秒回血: <span style="color:#1abc9c">${stats.reg}</span></div>
+        `;
+        slotsContainer.appendChild(statsDiv);
+
         const slotTypes = [{ key: 'weapon', label: '武器' }, { key: 'head', label: '頭部' }, { key: 'body', label: '身體' }, { key: 'acc1', label: '飾品1' }, { key: 'acc2', label: '飾品2' }];
         
         slotTypes.forEach(st => {
@@ -1215,7 +1236,6 @@ function renderEquipHub() {
             slotsContainer.appendChild(div);
         });
         
-        const { skills } = PlayerState.getCalculatedStats(hero);
         let skillInfoDiv = document.createElement('div');
         skillInfoDiv.style.cssText = "margin-top:10px; font-size:12px; color:#00ffaa; text-align:center; padding:10px; border:1px dashed #00ffaa;";
         skillInfoDiv.innerHTML = `裝備賦予技能:<br>${skills.map(sid => DB.skills[sid].name).join(', ')}`;
