@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>無限打怪闖關 - 技能冷卻系統版</title>
+<title>無限打怪闖關 - 鍛造與成長擴充版</title>
 <style>
     /* 基本重置與全螢幕設定 */
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
@@ -15,12 +15,10 @@
         background: #222; box-shadow: 0 0 20px rgba(0,0,0,0.8); display: flex; flex-direction: column;
     }
     
-    /* 戰鬥畫布 (背景色改由 JS 動態控制) */
     #game-canvas { flex: 1; width: 100%; display: block; transition: background 1s ease-in-out; }
-
-    /* 戰鬥 UI 區塊 */
     #battle-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-    #stage-info { position: absolute; top: 10px; left: 15px; font-size: 18px; font-weight: bold; color: #fff; text-shadow: 1px 1px 3px #000; }
+    #stage-info { position: absolute; top: 10px; left: 15px; font-size: 18px; font-weight: bold; color: #fff; text-shadow: 1px 1px 3px #000; display:flex; flex-direction:column; gap:5px;}
+    .currency-tag { font-size: 14px; color: #ff00ff; background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 10px; display: inline-block;}
 
     /* 技能指令選單 */
     #action-menu {
@@ -32,105 +30,114 @@
     
     .menu-header { text-align: center; font-weight: bold; color: #ffd700; margin-bottom: 5px; font-size: 1.1em;}
     .skill-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 250px; overflow-y: auto;}
-    .btn {
-        background: linear-gradient(180deg, #444, #222); border: 1px solid #777; border-radius: 5px;
-        color: white; padding: 12px; font-size: 16px; text-align: center; cursor: pointer; transition: 0.1s;
-    }
+    .btn { background: linear-gradient(180deg, #444, #222); border: 1px solid #777; border-radius: 5px; color: white; padding: 12px; font-size: 14px; text-align: center; cursor: pointer; transition: 0.1s; display:flex; flex-direction:column; align-items:center; }
     .btn:active { background: #555; transform: scale(0.98); }
     .btn.combo { border-color: #ffaa00; color: #ffea88; background: linear-gradient(180deg, #663300, #331100); }
     .btn.combo-ultimate { border-color: #ff00ff; color: #ffccff; background: linear-gradient(180deg, #440044, #110011); }
     .btn.disabled { opacity: 0.5; pointer-events: none; filter: grayscale(1); }
 
     /* 瞄準模式 UI */
-    #targeting-ui {
-        position: absolute; bottom: 20px; left: 0; width: 100%; display: none; pointer-events: auto;
-        flex-direction: column; align-items: center; gap: 10px; z-index: 100;
-    }
+    #targeting-ui { position: absolute; bottom: 20px; left: 0; width: 100%; display: none; pointer-events: auto; flex-direction: column; align-items: center; gap: 10px; z-index: 100; }
     .target-msg { background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 20px; color: #00ffcc; border: 1px solid #00ffcc; font-weight: bold;}
     .cancel-btn { background: #aa3333; padding: 10px 30px; border-radius: 5px; border: 2px solid #ff5555; color: white; font-weight: bold; cursor: pointer;}
-    .cancel-btn:active { background: #772222; }
 
     /* 時間的盡頭 UI (Hub) */
-    #end-of-time-ui {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.95);
-        display: none; flex-direction: column; pointer-events: auto; z-index: 200; padding: 15px; overflow-y: auto;
-    }
-    .hub-title { text-align: center; color: #bbaaff; font-size: 24px; margin-bottom: 15px; text-shadow: 0 0 10px #7755ff; }
-    .hub-nav { display: flex; gap: 10px; margin-bottom: 15px; }
-    .hub-tab { flex: 1; padding: 10px; text-align: center; background: #333; border-radius: 5px; cursor: pointer; transition: 0.2s;}
-    .hub-tab.active { background: #5544aa; border: 1px solid #9988ff; font-weight: bold;}
-    .hub-content { flex: 1; display: none; flex-direction: column; gap: 15px; }
+    #end-of-time-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 20, 0.95); display: none; flex-direction: column; pointer-events: auto; z-index: 200; padding: 15px; overflow-y: hidden; }
+    .hub-header { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; }
+    .hub-title { color: #bbaaff; font-size: 24px; text-shadow: 0 0 10px #7755ff; margin-bottom: 5px;}
+    .stage-selector { display:flex; align-items:center; gap: 10px; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 20px; border: 1px solid #444; }
+    .stage-btn { background: #444; border:none; color:white; width: 25px; height: 25px; border-radius:50%; font-weight:bold; cursor:pointer;}
+    .stage-btn:active { background: #666; }
+    
+    .hub-nav { display: flex; gap: 5px; margin-bottom: 10px; overflow-x: auto; flex-shrink: 0;}
+    .hub-tab { flex: 1; padding: 8px 5px; text-align: center; background: #333; border-radius: 5px; cursor: pointer; font-size: 13px; min-width: 60px;}
+    .hub-tab.active { background: #5544aa; border: 1px solid #9988ff; }
+    .hub-content { flex: 1; display: none; flex-direction: column; gap: 10px; overflow: hidden; }
     .hub-content.active { display: flex; }
 
     /* 隊伍設定介面 */
     .party-slots { display: flex; justify-content: space-around; background: #222; padding: 15px 5px; border-radius: 8px; border: 1px solid #444; }
-    .party-slot { width: 80px; height: 100px; background: #111; border: 2px dashed #666; border-radius: 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; position: relative;}
+    .party-slot { width: 80px; height: 100px; background: #111; border: 2px dashed #666; border-radius: 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; cursor: pointer;}
     .party-slot.selected { border-color: #ffaa00; background: #332200; }
     .party-slot .emoji { font-size: 36px; }
-    .roster-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .roster-char { background: #222; padding: 10px; text-align: center; border-radius: 5px; border: 1px solid #444; cursor: pointer; transition: 0.2s;}
+    .roster-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; overflow-y: auto; padding-bottom: 20px;}
+    .roster-char { background: #222; padding: 10px; text-align: center; border-radius: 5px; border: 1px solid #444; cursor: pointer; display:flex; flex-direction:column; align-items:center; }
     .roster-char:active { background: #444; }
-    .roster-char.in-party { opacity: 0.4; pointer-events: none; border-color: #222; }
+    .roster-char.in-party { opacity: 0.4; pointer-events: none; }
 
-    /* 裝備介面 */
-    .equip-layout { display: flex; gap: 10px; height: 100%; }
-    .equip-chars { width: 30%; display: flex; flex-direction: column; gap: 5px; overflow-y: auto;}
-    .equip-char-btn { padding: 10px; background: #222; border: 1px solid #444; text-align: center; border-radius: 5px; cursor: pointer; font-size: 14px;}
-    .equip-char-btn.active { background: #44aa44; border-color: #66cc66; font-weight:bold;}
+    /* 裝備與詳細數值介面 */
+    .equip-layout { display: flex; flex-direction: column; gap: 10px; height: 100%; overflow: hidden; }
+    .equip-top-row { display: flex; gap: 10px; max-height: 120px; overflow-x: auto; padding-bottom: 5px;}
+    .equip-char-btn { min-width: 80px; padding: 10px; background: #222; border: 1px solid #444; text-align: center; border-radius: 5px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px;}
+    .equip-char-btn.active { background: #44aa44; border-color: #66cc66;}
+    
+    .equip-bottom-row { display: flex; gap: 10px; flex: 1; overflow: hidden; }
     .equip-slots { flex: 1; background: #222; padding: 10px; border-radius: 5px; display: flex; flex-direction: column; gap: 8px; overflow-y:auto;}
+    .equip-stats-panel { flex: 1; background: #1a1a1a; border: 1px solid #00ffcc; border-radius: 5px; padding: 10px; overflow-y: auto; color: #ccc; font-size: 13px;}
+    .stat-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #444; }
+    .stat-val { color: #fff; font-weight: bold; }
+    .stat-val.high { color: #00ffcc; }
+    
     .equip-item { display: flex; flex-direction: column; background: #111; padding: 10px; border: 1px solid #555; border-radius: 5px; cursor: pointer;}
     .equip-item:active { background: #333; }
     .equip-row-top { display: flex; align-items: center; justify-content: space-between; }
     .equip-type { color: #888; font-size: 12px; width: 45px; }
-    .equip-name { flex: 1; text-align: left; padding-left: 5px; color: #ddd; font-weight: bold; font-size: 14px;}
-    .equip-stats { font-size: 11px; color: #aaa; margin-top: 5px; padding-left: 50px;}
+    .equip-name { flex: 1; text-align: left; padding-left: 5px; font-weight: bold; font-size: 14px;}
 
-    /* 物品選擇彈窗 */
-    #item-modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; display: none; flex-direction: column; padding: 20px; }
+    /* 裝備品質顏色 */
+    .rarity-common { color: #dddddd; }
+    .rarity-uncommon { color: #44ff44; text-shadow: 0 0 5px rgba(0,255,0,0.3);}
+    .rarity-rare { color: #44aaff; text-shadow: 0 0 5px rgba(0,150,255,0.4);}
+    .rarity-epic { color: #dd44ff; text-shadow: 0 0 5px rgba(200,0,255,0.5);}
+    .rarity-legendary { color: #ffcc00; text-shadow: 0 0 8px rgba(255,200,0,0.8);}
+
+    /* 鍛造所 */
+    .forge-layout { display: flex; gap: 10px; height: 100%; overflow: hidden; }
+    .forge-inventory { flex: 1; display:flex; flex-direction:column; gap:8px; overflow-y:auto; background: #222; padding: 10px; border-radius:5px;}
+    .forge-panel { flex: 1; background: #1a1a1a; border: 1px solid #ff00ff; border-radius: 5px; padding: 10px; display:flex; flex-direction:column; gap:10px; overflow-y:auto;}
+    .forge-action-btn { background: #442244; border: 1px solid #ff00ff; color: white; padding: 10px; border-radius: 5px; cursor: pointer; text-align:center; font-weight:bold;}
+    .forge-action-btn:active { background: #662266; }
+    .forge-action-btn.salvage { background: #442222; border-color: #ff4444; }
+
+    /* 系統設定 */
+    .sys-btn { padding: 12px; background: #333; border: 1px solid #666; border-radius: 5px; color: white; cursor: pointer; text-align:center; font-weight:bold;}
+    .sys-btn.danger { background: #551111; border-color: #ff3333; color: #ffaaaa;}
+
+    /* 彈窗 */
+    .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; display: none; flex-direction: column; padding: 20px; }
     .modal-title { font-size: 20px; color: #ffaa00; margin-bottom: 15px; text-align: center;}
     .item-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
     .item-row { background: #222; padding: 12px; border: 1px solid #555; border-radius: 5px; cursor: pointer; display: flex; flex-direction: column;}
     .item-row.equipped { border-color: #884444; }
     .item-desc { font-size: 12px; color: #aaa; margin-top: 6px; }
     .close-modal { margin-top: 15px; padding: 15px; background: #444; text-align: center; border-radius: 5px; font-weight: bold; cursor: pointer;}
-    .close-modal:active { background: #222; }
+    
+    #sys-modal-box { background: #222; border: 2px solid #555; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; align-items:center; gap: 15px; margin: auto; max-width: 90%;}
+    .sys-modal-btns { display: flex; gap: 10px; width: 100%; }
+    .sys-modal-btn { flex: 1; padding: 10px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; }
 
-    .start-btn { padding: 15px; background: linear-gradient(180deg, #008800, #004400); color: white; text-align: center; font-size: 18px; font-weight: bold; border-radius: 8px; border: 2px solid #00aa00; cursor: pointer; margin-top: auto; margin-bottom: 10px;}
+    .start-btn { padding: 15px; background: linear-gradient(180deg, #008800, #004400); color: white; text-align: center; font-size: 18px; font-weight: bold; border-radius: 8px; border: 2px solid #00aa00; cursor: pointer; margin-top: auto; flex-shrink: 0;}
     
     #stage-msg { position: absolute; top: 35%; left: 0; width: 100%; text-align: center; pointer-events: none; opacity: 0; transition: 0.5s; z-index: 150;}
     .clear-title { font-size: 40px; font-weight: bold; color: #ffea00; text-shadow: 0 0 15px #ff5500; margin-bottom: 10px;}
     .boss-title { font-size: 45px; font-weight: bold; color: #ff0000; text-shadow: 0 0 20px #ffea00; margin-bottom: 10px;}
-    .loot-text { font-size: 18px; font-weight: bold; color: #00ffaa; text-shadow: 0 0 5px #000; background: rgba(0,0,0,0.6); display: inline-block; padding: 5px 15px; border-radius: 20px; max-width: 90%; word-wrap: break-word;}
-
-    /* 自定義 Toast 訊息與 Game Over UI */
-    #toast-msg {
-        position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-        background: rgba(255, 50, 50, 0.95); color: white; padding: 10px 25px;
-        border-radius: 10px; z-index: 1000; opacity: 0; transition: opacity 0.3s;
-        pointer-events: none; font-weight: bold; box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    }
-
-    #game-over-ui {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.9); z-index: 500; display: none;
-        flex-direction: column; align-items: center; justify-content: center;
-    }
-    .game-over-title {
-        color: #ff3333; font-size: 48px; font-weight: bold; margin-bottom: 30px;
-        text-shadow: 0 0 20px #ff0000; letter-spacing: 5px;
-    }
+    .gameover-title { font-size: 45px; font-weight: bold; color: #555; text-shadow: 0 0 20px #ff0000; margin-bottom: 10px;}
+    .loot-text { font-size: 14px; font-weight: bold; color: #00ffaa; text-shadow: 0 0 5px #000; background: rgba(0,0,0,0.6); display: inline-block; padding: 5px 15px; border-radius: 20px; max-width: 90%; word-wrap: break-word; line-height: 1.4;}
 </style>
 </head>
 <body>
 
 <div id="game-container">
     <canvas id="game-canvas"></canvas>
-    
     <div id="battle-ui">
-        <div id="stage-info">Stage <span id="ui-stage-num">1</span></div>
+        <div id="stage-info">
+            <div>Stage <span id="ui-stage-num">1</span></div>
+            <div class="currency-tag">💎 <span id="ui-magic-stones-battle">0</span></div>
+        </div>
         <div id="stage-msg">
             <div class="clear-title" id="stage-msg-title">Stage Clear!</div>
-            <div class="loot-text" id="loot-info" style="display:none;">獲得裝備: 無</div>
+            <div class="loot-text" id="loot-info" style="display:none;"></div>
+            <div id="hub-return-btn" class="start-btn" style="display:none; pointer-events:auto; margin-top:20px;" onclick="openEndOfTimeHub()">在時間的盡頭甦醒</div>
         </div>
         
         <div id="action-menu">
@@ -144,47 +151,84 @@
         </div>
     </div>
 
-    <!-- 時間的盡頭 UI -->
+    <!-- Hub UI -->
     <div id="end-of-time-ui">
-        <div class="hub-title">🌌 時間的盡頭 🌌</div>
-        <div style="text-align:center; color:#ccc; margin-bottom: 10px;">整理隊伍與裝備，迎接未知的挑戰。</div>
+        <div class="hub-header">
+            <div class="hub-title">🌌 時間的盡頭 🌌</div>
+            <div class="stage-selector">
+                <button class="stage-btn" onclick="changeHubStage(-1)">-</button>
+                <span>挑戰關卡: <span id="hub-target-stage">1</span></span>
+                <button class="stage-btn" onclick="changeHubStage(1)">+</button>
+            </div>
+            <div class="currency-tag" style="margin-top:5px;">魔石碎片: <span id="ui-magic-stones-hub">0</span></div>
+        </div>
         
         <div class="hub-nav">
-            <div class="hub-tab active" onclick="switchHubTab('party', this)">組隊陣容</div>
-            <div class="hub-tab" onclick="switchHubTab('equip', this)">裝備與倉庫</div>
+            <div class="hub-tab active" onclick="switchHubTab(this, 'party')">陣容</div>
+            <div class="hub-tab" onclick="switchHubTab(this, 'equip')">裝備</div>
+            <div class="hub-tab" onclick="switchHubTab(this, 'forge')">鍛造</div>
+            <div class="hub-tab" onclick="switchHubTab(this, 'system')">系統</div>
         </div>
 
+        <!-- Tab: Party -->
         <div id="tab-party" class="hub-content active">
-            <div style="color: #aaa; font-size: 14px; text-align:center;">點擊上方空位，再點選下方角色進行替換</div>
+            <div style="color: #aaa; font-size: 12px; text-align:center;">點擊上方空位，再點選下方角色進行替換</div>
             <div class="party-slots" id="ui-party-slots"></div>
             <div class="roster-list" id="ui-roster-list"></div>
         </div>
 
+        <!-- Tab: Equip -->
         <div id="tab-equip" class="hub-content">
             <div class="equip-layout">
-                <div class="equip-chars" id="ui-equip-chars"></div>
-                <div class="equip-slots" id="ui-equip-slots"></div>
+                <div class="equip-top-row" id="ui-equip-chars"></div>
+                <div class="equip-bottom-row">
+                    <div class="equip-slots" id="ui-equip-slots"></div>
+                    <div class="equip-stats-panel" id="ui-equip-stats"></div>
+                </div>
             </div>
         </div>
 
-        <div class="start-btn" onclick="startNextStage()">進入下一關 ➔</div>
+        <!-- Tab: Forge -->
+        <div id="tab-forge" class="hub-content">
+            <div class="forge-layout">
+                <div class="forge-inventory" id="ui-forge-inventory"></div>
+                <div class="forge-panel" id="ui-forge-panel">
+                    <div style="text-align:center; color:#888;">請由左側選擇裝備</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tab: System -->
+        <div id="tab-system" class="hub-content">
+            <h3 style="color:#ffaa00; text-align:center; margin-bottom: 10px;">檔案管理</h3>
+            <div class="sys-btn" onclick="saveGame(true)">💾 強制手動存檔</div>
+            <div class="sys-btn" onclick="exportSave()">📤 匯出存檔 (JSON)</div>
+            <label class="sys-btn" style="display:block;">
+                📥 匯入存檔
+                <input type="file" accept=".json" style="display:none;" onchange="importSave(event)">
+            </label>
+            <div style="flex:1;"></div>
+            <div class="sys-btn danger" onclick="confirmReset()">⚠️ 重置所有遊戲進度</div>
+        </div>
+
+        <div class="start-btn" onclick="startNextStage()">進入戰鬥 ➔</div>
     </div>
 
-    <!-- 裝備選擇 Modal -->
-    <div id="item-modal">
+    <!-- Modals -->
+    <div id="item-modal" class="modal-overlay">
         <div class="modal-title" id="modal-title">選擇裝備</div>
         <div class="item-list" id="modal-item-list"></div>
         <div class="close-modal" onclick="closeItemModal()">關閉</div>
     </div>
 
-    <!-- Game Over 畫面 -->
-    <div id="game-over-ui">
-        <div class="game-over-title">全軍覆沒</div>
-        <div class="btn" style="padding:15px 40px; font-size:24px; background:linear-gradient(180deg, #aa0000, #550000); border-color:#ff5555;" onclick="restartGame()">重新開始</div>
+    <div id="sys-modal" class="modal-overlay" style="z-index:999; justify-content:center;">
+        <div id="sys-modal-box">
+            <div id="sys-modal-text" style="font-size:16px; text-align:center; line-height:1.5;">Message</div>
+            <div class="sys-modal-btns" id="sys-modal-btns">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
     </div>
-
-    <!-- 提示訊息 -->
-    <div id="toast-msg">提示訊息</div>
 </div>
 
 <script>
@@ -198,353 +242,431 @@ const DB = {
         swordsman: { id: 'swordsman', name: '劍士', emoji: '⚔️', hp: 400, atk: 55, def: 25, spd: 50, color: '#e67e22' }
     },
     biomes: {
-        forest: { bg: 'linear-gradient(to bottom, #0f2027, #203a43, #2c5364)', enemies: [{proto:'slime',name:'草史萊姆',emoji:'🌿'}, {proto:'goblin',name:'哥布林',emoji:'👺'}, {proto:'wolf',name:'森林狼',emoji:'🐺'}], boss: {proto:'treant',name:'千年樹妖',emoji:'🌳'}, scenery: ['🌲', '🌳', '🍄', '🌿'] },
-        graveyard: { bg: 'linear-gradient(to bottom, #141e30, #243b55, #000000)', enemies: [{proto:'skeleton',name:'骷髏兵',emoji:'💀'}, {proto:'bat',name:'吸血蝙蝠',emoji:'🦇'}, {proto:'zombie',name:'殭屍',emoji:'🧟'}], boss: {proto:'lich',name:'巫妖',emoji:'🧙‍♂️'}, scenery: ['🪦', '💀', '🥀', '🦴'] },
-        volcano: { bg: 'linear-gradient(to bottom, #4a0000, #220000, #110000)', enemies: [{proto:'imp',name:'火焰小鬼',emoji:'👹'}, {proto:'hellhound',name:'地獄犬',emoji:'🐕‍🦺'}, {proto:'bat',name:'焰蝙蝠',emoji:'🦇'}], boss: {proto:'dragon',name:'遠古紅龍',emoji:'🐉'}, scenery: ['🌋', '🔥', '🔥', '☄️'] },
-        ocean: { bg: 'linear-gradient(to bottom, #001f3f, #0074D9, #7FDBFF)', enemies: [{proto:'slime',name:'水史萊姆',emoji:'💧'}, {proto:'goblin',name:'魚人',emoji:'🧜‍♂️'}, {proto:'wolf',name:'海豹',emoji:'🦭'}], boss: {proto:'dragon',name:'深海龍王',emoji:'🐲'}, scenery: ['🌊', '🐚', '🪸', '🐟'] },
-        desert: { bg: 'linear-gradient(to bottom, #873600, #D35400, #F39C12)', enemies: [{proto:'slime',name:'砂史萊姆',emoji:'🧽'}, {proto:'skeleton',name:'木乃伊',emoji:'🤕'}, {proto:'wolf',name:'巨蠍',emoji:'🦂'}], boss: {proto:'lich',name:'獅身人面像',emoji:'🦁'}, scenery: ['🌵', '🏜️', '🐪', '☀️'] },
-        snow: { bg: 'linear-gradient(to bottom, #bdc3c7, #2c3e50)', enemies: [{proto:'slime',name:'冰史萊姆',emoji:'🧊'}, {proto:'wolf',name:'雪狼',emoji:'🐺'}, {proto:'zombie',name:'雪人',emoji:'⛄'}], boss: {proto:'dragon',name:'冰霜巨龍',emoji:'🦕'}, scenery: ['❄️', '🏔️', '☃️', '🌲'] },
-        sky: { bg: 'linear-gradient(to bottom, #83a4d4, #b6fbff)', enemies: [{proto:'slime',name:'雲史萊姆',emoji:'☁️'}, {proto:'bat',name:'鳥人',emoji:'🦅'}, {proto:'hellhound',name:'鷹獅',emoji:'🪽'}], boss: {proto:'treant',name:'天空泰坦',emoji:'🗿'}, scenery: ['☁️', '☀️', '🕊️', '🌈'] },
-        machine: { bg: 'linear-gradient(to bottom, #333333, #555555, #777777)', enemies: [{proto:'slime',name:'機油史萊姆',emoji:'🛢️'}, {proto:'hellhound',name:'機械犬',emoji:'🤖'}, {proto:'goblin',name:'齒輪怪',emoji:'⚙️'}], boss: {proto:'lich',name:'終極機甲',emoji:'👾'}, scenery: ['🏭', '🔩', '🔧', '🔋'] },
-        void: { bg: 'linear-gradient(to bottom, #1a0033, #000000)', enemies: [{proto:'slime',name:'虛空史萊姆',emoji:'🌌'}, {proto:'wolf',name:'暗影狼',emoji:'🌑'}, {proto:'skeleton',name:'死神',emoji:'☠️'}], boss: {proto:'dragon',name:'虛空恐懼',emoji:'👁️'}, scenery: ['🌌', '✨', '🌀', '☄️'] }
+        forest: { bg: 'linear-gradient(to bottom, #0f2027, #203a43, #2c5364)', scenery: ['🌲', '🌳', '🍄', '🌿'], enemySkins: { light: {e:'🐺', n:'野狼'}, heavy: {e:'👺', n:'哥布林'}, mage: {e:'🧚', n:'精靈'}, boss: {e:'🌳', n:'千年樹妖'} } },
+        graveyard: { bg: 'linear-gradient(to bottom, #141e30, #243b55, #000000)', scenery: ['🪦', '💀', '🥀', '🦴'], enemySkins: { light: {e:'🦇', n:'蝙蝠'}, heavy: {e:'🧟', n:'殭屍'}, mage: {e:'👻', n:'幽靈'}, boss: {e:'🧙‍♂️', n:'巫妖王'} } },
+        volcano: { bg: 'linear-gradient(to bottom, #4a0000, #220000, #110000)', scenery: ['🌋', '🔥', '☄️', '🌑'], enemySkins: { light: {e:'🐕‍🦺', n:'地獄犬'}, heavy: {e:'👹', n:'食人魔'}, mage: {e:'🔥', n:'火元素'}, boss: {e:'🐉', n:'遠古紅龍'} } },
+        ocean: { bg: 'linear-gradient(to bottom, #005aa7, #fffde4)', scenery: ['🌊', '🐟', '🫧', '🪸'], enemySkins: { light: {e:'🦀', n:'巨蟹'}, heavy: {e:'🦈', n:'狂鯊'}, mage: {e:'🧜‍♀️', n:'海妖'}, boss: {e:'🦑', n:'深海巨怪'} } },
+        desert: { bg: 'linear-gradient(to bottom, #e1b382, #c89666)', scenery: ['🌵', '🏜️', '🦂', '🐪'], enemySkins: { light: {e:'🦂', n:'毒蠍'}, heavy: {e:'🪲', n:'巨甲蟲'}, mage: {e:'🧞‍♂️', n:'沙之靈'}, boss: {e:'🐪', n:'黃金巨獸'} } },
+        snow: { bg: 'linear-gradient(to bottom, #8e9eab, #eef2f3)', scenery: ['❄️', '⛄', '🏔️', '🧊'], enemySkins: { light: {e:'🐺', n:'雪狼'}, heavy: {e:'🐻‍❄️', n:'冰熊'}, mage: {e:'🧊', n:'冰霜精靈'}, boss: {e:'👹', n:'雪山魔神'} } },
+        sky: { bg: 'linear-gradient(to bottom, #87CEEB, #f0f8ff)', scenery: ['☁️', '🦅', '⛅', '✨'], enemySkins: { light: {e:'🦅', n:'神鷹'}, heavy: {e:'🛡️', n:'天界守衛'}, mage: {e:'⚡', n:'雷雲'}, boss: {e:'👼', n:'墮落天使'} } },
+        mech: { bg: 'linear-gradient(to bottom, #333333, #666666)', scenery: ['⚙️', '🔧', '🔋', '🏗️'], enemySkins: { light: {e:'🛸', n:'探測機'}, heavy: {e:'🤖', n:'破壞者'}, mage: {e:'📡', n:'干擾塔'}, boss: {e:'🦾', n:'終極機甲'} } },
+        void: { bg: 'linear-gradient(to bottom, #2b00ff, #000000)', scenery: ['🌌', '🌀', '👁️', '✨'], enemySkins: { light: {e:'👾', n:'虛空爬行者'}, heavy: {e:'🌑', n:'黑洞畸變體'}, mage: {e:'👁️', n:'全視之眼'}, boss: {e:'🌌', n:'宇宙吞噬者'} } }
     },
-    enemies: {
-        slime:    { hp: 120, atk: 12, def: 2, spd: 30, type: 'melee', radius: 18 },
-        wolf:     { hp: 180, atk: 25, def: 5, spd: 55, type: 'melee', radius: 22 },
-        goblin:   { hp: 150, atk: 15, def: 5, spd: 35, type: 'melee', radius: 20 },
-        skeleton: { hp: 140, atk: 25, def: 10, spd: 40, type: 'melee', radius: 18 },
-        zombie:   { hp: 350, atk: 20, def: 15, spd: 20, type: 'melee', radius: 22 },
-        bat:      { hp: 100, atk: 20, def: 0, spd: 65, type: 'melee', radius: 15 },
-        imp:      { hp: 160, atk: 35, def: 5, spd: 50, type: 'ranged', radius: 18 },
-        hellhound:{ hp: 250, atk: 30, def: 10, spd: 60, type: 'melee', radius: 24 },
-        treant:   { hp: 1800, atk: 60, def: 40, spd: 25, type: 'melee', radius: 45 },
-        lich:     { hp: 1500, atk: 80, def: 20, spd: 45, type: 'ranged', radius: 40 },
-        dragon:   { hp: 2500, atk: 90, def: 50, spd: 35, type: 'melee', radius: 55 }
+    enemyPrototypes: {
+        light: { hp: 120, atk: 25, def: 5, spd: 65, type: 'melee', radius: 18 },
+        heavy: { hp: 300, atk: 35, def: 20, spd: 30, type: 'melee', radius: 24 },
+        mage:  { hp: 150, atk: 40, def: 10, spd: 50, type: 'ranged', radius: 18 },
+        boss:  { hp: 1500, atk: 70, def: 35, spd: 45, type: 'boss', radius: 45, isBoss: true }
     },
-    // 加入 cd (冷卻回合數) 與 status (異常與增益狀態)
+    rarities: {
+        common:    { name: '普通', color: '#dddddd', mult: 1.0, stats: 1, class: 'rarity-common', salvage: 10 },
+        uncommon:  { name: '精良', color: '#44ff44', mult: 1.5, stats: 2, class: 'rarity-uncommon', salvage: 25 },
+        rare:      { name: '稀有', color: '#44aaff', mult: 2.5, stats: 3, class: 'rarity-rare', salvage: 50 },
+        epic:      { name: '史詩', color: '#dd44ff', mult: 4.0, stats: 4, class: 'rarity-epic', salvage: 100 },
+        legendary: { name: '傳說', color: '#ffcc00', mult: 7.0, stats: 5, class: 'rarity-legendary', salvage: 300 }
+    },
+    statTypes: [
+        { key: 'hp', name: 'HP', isPct: false, baseRoll: 20 },
+        { key: 'atk', name: '攻擊', isPct: false, baseRoll: 3 },
+        { key: 'def', name: '防禦', isPct: false, baseRoll: 2 },
+        { key: 'spd', name: '速度', isPct: false, baseRoll: 1 },
+        { key: 'critR', name: '爆擊率', isPct: true, baseRoll: 0.01, max: 0.8 },
+        { key: 'critD', name: '爆傷', isPct: true, baseRoll: 0.05, max: 3.0 },
+        { key: 'eva', name: '閃避率', isPct: true, baseRoll: 0.01, max: 0.6 },
+        { key: 'blk', name: '格檔率', isPct: true, baseRoll: 0.01, max: 0.6 },
+        { key: 'reg', name: '每秒回血', isPct: true, baseRoll: 0.01, max: 0.5 }
+    ],
     skills: {
-        attack:       { name: "普通攻擊", type: "damage", target: "single", power: 1.0, cd: 0, desc: "造成100%攻擊力傷害" },
-        taunt_slash:  { name: "嘲諷斬", type: "damage_pull", target: "single", power: 1.2, aoeRadius: 150, cd: 2, desc: "單體傷害，並將周圍敵人拉向目標" },
-        whirlwind:    { name: "大風車", type: "damage", target: "self_aoe", power: 0.8, aoeRadius: 120, cd: 3, desc: "突進後持續對周圍敵人造成傷害(不會歸位)" },
-        meteor:       { name: "隕石術", type: "damage", target: "single_aoe", power: 2.0, aoeRadius: 100, cd: 4, desc: "對指定目標及其周圍造成巨大魔法傷害" },
-        laser:        { name: "貫穿雷射", type: "damage_line", target: "single", power: 1.5, lineWidth: 40, cd: 3, desc: "對指定直線上的敵人造成貫穿傷害" },
-        heal:         { name: "單體大補", type: "heal", target: "ally_single", power: 2.5, cd: 3, desc: "大幅恢復指定隊友血量" },
-        holy_nova:    { name: "神聖新星", type: "heal_damage", target: "self_aoe", power: 1.0, aoeRadius: 150, cd: 4, desc: "自身範圍補血並對敵人造成微量傷害" },
-        poison_dag:   { name: "毒刃", type: "damage", target: "single", power: 2.5, cd: 2, desc: "極高單體傷害" },
-        smoke_bomb:   { name: "煙霧彈", type: "damage", target: "self_aoe", power: 0.5, aoeRadius: 200, cd: 3, desc: "大範圍微量傷害" },
-        arrow_rain:   { name: "箭雨", type: "damage", target: "single_aoe", power: 1.2, aoeRadius: 120, cd: 3, desc: "對指定區域造成範圍傷害" },
-        iai_slash:    { name: "居合斬", type: "damage", target: "single", power: 1.8, cd: 2, desc: "高速拔刀斬" },
-        first_aid:    { name: "急救", type: "heal", target: "ally_single", power: 1.0, cd: 1, desc: "小幅恢復指定隊友血量" },
-        blood_suck:   { name: "吸血打擊", type: "damage_heal_self", target: "single", power: 1.5, cd: 2, desc: "對單體造成傷害並恢復自身血量" },
-        magic_missile:{ name: "魔法飛彈", type: "damage", target: "random_aoe", power: 1.2, aoeRadius: 80, cd: 3, desc: "自動轟炸隨機敵人及其周圍" },
-        earthquake:   { name: "地震", type: "damage", target: "self_aoe", power: 1.2, aoeRadius: 500, cd: 5, desc: "全畫面大範圍震擊傷害" }, 
-        snipe:        { name: "狙擊", type: "damage", target: "single", power: 3.5, cd: 4, desc: "超高單體貫穿傷害" },
-        chain_light:  { name: "連鎖閃電", type: "random_multi", target: "random_aoe", power: 0.6, hits: 4, color: '#00ffff', cd: 4, desc: "隨機劈落四道閃電" },
-        
-        excalibur_slash:{ name: "聖劍斬", type: "damage", target: "single", power: 2.5, cd: 2, desc: "光明的強力單體斬擊" },
-        venom_strike: { name: "毒液打擊", type: "damage", target: "single", power: 1.5, status: {type:'poison', dur:5, val:0.05}, cd: 3, desc: "單體傷害，附加中毒(每秒扣5%血)" },
-        hemorrhage:   { name: "大出血", type: "damage", target: "single", power: 1.8, status: {type:'bleed', dur:3, val:0.1}, cd: 3, desc: "單體傷害，附加流血(每秒劇烈扣血)" },
-        flash_bang:   { name: "閃光彈", type: "damage", target: "self_aoe", power: 0.5, aoeRadius: 150, status: {type:'blind', dur:4, val:0}, cd: 4, desc: "範圍微傷，附加盲目(50%機率攻擊Miss)" },
-        thunder_strike: { name: "雷霆一擊", type: "damage", target: "single_aoe", power: 1.5, aoeRadius: 100, status: {type:'paralyze', dur:2, val:0}, cd: 4, desc: "範圍傷害，附加麻痺(無法行動)" },
-        lullaby:      { name: "催眠曲", type: "damage", target: "self_aoe", power: 0.1, aoeRadius: 300, status: {type:'sleep', dur:6, val:0}, cd: 5, desc: "微傷，高機率附加睡眠(受擊會醒)" },
-        gorgon_gaze:  { name: "石化凝視", type: "damage", target: "single", power: 1.0, status: {type:'petrify', dur:4, val:0}, cd: 5, desc: "單體石化(無法行動，但防禦力翻倍)" },
-        cursed_slash: { name: "妖刀噬血", type: "damage_self_harm", target: "single", power: 3.5, cd: 3, desc: "極高傷害，但施放後自身受到反噬扣血" },
-        war_cry:      { name: "戰吼", type: "buff", target: "self_aoe", aoeRadius: 300, status: {type:'atk_up', dur:4, val:1.5}, cd: 5, desc: "提升全體友軍 50% 攻擊力" },
-        ninja_stars:  { name: "手裏劍陣", type: "random_multi", target: "random_aoe", power: 0.5, hits: 6, color: '#aaaaaa', cd: 3, desc: "隨機投擲6發手裏劍" },
-        assassinate:  { name: "暗殺", type: "damage", target: "single", power: 3.0, cd: 3, desc: "極高單體致命傷害" },
-        holy_shield:  { name: "聖盾庇護", type: "buff", target: "self_aoe", aoeRadius: 200, status: {type:'def_up', dur:5, val:2.0}, cd: 5, desc: "提升全體友軍 100% 防禦力" },
-        healing_mist: { name: "治癒之霧", type: "heal_status", target: "self_aoe", power: 0.5, aoeRadius: 300, status: {type:'regen', dur:5, val:15}, cd: 4, desc: "全體微量恢復與持續回血" },
-        thorn_shield: { name: "荊棘護體", type: "buff", target: "self_aoe", aoeRadius: 50, status: {type:'def_up', dur:4, val:1.5}, cd: 4, desc: "大幅提升自身防禦力" },
-        berserk:      { name: "狂化", type: "buff", target: "self_aoe", aoeRadius: 50, status: {type:'atk_up', dur:5, val:2.0}, cd: 5, desc: "大幅提升自身攻擊力" },
-        shadow_step:  { name: "暗影步", type: "damage", target: "single", power: 2.0, status: {type:'blind', dur:3, val:0}, cd: 3, desc: "單體傷害並使目標盲目" },
-        exec_strike:  { name: "處決重擊", type: "damage", target: "single", power: 2.5, status: {type:'bleed', dur:4, val:0.08}, cd: 3, desc: "單體高傷並附加嚴重流血" },
-        mirror_beam:  { name: "幻鏡射線", type: "damage_line", target: "single", power: 1.5, lineWidth: 60, status: {type:'blind', dur:3, val:0}, cd: 4, desc: "寬直線貫穿傷害，附加盲目" },
-        phoenix_flame:{ name: "鳳凰天火", type: "damage", target: "self_aoe", power: 1.5, aoeRadius: 250, status: {type:'bleed', dur:3, val:0.1}, cd: 5, desc: "大範圍火焰傷害與灼燒(流血)" },
-        hero_aura:    { name: "英雄光環", type: "buff", target: "self_aoe", aoeRadius: 400, status: {type:'regen', dur:5, val:30}, cd: 5, desc: "全體超強持續恢復生命" },
-        life_bloom:   { name: "生命綻放", type: "heal", target: "ally_single", power: 4.0, cd: 4, desc: "巨量恢復單一友軍生命值" },
-        headshot:     { name: "爆頭", type: "damage", target: "single", power: 4.5, cd: 5, desc: "致命的單體超高傷害" },
-        blade_dance:  { name: "死亡劍舞", type: "random_multi", target: "random_aoe", power: 0.8, hits: 5, color: '#ffaaaa', cd: 4, desc: "隨機對敵人發動5次斬擊" },
+        attack:        { name: "普通攻擊", type: "damage", target: "single", power: 1.0, cd: 0, desc: "基本攻擊" },
+        // Warrior
+        taunt_slash:   { name: "嘲諷斬", type: "damage_pull", target: "single", power: 1.2, aoeRadius: 150, cd: 2, desc: "拉近周圍敵人" },
+        whirlwind:     { name: "大風車", type: "damage", target: "single_dash_aoe", power: 1.0, aoeRadius: 120, cd: 3, desc: "衝向敵人並範圍攻擊" },
+        absolute_def:  { name: "絕對防禦", type: "buff", target: "self", cd: 4, desc: "防禦力提升3回合", applyBuff: {type: 'def_up', value: 2.0, turns: 3} },
+        war_cry:       { name: "戰吼", type: "buff", target: "ally_aoe", cd: 4, desc: "全體攻擊力提升" },
+        earth_shatter: { name: "裂地擊", type: "damage", target: "single_aoe", power: 1.5, aoeRadius: 120, cd: 3, color: '#aa5500', desc: "範圍震波" },
+        blood_strike:  { name: "血之怒擊", type: "damage_heal_self", target: "single", power: 1.5, cd: 2, desc: "吸取生命" },
+        // Mage
+        meteor:        { name: "隕石術", type: "damage", target: "single_aoe", power: 2.0, aoeRadius: 150, cd: 4, color: '#ff4400', desc: "範圍爆發" },
+        laser:         { name: "貫穿雷射", type: "damage_line", target: "single", power: 1.5, lineWidth: 40, cd: 3, color: '#00ffff', desc: "直線貫穿" },
+        magic_missile: { name: "魔法飛彈", type: "random_multi", target: "random_aoe", power: 0.8, hits: 3, cd: 3, color: '#ff00ff', desc: "3發飛彈轟炸" },
+        time_rift:     { name: "時空斷裂", type: "damage", target: "single_aoe", power: 1.5, aoeRadius: 100, cd: 4, applyDebuff: {type: 'stun', turns: 1, name: '麻痺', color: '#ffff00'}, desc: "範圍麻痺" },
+        chain_light:   { name: "連鎖閃電", type: "random_multi", target: "random_aoe", power: 0.6, hits: 5, cd: 4, color: '#ffff00', desc: "5次落雷" },
+        black_hole:    { name: "黑洞", type: "damage_pull", target: "single_aoe", power: 1.0, aoeRadius: 200, cd: 5, color: '#000000', desc: "大範圍吸附傷害" },
+        // Priest
+        heal:          { name: "單體大補", type: "heal", target: "ally_single", power: 2.5, cd: 3, desc: "大幅恢復" },
+        holy_nova:     { name: "神聖新星", type: "heal_damage", target: "self_aoe", power: 1.0, aoeRadius: 200, cd: 4, color: '#ffffaa', desc: "自身範圍補血與傷害" },
+        purify:        { name: "淨化之光", type: "buff", target: "ally_aoe", cd: 3, desc: "治癒異常狀態" },
+        resurrect:     { name: "神聖復甦", type: "heal", target: "ally_aoe", power: 3.0, cd: 6, desc: "全體大幅補血" },
+        smite:         { name: "懲擊", type: "damage", target: "single", power: 2.0, cd: 2, desc: "高爆發傷害" },
+        shield_wall:   { name: "聖盾術", type: "buff", target: "ally_single", cd: 3, applyBuff: {type: 'def_up', value: 3.0, turns: 2}, desc: "單體極高防禦" },
+        // Rogue
+        poison_dag:    { name: "毒刃", type: "damage", target: "single", power: 1.5, cd: 2, applyDebuff: {type: 'poison', turns: 3, name: '中毒', color: '#00ff00'}, desc: "賦予中毒" },
+        smoke_bomb:    { name: "煙霧彈", type: "damage", target: "single_dash_aoe", power: 0.5, aoeRadius: 150, cd: 3, applyDebuff: {type: 'blind', turns: 2, name: '盲目', color: '#666666'}, desc: "引爆煙霧盲目" },
+        assassinate:   { name: "暗殺", type: "damage", target: "single", power: 3.0, cd: 4, desc: "致命爆發" },
+        steal_life:    { name: "飲血匕首", type: "damage_heal_self", target: "single", power: 1.5, cd: 2, desc: "吸血" },
+        phantom_strike:{ name: "幻影連刺", type: "random_multi", target: "random_aoe", power: 0.5, hits: 6, cd: 4, color: '#8800ff', desc: "隨機6次連刺" },
+        toxic_cloud:   { name: "劇毒霧霾", type: "damage", target: "single_aoe", power: 0.5, aoeRadius: 150, cd: 4, applyDebuff: {type: 'poison', turns: 4, name: '猛毒', color: '#00ff00'}, desc: "大範圍猛毒" },
+        // Ranger
+        arrow_rain:    { name: "箭雨", type: "damage", target: "single_aoe", power: 1.2, aoeRadius: 120, cd: 3, desc: "灑落箭矢" },
+        snipe:         { name: "狙擊", type: "damage", target: "single", power: 3.5, cd: 4, desc: "巨額傷害" },
+        trap:          { name: "陷阱包", type: "damage", target: "single_aoe", power: 1.0, aoeRadius: 80, cd: 3, applyDebuff: {type: 'bleed', turns: 3, name: '流血', color: '#ff0000'}, desc: "範圍流血" },
+        piercing_shot: { name: "穿透箭", type: "damage_line", target: "single", power: 1.5, lineWidth: 30, cd: 3, color: '#ffffff', desc: "無死角貫穿" },
+        eagle_eye:     { name: "鷹眼", type: "buff", target: "self", cd: 4, desc: "提升爆擊率" },
+        nature_call:   { name: "自然呼喚", type: "heal", target: "self_aoe", power: 1.5, aoeRadius: 200, cd: 4, color: '#00ffaa', desc: "大範圍治癒" },
+        // Swordsman
+        iai_slash:     { name: "居合斬", type: "damage", target: "single", power: 1.8, cd: 2, desc: "極速拔刀" },
+        blood_blade:   { name: "妖刀噬血", type: "damage_heal_self", target: "single", power: 2.0, cd: 3, desc: "痛擊並吸血" },
+        dragon_flash:  { name: "龍閃", type: "damage_line", target: "single", power: 2.0, lineWidth: 60, cd: 4, desc: "霸道直線斬" },
+        sword_dance:   { name: "劍舞", type: "damage", target: "single_dash_aoe", power: 1.2, aoeRadius: 100, cd: 3, desc: "範圍斬擊" },
+        counter_stance:{ name: "招架架勢", type: "buff", target: "self", cd: 3, desc: "提升格檔率" },
+        cherry_blossom:{ name: "櫻吹雪", type: "damage", target: "self_aoe", power: 1.5, aoeRadius: 300, cd: 4, color: '#ffaaaa', applyDebuff: {type: 'bleed', turns: 2, name: '流血', color: '#ffaaaa'}, desc: "大範圍流血斬" },
 
-        time_rift:    { name: "時空斷裂", type: "damage", target: "single_aoe", power: 2.2, aoeRadius: 150, status: {type:'paralyze', dur:3, val:0}, cd: 4, desc: "大範圍時空傷害並附加麻痺" },
-        absolute_guard: { name: "絕對防禦", type: "buff", target: "self_aoe", aoeRadius: 100, status: {type:'def_up', dur:5, val:3.0}, cd: 5, desc: "自身周圍友軍防禦力暴增3倍" },
+        // Duo
+        combo_x_strike:  { name: "X字斬", type: "combo_damage", target: "single", power: 4.0, partners: ['warrior'], cd: 4, desc: "【劍+戰】單體交叉斬", color: '#ff5500' },
+        combo_holy_sword:{ name: "聖劍降臨", type: "combo_damage_heal", target: "single_aoe", power: 3.0, aoeRadius: 200, partners: ['priest'], cd: 5, desc: "【劍+牧】範圍傷+全癒", color: '#ffffaa' },
+        combo_shadow:    { name: "影襲", type: "combo_damage", target: "single", power: 5.0, partners: ['rogue'], cd: 5, desc: "【劍+賊】瞬獄單體", color: '#8800ff' },
+        combo_fire_ice:  { name: "冰火交加", type: "combo_damage", target: "single_aoe", power: 3.5, aoeRadius: 200, partners: ['ranger'], cd: 5, applyDebuff: {type: 'stun', turns: 1, name: '冰凍', color: '#00ffff'}, desc: "【法+遊】轟炸並冰凍", color: '#ff00aa' },
+        combo_charge:    { name: "野蠻衝鋒", type: "combo_damage", target: "single_dash_aoe", power: 3.0, aoeRadius: 150, partners: ['rogue'], cd: 4, desc: "【戰+賊】衝入敵陣爆發", color: '#aa3300' },
+        combo_goddess:   { name: "女神之淚", type: "heal", target: "ally_aoe", power: 4.0, aoeRadius: 800, partners: ['mage'], cd: 5, desc: "【牧+法】無死角治癒", color: '#aaffff' },
 
-        combo_x_strike: { name: "X字斬 (合體)", type: "combo_damage", target: "single", power: 4.0, partners: ['warrior'], cd: 4, desc: "【戰士合體】單體交叉斬擊", color: '#ff5500' },
-        combo_holy_sword: { name: "聖劍降臨 (合體)", type: "combo_damage_heal", target: "single_aoe", power: 3.0, aoeRadius: 150, partners: ['priest'], cd: 5, desc: "【牧師合體】範圍傷害+全體恢復", color: '#ffffaa' },
-        combo_shadow:     { name: "影襲 (合體)", type: "combo_damage", target: "single", power: 5.0, partners: ['rogue'], cd: 5, desc: "【盜賊合體】瞬獄殺級別單體傷害", color: '#8800ff' },
-        combo_gale:       { name: "颶風連擊 (合體)", type: "combo_damage", target: "single_aoe", power: 3.5, aoeRadius: 100, partners: ['swordsman'], cd: 4, desc: "【劍士合體】範圍暴風傷害", color: '#00ffaa' },
-        combo_arcane_blade: { name: "魔力劍刃 (合體)", type: "combo_damage", target: "single", power: 4.5, partners: ['mage'], cd: 4, desc: "【法師合體】強大單體魔法斬擊", color: '#55aaff' },
-        combo_sanctuary:  { name: "神聖庇護 (合體)", type: "combo_heal_status", target: "self_aoe", power: 2.0, aoeRadius: 300, partners: ['ranger'], status: {type:'regen', dur:5, val:20}, cd: 6, desc: "【遊俠合體】全體大補血與持續恢復", color: '#aaffaa' },
-        
-        combo_trinity:    { name: "三位一體大爆破", type: "combo_damage_heal", target: "self_aoe", power: 6.0, partners: ['mage', 'priest'], cd: 8, desc: "【終極合體:戰+法+牧】全體秒殺級傷害與回滿血！", color: '#ffffff', isUltimate: true },
-        combo_apocalypse: { name: "終焉時刻 (合體)", type: "combo_damage_status", target: "self_aoe", power: 5.0, aoeRadius: 400, partners: ['ranger', 'rogue'], status: {type:'bleed', dur:5, val:0.1}, cd: 8, desc: "【終極合體:法+遊+盜】全螢幕毀滅傷害並附加嚴重流血", color: '#ff0055', isUltimate: true },
-        combo_absolute_zero: { name: "絕對零度 (合體)", type: "combo_damage_status", target: "self_aoe", power: 4.5, aoeRadius: 400, partners: ['mage', 'ranger'], status: {type:'petrify', dur:4, val:0}, cd: 8, desc: "【終極合體:劍+法+遊】全螢幕極寒傷害並大範圍石化", color: '#00ccff', isUltimate: true },
-        combo_valhalla: { name: "英靈殿呼喚 (合體)", type: "combo_heal_buff", target: "self_aoe", power: 3.0, aoeRadius: 400, partners: ['warrior', 'swordsman'], status: {type:'atk_up', dur:5, val:2.0}, cd: 8, desc: "【終極合體:牧+戰+劍】全體大補血並賦予攻擊力翻倍", color: '#ffdd00', isUltimate: true },
-        combo_shadow_legion: { name: "暗影軍團 (合體)", type: "combo_random_multi", target: "random_aoe", power: 1.5, hits: 10, partners: ['ranger', 'warrior'], color: '#330066', cd: 8, desc: "【終極合體:盜+遊+戰】召喚暗影分身進行10次隨機打擊", isUltimate: true },
-        combo_miracle: { name: "奇蹟之光 (合體)", type: "combo_heal_buff", target: "self_aoe", power: 5.0, aoeRadius: 500, partners: ['mage', 'rogue'], status: {type:'regen', dur:8, val:50}, cd: 8, desc: "【終極合體:遊+牧+法】全體巨量恢復與終極持續回血", color: '#ffffff', isUltimate: true }
+        // Trio (Ultimate)
+        combo_trinity:      { name: "三位一體", type: "combo_trinity", target: "self_aoe", power: 6.0, aoeRadius: 800, partners: ['mage', 'priest'], cd: 8, desc: "【終極: 戰+法+牧】毀滅傷害與滿血", color: '#ffffff', isUltimate: true },
+        combo_doomsday:     { name: "終焉時刻", type: "combo_damage", target: "self_aoe", power: 7.0, aoeRadius: 800, partners: ['rogue', 'ranger'], cd: 8, desc: "【終極: 法+賊+遊】全螢幕轟炸", color: '#ff0000', isUltimate: true },
+        combo_absolute_zero:{ name: "絕對零度", type: "combo_damage", target: "self_aoe", power: 4.0, aoeRadius: 800, partners: ['priest', 'swordsman'], cd: 8, desc: "【終極: 法+牧+劍】全場暈眩", color: '#00ffff', applyDebuff: {type: 'stun', turns: 2, name: '冰凍', color: '#00ffff'}, isUltimate: true },
+        combo_shadow_legion:{ name: "暗影軍團", type: "combo_random_multi", target: "random_aoe", power: 1.5, hits: 10, partners: ['ranger', 'warrior'], cd: 8, desc: "【終極: 賊+遊+戰】10次打擊", color: '#444444', isUltimate: true },
+        combo_valkyrie:     { name: "女武神降臨", type: "combo_valkyrie", target: "ally_aoe", power: 0, aoeRadius: 800, partners: ['warrior', 'swordsman'], cd: 8, desc: "【終極: 牧+戰+劍】復活+防禦提升", color: '#ffdd00', applyBuff: {type: 'def_up', value: 3.0, turns: 5}, isUltimate: true },
+        combo_genesis:      { name: "創世", type: "combo_damage_heal", target: "self_aoe", power: 6.0, aoeRadius: 800, partners: ['ranger', 'priest'], cd: 8, desc: "【終極: 劍+遊+牧】重擊與強力治癒", color: '#ffffaa', isUltimate: true }
     },
+    // Template Items. Real items get random stats upon drop.
     items: {
-        w_broadsword: { id:'w_broadsword', type:'weapon', name:'寬刃劍', exclusive:'warrior', stats:{atk:10, def:10}, skill1:'taunt_slash', skill2:'whirlwind' },
-        w_staff:      { id:'w_staff', type:'weapon', name:'學徒法杖', exclusive:'mage', stats:{atk:20}, skill1:'meteor', skill2:'laser' },
-        w_mace:       { id:'w_mace', type:'weapon', name:'神聖錘', exclusive:'priest', stats:{atk:5, hp:50}, skill1:'heal', skill2:'holy_nova' },
-        w_dagger:     { id:'w_dagger', type:'weapon', name:'暗殺匕首', exclusive:'rogue', stats:{atk:15, spd:10}, skill1:'poison_dag', skill2:'smoke_bomb' },
-        w_bow:        { id:'w_bow', type:'weapon', name:'長弓', exclusive:'ranger', stats:{atk:15, spd:5}, skill1:'arrow_rain' },
-        w_katana:     { id:'w_katana', type:'weapon', name:'武士刀', exclusive:'swordsman', stats:{atk:25}, skill1:'iai_slash' },
-        w_sniper_bow: { id:'w_sniper_bow', type:'weapon', name:'神射手大弓', exclusive:'ranger', stats:{atk:35, spd:-10}, skill1:'snipe', desc:'賦予: 狙擊' },
-        w_thunder:    { id:'w_thunder', type:'weapon', name:'雷霆法杖', exclusive:'mage', stats:{atk:30, spd:15}, skill1:'chain_light', desc:'賦予: 連鎖閃電' },
-        w_excalibur:  { id:'w_excalibur', type:'weapon', name:'王者之劍', exclusive:'swordsman', stats:{atk:40, hp:100}, skill1:'excalibur_slash', skill2:'combo_x_strike', desc:'賦予:聖劍斬, 解鎖合體技:X字斬(需戰士)' },
+        w_broadsword: { id:'w_broadsword', type:'weapon', name:'寬刃劍', exclusive:'warrior', skill1:'taunt_slash' },
+        b_berserker_mail: { id:'b_berserker_mail', type:'body', name:'狂戰士鎧甲', exclusive:'warrior', skill1:'whirlwind' },
+        a_aegis_shield: { id:'a_aegis_shield', type:'acc', name:'神盾', exclusive:'warrior', skill1:'absolute_def' },
+        h_horned_helm: { id:'h_horned_helm', type:'head', name:'戰神盔', exclusive:'warrior', skill1:'war_cry' },
+        w_earth_hammer: { id:'w_earth_hammer', type:'weapon', name:'裂地巨錘', exclusive:'warrior', skill1:'earth_shatter' },
+        a_vampire_ring: { id:'a_vampire_ring', type:'acc', name:'吸血鬼環', exclusive:'warrior', skill1:'blood_strike' },
         
-        h_vampire_mask:  { id:'h_vampire_mask', type:'head', name:'吸血鬼面具', stats:{def:10, hp:50}, skill1:'blood_suck', desc:'賦予: 吸血打擊' },
-        h_wizard_hat:    { id:'h_wizard_hat', type:'head', name:'大賢者之帽', stats:{def:5, spd:10}, skill1:'magic_missile', desc:'賦予: 魔法飛彈' },
-        h_ninja_headband:{ id:'h_ninja_headband', type:'head', name:'忍野頭巾', stats:{def:8, spd:15}, skill1:'ninja_stars', desc:'賦予: 手裏劍陣' },
+        w_staff: { id:'w_staff', type:'weapon', name:'法杖', exclusive:'mage', skill1:'meteor' },
+        w_laser_wand: { id:'w_laser_wand', type:'weapon', name:'光束杖', exclusive:'mage', skill1:'laser' },
+        h_wizard_hat: { id:'h_wizard_hat', type:'head', name:'賢者帽', exclusive:'mage', skill1:'magic_missile' },
+        a_time_gem: { id:'a_time_gem', type:'acc', name:'時空寶石', exclusive:'mage', skill1:'time_rift' },
+        w_thunder: { id:'w_thunder', type:'weapon', name:'雷霆杖', exclusive:'mage', skill1:'chain_light' },
+        b_star_robe: { id:'b_star_robe', type:'body', name:'星空長袍', exclusive:'mage', skill1:'black_hole' },
         
-        b_holy_robe:     { id:'b_holy_robe', type:'body', name:'神聖法袍', stats:{def:10, hp:120}, skill1:'first_aid', desc:'賦予: 急救' },
-        b_spike_armor:   { id:'b_spike_armor', type:'body', name:'反甲風衣', stats:{def:15, hp:80}, skill1:'thorn_shield', desc:'賦予: 荊棘護體' },
-        b_berserker_mail:{ id:'b_berserker_mail', type:'body', name:'狂戰士鎧甲', stats:{def:30, hp:200, spd:-10}, skill1:'berserk', desc:'賦予: 狂化' },
-        
-        a_earth_core:    { id:'a_earth_core', type:'acc', name:'大地核心', stats:{hp:200, def:10}, skill1:'earthquake', desc:'賦予: 地震' },
-        a_phoenix_feather:{ id:'a_phoenix_feather', type:'acc', name:'鳳凰羽毛', stats:{spd:25}, skill1:'phoenix_flame', desc:'賦予: 鳳凰天火' },
-        a_hero_badge:    { id:'a_hero_badge', type:'acc', name:'英雄徽章', stats:{atk:15, hp:100}, skill1:'hero_aura', desc:'賦予: 英雄光環' },
-        a_holy_gem:      { id:'a_holy_gem', type:'acc', name:'聖光寶石', stats:{atk:10}, skill1:'combo_holy_sword', desc:'解鎖合體技:聖劍降臨(需牧師)' },
-        a_assassin_scroll:{ id:'a_assassin_scroll', type:'acc', name:'暗殺者密卷', stats:{atk:25, spd:20}, skill1:'combo_shadow', desc:'解鎖合體技:影襲(需盜賊)' },
-        a_trinity_force: { id:'a_trinity_force', type:'acc', name:'三相之力', exclusive:'warrior', stats:{hp:300, atk:30, def:30, spd:20}, skill1:'combo_trinity', desc:'限定戰士。解鎖終極合體技:三位一體(需法師+牧師)' },
-        
-        // 新增 20 樣全新裝備與技能屬性
-        w_venom_bow:     { id:'w_venom_bow', type:'weapon', name:'毒液弩', exclusive:'ranger', stats:{atk:25, critR:0.1}, skill1:'venom_strike', desc:'爆擊+10%, 賦予:毒液打擊' },
-        w_blood_dagger:  { id:'w_blood_dagger', type:'weapon', name:'嗜血匕首', exclusive:'rogue', stats:{atk:30, eva:0.1}, skill1:'hemorrhage', desc:'閃避+10%, 賦予:大出血' },
-        w_flash_staff:   { id:'w_flash_staff', type:'weapon', name:'閃光法杖', exclusive:'priest', stats:{atk:15, hp:100, blk:0.1}, skill1:'flash_bang', desc:'格檔+10%, 賦予:閃光彈' },
-        w_thunder_hammer:{ id:'w_thunder_hammer', type:'weapon', name:'雷霆戰錘', exclusive:'warrior', stats:{atk:35, critD:0.5}, skill1:'thunder_strike', desc:'爆傷+50%, 賦予:雷霆一擊' },
-        w_lullaby_bell:  { id:'w_lullaby_bell', type:'weapon', name:'催眠搖鈴', exclusive:'mage', stats:{atk:10, spd:20, reg:5}, skill1:'lullaby', desc:'回血+5/s, 賦予:催眠曲' },
-        w_gorgon_blade:  { id:'w_gorgon_blade', type:'weapon', name:'蛇髮女妖之劍', exclusive:'swordsman', stats:{atk:25, def:15}, skill1:'gorgon_gaze', desc:'防禦+15, 賦予:石化凝視' },
-        w_cursed_blade:  { id:'w_cursed_blade', type:'weapon', name:'妖刀村正', exclusive:'swordsman', stats:{atk:60, reg:-10, critR:0.2}, skill1:'cursed_slash', desc:'極高攻與爆擊，賦予:妖刀噬血' },
-        w_wind_bow:      { id:'w_wind_bow', type:'weapon', name:'逐風長弓', exclusive:'ranger', stats:{atk:20, spd:40, eva:0.15}, skill1:'war_cry', desc:'極高攻速閃避，賦予:戰吼' },
-        h_assassin_cowl: { id:'h_assassin_cowl', type:'head', name:'刺客兜帽', stats:{def:5, critR:0.1, eva:0.1}, skill1:'assassinate', desc:'爆擊率+10%, 閃避率+10%, 賦予:暗殺' },
-        h_crusader_helm: { id:'h_crusader_helm', type:'head', name:'十字軍頭盔', stats:{def:15, hp:50, blk:0.15}, skill1:'holy_shield', desc:'格檔率+15%, 賦予:聖盾庇護' },
-        h_crown_regen:   { id:'h_crown_regen', type:'head', name:'復甦王冠', stats:{def:5, reg:15}, skill1:'healing_mist', desc:'每秒回血+15, 賦予:治癒之霧' },
-        b_ninja_suit:    { id:'b_ninja_suit', type:'body', name:'忍者裝束', stats:{def:8, spd:15, eva:0.2}, skill1:'shadow_step', desc:'閃避率+20%, 賦予:暗影步' },
-        b_gladiator:     { id:'b_gladiator', type:'body', name:'角鬥士重甲', stats:{def:20, hp:100, critD:0.5}, skill1:'exec_strike', desc:'爆擊傷害+50%, 賦予:處決重擊' },
-        b_mirror_armor:  { id:'b_mirror_armor', type:'body', name:'微光之鎧', stats:{def:15, blk:0.2}, skill1:'mirror_beam', desc:'格檔率+20%, 賦予:幻鏡射線' },
-        a_ring_vitality: { id:'a_ring_vitality', type:'acc', name:'活力戒指', stats:{hp:150, reg:20}, skill1:'life_bloom', desc:'每秒回血+20, 賦予:生命綻放' },
-        a_sniper_scope:  { id:'a_sniper_scope', type:'acc', name:'狙擊鏡', stats:{atk:10, critR:0.15}, skill1:'headshot', desc:'爆擊率+15%, 賦予:爆頭' },
-        a_dancer_charm:  { id:'a_dancer_charm', type:'acc', name:'舞者護符', stats:{spd:15, eva:0.15}, skill1:'blade_dance', desc:'閃避率+15%, 賦予:死亡劍舞' },
-        a_ranger_crest:  { id:'a_ranger_crest', type:'acc', name:'遊俠紋章', exclusive:'ranger', stats:{atk:15, hp:50}, skill1:'combo_gale', desc:'解鎖合體技:颶風連擊(需劍士)' },
-        a_twin_blade:    { id:'a_twin_blade', type:'acc', name:'雙子護符', exclusive:'swordsman', stats:{atk:20, spd:10}, skill1:'combo_arcane_blade', desc:'解鎖合體技:魔力劍刃(需法師)' },
-        a_oathkeeper:    { id:'a_oathkeeper', type:'acc', name:'誓約之印', exclusive:'priest', stats:{def:10, reg:10}, skill1:'combo_sanctuary', desc:'解鎖合體技:神聖庇護(需遊俠)' },
-        
-        a_time_hourglass:{ id:'a_time_hourglass', type:'acc', name:'時光沙漏', exclusive:'mage', stats:{spd:20, eva:0.1}, skill1:'time_rift', desc:'閃避率+10%, 賦予:時空斷裂' },
-        b_aegis_armor:   { id:'b_aegis_armor', type:'body', name:'宙斯神盾甲', exclusive:'warrior', stats:{def:40, blk:0.3}, skill1:'absolute_guard', desc:'格檔率+30%, 賦予:絕對防禦' },
-        a_apocalypse_tome:{ id:'a_apocalypse_tome', type:'acc', name:'末日啟示錄', exclusive:'mage', stats:{atk:40, critD:0.5}, skill1:'combo_apocalypse', desc:'解鎖終極合體技:終焉時刻(需遊俠+盜賊)' },
-        w_frost_mourne:  { id:'w_frost_mourne', type:'weapon', name:'霜之哀傷', exclusive:'swordsman', stats:{atk:50, blk:0.2}, skill1:'combo_absolute_zero', desc:'解鎖終極合體技:絕對零度(需法師+遊俠)' },
-        h_valkyrie_helm: { id:'h_valkyrie_helm', type:'head', name:'女武神頭盔', exclusive:'priest', stats:{def:30, reg:20}, skill1:'combo_valhalla', desc:'解鎖終極合體技:英靈殿呼喚(需戰士+劍士)' },
-        b_shadow_cloak:  { id:'b_shadow_cloak', type:'body', name:'暗影軍團披風', exclusive:'rogue', stats:{def:20, eva:0.25}, skill1:'combo_shadow_legion', desc:'解鎖終極合體技:暗影軍團(需遊俠+戰士)' },
-        a_miracle_charm: { id:'a_miracle_charm', type:'acc', name:'奇蹟護符', exclusive:'ranger', stats:{hp:200, spd:30}, skill1:'combo_miracle', desc:'解鎖終極合體技:奇蹟之光(需牧師+法師)' }
+        w_mace: { id:'w_mace', type:'weapon', name:'神聖錘', exclusive:'priest', skill1:'heal' },
+        b_holy_robe: { id:'b_holy_robe', type:'body', name:'神聖法袍', exclusive:'priest', skill1:'holy_nova' },
+        a_purify_bell: { id:'a_purify_bell', type:'acc', name:'淨化之鈴', exclusive:'priest', skill1:'purify' },
+        a_angel_feather: { id:'a_angel_feather', type:'acc', name:'天使之羽', exclusive:'priest', skill1:'resurrect' },
+        w_holy_cross: { id:'w_holy_cross', type:'weapon', name:'十字軍重錘', exclusive:'priest', skill1:'smite' },
+        h_halo: { id:'h_halo', type:'head', name:'光之環', exclusive:'priest', skill1:'shield_wall' },
+
+        w_dagger: { id:'w_dagger', type:'weapon', name:'暗殺匕首', exclusive:'rogue', skill1:'poison_dag' },
+        h_ninja_mask: { id:'h_ninja_mask', type:'head', name:'忍野頭巾', exclusive:'rogue', skill1:'smoke_bomb' },
+        w_assassin_b: { id:'w_assassin_b', type:'weapon', name:'處決之刃', exclusive:'rogue', skill1:'assassinate' },
+        b_shadow_garb: { id:'b_shadow_garb', type:'body', name:'暗影行者服', exclusive:'rogue', skill1:'steal_life' },
+        a_phantom_cloak: { id:'a_phantom_cloak', type:'acc', name:'幻影斗篷', exclusive:'rogue', skill1:'phantom_strike' },
+        a_venom_vial: { id:'a_venom_vial', type:'acc', name:'猛毒試劑', exclusive:'rogue', skill1:'toxic_cloud' },
+
+        w_bow: { id:'w_bow', type:'weapon', name:'長弓', exclusive:'ranger', skill1:'arrow_rain' },
+        w_sniper_bow: { id:'w_sniper_bow', type:'weapon', name:'神射手大弓', exclusive:'ranger', skill1:'snipe' },
+        a_hunter_trap: { id:'a_hunter_trap', type:'acc', name:'獵人陷阱包', exclusive:'ranger', skill1:'trap' },
+        w_crossbow: { id:'w_crossbow', type:'weapon', name:'重型弩', exclusive:'ranger', skill1:'piercing_shot' },
+        h_ranger_hood: { id:'h_ranger_hood', type:'head', name:'遊俠兜帽', exclusive:'ranger', skill1:'eagle_eye' },
+        b_forest_cloak: { id:'b_forest_cloak', type:'body', name:'森林斗篷', exclusive:'ranger', skill1:'nature_call' },
+
+        w_katana: { id:'w_katana', type:'weapon', name:'武士刀', exclusive:'swordsman', skill1:'iai_slash' },
+        w_muramasa: { id:'w_muramasa', type:'weapon', name:'妖刀村正', exclusive:'swordsman', skill1:'blood_blade' },
+        w_dragon_slayer: { id:'w_dragon_slayer', type:'weapon', name:'屠龍巨刃', exclusive:'swordsman', skill1:'dragon_flash' },
+        b_ronin_armor: { id:'b_ronin_armor', type:'body', name:'浪人鎧甲', exclusive:'swordsman', skill1:'sword_dance' },
+        h_samurai_helm: { id:'h_samurai_helm', type:'head', name:'武士頭盔', exclusive:'swordsman', skill1:'counter_stance' },
+        a_sakura_charm: { id:'a_sakura_charm', type:'acc', name:'櫻花護身符', exclusive:'swordsman', skill1:'cherry_blossom' },
+
+        a_hero_badge: { id:'a_hero_badge', type:'acc', name:'英雄徽章(雙)', exclusive:'swordsman', skill1:'combo_x_strike' },
+        a_holy_gem: { id:'a_holy_gem', type:'acc', name:'聖光寶石(雙)', exclusive:'swordsman', skill1:'combo_holy_sword' },
+        a_assassin_scroll: { id:'a_assassin_scroll', type:'acc', name:'暗殺密卷(雙)', exclusive:'swordsman', skill1:'combo_shadow' },
+        a_element_stone: { id:'a_element_stone', type:'acc', name:'元素原石(雙)', exclusive:'mage', skill1:'combo_fire_ice' },
+        a_bull_horn: { id:'a_bull_horn', type:'acc', name:'蠻牛號角(雙)', exclusive:'warrior', skill1:'combo_charge' },
+        a_goddess_tear: { id:'a_goddess_tear', type:'acc', name:'女神之淚(雙)', exclusive:'priest', skill1:'combo_goddess' },
+
+        a_trinity_force: { id:'a_trinity_force', type:'acc', name:'三相之力(終)', exclusive:'warrior', skill1:'combo_trinity' },
+        a_doomsday_book: { id:'a_doomsday_book', type:'acc', name:'末日預言(終)', exclusive:'mage', skill1:'combo_doomsday' },
+        a_frost_heart: { id:'a_frost_heart', type:'acc', name:'極寒之心(終)', exclusive:'mage', skill1:'combo_absolute_zero' },
+        a_shadow_cloak: { id:'a_shadow_cloak', type:'acc', name:'影之軍團(終)', exclusive:'rogue', skill1:'combo_shadow_legion' },
+        a_valkyrie_wings: { id:'a_valkyrie_wings', type:'acc', name:'女武神翼(終)', exclusive:'priest', skill1:'combo_valkyrie' },
+        a_genesis_core: { id:'a_genesis_core', type:'acc', name:'創世核心(終)', exclusive:'swordsman', skill1:'combo_genesis' }
     }
 };
 
 function generateUID() { return 'uid_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5); }
 
-// UI 輔助函式：Toast 訊息
-function showToast(msg) {
-    const toast = document.getElementById('toast-msg');
-    toast.innerText = msg;
-    toast.style.opacity = 1;
-    setTimeout(() => { toast.style.opacity = 0; }, 2000);
+// Custom Modal System replacing alert/confirm
+function showSysMsg(msg, onConfirm, showCancel = false) {
+    document.getElementById('sys-modal-text').innerHTML = msg;
+    const btnContainer = document.getElementById('sys-modal-btns');
+    btnContainer.innerHTML = '';
+    
+    let okBtn = document.createElement('button');
+    okBtn.className = 'sys-modal-btn'; okBtn.style.background = '#44aa44'; okBtn.style.color = '#fff'; okBtn.innerText = '確認';
+    okBtn.onclick = () => { document.getElementById('sys-modal').style.display = 'none'; if(onConfirm) onConfirm(); };
+    btnContainer.appendChild(okBtn);
+
+    if (showCancel) {
+        let cancelBtn = document.createElement('button');
+        cancelBtn.className = 'sys-modal-btn'; cancelBtn.style.background = '#aa4444'; cancelBtn.style.color = '#fff'; cancelBtn.innerText = '取消';
+        cancelBtn.onclick = () => { document.getElementById('sys-modal').style.display = 'none'; };
+        btnContainer.appendChild(cancelBtn);
+    }
+    document.getElementById('sys-modal').style.display = 'flex';
 }
 
 const PlayerState = {
-    stage: 1, inventory: [], roster: [], activePartyIds: ['warrior', 'mage', 'priest'],
+    stage: 1, targetStage: 1, maxStage: 1, magicStones: 0, inventory: [], roster: [], activePartyIds: ['warrior', 'mage', 'priest'],
     
-    init() {
-        this.roster = [];
-        this.inventory = [];
+    initNew() {
+        this.stage = 1; this.targetStage = 1; this.maxStage = 1; this.magicStones = 0; this.inventory = []; this.roster = [];
+        this.activePartyIds = ['warrior', 'mage', 'priest'];
         Object.keys(DB.classes).forEach(clsId => {
-            this.roster.push({ id: clsId, classId: clsId, equip: { weapon: null, head: null, body: null, acc1: null, acc2: null } });
+            this.roster.push({ 
+                id: clsId, classId: clsId, equip: { weapon: null, head: null, body: null, acc1: null, acc2: null },
+                intrinsicStats: { hp: 0, atk: 0, def: 0 }, skillLevels: { attack: 1 }
+            });
         });
         
-        this.addAndEquipItem('w_broadsword', 'warrior', 'weapon');
-        this.addAndEquipItem('w_staff', 'mage', 'weapon');
-        this.addAndEquipItem('w_mace', 'priest', 'weapon');
-        this.addAndEquipItem('w_dagger', 'rogue', 'weapon');
-        this.addAndEquipItem('w_bow', 'ranger', 'weapon');
-        this.addAndEquipItem('w_katana', 'swordsman', 'weapon');
+        // Initial Weapons (White rarity, low stats)
+        this.addAndEquipItem('w_broadsword', 'warrior', 'weapon', 'common', 1);
+        this.addAndEquipItem('w_staff', 'mage', 'weapon', 'common', 1);
+        this.addAndEquipItem('w_mace', 'priest', 'weapon', 'common', 1);
+        this.addAndEquipItem('w_dagger', 'rogue', 'weapon', 'common', 1);
+        this.addAndEquipItem('w_bow', 'ranger', 'weapon', 'common', 1);
+        this.addAndEquipItem('w_katana', 'swordsman', 'weapon', 'common', 1);
+    },
+    
+    generateEquip(itemId, rarityKey, stageLv) {
+        let template = DB.items[itemId]; if(!template) return null;
+        let rarity = DB.rarities[rarityKey];
+        let statCount = rarity.stats;
+        let pool = [...DB.statTypes];
+        let generatedStats = {};
+        
+        // Randomly pick stats
+        for(let i=0; i<statCount; i++) {
+            if(pool.length === 0) break;
+            let idx = Math.floor(Math.random() * pool.length);
+            let sType = pool.splice(idx, 1)[0];
+            let rawVal = sType.baseRoll * stageLv * rarity.mult * (0.8 + Math.random()*0.4);
+            if(sType.isPct) {
+                generatedStats[sType.key] = Math.min(sType.max || Infinity, rawVal);
+            } else {
+                generatedStats[sType.key] = Math.max(1, Math.floor(rawVal));
+            }
+        }
+        return { uid: generateUID(), itemId, rarity: rarityKey, stats: generatedStats, enhance: 0 };
+    },
 
-        this.addItems(['h_vampire_mask', 'h_wizard_hat', 'b_holy_robe', 'b_berserker_mail', 'a_earth_core', 'w_sniper_bow', 'w_thunder', 'a_assassin_scroll', 'a_trinity_force']);
+    rollLoot(isBoss) {
+        let itemsToDrop = isBoss ? (2 + Math.floor(Math.random()*2)) : (Math.random() < 0.3 ? 1 : 0);
+        let dropped = [];
+        let allKeys = Object.keys(DB.items);
+        for(let i=0; i<itemsToDrop; i++) {
+            let itemId = allKeys[Math.floor(Math.random() * allKeys.length)];
+            let rarityRoll = Math.random();
+            let rKey = 'common';
+            if (isBoss) {
+                if(rarityRoll < 0.1) rKey = 'legendary';
+                else if(rarityRoll < 0.4) rKey = 'epic';
+                else if(rarityRoll < 0.9) rKey = 'rare';
+                else rKey = 'uncommon';
+            } else {
+                if(rarityRoll < 0.01) rKey = 'legendary';
+                else if(rarityRoll < 0.05) rKey = 'epic';
+                else if(rarityRoll < 0.2) rKey = 'rare';
+                else if(rarityRoll < 0.5) rKey = 'uncommon';
+            }
+            let newItem = this.generateEquip(itemId, rKey, this.stage);
+            this.inventory.push(newItem);
+            dropped.push(newItem);
+        }
+        return dropped;
     },
-    addItems(itemIds) {
-        let added = [];
-        itemIds.forEach(id => {
-            let uid = generateUID();
-            this.inventory.push({ uid, itemId: id });
-            added.push({ uid, itemId: id });
-        });
-        return added;
+
+    addAndEquipItem(itemId, heroId, slot, rarityKey='common', stageLv=1) {
+        let newItem = this.generateEquip(itemId, rarityKey, stageLv);
+        this.inventory.push(newItem);
+        let hero = this.roster.find(h => h.id === heroId);
+        if (hero && newItem) hero.equip[slot] = newItem.uid;
     },
-    addAndEquipItem(itemId, heroId, slot) {
-        let added = this.addItems([itemId])[0];
-        let hero = this.getHero(heroId);
-        if (hero) hero.equip[slot] = added.uid;
-    },
+
     getHero(id) { return this.roster.find(h => h.id === id); },
+
     getCalculatedStats(heroData) {
         const base = DB.classes[heroData.classId];
-        // 加入新的 5 個預設屬性
-        let stats = { hp: base.hp, maxHp: base.hp, atk: base.atk, def: base.def, spd: base.spd, critR: 0.05, critD: 1.5, eva: 0.05, blk: 0.0, reg: 0 };
+        let intr = heroData.intrinsicStats || {hp:0,atk:0,def:0};
+        let stats = { hp: base.hp + intr.hp, maxHp: base.hp + intr.hp, atk: base.atk + intr.atk, def: base.def + intr.def, spd: base.spd, critR: 0, critD: 1.5, eva: 0, blk: 0, reg: 0 };
         let skills = ['attack'];
         
         Object.values(heroData.equip).forEach(uid => {
             if (uid) {
                 let invItem = this.inventory.find(i => i.uid === uid);
                 if (invItem && DB.items[invItem.itemId]) {
-                    let item = DB.items[invItem.itemId];
-                    if (item.stats) {
-                        if (item.stats.hp) { stats.maxHp += item.stats.hp; stats.hp += item.stats.hp; }
-                        if (item.stats.atk) stats.atk += item.stats.atk;
-                        if (item.stats.def) stats.def += item.stats.def;
-                        if (item.stats.spd) stats.spd += item.stats.spd;
-                        if (item.stats.critR) stats.critR += item.stats.critR;
-                        if (item.stats.critD) stats.critD += item.stats.critD;
-                        if (item.stats.eva) stats.eva += item.stats.eva;
-                        if (item.stats.blk) stats.blk += item.stats.blk;
-                        if (item.stats.reg) stats.reg += item.stats.reg;
+                    let itemTemp = DB.items[invItem.itemId];
+                    if (invItem.stats) {
+                        let mult = 1 + (invItem.enhance * 0.1); // +10% per enhance level
+                        if (invItem.stats.hp) { let v = Math.floor(invItem.stats.hp*mult); stats.maxHp += v; stats.hp += v; }
+                        if (invItem.stats.atk) stats.atk += Math.floor(invItem.stats.atk*mult);
+                        if (invItem.stats.def) stats.def += Math.floor(invItem.stats.def*mult);
+                        if (invItem.stats.spd) stats.spd += Math.floor(invItem.stats.spd*mult);
+                        if (invItem.stats.critR) stats.critR += invItem.stats.critR*mult;
+                        if (invItem.stats.critD) stats.critD += invItem.stats.critD*mult;
+                        if (invItem.stats.eva) stats.eva += invItem.stats.eva*mult;
+                        if (invItem.stats.blk) stats.blk += invItem.stats.blk*mult;
+                        if (invItem.stats.reg) stats.reg += invItem.stats.reg*mult;
                     }
-                    if (item.skill1) skills.push(item.skill1);
-                    if (item.skill2) skills.push(item.skill2);
+                    if (itemTemp.skill1) skills.push(itemTemp.skill1);
+                    if (itemTemp.skill2) skills.push(itemTemp.skill2);
                 }
             }
         });
+        stats.hp = Math.max(1, stats.hp); stats.maxHp = Math.max(1, stats.maxHp);
+        stats.atk = Math.max(1, stats.atk); stats.def = Math.max(0, stats.def);
+        stats.spd = Math.max(1, stats.spd);
+        stats.critR = Math.min(1, stats.critR); stats.eva = Math.min(0.8, stats.eva); stats.blk = Math.min(0.8, stats.blk);
         return { stats, skills };
     }
 };
 
-const canvas = document.getElementById('game-canvas');
-const ctx = canvas.getContext('2d');
+// Auto Save / Load
+function saveGame(manual=false) {
+    try {
+        localStorage.setItem('infinite_rpg_save', JSON.stringify(PlayerState));
+        if(manual) showSysMsg("檔案已成功儲存！");
+    } catch(e) { console.error("Save failed", e); }
+}
+
+function loadGame() {
+    let saved = localStorage.getItem('infinite_rpg_save');
+    if (saved) {
+        try {
+            let data = JSON.parse(saved);
+            Object.assign(PlayerState, data);
+            
+            // Ensure compatibility (migrations)
+            if(!PlayerState.targetStage) PlayerState.targetStage = PlayerState.stage;
+            if(!PlayerState.maxStage) PlayerState.maxStage = PlayerState.stage;
+            if(PlayerState.magicStones === undefined) PlayerState.magicStones = 0;
+            PlayerState.roster.forEach(h => {
+                if(!h.intrinsicStats) h.intrinsicStats = {hp:0, atk:0, def:0};
+                if(!h.skillLevels) h.skillLevels = {attack:1};
+            });
+            PlayerState.inventory.forEach(i => {
+                if(i.enhance === undefined) i.enhance = 0;
+            });
+            return true;
+        } catch(e) { console.error("Load failed", e); }
+    }
+    return false;
+}
+
+function exportSave() {
+    let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(PlayerState));
+    let dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", "infinite_rpg_save.json");
+    dlAnchorElem.click();
+}
+
+function importSave(event) {
+    let file = event.target.files[0];
+    if (!file) return;
+    let reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            let data = JSON.parse(e.target.result);
+            Object.assign(PlayerState, data);
+            saveGame();
+            showSysMsg("讀取成功！即將重啟遊戲。", () => location.reload());
+        } catch(err) {
+            showSysMsg("讀取失敗，檔案格式不正確！");
+        }
+    };
+    reader.readAsText(file);
+}
+
+function confirmReset() {
+    showSysMsg("確定要刪除所有進度嗎？此操作無法還原！", () => {
+        localStorage.removeItem('infinite_rpg_save');
+        location.reload();
+    }, true);
+}
+
+
+const canvas = document.getElementById('game-canvas'); const ctx = canvas.getContext('2d');
 let GAME_WIDTH = 540; let GAME_HEIGHT = 960;
 let battleActive = false; let entities = []; let effects = []; let sceneryObjects = [];
-let menuOpen = false; let targetingMode = false; let victoryTriggered = false;
-let currentActor = null; 
+let menuOpen = false; let targetingMode = false; let victoryTriggered = false; let currentActor = null; 
 let pendingSkill = null; let pendingSkillId = null; let pendingPartners = []; let validTargets = [];
 let lastTime = 0; let difficultyMultiplier = 1.0;
 
 function resizeCanvas() { canvas.width = GAME_WIDTH; canvas.height = GAME_HEIGHT; }
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
 class Entity {
     constructor(isHero, data) {
         this.isHero = isHero; this.id = data.id || generateUID();
+        this.rosterRef = isHero ? PlayerState.getHero(this.id) : null;
+        
         this.emoji = data.emoji; this.name = data.name;
         this.maxHp = data.stats.maxHp; this.hp = this.maxHp;
-        
-        // 記錄原始屬性供 Buff 計算
-        this.baseAtk = data.stats.atk; this.baseDef = data.stats.def; this.baseSpd = data.stats.spd;
-        this.atk = this.baseAtk; this.def = this.baseDef; this.spd = this.baseSpd;
-        
-        // 新屬性
-        this.critR = data.stats.critR || 0.05; this.critD = data.stats.critD || 1.5;
+        this.atk = data.stats.atk; this.def = data.stats.def; this.spd = data.stats.spd;
+        this.critR = data.stats.critR || 0; this.critD = data.stats.critD || 1.5;
         this.eva = data.stats.eva || 0; this.blk = data.stats.blk || 0; this.reg = data.stats.reg || 0;
-
-        this.skills = data.skills || []; this.color = data.color || '#fff';
+        
+        this.skills = data.skills || ['attack']; this.color = data.color || '#fff';
         this.radius = data.radius || 20;
         this.atb = (Math.random() * 200); this.atbMax = 1000;
         this.state = 'idle'; this.baseX = 0; this.baseY = 0; this.x = 0; this.y = 0;
         this.targetX = 0; this.targetY = 0; this.wanderTimer = 0;
-        this.aiType = data.aiType || 'melee';
-        this.isBoss = data.isBoss || false;
+        this.aiType = data.aiType || 'melee'; this.isBoss = data.isBoss || false;
         
-        // 技能冷卻與異常狀態追蹤
-        this.skillCooldowns = {};
-        this.status = [];
-        this.regTimer = 0;
+        this.skillCooldowns = {}; this.debuffs = {}; this.buffs = {}; 
     }
     get isDead() { return this.hp <= 0; }
     
-    applyStatus(type, dur, val) {
-        this.status.push({ type, dur, val });
-        let msg = '';
-        if(type==='poison') msg='中毒!'; if(type==='bleed') msg='流血!'; if(type==='blind') msg='盲目!'; 
-        if(type==='paralyze') msg='麻痺!'; if(type==='sleep') msg='睡眠!'; if(type==='petrify') msg='石化!';
-        if(type==='atk_up') msg='攻擊提升!'; if(type==='regen') msg='持續恢復!';
-        if(msg) effects.push(new TextEffect(this.x, this.y - 30, msg, '#ffaa00'));
-    }
-
-    takeDamage(dmgInfo) {
-        if (this.isDead) return 0;
-        if (dmgInfo.isHeal) {
-            let actualHeal = Math.floor(dmgInfo.amount || 0); this.hp = Math.min(this.maxHp, this.hp + actualHeal);
-            effects.push(new TextEffect(this.x, this.y - 20, `+${actualHeal}`, '#00ff00'));
-            return actualHeal;
+    takeDamage(amount, isHeal = false, isCrit = false) {
+        if (this.isDead) return;
+        if (isHeal) {
+            let actualHeal = Math.floor(amount); this.hp = Math.min(this.maxHp, this.hp + actualHeal);
+            effects.push(new TextEffect(this.x, this.y - 30, `+${actualHeal}`, '#00ff00', 25));
         } else {
-            // Evasion Check
-            if (!dmgInfo.noEvade && Math.random() < this.eva) {
-                effects.push(new TextEffect(this.x, this.y - 20, "Miss(迴避)", '#cccccc'));
-                return 0;
+            let currentDef = this.def; if (this.buffs.def_up) currentDef *= this.buffs.def_up.val;
+            let actualDmg = Math.max(1, Math.floor(amount - currentDef * 0.5)); this.hp -= actualDmg;
+            
+            let color = isCrit ? '#ffea00' : '#ff3333'; let size = isCrit ? 32 : 20; let prefix = isCrit ? "Crit! " : "";
+            effects.push(new TextEffect(this.x, this.y - 30, `-${actualDmg} ${prefix}`, color, size));
+            
+            // Combat Growth: Defense / HP when taking damage
+            if (this.isHero && Math.random() < 0.2) {
+                if(Math.random() < 0.5) {
+                    this.rosterRef.intrinsicStats.def += 1; this.def += 1;
+                    effects.push(new TextEffect(this.x, this.y - 50, `DEF UP!`, '#aaaaaa', 14));
+                } else {
+                    this.rosterRef.intrinsicStats.hp += 5; this.maxHp += 5;
+                    effects.push(new TextEffect(this.x, this.y - 50, `MaxHP UP!`, '#ffaaaa', 14));
+                }
             }
-            
-            // Waking up from sleep on damage
-            let sleepIdx = this.status.findIndex(s => s.type === 'sleep');
-            if (sleepIdx > -1) { this.status.splice(sleepIdx, 1); effects.push(new TextEffect(this.x, this.y-30, "醒來!", '#ffffff')); }
-
-            let finalAmt = dmgInfo.amount || 0;
-            let blocked = Math.random() < this.blk;
-            if (blocked) finalAmt *= 0.5;
-            
-            // Petrify def bonus (Def * 2)
-            let currentDef = this.status.find(s=>s.type==='petrify') ? this.def * 2 : this.def;
-            let actualDmg = Math.max(1, Math.floor(finalAmt - (currentDef || 0) * 0.5));
-            if (isNaN(actualDmg)) actualDmg = 1; // 防止傷害計算出現 NaN 導致無敵的終極防護
-            this.hp -= actualDmg;
-            
-            let color = dmgInfo.isCrit ? '#ff8800' : '#ff3333';
-            let prefix = dmgInfo.isCrit ? 'CRIT -' : '-';
-            let suffix = blocked ? ' (格檔)' : '';
-            effects.push(new TextEffect(this.x, this.y - 20, `${prefix}${actualDmg}${suffix}`, color));
             
             this.y += this.isHero ? 5 : -5;
-            if (this.hp <= 0) { this.hp = 0; this.state = 'dead'; this.atb = 0; this.status = []; }
-            return actualDmg;
+            if (this.hp <= 0) { this.hp = 0; this.state = 'dead'; this.atb = 0; this.debuffs={}; this.buffs={}; }
         }
     }
+    
     update(dt) {
-        if (this.isDead || menuOpen || targetingMode || victoryTriggered) return;
-
-        let canAct = true;
-        this.atk = this.baseAtk; this.def = this.baseDef; this.spd = this.baseSpd;
-        let currentRegen = this.reg;
-
-        // Process Status Effects
-        for (let i = this.status.length - 1; i >= 0; i--) {
-            let s = this.status[i];
-            s.dur -= dt / 1000;
-            
-            if (s.type === 'poison') { if(Math.random()<0.05) this.takeDamage({amount: this.maxHp * s.val, noEvade: true}); }
-            if (s.type === 'bleed') { if(Math.random()<0.05) this.takeDamage({amount: this.maxHp * s.val, noEvade: true}); }
-            if (s.type === 'atk_up') { this.atk = this.baseAtk * s.val; }
-            if (s.type === 'def_up') { this.def = this.baseDef * s.val; }
-            if (s.type === 'regen') { currentRegen += s.val; }
-            
-            if (s.type === 'paralyze' || s.type === 'sleep' || s.type === 'petrify') canAct = false;
-            
-            if (s.dur <= 0) this.status.splice(i, 1);
-        }
-
-        // Passive Health Regen Logic
-        this.regTimer += dt;
-        if (this.regTimer >= 1000) {
-            this.regTimer = 0;
-            if (currentRegen > 0 && this.hp < this.maxHp) this.takeDamage({amount: currentRegen, isHeal: true});
-            if (currentRegen < 0) this.takeDamage({amount: -currentRegen, noEvade: true});
-        }
-
-        if (this.state === 'acting' || !canAct) return;
-
+        if (this.isDead || menuOpen || targetingMode || this.state === 'acting' || victoryTriggered) return;
         if (this.state === 'idle') {
             this.atb += this.spd * (dt / 100); 
-            if (this.atb >= this.atbMax) {
-                this.atb = this.atbMax; this.state = 'ready';
-                if (this.isHero) openMenu(this);
-            }
+            if (this.reg > 0) { let regAmt = this.maxHp * this.reg * (dt / 1000); this.hp = Math.min(this.maxHp, this.hp + regAmt); }
+            if (this.atb >= this.atbMax) { this.atb = this.atbMax; this.processTurnStart(); }
         }
         if (!this.isHero && this.state === 'ready') this.monsterAI();
-
         if (this.state === 'idle' || this.state === 'ready') {
             this.wanderTimer -= dt;
             if (this.wanderTimer <= 0) {
@@ -555,154 +677,65 @@ class Entity {
             this.x += (this.targetX - this.x) * 0.03; this.y += (this.targetY - this.y) * 0.03;
         }
     }
+    
+    processTurnStart() {
+        let skipTurn = false;
+        if (this.debuffs.poison) { this.takeDamage(this.maxHp * 0.05); effects.push(new TextEffect(this.x, this.y-50, "中毒", "#00ff00", 14)); this.debuffs.poison--; if(this.debuffs.poison <= 0) delete this.debuffs.poison; }
+        if (this.debuffs.bleed && !this.isDead) { this.takeDamage(this.maxHp * 0.08); effects.push(new TextEffect(this.x, this.y-50, "流血", "#ff0000", 14)); this.debuffs.bleed--; if(this.debuffs.bleed <= 0) delete this.debuffs.bleed; }
+        if (this.debuffs.stun && !this.isDead) { effects.push(new TextEffect(this.x, this.y-50, "無法行動", "#ffff00", 16)); skipTurn = true; this.debuffs.stun--; if(this.debuffs.stun <= 0) delete this.debuffs.stun; }
+        if (this.debuffs.blind) { this.debuffs.blind--; if(this.debuffs.blind <= 0) delete this.debuffs.blind; }
+        for (let key in this.buffs) { this.buffs[key].turns--; if(this.buffs[key].turns <= 0) delete this.buffs[key]; }
+        if (this.isDead) return;
+        if (skipTurn) { this.finishTurn(); } else { this.state = 'ready'; if (this.isHero) openMenu(this); }
+    }
+    
     draw(ctx) {
         if (this.isDead) return;
-        
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.beginPath(); ctx.ellipse(this.x, this.y + this.radius, this.radius, this.radius * 0.4, 0, 0, Math.PI * 2); ctx.fill();
-
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(this.x, this.y + this.radius, this.radius, this.radius * 0.4, 0, 0, Math.PI * 2); ctx.fill();
         if (targetingMode && validTargets.includes(this)) {
             let t = performance.now() / 200; let pulse = Math.abs(Math.sin(t)) * 5;
-            ctx.strokeStyle = this.isHero ? '#00ff00' : '#ff3333'; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.arc(this.x, this.y, this.radius + 10 + pulse, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = this.isHero ? '#00ff00' : '#ff3333'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius + 10 + pulse, 0, Math.PI * 2); ctx.stroke();
         }
-
-        // 加入這行：重置顏色為 100% 不透明，避免 Emoji 繼承到陰影的半透明效果
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `${this.radius * 2}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(this.emoji, this.x, this.y);
-
-        // Draw Status Effect Icons
-        if (this.status.length > 0) {
-            let statusStr = this.status.map(s => {
-                if(s.type==='poison') return '☠️'; if(s.type==='bleed') return '🩸';
-                if(s.type==='paralyze') return '⚡'; if(s.type==='sleep') return '💤';
-                if(s.type==='blind') return '🕶️'; if(s.type==='petrify') return '🗿';
-                if(s.type==='atk_up') return '🔥'; if(s.type==='def_up') return '🛡️'; if(s.type==='regen') return '💖';
-                return '';
-            }).join('');
-            ctx.font = '12px Arial';
-            ctx.fillText(statusStr, this.x, this.y - this.radius - 22);
-        }
+        ctx.fillStyle = '#ffffff'; ctx.font = `${this.radius * 2}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(this.emoji, this.x, this.y);
+        
+        let statusY = this.y - this.radius - 25; let iconSpacing = 12; let startX = this.x - (Object.keys(this.debuffs).length * iconSpacing)/2;
+        ctx.font = `12px Arial`;
+        if(this.debuffs.poison) { ctx.fillText('☠️', startX, statusY); startX += iconSpacing; }
+        if(this.debuffs.bleed) { ctx.fillText('🩸', startX, statusY); startX += iconSpacing; }
+        if(this.debuffs.stun) { ctx.fillText('⚡', startX, statusY); startX += iconSpacing; }
+        if(this.debuffs.blind) { ctx.fillText('👁️‍🗨️', startX, statusY); startX += iconSpacing; }
+        if(this.buffs.def_up) { ctx.fillText('🛡️', startX, statusY); startX += iconSpacing; }
 
         const barW = this.isBoss ? 80 : 40; const barH = 6;
         ctx.fillStyle = '#000'; ctx.fillRect(this.x - barW/2, this.y - this.radius - 15, barW, barH);
-        ctx.fillStyle = this.isHero ? '#2ecc71' : '#e74c3c';
-        ctx.fillRect(this.x - barW/2, this.y - this.radius - 15, barW * (this.hp / this.maxHp), barH);
-
+        ctx.fillStyle = this.isHero ? '#2ecc71' : '#e74c3c'; ctx.fillRect(this.x - barW/2, this.y - this.radius - 15, barW * (this.hp / this.maxHp), barH);
         ctx.fillStyle = '#000'; ctx.fillRect(this.x - barW/2, this.y - this.radius - 7, barW, 4);
-        ctx.fillStyle = this.state === 'ready' ? '#f1c40f' : '#3498db';
-        ctx.fillRect(this.x - barW/2, this.y - this.radius - 7, barW * (this.atb / this.atbMax), 4);
-        
-        if (this.state === 'ready' && this.isHero && !targetingMode) {
-            ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 2;
-            ctx.strokeRect(this.x - barW/2 - 2, this.y - this.radius - 17, barW + 4, barH + 16);
-        }
-    }
-    monsterAI() {
-        let heroes = entities.filter(e => e.isHero && !e.isDead); if (heroes.length === 0) return;
-        
-        // 判斷是否使用技能 (考量機率與冷卻)
-        let useSkill = false;
-        let chosenSkillId = null;
-        let availableSkills = this.skills.filter(sId => DB.skills[sId] && (!this.skillCooldowns[sId] || this.skillCooldowns[sId] <= 0));
-        
-        if (availableSkills.length > 0) {
-            let chance = this.isBoss ? 0.5 : 0.25; // 魔王 50% 機率放招，小怪 25%
-            if (Math.random() < chance) {
-                useSkill = true;
-                chosenSkillId = availableSkills[Math.floor(Math.random() * availableSkills.length)];
-            }
-        }
-
-        if (useSkill) {
-            let skill = DB.skills[chosenSkillId];
-            let mainTarget = this; 
-            let myAllies = entities.filter(e => !e.isHero && !e.isDead);
-
-            if (skill.target === 'ally_single') {
-                mainTarget = myAllies[Math.floor(Math.random() * myAllies.length)];
-            } else if (skill.target !== 'self_aoe' && skill.target !== 'random_aoe') {
-                mainTarget = heroes[Math.floor(Math.random() * heroes.length)];
-            }
-            
-            // 顯示怪物施放的技能名稱
-            effects.push(new TextEffect(this.x, this.y - 40, skill.name, '#ffaa00'));
-            executeSkillWithTarget(this, chosenSkillId, skill, [], mainTarget);
-        } else {
-            // 原本的基礎普攻邏輯
-            let target = heroes[Math.floor(Math.random() * heroes.length)];
-            this.state = 'acting'; this.atb = 0;
-            
-            let isCrit = Math.random() < this.critR;
-            let isBlind = this.status.find(s=>s.type==='blind') && Math.random() < 0.5;
-            let dmgAmount = isCrit ? this.atk * this.critD : this.atk;
-            
-            const finishAction = () => {
-                if (!isBlind) target.takeDamage({amount: dmgAmount, isCrit}); 
-                else effects.push(new TextEffect(target.x, target.y-20, "Miss(盲目)", '#aaa'));
-                this.finishTurn(); 
-            };
-
-            if (this.aiType === 'melee') effects.push(new DashEffect(this, target.x, target.y, finishAction));
-            else effects.push(new ProjectileEffect(this.x, this.y, target.x, target.y, this.isBoss ? '#ff0000' : '#ff00ff', finishAction));
-        }
+        ctx.fillStyle = this.state === 'ready' ? '#f1c40f' : '#3498db'; ctx.fillRect(this.x - barW/2, this.y - this.radius - 7, barW * (this.atb / this.atbMax), 4);
+        if (this.state === 'ready' && this.isHero && !targetingMode) { ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 2; ctx.strokeRect(this.x - barW/2 - 2, this.y - this.radius - 17, barW + 4, barH + 16); }
     }
     
-    // 行動結束，扣減技能 CD
+    monsterAI() {
+        let heroes = entities.filter(e => e.isHero && !e.isDead); if (heroes.length === 0) return;
+        let availableSkills = this.skills.filter(sId => !this.skillCooldowns[sId] || this.skillCooldowns[sId] <= 0);
+        let skillToUse = availableSkills.length > 0 ? availableSkills[Math.floor(Math.random() * availableSkills.length)] : 'attack';
+        let skillData = DB.skills[skillToUse];
+        let target = heroes[Math.floor(Math.random() * heroes.length)];
+        executeSkillWithTarget(this, skillToUse, skillData, [], target);
+    }
+    
     finishTurn() { 
         this.atb = 0; this.state = 'idle'; this.targetX = this.baseX; this.targetY = this.baseY; 
-        for (let key in this.skillCooldowns) {
-            if (this.skillCooldowns[key] > 0) this.skillCooldowns[key]--;
-        }
+        for (let key in this.skillCooldowns) { if (this.skillCooldowns[key] > 0) this.skillCooldowns[key]--; }
     }
 }
 
-class TextEffect {
-    constructor(x,y,t,c){this.x=x;this.y=y;this.t=t;this.c=c;this.l=1;}
-    update(dt){this.l-=dt/1000;this.y-=0.5;return this.l>0;}
-    draw(ctx){ctx.globalAlpha=Math.max(0,this.l);ctx.fillStyle=this.c;ctx.font='bold 20px Arial';ctx.textAlign='center';ctx.fillText(this.t,this.x,this.y);ctx.globalAlpha=1;}
-}
-class DashEffect {
-    constructor(a,dx,dy,cb,ret=true){this.a=a;this.sx=a.x;this.sy=a.y;this.dx=dx;this.dy=dy;this.p=0;this.cb=cb;this.ht=false;this.ret=ret;}
-    update(dt){
-        this.p+=dt/250;
-        if(this.p>=1){
-            if(!this.ht){
-                this.cb();this.ht=true;
-                if(!this.ret) return false;
-            }
-            if(this.ret){
-                this.a.x+=(this.sx-this.a.x)*0.2; this.a.y+=(this.sy-this.a.y)*0.2;
-                if(Math.abs(this.a.x-this.sx)<5){this.a.x=this.sx;this.a.y=this.sy;return false;}
-            }
-            return this.ret;
-        }
-        this.a.x=this.sx+(this.dx-this.sx)*Math.min(1,this.p); this.a.y=this.sy+(this.dy-this.sy)*Math.min(1,this.p);
-        return true;
-    }
-    draw(){}
-}
-class ProjectileEffect {
-    constructor(sx,sy,tx,ty,c,cb){this.x=sx;this.y=sy;this.tx=tx;this.ty=ty;this.c=c;this.cb=cb;let d=Math.hypot(tx-sx,ty-sy);this.vx=(tx-sx)/d*15;this.vy=(ty-sy)/d*15;}
-    update(dt){this.x+=this.vx;this.y+=this.vy;if(Math.hypot(this.tx-this.x,this.ty-this.y)<20){this.cb();return false;}return true;}
-    draw(ctx){ctx.fillStyle=this.c;ctx.beginPath();ctx.arc(this.x,this.y,8,0,Math.PI*2);ctx.fill();}
-}
-class ExplosionEffect {
-    constructor(x,y,r,c,cb){this.x=x;this.y=y;this.r=r;this.c=c;this.l=0.5;this.m=0.5;this.cb=cb;}
-    update(dt){this.l-=dt/1000;if(this.l<=0){if(this.cb)this.cb();return false;}return true;}
-    draw(ctx){let p=1-(this.l/this.m);ctx.globalAlpha=1-p;ctx.fillStyle=this.c;ctx.beginPath();ctx.arc(this.x,this.y,this.r*p,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
-}
-class LaserEffect {
-    constructor(sx,sy,tx,ty,w,cb){this.sx=sx;this.sy=sy;this.w=w;let d=Math.hypot(tx-sx,ty-sy);this.ex=sx+(tx-sx)/d*1000;this.ey=sy+(ty-sy)/d*1000;this.l=0.4;this.m=0.4;this.cb=cb;}
-    update(dt){this.l-=dt/1000;if(this.l<=0){if(this.cb)this.cb();return false;}return true;}
-    draw(ctx){ctx.globalAlpha=this.l/this.m;ctx.strokeStyle='#00ffff';ctx.lineWidth=this.w;ctx.beginPath();ctx.moveTo(this.sx,this.sy);ctx.lineTo(this.ex,this.ey);ctx.stroke();ctx.globalAlpha=1;}
-}
-class ScreenFlashEffect {
-    constructor(c,d){this.c=c;this.l=d;this.d=d;}
-    update(dt){this.l-=dt/1000;return this.l>0;}
-    draw(ctx){ctx.globalAlpha=(this.l/this.d)*0.5;ctx.fillStyle=this.c;ctx.fillRect(0,0,GAME_WIDTH,GAME_HEIGHT);ctx.globalAlpha=1;}
-}
+// Effects
+class TextEffect { constructor(x,y,t,c,s=20){this.x=x;this.y=y;this.t=t;this.c=c;this.s=s;this.l=1;} update(dt){this.l-=dt/1000;this.y-=0.5;return this.l>0;} draw(ctx){ctx.globalAlpha=Math.max(0,this.l);ctx.fillStyle=this.c;ctx.font=`bold ${this.s}px Arial`;ctx.textAlign='center';ctx.fillText(this.t,this.x,this.y);ctx.globalAlpha=1;} }
+class DashEffect { constructor(a,dx,dy,cb,ret=true){this.a=a;this.sx=a.x;this.sy=a.y;this.dx=dx;this.dy=dy;this.p=0;this.cb=cb;this.ht=false;this.ret=ret;} update(dt){ this.p+=dt/250; if(this.p>=1){ if(!this.ht){this.cb();this.ht=true;} if (this.ret) { this.a.x+=(this.sx-this.a.x)*0.2; this.a.y+=(this.sy-this.a.y)*0.2; if(Math.abs(this.a.x-this.sx)<5){this.a.x=this.sx;this.a.y=this.sy;return false;} return true; } else { return false; } } this.a.x=this.sx+(this.dx-this.sx)*Math.min(1,this.p); this.a.y=this.sy+(this.dy-this.sy)*Math.min(1,this.p); return true; } draw(){} }
+class ProjectileEffect { constructor(sx,sy,tx,ty,c,cb){this.x=sx;this.y=sy;this.tx=tx;this.ty=ty;this.c=c;this.cb=cb;let d=Math.hypot(tx-sx,ty-sy);this.vx=(tx-sx)/d*15;this.vy=(ty-sy)/d*15;} update(dt){this.x+=this.vx;this.y+=this.vy;if(Math.hypot(this.tx-this.x,this.ty-this.y)<20){this.cb();return false;}return true;} draw(ctx){ctx.fillStyle=this.c;ctx.beginPath();ctx.arc(this.x,this.y,8,0,Math.PI*2);ctx.fill();} }
+class ExplosionEffect { constructor(x,y,r,c,cb){this.x=x;this.y=y;this.r=r;this.c=c;this.l=0.5;this.m=0.5;this.cb=cb;} update(dt){this.l-=dt/1000;if(this.l<=0){if(this.cb)this.cb();return false;}return true;} draw(ctx){let p=1-(this.l/this.m);ctx.globalAlpha=1-p;ctx.fillStyle=this.c;ctx.beginPath();ctx.arc(this.x,this.y,this.r*p,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;} }
+class LaserEffect { constructor(sx,sy,tx,ty,w,cb){this.sx=sx;this.sy=sy;this.w=w;let d=Math.hypot(tx-sx,ty-sy);this.ex=sx+(tx-sx)/d*1000;this.ey=sy+(ty-sy)/d*1000;this.l=0.4;this.m=0.4;this.cb=cb;} update(dt){this.l-=dt/1000;if(this.l<=0){if(this.cb)this.cb();return false;}return true;} draw(ctx){ctx.globalAlpha=this.l/this.m;ctx.strokeStyle='#00ffff';ctx.lineWidth=this.w;ctx.beginPath();ctx.moveTo(this.sx,this.sy);ctx.lineTo(this.ex,this.ey);ctx.stroke();ctx.globalAlpha=1;} }
+class ScreenFlashEffect { constructor(c,d){this.c=c;this.l=d;this.d=d;} update(dt){this.l-=dt/1000;return this.l>0;} draw(ctx){ctx.globalAlpha=(this.l/this.d)*0.5;ctx.fillStyle=this.c;ctx.fillRect(0,0,GAME_WIDTH,GAME_HEIGHT);ctx.globalAlpha=1;} }
 
 function getDistance(e1, e2) { return Math.hypot(e1.x - e2.x, e1.y - e2.y); }
 
@@ -710,9 +743,14 @@ function initBattle() {
     entities = []; effects = []; sceneryObjects = []; menuOpen = false; targetingMode = false; victoryTriggered = false;
     document.getElementById('action-menu').style.display = 'none';
     document.getElementById('targeting-ui').style.display = 'none';
+    document.getElementById('hub-return-btn').style.display = 'none';
     
+    // Set actual fighting stage
+    PlayerState.stage = PlayerState.targetStage;
     document.getElementById('ui-stage-num').innerText = PlayerState.stage;
-    document.getElementById('stage-msg').style.opacity = 0;
+    document.getElementById('ui-magic-stones-battle').innerText = PlayerState.magicStones;
+    
+    let msg = document.getElementById('stage-msg'); msg.style.opacity = 0;
     document.getElementById('loot-info').style.display = 'none';
 
     const biomeKeys = Object.keys(DB.biomes);
@@ -720,15 +758,10 @@ function initBattle() {
     document.getElementById('game-canvas').style.background = selectedBiome.bg;
 
     for(let i=0; i<8; i++) {
-        sceneryObjects.push({
-            x: Math.random() * GAME_WIDTH,
-            y: Math.random() * (GAME_HEIGHT * 0.4) + GAME_HEIGHT * 0.05, 
-            emoji: selectedBiome.scenery[Math.floor(Math.random() * selectedBiome.scenery.length)],
-            size: 30 + Math.random() * 20
-        });
+        sceneryObjects.push({ x: Math.random() * GAME_WIDTH, y: Math.random() * (GAME_HEIGHT * 0.4) + GAME_HEIGHT * 0.05, emoji: selectedBiome.scenery[Math.floor(Math.random() * selectedBiome.scenery.length)], size: 30 + Math.random() * 20 });
     }
 
-    const activeHeroes = PlayerState.activePartyIds.map(id => PlayerState.getHero(id)).filter(h => h);
+    const activeHeroes = PlayerState.activePartyIds.map(id => PlayerState.roster.find(h=>h.id===id)).filter(h => h);
     const heroSpacing = GAME_WIDTH / (activeHeroes.length + 1);
     const meleeHeroIds = ['warrior', 'rogue', 'swordsman'];
     
@@ -737,155 +770,101 @@ function initBattle() {
         let hero = new Entity(true, { id: hData.id, emoji: DB.classes[hData.classId].emoji, name: DB.classes[hData.classId].name, stats, skills, color: DB.classes[hData.classId].color });
         hero.baseX = heroSpacing * (index + 1);
         let isMelee = meleeHeroIds.includes(hData.classId);
-        hero.baseY = GAME_HEIGHT * (isMelee ? 0.45 : 0.60) + (Math.random() * 20 - 10);
+        hero.baseY = GAME_HEIGHT * (isMelee ? 0.52 : 0.62) + (Math.random() * 20 - 10);
         hero.x = hero.baseX; hero.y = hero.baseY;
         entities.push(hero);
     });
 
-    // 定義魔物可學習的技能庫
-    const bossSkillPool = ['meteor', 'earthquake', 'laser', 'whirlwind', 'chain_light', 'lullaby', 'gorgon_gaze', 'cursed_slash', 'time_rift', 'phoenix_flame'];
-    const minionSkillPool = ['taunt_slash', 'poison_dag', 'smoke_bomb', 'blood_suck', 'magic_missile', 'venom_strike', 'flash_bang', 'shadow_step', 'absolute_guard'];
+    difficultyMultiplier = 1.0 + (PlayerState.stage - 1) * 0.15;
+    let isBossWave = (PlayerState.stage >= 3 && PlayerState.stage % 5 === 0);
 
-    // 修復魔王關卡邏輯：第3關起，每5關(5,10,15...)必遇魔王，平時無魔王
-    let isBossWave = false;
-    if (PlayerState.stage >= 3) {
-        isBossWave = (PlayerState.stage % 5 === 0);
-    }
+    const getEnemySkills = (isBoss) => {
+        let allSkills = Object.keys(DB.skills).filter(k => DB.skills[k].type.includes('damage') || DB.skills[k].type === 'self_aoe' || DB.skills[k].type === 'single_aoe' || DB.skills[k].type === 'random_aoe');
+        let assigned = ['attack'];
+        let count = isBoss ? 3 : 1;
+        for(let i=0; i<count; i++) {
+            let rndSkill = allSkills[Math.floor(Math.random() * allSkills.length)];
+            if(!assigned.includes(rndSkill)) assigned.push(rndSkill);
+        }
+        return assigned;
+    };
 
     if (isBossWave) {
-        let bossInfo = selectedBiome.boss;
-        let bossProto = DB.enemies[bossInfo.proto];
+        let bossSkin = selectedBiome.enemySkins.boss; let proto = DB.enemyPrototypes.boss;
+        let boss = new Entity(false, { emoji: bossSkin.e, name: bossSkin.n, aiType: proto.type, radius: proto.radius, isBoss: true, stats: { maxHp: proto.hp * difficultyMultiplier, atk: proto.atk * difficultyMultiplier, def: proto.def * difficultyMultiplier, spd: proto.spd }, skills: getEnemySkills(true) });
+        boss.baseX = GAME_WIDTH / 2; boss.baseY = GAME_HEIGHT * 0.25; boss.x = boss.baseX; boss.y = boss.baseY; entities.push(boss);
         
-        let bSkills = []; // 魔王隨機獲得 3 招技能
-        for(let k=0; k<3; k++) bSkills.push(bossSkillPool[Math.floor(Math.random()*bossSkillPool.length)]);
-
-        let boss = new Entity(false, {
-            emoji: bossInfo.emoji, name: bossInfo.name, aiType: bossProto.type, radius: bossProto.radius, isBoss: true, skills: bSkills,
-            stats: { maxHp: bossProto.hp * difficultyMultiplier, atk: bossProto.atk * difficultyMultiplier, def: bossProto.def * difficultyMultiplier, spd: bossProto.spd }
-        });
-        boss.baseX = GAME_WIDTH / 2; boss.baseY = GAME_HEIGHT * 0.15; boss.x = boss.baseX; boss.y = boss.baseY;
-        entities.push(boss);
-        
-        let minionCount = 1 + Math.floor(Math.random() * 2);
-        for(let i=0; i<minionCount; i++) {
-            let mInfo = selectedBiome.enemies[Math.floor(Math.random() * selectedBiome.enemies.length)];
-            let mProto = DB.enemies[mInfo.proto];
-            
-            let mSkills = [minionSkillPool[Math.floor(Math.random()*minionSkillPool.length)]];
-
-            let minion = new Entity(false, {
-                emoji: mInfo.emoji, name: mInfo.name, aiType: mProto.type, radius: mProto.radius, skills: mSkills,
-                stats: { maxHp: mProto.hp * difficultyMultiplier, atk: mProto.atk * difficultyMultiplier, def: mProto.def * difficultyMultiplier, spd: mProto.spd }
-            });
-            minion.baseX = (i===0) ? GAME_WIDTH*0.2 : GAME_WIDTH*0.8; 
-            minion.baseY = GAME_HEIGHT * 0.30; minion.x = minion.baseX; minion.y = minion.baseY;
-            entities.push(minion);
-        }
-        
-        let msg = document.getElementById('stage-msg');
-        document.getElementById('stage-msg-title').className = 'boss-title';
-        document.getElementById('stage-msg-title').innerText = '⚠️ BOSS BATTLE ⚠️';
-        msg.style.opacity = 1;
-        setTimeout(() => { if(battleActive) msg.style.opacity = 0; }, 2000);
-
+        document.getElementById('stage-msg-title').className = 'boss-title'; document.getElementById('stage-msg-title').innerText = '⚠️ BOSS BATTLE ⚠️';
+        msg.style.opacity = 1; setTimeout(() => { if(battleActive) msg.style.opacity = 0; }, 2000);
     } else {
-        const enemyCount = 3 + Math.floor(Math.random() * 3);
-        const enemySpacing = GAME_WIDTH / (enemyCount + 1);
-        
+        const enemyCount = 3 + Math.floor(Math.random() * 3); const enemySpacing = GAME_WIDTH / (enemyCount + 1); const skinTypes = ['light', 'heavy', 'mage'];
         for (let i = 0; i < enemyCount; i++) {
-            let mInfo = selectedBiome.enemies[Math.floor(Math.random() * selectedBiome.enemies.length)];
-            let mProto = DB.enemies[mInfo.proto];
-            
-            let mSkills = [minionSkillPool[Math.floor(Math.random()*minionSkillPool.length)]];
-
-            let enemy = new Entity(false, {
-                emoji: mInfo.emoji, name: mInfo.name, aiType: mProto.type, radius: mProto.radius, skills: mSkills,
-                stats: { maxHp: mProto.hp * difficultyMultiplier, atk: mProto.atk * difficultyMultiplier, def: mProto.def * difficultyMultiplier, spd: mProto.spd }
-            });
-            enemy.baseX = enemySpacing * (i + 1); 
-            let isEnemyMelee = mProto.type === 'melee';
-            enemy.baseY = GAME_HEIGHT * (isEnemyMelee ? 0.30 : 0.20) + (Math.random() * 20 - 10);
-            enemy.x = enemy.baseX; enemy.y = enemy.baseY;
-            entities.push(enemy);
+            let skinKey = skinTypes[Math.floor(Math.random() * skinTypes.length)];
+            let skin = selectedBiome.enemySkins[skinKey]; let proto = DB.enemyPrototypes[skinKey];
+            let enemy = new Entity(false, { emoji: skin.e, name: skin.n, aiType: proto.type, radius: proto.radius, stats: { maxHp: proto.hp * difficultyMultiplier, atk: proto.atk * difficultyMultiplier, def: proto.def * difficultyMultiplier, spd: proto.spd }, skills: getEnemySkills(false) });
+            enemy.baseX = enemySpacing * (i + 1); enemy.baseY = GAME_HEIGHT * (proto.type === 'melee' ? 0.35 : 0.22) + (Math.random() * 20 - 10);
+            enemy.x = enemy.baseX; enemy.y = enemy.baseY; entities.push(enemy);
         }
     }
     
-    battleActive = true; lastTime = performance.now();
-    requestAnimationFrame(gameLoop);
+    battleActive = true; lastTime = performance.now(); requestAnimationFrame(gameLoop);
 }
 
 function openMenu(hero) {
     if (menuOpen || targetingMode || victoryTriggered) return;
     menuOpen = true; currentActor = hero;
     document.getElementById('action-menu').style.display = 'flex';
-    document.getElementById('menu-actor-name').innerText = hero.name + " 的回合";
-    document.getElementById('menu-actor-name').style.color = hero.color;
+    document.getElementById('menu-actor-name').innerText = hero.name + " 的回合"; document.getElementById('menu-actor-name').style.color = hero.color;
     
     const container = document.getElementById('skill-container'); container.innerHTML = '';
     const uniqueSkills = [...new Set(hero.skills)];
     
     uniqueSkills.forEach(skillId => {
         const skill = DB.skills[skillId]; if(!skill) return;
-        let isCombo = skill.type.startsWith('combo'); 
-        let canCast = true; 
-        let partnersInBattle = [];
+        let isCombo = skill.type.startsWith('combo'); let canCast = true; let partnersInBattle = [];
         
-        if (isCombo) {
-            skill.partners.forEach(pClass => {
-                let partner = entities.find(e => e.isHero && !e.isDead && DB.classes[PlayerState.getHero(e.id).classId].id === pClass);
-                if (partner) partnersInBattle.push(partner);
-            });
+        if (isCombo && skill.partners) {
+            skill.partners.forEach(pClass => { let partner = entities.find(e => e.isHero && !e.isDead && DB.classes[PlayerState.roster.find(h=>h.id===e.id).classId].id === pClass); if (partner) partnersInBattle.push(partner); });
             if (partnersInBattle.length !== skill.partners.length) canCast = false;
         }
 
-        // 判斷技能是否在冷卻中
-        let currentCd = hero.skillCooldowns[skillId] || 0;
-        if (currentCd > 0) canCast = false;
-
+        let currentCd = hero.skillCooldowns[skillId] || 0; if (currentCd > 0) canCast = false;
         let btn = document.createElement('div');
         btn.className = 'btn' + (isCombo ? (skill.isUltimate ? ' combo-ultimate' : ' combo') : '') + (!canCast ? ' disabled' : '');
-        
-        // 如果在冷卻中，加入紅色的 CD 提示
         let cdText = currentCd > 0 ? `<span style="color:#ff5555; margin-left:8px; font-weight:900;">[CD: ${currentCd}]</span>` : '';
         
-        btn.innerHTML = `<strong>${skill.name}</strong>${cdText}<div style="font-size:11px; margin-top:4px;">${skill.desc}</div>`;
+        let skLv = hero.rosterRef.skillLevels[skillId] || 1;
+        
+        btn.innerHTML = `<div><strong>${skill.name}</strong> <span style="font-size:10px; color:#aaa;">Lv.${skLv}</span>${cdText}</div><div style="font-size:11px; margin-top:4px; color:#aaa;">${skill.desc}</div>`;
         if (canCast) btn.onclick = () => prepareSkill(hero, skillId, skill, partnersInBattle);
         container.appendChild(btn);
     });
 }
 
 function prepareSkill(actor, skillId, skill, partners) {
-    if (skill.target === 'self_aoe' || skill.target === 'random_aoe') {
-        document.getElementById('action-menu').style.display = 'none';
-        executeSkillWithTarget(actor, skillId, skill, partners, actor);
+    if (skill.target === 'self_aoe' || skill.target === 'random_aoe' || skill.target === 'ally_aoe' || skill.target === 'self') {
+        document.getElementById('action-menu').style.display = 'none'; executeSkillWithTarget(actor, skillId, skill, partners, actor);
     } else {
         pendingSkill = skill; pendingSkillId = skillId; pendingPartners = partners;
         document.getElementById('action-menu').style.display = 'none';
-        
         validTargets = [];
-        if (skill.target === 'ally_single') validTargets = entities.filter(e => e.isHero && !e.isDead);
-        else validTargets = entities.filter(e => !e.isHero && !e.isDead);
+        if (skill.target === 'ally_single') validTargets = entities.filter(e => e.isHero === actor.isHero && !e.isDead);
+        else validTargets = entities.filter(e => e.isHero !== actor.isHero && !e.isDead);
         
-        if (validTargets.length > 0) {
-            targetingMode = true; document.getElementById('targeting-ui').style.display = 'flex';
-        } else {
-            cancelTargeting();
-        }
+        if (validTargets.length > 0) { targetingMode = true; document.getElementById('targeting-ui').style.display = 'flex'; }
+        else { cancelTargeting(); }
     }
 }
 
 function cancelTargeting() {
     targetingMode = false; document.getElementById('targeting-ui').style.display = 'none';
-    if (!victoryTriggered && currentActor) document.getElementById('action-menu').style.display = 'flex';
+    if (!victoryTriggered && currentActor && currentActor.state === 'ready') document.getElementById('action-menu').style.display = 'flex';
 }
 
 canvas.addEventListener('pointerdown', (e) => {
     if (!targetingMode || !battleActive) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const rect = canvas.getBoundingClientRect(); const x = (e.clientX - rect.left) * (canvas.width / rect.width); const y = (e.clientY - rect.top) * (canvas.height / rect.height);
     let clickedEntity = validTargets.find(ent => Math.hypot(ent.x - x, ent.y - y) <= ent.radius + 15);
-    
     if (clickedEntity) {
         document.getElementById('targeting-ui').style.display = 'none'; targetingMode = false;
         executeSkillWithTarget(currentActor, pendingSkillId, pendingSkill, pendingPartners, clickedEntity);
@@ -893,287 +872,255 @@ canvas.addEventListener('pointerdown', (e) => {
 });
 
 function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
-    actor.state = 'acting'; actor.atb = 0; partners.forEach(p => { p.atb = 0; });
-    menuOpen = false;
-    
+    actor.state = 'acting'; actor.atb = 0; partners.forEach(p => { p.atb = 0; }); menuOpen = false;
     actor.skillCooldowns[skillId] = skill.cd || 0;
     
-    // 動態判斷敵友軍 (使怪物也可以完美共用同一套戰鬥邏輯)
-    let myEnemies = actor.isHero ? entities.filter(e => !e.isHero && !e.isDead) : entities.filter(e => e.isHero && !e.isDead);
-    let myAllies = actor.isHero ? entities.filter(e => e.isHero && !e.isDead) : entities.filter(e => !e.isHero && !e.isDead);
-    
-    // Status Logic For Attacker
-    let isBlind = actor.status.find(s=>s.type==='blind') && Math.random() < 0.5;
-    let isCrit = Math.random() < actor.critR;
-    let baseDmg = isCrit ? (actor.atk * actor.critD) : actor.atk;
-    let dmg = baseDmg * skill.power;
-    
-    const finish = () => { actor.finishTurn(); };
-    
-    const applyDamage = (target, amount, heal=false) => {
-        if (isBlind && !heal) { effects.push(new TextEffect(target.x, target.y-20, "Miss(盲目)", '#aaa')); return 0; }
-        let actualDmg = target.takeDamage({amount, isHeal: heal, isCrit});
-        if (!heal && actualDmg > 0 && skill.status && Math.random() < 0.8) {
-            target.applyStatus(skill.status.type, skill.status.dur, skill.status.val);
+    // Skill & Stat Growth (Heroes only)
+    if (actor.isHero) {
+        // Attack growth roll
+        if (Math.random() < 0.2) {
+            actor.rosterRef.intrinsicStats.atk += 1; actor.atk += 1;
+            effects.push(new TextEffect(actor.x, actor.y - 70, `ATK UP!`, '#ffaa00', 14));
         }
-        if (!heal && skill.type === 'damage_heal_self') {
-            actor.takeDamage({amount: actualDmg * 0.5, isHeal: true});
+        // Skill level up roll
+        let currentLv = actor.rosterRef.skillLevels[skillId] || 1;
+        if (Math.random() < (0.3 / currentLv)) {
+            actor.rosterRef.skillLevels[skillId] = currentLv + 1;
+            effects.push(new TextEffect(actor.x, actor.y - 90, `Skill Lv UP!`, '#00ffff', 16));
         }
-        return actualDmg;
+    }
+
+    let currentLv = actor.isHero ? (actor.rosterRef.skillLevels[skillId] || 1) : 1;
+    let skillMultiplier = 1 + ((currentLv - 1) * 0.1); // +10% power per level
+
+    let enemies = entities.filter(e => e.isHero !== actor.isHero && !e.isDead);
+    let allies = entities.filter(e => e.isHero === actor.isHero && !e.isDead);
+    const finish = () => { actor.finishTurn(); partners.forEach(p=>p.finishTurn()); };
+
+    if (actor.debuffs.blind && Math.random() < 0.5 && !skill.type.includes('heal') && !skill.type.includes('buff')) {
+        effects.push(new TextEffect(actor.x, actor.y - 40, "MISS!", '#aaaaaa')); setTimeout(finish, 500); return;
+    }
+
+    let currentAtk = actor.atk; if (actor.buffs.atk_up) currentAtk *= actor.buffs.atk_up.val;
+    let dmg = currentAtk * (skill.power || 1.0) * skillMultiplier;
+    
+    if(skill.type.startsWith('combo') && skill.power > 0) {
+        let totalAtk = currentAtk; partners.forEach(p => { totalAtk += (p.buffs.atk_up ? p.atk * p.buffs.atk_up.val : p.atk); });
+        dmg = totalAtk * (skill.power / (partners.length+1)) * skillMultiplier;
+    }
+    
+    let currentCritR = actor.critR; if (actor.buffs.crit_up) currentCritR += actor.buffs.crit_up.val;
+    let isCrit = currentCritR > 0 && Math.random() < currentCritR;
+    if (isCrit) dmg *= actor.critD;
+    
+    // Assassinate auto-crit
+    if (skillId === 'assassinate') { isCrit = true; dmg = currentAtk * skill.power * skillMultiplier * actor.critD; }
+
+    const applyDamage = (target, amount, isHeal=false) => {
+        let currentEva = target.eva; if (target.buffs && target.buffs.eva_up) currentEva += target.buffs.eva_up.val;
+        let currentBlk = target.blk; if (target.buffs && target.buffs.blk_up) currentBlk += target.buffs.blk_up.val;
+
+        if (!isHeal && currentEva > 0 && Math.random() < currentEva) { effects.push(new TextEffect(target.x, target.y - 40, "迴避!", '#88ff88')); return; }
+        if (!isHeal && currentBlk > 0 && Math.random() < currentBlk) { effects.push(new TextEffect(target.x, target.y - 40, "格檔!", '#aaaaff')); amount *= 0.5; }
+        
+        target.takeDamage(amount, isHeal, isCrit);
+        
+        if (!isHeal && skill.applyDebuff && !target.isDead) { target.debuffs[skill.applyDebuff.type] = skill.applyDebuff.turns; effects.push(new TextEffect(target.x, target.y - 60, skill.applyDebuff.name, skill.applyDebuff.color)); }
+        if (skill.applyBuff && !target.isDead) { target.buffs[skill.applyBuff.type] = { val: skill.applyBuff.value, turns: skill.applyBuff.turns }; effects.push(new TextEffect(target.x, target.y - 60, "能力提升!", '#00ffff')); }
     };
 
-    if (skill.type.includes('damage') && !skill.type.startsWith('combo')) {
-        if (skill.target === 'single') {
-            effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => { 
-                applyDamage(mainTarget, dmg); 
-                if (skill.type === 'damage_self_harm') {
-                    actor.takeDamage({amount: actor.maxHp * 0.2, noEvade: true});
-                }
-            })); setTimeout(finish, 400); 
-        } else if (skill.target === 'self_aoe') {
-            if (skill.aoeRadius > 300) { 
-                effects.push(new ExplosionEffect(GAME_WIDTH/2, GAME_HEIGHT/2, skill.aoeRadius, '#aaaaaa', finish));
-                myEnemies.forEach(e => { applyDamage(e, dmg); });
-            } else if (myEnemies.length > 0) { 
-                let nearestEnemy = myEnemies.reduce((nearest, current) => getDistance(actor, current) < getDistance(actor, nearest) ? current : nearest);
-                let dist = getDistance(actor, nearestEnemy);
-                let dashRadius = Math.max(10, skill.aoeRadius * 0.6); 
-                let moveDist = Math.max(0, dist - dashRadius);
-                
-                let destX = actor.x, destY = actor.y;
-                if (dist > 0 && moveDist > 0) {
-                    destX = actor.x + (nearestEnemy.x - actor.x) * (moveDist / dist);
-                    destY = actor.y + (nearestEnemy.y - actor.y) * (moveDist / dist);
-                }
-                effects.push(new DashEffect(actor, destX, destY, () => {
-                    actor.baseX = destX; 
-                    actor.baseY = destY;
-                    
-                    effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#aaaaaa', finish));
-                    myEnemies.forEach(e => { if (getDistance(actor, e) <= skill.aoeRadius) applyDamage(e, dmg); });
-                }, false));
-            } else {
-                effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#aaaaaa', finish));
-            }
-        } else if (skill.target === 'single_aoe') {
-            effects.push(new ProjectileEffect(actor.x, actor.y - 300, mainTarget.x, mainTarget.y, '#ff4400', () => {
-                effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, skill.aoeRadius, '#ff4400', finish));
-                myEnemies.forEach(e => { if (getDistance(mainTarget, e) <= skill.aoeRadius) applyDamage(e, dmg); });
-            }));
-        } 
-    } 
-    
-    if (skill.type === 'buff') {
-        effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#aaffaa', finish));
-        myAllies.forEach(a => { if (getDistance(actor, a) <= skill.aoeRadius) a.applyStatus(skill.status.type, skill.status.dur, skill.status.val); });
+    if (skill.target === 'self') {
+        effects.push(new ExplosionEffect(actor.x, actor.y, 50, skill.color || '#00ffff', finish)); applyDamage(actor, 0, true);
     }
-    else if (skill.type === 'random_multi') {
-        let hits = skill.hits || 3;
-        for(let i=0; i<hits; i++) {
-            setTimeout(() => {
-                let aliveEnemies = myEnemies.filter(e => !e.isDead);
-                if(aliveEnemies.length === 0) return;
-                let rt = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
-                effects.push(new ProjectileEffect(actor.x, actor.y - 50, rt.x, rt.y, skill.color || '#ffff00', () => {
-                    applyDamage(rt, dmg); effects.push(new ExplosionEffect(rt.x, rt.y, 30, skill.color || '#ffff00'));
-                }));
-            }, i * 200);
-        }
-        setTimeout(finish, hits * 200 + 400);
+    else if (skill.target === 'ally_single') {
+        effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => { effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 40, skill.color || '#00ff00', finish)); applyDamage(mainTarget, dmg, true); }, true));
     }
-    else if (skill.type === 'damage_pull') {
+    else if (skill.target === 'ally_aoe') {
+        effects.push(new ExplosionEffect(GAME_WIDTH/2, GAME_HEIGHT/2, skill.aoeRadius || 800, skill.color || '#00ffff', finish));
+        allies.forEach(a => { applyDamage(a, dmg, true); if(skillId === 'purify') a.debuffs = {}; });
+        if (skillId === 'combo_valkyrie') allies.forEach(a => { a.state='idle'; applyDamage(a, a.maxHp, true); });
+    }
+    else if (skill.target === 'single' || skill.target === 'damage_pull' || skill.target === 'damage_heal_self') {
         effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => {
             applyDamage(mainTarget, dmg);
-            myEnemies.forEach(e => { if (e !== mainTarget && getDistance(mainTarget, e) <= skill.aoeRadius) { e.targetX = mainTarget.x + (Math.random()-0.5)*20; e.targetY = mainTarget.y + (Math.random()-0.5)*20; } });
-            setTimeout(finish, 200);
+            if (skill.target === 'damage_pull') { enemies.forEach(e => { if (e !== mainTarget && getDistance(mainTarget, e) <= (skill.aoeRadius || 150)) { e.baseX = mainTarget.x; e.baseY = mainTarget.y; } }); }
+            if (skill.target === 'damage_heal_self') actor.takeDamage(dmg * 0.5, true);
+            setTimeout(finish, 300);
+        }, true));
+    }
+    else if (skill.target === 'single_dash_aoe') {
+        effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => {
+            actor.baseX = mainTarget.x; actor.baseY = mainTarget.y;
+            effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius || 120, skill.color || '#aaaaaa', finish));
+            enemies.forEach(e => { if (getDistance(actor, e) <= (skill.aoeRadius || 120)) applyDamage(e, dmg); });
+        }, false));
+    }
+    else if (skill.target === 'single_aoe') {
+        effects.push(new ProjectileEffect(actor.x, actor.y - 30, mainTarget.x, mainTarget.y, skill.color || '#ff4400', () => {
+            effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, skill.aoeRadius || 150, skill.color || '#ff4400', finish));
+            enemies.forEach(e => { if (getDistance(mainTarget, e) <= (skill.aoeRadius || 150)) applyDamage(e, dmg); });
+            if (skill.type === 'combo_damage_heal' || skill.type === 'heal_damage') { allies.forEach(a => { if (getDistance(mainTarget, a) <= (skill.aoeRadius || 150)) applyDamage(a, dmg, true); }); }
         }));
     }
-    else if (skill.type === 'damage_line') {
-        effects.push(new LaserEffect(actor.x, actor.y, mainTarget.x, mainTarget.y, skill.lineWidth, finish));
-        myEnemies.forEach(e => { 
+    else if (skill.target === 'self_aoe') {
+        let cx = (skill.aoeRadius >= 400) ? GAME_WIDTH/2 : actor.x; let cy = (skill.aoeRadius >= 400) ? GAME_HEIGHT/2 : actor.y;
+        effects.push(new ExplosionEffect(cx, cy, skill.aoeRadius || 600, skill.color || '#aaaaaa', finish));
+        enemies.forEach(e => { if (getDistance({x:cx, y:cy}, e) <= (skill.aoeRadius || 600)) applyDamage(e, dmg); });
+        if (skill.type === 'heal' || skill.type === 'combo_damage_heal' || skill.type === 'combo_trinity') { allies.forEach(a => { if (getDistance({x:cx, y:cy}, a) <= (skill.aoeRadius || 600)) applyDamage(a, dmg, true); }); }
+        if (skillId === 'combo_trinity') allies.forEach(a => { a.state='idle'; applyDamage(a, 9999, true); });
+    }
+    else if (skill.target === 'random_aoe') {
+        if (enemies.length === 0) { finish(); return; }
+        if (skill.type === 'random_multi' || skill.type === 'combo_random_multi') {
+            let hits = skill.hits || 3;
+            for(let i=0; i<hits; i++) {
+                setTimeout(() => {
+                    let aliveEnemies = entities.filter(e => e.isHero !== actor.isHero && !e.isDead); if(aliveEnemies.length === 0) return;
+                    let rt = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
+                    effects.push(new ProjectileEffect(actor.x, actor.y - 50, rt.x, rt.y, skill.color || '#ffff00', () => { applyDamage(rt, dmg); effects.push(new ExplosionEffect(rt.x, rt.y, 30, skill.color || '#ffff00')); }));
+                }, i * 150);
+            }
+            setTimeout(finish, hits * 150 + 300);
+        } else {
+            let rt = enemies[Math.floor(Math.random() * enemies.length)];
+            effects.push(new ProjectileEffect(actor.x, actor.y - 30, rt.x, rt.y, skill.color || '#ff00ff', () => {
+                effects.push(new ExplosionEffect(rt.x, rt.y, skill.aoeRadius || 80, skill.color || '#ff00ff', finish));
+                enemies.forEach(e => { if (getDistance(rt, e) <= (skill.aoeRadius || 80)) applyDamage(e, dmg); });
+            }));
+        }
+    }
+    else if (skill.target === 'damage_line') {
+        effects.push(new LaserEffect(actor.x, actor.y, mainTarget.x, mainTarget.y, skill.lineWidth || 40, finish));
+        enemies.forEach(e => { 
             let l2 = (mainTarget.x-actor.x)**2 + (mainTarget.y-actor.y)**2; if (l2===0) return;
             let t = ((e.x-actor.x)*(mainTarget.x-actor.x) + (e.y-actor.y)*(mainTarget.y-actor.y))/l2; t = Math.max(0, Math.min(1, t)); 
             let dist = Math.hypot(e.x-(actor.x+t*(mainTarget.x-actor.x)), e.y-(actor.y+t*(mainTarget.y-actor.y))); 
-            if (dist <= skill.lineWidth/2 + e.radius) applyDamage(e, dmg); 
+            if (dist <= (skill.lineWidth||40)/2 + e.radius) applyDamage(e, dmg); 
         });
     }
-    else if (skill.type === 'heal' || skill.type === 'heal_status') {
-        effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, skill.aoeRadius || 40, '#00ff00', finish)); 
-        if (skill.target === 'self_aoe') {
-            myAllies.forEach(a => { 
-                applyDamage(a, baseDmg * skill.power, true);
-                if (skill.status) a.applyStatus(skill.status.type, skill.status.dur, skill.status.val);
-            });
-        } else {
-            applyDamage(mainTarget, baseDmg * skill.power, true);
-        }
-    }
-    else if (skill.type === 'heal_damage') {
-        if (myEnemies.length > 0) {
-            let nearestEnemy = myEnemies.reduce((nearest, current) => getDistance(actor, current) < getDistance(actor, nearest) ? current : nearest);
-            let dist = getDistance(actor, nearestEnemy); let dashRadius = Math.max(10, skill.aoeRadius * 0.6); let moveDist = Math.max(0, dist - dashRadius);
-            let destX = actor.x, destY = actor.y;
-            if (dist > 0 && moveDist > 0) { destX = actor.x + (nearestEnemy.x - actor.x) * (moveDist / dist); destY = actor.y + (nearestEnemy.y - actor.y) * (moveDist / dist); }
-            effects.push(new DashEffect(actor, destX, destY, () => {
-                actor.baseX = destX; actor.baseY = destY;
-                effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#ffffaa', finish));
-                myAllies.forEach(a => { if(getDistance(actor, a) <= skill.aoeRadius) applyDamage(a, baseDmg * skill.power, true); });
-                myEnemies.forEach(e => { if(getDistance(actor, e) <= skill.aoeRadius) applyDamage(e, baseDmg * 0.5); });
-            }, false));
-        } else {
-            effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#ffffaa', finish));
-            myAllies.forEach(a => { if(getDistance(actor, a) <= skill.aoeRadius) applyDamage(a, baseDmg * skill.power, true); });
-        }
-    }
-    // 泛用型合體技運算邏輯
-    else if (skill.type.startsWith('combo')) {
+    else if (skillId === 'combo_x_strike' || skillId === 'combo_shadow') {
         effects.push(new ScreenFlashEffect(skill.color, 0.5));
-        let totalAtk = actor.atk; partners.forEach(p => { totalAtk += p.atk; }); 
-        let comboDmg = isCrit ? (totalAtk * actor.critD) * (skill.power / (partners.length+1)) : totalAtk * (skill.power / (partners.length+1));
-        
-        const processComboHit = () => {
-            if (skill.type.includes('damage')) {
-                if (skill.target === 'single') applyDamage(mainTarget, comboDmg);
-                else myEnemies.forEach(e => { if(skill.target === 'self_aoe' || getDistance(mainTarget, e) <= skill.aoeRadius) applyDamage(e, comboDmg); });
-            }
-            if (skill.type.includes('heal') || skill.type.includes('buff')) {
-                myAllies.forEach(a => { 
-                    if(skill.type.includes('heal')) applyDamage(a, comboDmg * 0.5, true); 
-                    if(skill.status) a.applyStatus(skill.status.type, skill.status.dur, skill.status.val);
-                });
-            }
-            if (skill.status && skill.type.includes('damage')) {
-                myEnemies.forEach(e => {
-                     if (skill.target === 'single' && e === mainTarget) e.applyStatus(skill.status.type, skill.status.dur, skill.status.val);
-                     else if (skill.target !== 'single' && (skill.target === 'self_aoe' || getDistance(mainTarget, e) <= skill.aoeRadius)) e.applyStatus(skill.status.type, skill.status.dur, skill.status.val);
-                });
-            }
-            actor.finishTurn(); partners.forEach(p=>p.finishTurn());
-        };
-
-        if (skill.type === 'combo_random_multi') {
-            let hits = skill.hits || 10;
-            for(let i=0; i<hits; i++) {
-                setTimeout(() => {
-                    let aliveEnemies = myEnemies.filter(e => !e.isDead);
-                    if(aliveEnemies.length === 0) return;
-                    let rt = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
-                    effects.push(new ProjectileEffect(actor.x, actor.y - 50, rt.x, rt.y, skill.color || '#ffff00', () => {
-                        applyDamage(rt, comboDmg * 0.5); effects.push(new ExplosionEffect(rt.x, rt.y, 40, skill.color));
-                    }));
-                }, i * 150);
-            }
-            setTimeout(() => { actor.finishTurn(); partners.forEach(p=>p.finishTurn()); }, hits * 150 + 200);
-        } else if (skill.target === 'single') {
-            effects.push(new DashEffect(actor, mainTarget.x - 30, mainTarget.y - 30, () => { actor.finishTurn(); }));
-            partners.forEach((p, idx) => {
-                effects.push(new DashEffect(p, mainTarget.x + 30*(idx+1), mainTarget.y - 30, () => {
-                    if(idx === partners.length - 1) effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 80, skill.color, processComboHit));
-                }));
-            });
-            if(partners.length === 0) effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 80, skill.color, processComboHit));
-        } else {
-            let targetX = skill.target === 'self_aoe' ? GAME_WIDTH/2 : mainTarget.x;
-            let targetY = skill.target === 'self_aoe' ? GAME_HEIGHT/2 : mainTarget.y;
-            effects.push(new ExplosionEffect(targetX, targetY, skill.aoeRadius || 400, skill.color, processComboHit));
-        }
+        let p1 = actor, p2 = partners[0];
+        effects.push(new DashEffect(p1, mainTarget.x - 30, mainTarget.y - 30, () => {}, true));
+        effects.push(new DashEffect(p2, mainTarget.x + 30, mainTarget.y - 30, () => { effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 60, skill.color, () => { applyDamage(mainTarget, dmg); })); finish(); }, true));
     }
+    else { finish(); }
 }
 
 function processVictory() {
     victoryTriggered = true; menuOpen = false; targetingMode = false;
-    document.getElementById('action-menu').style.display = 'none';
-    document.getElementById('targeting-ui').style.display = 'none';
-    
+    document.getElementById('action-menu').style.display = 'none'; document.getElementById('targeting-ui').style.display = 'none';
     entities.forEach(e => { if (e.isHero && (e.state === 'ready' || e.state === 'acting')) { e.state = 'idle'; e.atb = 0; } });
 
-    let itemKeys = Object.keys(DB.items);
-    let dropCount = 1 + Math.floor(Math.random() * 2);
-    let droppedItems = [];
-    for (let i = 0; i < dropCount; i++) {
-        let randomItemId = itemKeys[Math.floor(Math.random() * itemKeys.length)];
-        droppedItems.push(randomItemId);
-    }
-    PlayerState.addItems(droppedItems);
+    let isBoss = entities.some(e => e.isBoss && e.isDead);
     
-    let droppedNames = droppedItems.map(id => DB.items[id].name);
+    // Magic Stones Reward
+    let stonesEarned = PlayerState.stage * (isBoss ? 50 : 10);
+    PlayerState.magicStones += stonesEarned;
+    
+    // Loot Roll
+    let droppedItems = PlayerState.rollLoot(isBoss);
     let msg = document.getElementById('stage-msg');
-    document.getElementById('stage-msg-title').className = 'clear-title';
-    document.getElementById('stage-msg-title').innerText = 'Stage Clear!';
-    document.getElementById('loot-info').innerText = `獲得裝備: ${droppedNames.join(', ')}`;
+    document.getElementById('stage-msg-title').className = 'clear-title'; document.getElementById('stage-msg-title').innerText = 'Stage Clear!';
+    
+    let lootHtml = `獲得魔石: ${stonesEarned} 💎<br>`;
+    if (droppedItems.length > 0) {
+        let droppedNames = droppedItems.map(item => {
+            let temp = DB.items[item.itemId];
+            let rarity = DB.rarities[item.rarity];
+            return `<span style="color:${rarity.color}">${temp.name}</span>`;
+        });
+        lootHtml += `裝備: ${droppedNames.join(', ')}`;
+    }
+    document.getElementById('loot-info').innerHTML = lootHtml;
     document.getElementById('loot-info').style.display = 'inline-block';
     msg.style.opacity = 1;
     
+    // Advance progress if highest stage
+    if (PlayerState.stage === PlayerState.maxStage) {
+        PlayerState.maxStage++;
+    }
+    
+    saveGame(); // Auto save
+    
     setTimeout(() => {
-        msg.style.opacity = 0; battleActive = false; difficultyMultiplier *= 1.2;
-        PlayerState.stage++; openEndOfTimeHub();
+        msg.style.opacity = 0; battleActive = false; 
+        PlayerState.targetStage = PlayerState.stage + 1; // Default to next stage
+        if(PlayerState.targetStage > PlayerState.maxStage) PlayerState.targetStage = PlayerState.maxStage;
+        openEndOfTimeHub();
     }, 3000);
+}
+
+function processGameOver() {
+    battleActive = false;
+    let msg = document.getElementById('stage-msg');
+    document.getElementById('stage-msg-title').className = 'gameover-title'; document.getElementById('stage-msg-title').innerText = '全軍覆沒...';
+    document.getElementById('loot-info').style.display = 'none';
+    document.getElementById('hub-return-btn').style.display = 'block';
+    msg.style.opacity = 1;
+    
+    // 戰敗時自動存檔，保留本次戰鬥中獲得的數值與技能經驗成長
+    saveGame();
 }
 
 function gameLoop(timestamp) {
     if (!battleActive) return;
-    let dt = timestamp - lastTime; lastTime = timestamp;
-
+    let dt = timestamp - lastTime; lastTime = timestamp; if (dt > 100) dt = 100;
     ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-    // 繪製背景裝飾物
-    ctx.globalAlpha = 0.3;
-    sceneryObjects.forEach(s => {
-        ctx.font = `${s.size}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(s.emoji, s.x, s.y);
-    });
-    ctx.globalAlpha = 1.0;
-
-    let aliveEnemies = entities.filter(e => !e.isHero && !e.isDead);
-    let aliveHeroes = entities.filter(e => e.isHero && !e.isDead);
-
-    // 修改: 把 alert 換成優雅的 Game Over 畫面
-    if (aliveHeroes.length === 0) { 
-        battleActive = false; 
-        document.getElementById('game-over-ui').style.display = 'flex';
-        return; 
-    }
+    ctx.globalAlpha = 0.3; sceneryObjects.forEach(s => { ctx.font = `${s.size}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(s.emoji, s.x, s.y); }); ctx.globalAlpha = 1.0;
     
+    let aliveEnemies = entities.filter(e => !e.isHero && !e.isDead); let aliveHeroes = entities.filter(e => e.isHero && !e.isDead);
+    if (aliveHeroes.length === 0) { processGameOver(); return; }
     if (aliveEnemies.length === 0 && effects.length === 0 && !victoryTriggered) processVictory();
 
-    entities.sort((a, b) => a.y - b.y);
-    entities.forEach(e => { e.update(dt); e.draw(ctx); });
+    entities.sort((a, b) => a.y - b.y); entities.forEach(e => { e.update(dt); e.draw(ctx); });
     for (let i = effects.length - 1; i >= 0; i--) { if (!effects[i].update(dt)) effects.splice(i, 1); else effects[i].draw(ctx); }
-
     requestAnimationFrame(gameLoop);
 }
 
 function openEndOfTimeHub() {
+    document.getElementById('stage-msg').style.opacity = 0;
+    document.getElementById('hub-return-btn').style.display = 'none';
     document.getElementById('end-of-time-ui').style.display = 'flex';
+    document.getElementById('ui-magic-stones-hub').innerText = PlayerState.magicStones;
+    document.getElementById('hub-target-stage').innerText = PlayerState.targetStage;
+
     renderPartyHub();
 }
 
-// 修正: 加入 el 參數取代全局 event.target，避免瀏覽器相容性錯誤
-function switchHubTab(tabName, el) {
+function changeHubStage(delta) {
+    let newStage = PlayerState.targetStage + delta;
+    if (newStage >= 1 && newStage <= PlayerState.maxStage) {
+        PlayerState.targetStage = newStage;
+        document.getElementById('hub-target-stage').innerText = PlayerState.targetStage;
+    }
+}
+
+function switchHubTab(element, tabName) {
     document.querySelectorAll('.hub-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.hub-content').forEach(c => c.classList.remove('active'));
-    el.classList.add('active');
+    element.classList.add('active');
     document.getElementById(`tab-${tabName}`).classList.add('active');
     if (tabName === 'party') renderPartyHub();
-    if (tabName === 'equip') renderEquipHub();
+    if (tabName === 'equip') { if(!equipSelectedHeroId && PlayerState.activePartyIds[0]) equipSelectedHeroId = PlayerState.activePartyIds[0]; renderEquipHub(); }
+    if (tabName === 'forge') renderForgeHub();
 }
 
 let selectedPartySlotIndex = -1;
 function renderPartyHub() {
     const slotsContainer = document.getElementById('ui-party-slots'); slotsContainer.innerHTML = '';
     for (let i = 0; i < 3; i++) {
-        let heroId = PlayerState.activePartyIds[i]; let hero = heroId ? PlayerState.getHero(heroId) : null;
+        let heroId = PlayerState.activePartyIds[i]; let hero = heroId ? PlayerState.roster.find(h=>h.id===heroId) : null;
         let div = document.createElement('div'); div.className = `party-slot ${selectedPartySlotIndex === i ? 'selected' : ''}`;
-        if (hero) div.innerHTML = `<div class="emoji">${DB.classes[hero.classId].emoji}</div><div>${DB.classes[hero.classId].name}</div>`;
-        else div.innerHTML = `<div>空位</div>`;
+        if (hero) div.innerHTML = `<div class="emoji">${DB.classes[hero.classId].emoji}</div><div>${DB.classes[hero.classId].name}</div>`; else div.innerHTML = `<div>空位</div>`;
         div.onclick = () => { selectedPartySlotIndex = i; renderPartyHub(); }; slotsContainer.appendChild(div);
     }
     const rosterContainer = document.getElementById('ui-roster-list'); rosterContainer.innerHTML = '';
     PlayerState.roster.forEach(hero => {
         let inParty = PlayerState.activePartyIds.includes(hero.id);
         let div = document.createElement('div'); div.className = `roster-char ${inParty ? 'in-party' : ''}`;
-        div.innerHTML = `<div style="font-size:24px">${DB.classes[hero.classId].emoji}</div><div>${DB.classes[hero.classId].name}</div>`;
-        div.onclick = () => { if (selectedPartySlotIndex !== -1 && !inParty) { PlayerState.activePartyIds[selectedPartySlotIndex] = hero.id; selectedPartySlotIndex = -1; renderPartyHub(); } };
+        div.innerHTML = `<div style="font-size:24px">${DB.classes[hero.classId].emoji}</div><div>${DB.classes[hero.classId].name}</div><div style="font-size:10px; color:#88ff88;">(基本數值成長)</div><div style="font-size:9px; color:#aaa;">ATK+${hero.intrinsicStats.atk} HP+${hero.intrinsicStats.hp}</div>`;
+        div.onclick = () => { if (selectedPartySlotIndex !== -1 && !inParty) { PlayerState.activePartyIds[selectedPartySlotIndex] = hero.id; selectedPartySlotIndex = -1; renderPartyHub(); saveGame(); } };
         rosterContainer.appendChild(div);
     });
 }
@@ -1183,64 +1130,141 @@ function renderEquipHub() {
     const charContainer = document.getElementById('ui-equip-chars'); charContainer.innerHTML = '';
     PlayerState.roster.forEach(hero => {
         let div = document.createElement('div'); div.className = `equip-char-btn ${equipSelectedHeroId === hero.id ? 'active' : ''}`;
-        div.innerHTML = `${DB.classes[hero.classId].emoji} ${DB.classes[hero.classId].name}`;
+        div.innerHTML = `<div style="font-size:24px">${DB.classes[hero.classId].emoji}</div> <div>${DB.classes[hero.classId].name}</div>`;
         div.onclick = () => { equipSelectedHeroId = hero.id; renderEquipHub(); }; charContainer.appendChild(div);
     });
 
     const slotsContainer = document.getElementById('ui-equip-slots'); slotsContainer.innerHTML = '';
+    const statsContainer = document.getElementById('ui-equip-stats'); statsContainer.innerHTML = '';
+    
     if (equipSelectedHeroId) {
-        let hero = PlayerState.getHero(equipSelectedHeroId);
-        
-        // 將數值計算提到最前方，用於繪製全新的數值面板
-        const { stats, skills } = PlayerState.getCalculatedStats(hero);
-        
-        // 新增詳細角色數值面板 UI
-        let statsDiv = document.createElement('div');
-        statsDiv.style.cssText = "background: #111; border: 1px solid #555; border-radius: 5px; padding: 10px; margin-bottom: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 12px; color: #ccc;";
-        statsDiv.innerHTML = `
-            <div style="grid-column: span 2; text-align: center; color: #00ffaa; font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 5px;">${DB.classes[hero.classId].name} 的詳細數值</div>
-            <div>❤️ 生命: <span style="color:#2ecc71">${stats.maxHp}</span></div>
-            <div>⚔️ 攻擊: <span style="color:#e74c3c">${stats.atk}</span></div>
-            <div>🛡️ 防禦: <span style="color:#3498db">${stats.def}</span></div>
-            <div>👟 速度: <span style="color:#f1c40f">${stats.spd}</span></div>
-            <div>🎯 爆擊率: <span style="color:#e67e22">${Math.round(stats.critR*100)}%</span></div>
-            <div>🔥 爆傷: <span style="color:#e67e22">${Math.round(stats.critD*100)}%</span></div>
-            <div>💨 閃避率: <span style="color:#9b59b6">${Math.round(stats.eva*100)}%</span></div>
-            <div>🧱 格檔率: <span style="color:#95a5a6">${Math.round(stats.blk*100)}%</span></div>
-            <div style="grid-column: span 2;">💖 每秒回血: <span style="color:#1abc9c">${stats.reg}</span></div>
-        `;
-        slotsContainer.appendChild(statsDiv);
-
+        let hero = PlayerState.roster.find(h=>h.id===equipSelectedHeroId);
         const slotTypes = [{ key: 'weapon', label: '武器' }, { key: 'head', label: '頭部' }, { key: 'body', label: '身體' }, { key: 'acc1', label: '飾品1' }, { key: 'acc2', label: '飾品2' }];
         
         slotTypes.forEach(st => {
-            let uid = hero.equip[st.key]; 
-            let invItem = uid ? PlayerState.inventory.find(i => i.uid === uid) : null;
-            let item = invItem ? DB.items[invItem.itemId] : null;
-            
+            let uid = hero.equip[st.key]; let invItem = uid ? PlayerState.inventory.find(i => i.uid === uid) : null; let itemTemp = invItem ? DB.items[invItem.itemId] : null;
             let div = document.createElement('div'); div.className = 'equip-item';
-            
-            let statsText = '';
-            if (item && item.stats) {
-                statsText = Object.entries(item.stats).map(([k,v]) => `${k}:${v}`).join(', ');
-            }
-
-            div.innerHTML = `
-                <div class="equip-row-top">
-                    <div class="equip-type">${st.label}</div>
-                    <div class="equip-name">${item ? item.name : '<span style="color:#666">尚未裝備</span>'}</div>
-                </div>
-                ${item ? `<div class="equip-stats">${statsText}</div>` : ''}
-            `;
-            div.onclick = () => openItemModal(st.key, hero); 
-            slotsContainer.appendChild(div);
+            let nameHtml = itemTemp ? `<span class="${DB.rarities[invItem.rarity].class}">${itemTemp.name} ${invItem.enhance>0?'+'+invItem.enhance:''}</span>` : '<span style="color:#666">尚未裝備</span>';
+            div.innerHTML = `<div class="equip-row-top"><div class="equip-type">${st.label}</div><div class="equip-name">${nameHtml}</div></div>`;
+            div.onclick = () => openItemModal(st.key, hero); slotsContainer.appendChild(div);
         });
         
-        let skillInfoDiv = document.createElement('div');
-        skillInfoDiv.style.cssText = "margin-top:10px; font-size:12px; color:#00ffaa; text-align:center; padding:10px; border:1px dashed #00ffaa;";
-        skillInfoDiv.innerHTML = `裝備賦予技能:<br>${skills.map(sid => DB.skills[sid].name).join(', ')}`;
-        slotsContainer.appendChild(skillInfoDiv);
+        const { stats, skills } = PlayerState.getCalculatedStats(hero); const base = DB.classes[hero.classId];
+        const renderRow = (label, val, baseVal, isPct=false) => { let formatVal = isPct ? `${Math.floor(val*100)}%` : Math.floor(val); let isHigh = val > baseVal; return `<div class="stat-row"><span>${label}</span> <span class="stat-val ${isHigh?'high':''}">${formatVal}</span></div>`; };
+        
+        statsContainer.innerHTML = `
+            <div style="text-align:center; color:#ffaa00; margin-bottom:10px; font-weight:bold;">${base.name} 狀態</div>
+            ${renderRow('生命 (HP)', stats.maxHp, base.hp)}
+            ${renderRow('攻擊 (ATK)', stats.atk, base.atk)}
+            ${renderRow('防禦 (DEF)', stats.def, base.def)}
+            ${renderRow('速度 (SPD)', stats.spd, base.spd)}
+            ${renderRow('爆擊率 (Crit)', stats.critR, 0, true)}
+            ${renderRow('爆傷 (CritD)', stats.critD, 1.5, true)}
+            ${renderRow('閃避 (EVA)', stats.eva, 0, true)}
+            ${renderRow('格檔 (BLK)', stats.blk, 0, true)}
+            ${renderRow('秒回血 (REG)', stats.reg, 0, true)}
+            <div style="margin-top:15px; color:#aaa; font-size:11px; text-align:center;">已裝備技能</div>
+            <div style="color:#00ffcc; text-align:center; margin-top:5px; line-height:1.4;">${skills.map(sid => DB.skills[sid]?DB.skills[sid].name:sid).join(', ')}</div>
+        `;
     }
+}
+
+// Forge Logic
+let forgeSelectedUid = null;
+function renderForgeHub() {
+    const invContainer = document.getElementById('ui-forge-inventory'); invContainer.innerHTML = '';
+    const panelContainer = document.getElementById('ui-forge-panel');
+    document.getElementById('ui-magic-stones-hub').innerText = PlayerState.magicStones;
+    
+    // Find who wears what
+    let equipMap = {};
+    PlayerState.roster.forEach(h => { Object.values(h.equip).forEach(uid => { if (uid) equipMap[uid] = DB.classes[h.classId].name; }); });
+
+    PlayerState.inventory.forEach(invItem => {
+        let itemTemp = DB.items[invItem.itemId]; if (!itemTemp) return;
+        let rarity = DB.rarities[invItem.rarity];
+        let div = document.createElement('div');
+        div.className = 'item-row' + (forgeSelectedUid === invItem.uid ? ' equipped' : '');
+        let equipStatus = equipMap[invItem.uid] ? `<span style="color:#00ffcc;">(已裝備)</span>` : '';
+        div.innerHTML = `<div style="display:flex; justify-content:space-between;"><strong class="${rarity.class}">${itemTemp.name} ${invItem.enhance>0?'+'+invItem.enhance:''}</strong><span style="font-size:12px;">${equipStatus}</span></div>`;
+        div.onclick = () => { forgeSelectedUid = invItem.uid; renderForgeHub(); };
+        invContainer.appendChild(div);
+    });
+
+    if (forgeSelectedUid) {
+        let invItem = PlayerState.inventory.find(i => i.uid === forgeSelectedUid);
+        if (!invItem) { forgeSelectedUid = null; renderForgeHub(); return; }
+        let itemTemp = DB.items[invItem.itemId]; let rarity = DB.rarities[invItem.rarity];
+        
+        let statText = Object.entries(invItem.stats).map(([k,v])=>{
+            let t = DB.statTypes.find(s=>s.key===k);
+            let mult = 1 + (invItem.enhance * 0.1);
+            let finalVal = t.isPct ? `+${Math.floor(v*mult*100)}%` : `+${Math.floor(v*mult)}`;
+            return `${t.name}: ${finalVal}`;
+        }).join('<br>');
+        
+        let costs = { enhance: 50 + invItem.enhance * 50, reroll: 30 * rarity.mult, add: 100 * rarity.mult, salvage: rarity.salvage + invItem.enhance*10 };
+
+        panelContainer.innerHTML = `
+            <div style="text-align:center; font-size:18px; margin-bottom:5px;" class="${rarity.class}">${itemTemp.name} ${invItem.enhance>0?'+'+invItem.enhance:''}</div>
+            <div style="font-size:13px; color:#aaa; margin-bottom:15px; border-bottom:1px solid #444; padding-bottom:10px;">${statText||'無數值加成'}</div>
+            <div class="forge-action-btn" onclick="forgeAction('enhance')">強化 (提昇現有數值 10%)<br><span style="font-size:12px;color:#ffaa00;">💎 ${costs.enhance}</span></div>
+            <div class="forge-action-btn" onclick="forgeAction('reroll')">重鑄 (重新骰出數值類型)<br><span style="font-size:12px;color:#ffaa00;">💎 ${costs.reroll}</span></div>
+            <div class="forge-action-btn" onclick="forgeAction('add')">附加 (增加一條新詞綴)<br><span style="font-size:12px;color:#ffaa00;">💎 ${costs.add}</span></div>
+            <div style="flex:1;"></div>
+            <div class="forge-action-btn salvage" onclick="forgeAction('salvage')">分解 (摧毀裝備)<br><span style="font-size:12px;color:#00ff00;">獲得 💎 ${costs.salvage}</span></div>
+        `;
+    } else {
+        panelContainer.innerHTML = `<div style="text-align:center; color:#888;">請由左側選擇裝備進行鍛造</div>`;
+    }
+}
+
+function forgeAction(actionType) {
+    if(!forgeSelectedUid) return;
+    let invItem = PlayerState.inventory.find(i => i.uid === forgeSelectedUid);
+    let rarity = DB.rarities[invItem.rarity];
+    let costs = { enhance: 50 + invItem.enhance * 50, reroll: 30 * rarity.mult, add: 100 * rarity.mult, salvage: rarity.salvage + invItem.enhance*10 };
+
+    if (actionType === 'salvage') {
+        showSysMsg(`確定要分解此裝備嗎？<br>已裝備的物品分解後會自動卸下。`, () => {
+            PlayerState.magicStones += costs.salvage;
+            // Remove from heroes
+            PlayerState.roster.forEach(h => { Object.keys(h.equip).forEach(k => { if (h.equip[k] === invItem.uid) h.equip[k] = null; }); });
+            // Remove from inv
+            PlayerState.inventory = PlayerState.inventory.filter(i => i.uid !== invItem.uid);
+            forgeSelectedUid = null; saveGame(); renderForgeHub();
+        }, true);
+        return;
+    }
+
+    if (PlayerState.magicStones < costs[actionType]) { showSysMsg("魔石不足！"); return; }
+
+    if (actionType === 'enhance') {
+        if(invItem.enhance >= 10) { showSysMsg("強化已達上限 (+10)！"); return; }
+        PlayerState.magicStones -= costs.enhance;
+        invItem.enhance++;
+    } else if (actionType === 'reroll') {
+        PlayerState.magicStones -= costs.reroll;
+        let statCount = Object.keys(invItem.stats).length;
+        let pool = [...DB.statTypes]; let generatedStats = {};
+        for(let i=0; i<statCount; i++) {
+            if(pool.length === 0) break;
+            let idx = Math.floor(Math.random() * pool.length); let sType = pool.splice(idx, 1)[0];
+            let rawVal = sType.baseRoll * PlayerState.stage * rarity.mult * (0.8 + Math.random()*0.4);
+            generatedStats[sType.key] = sType.isPct ? Math.min(sType.max || Infinity, rawVal) : Math.max(1, Math.floor(rawVal));
+        }
+        invItem.stats = generatedStats;
+    } else if (actionType === 'add') {
+        let currentKeys = Object.keys(invItem.stats);
+        if(currentKeys.length >= 5) { showSysMsg("已達最多詞綴數量 (5)！"); return; }
+        let pool = DB.statTypes.filter(s => !currentKeys.includes(s.key));
+        if(pool.length === 0) { showSysMsg("無法獲得更多種類詞綴！"); return; }
+        PlayerState.magicStones -= costs.add;
+        let idx = Math.floor(Math.random() * pool.length); let sType = pool[idx];
+        let rawVal = sType.baseRoll * PlayerState.stage * rarity.mult * (0.8 + Math.random()*0.4);
+        invItem.stats[sType.key] = sType.isPct ? Math.min(sType.max || Infinity, rawVal) : Math.max(1, Math.floor(rawVal));
+    }
+    saveGame(); renderForgeHub();
 }
 
 function openItemModal(slotKey, hero) {
@@ -1249,50 +1273,41 @@ function openItemModal(slotKey, hero) {
 
     let unequipDiv = document.createElement('div'); unequipDiv.className = 'item-row'; 
     unequipDiv.innerHTML = `<div style="text-align:center; color:#ffaa00; font-weight:bold;">[ 卸下目前裝備 ]</div>`;
-    unequipDiv.onclick = () => { hero.equip[slotKey] = null; closeItemModal(); renderEquipHub(); }; 
+    unequipDiv.onclick = () => { hero.equip[slotKey] = null; closeItemModal(); saveGame(); renderEquipHub(); }; 
     listContainer.appendChild(unequipDiv);
 
     let equipMap = {};
-    PlayerState.roster.forEach(h => { 
-        Object.values(h.equip).forEach(uid => { 
-            if (uid) equipMap[uid] = DB.classes[h.classId].name; 
-        }); 
-    });
+    PlayerState.roster.forEach(h => { Object.values(h.equip).forEach(uid => { if (uid) equipMap[uid] = DB.classes[h.classId].name; }); });
 
     PlayerState.inventory.forEach(invItem => {
-        let item = DB.items[invItem.itemId]; if (!item) return;
+        let itemTemp = DB.items[invItem.itemId]; if (!itemTemp) return;
         let itemType = slotKey.startsWith('acc') ? 'acc' : slotKey;
-        if (item.type !== itemType || (item.exclusive && item.exclusive !== hero.classId)) return;
+        if (itemTemp.type !== itemType || (itemTemp.exclusive && itemTemp.exclusive !== hero.classId)) return;
 
-        let equippedBy = equipMap[invItem.uid];
-        let isWornByMe = (hero.equip[slotKey] === invItem.uid);
+        let equippedBy = equipMap[invItem.uid]; let isWornByMe = (hero.equip[slotKey] === invItem.uid);
+        let rarity = DB.rarities[invItem.rarity];
         
-        let div = document.createElement('div'); 
-        div.className = 'item-row' + (isWornByMe ? ' equipped' : '');
-        
-        let equipStatus = '';
-        if (isWornByMe) equipStatus = '<span style="color:#00ffcc;">(目前裝備中)</span>';
-        else if (equippedBy) equipStatus = `<span style="color:#ff6666;">(${equippedBy} 穿戴中)</span>`;
+        let div = document.createElement('div'); div.className = 'item-row' + (isWornByMe ? ' equipped' : '');
+        let equipStatus = isWornByMe ? '<span style="color:#00ffcc;">(目前裝備中)</span>' : (equippedBy ? `<span style="color:#ff6666;">(${equippedBy} 穿戴中)</span>` : '');
+
+        let statText = Object.entries(invItem.stats).map(([k,v])=>{
+            let t = DB.statTypes.find(s=>s.key===k); let mult = 1 + (invItem.enhance * 0.1);
+            let finalVal = t.isPct ? `+${Math.floor(v*mult*100)}%` : `+${Math.floor(v*mult)}`;
+            return `${t.name}:${finalVal}`;
+        }).join(', ');
 
         div.innerHTML = `
             <div style="display:flex; justify-content:space-between;">
-                <strong>${item.name}</strong>
+                <strong class="${rarity.class}">${itemTemp.name} ${invItem.enhance>0?'+'+invItem.enhance:''}</strong>
                 <span style="font-size:12px;">${equipStatus}</span>
             </div>
-            <div class="item-desc">${item.desc || Object.entries(item.stats||{}).map(([k,v])=>`${k}:${v}`).join(', ')}</div>
+            <div class="item-desc">${statText || '無數值加成'}</div>
+            <div class="item-desc" style="color:#ffea88;">解鎖技能: ${itemTemp.skill1?DB.skills[itemTemp.skill1].name:''}${itemTemp.skill2?', '+DB.skills[itemTemp.skill2].name:''}</div>
         `;
         
         div.onclick = () => {
-            if (equippedBy && !isWornByMe) {
-                PlayerState.roster.forEach(h => {
-                    Object.keys(h.equip).forEach(k => {
-                        if (h.equip[k] === invItem.uid) h.equip[k] = null;
-                    });
-                });
-            }
-            hero.equip[slotKey] = invItem.uid; 
-            closeItemModal(); 
-            renderEquipHub(); 
+            if (equippedBy && !isWornByMe) { PlayerState.roster.forEach(h => { Object.keys(h.equip).forEach(k => { if (h.equip[k] === invItem.uid) h.equip[k] = null; }); }); }
+            hero.equip[slotKey] = invItem.uid; closeItemModal(); saveGame(); renderEquipHub(); 
         };
         listContainer.appendChild(div);
     });
@@ -1300,29 +1315,14 @@ function openItemModal(slotKey, hero) {
 }
 
 function closeItemModal() { document.getElementById('item-modal').style.display = 'none'; }
-
 function startNextStage() {
-    // 修正: 將 alert 改為 showToast 以提供更好的無縫體驗
-    if (PlayerState.activePartyIds.filter(id => id).length === 0) { 
-        showToast("至少需要派一名隊員上場！"); 
-        return; 
-    }
-    document.getElementById('end-of-time-ui').style.display = 'none';
-    initBattle();
+    if (PlayerState.activePartyIds.filter(id => id).length === 0) { showSysMsg("至少需要派一名隊員上場！"); return; }
+    document.getElementById('end-of-time-ui').style.display = 'none'; initBattle();
 }
 
-function restartGame() {
-    document.getElementById('game-over-ui').style.display = 'none';
-    PlayerState.stage = 1;
-    PlayerState.activePartyIds = ['warrior', 'mage', 'priest'];
-    difficultyMultiplier = 1.0;
-    PlayerState.init();
-    initBattle();
-}
-
-/* 遊戲初始化入口 */
-PlayerState.init();
-initBattle();
+// 啟動流程
+if (!loadGame()) { PlayerState.initNew(); }
+openEndOfTimeHub();
 </script>
 </body>
 </html>
