@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>無限打怪闖關 - 隨機關卡與魔王版</title>
+<title>無限打怪闖關 - 技能冷卻系統版</title>
 <style>
     /* 基本重置與全螢幕設定 */
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
@@ -57,8 +57,8 @@
     }
     .hub-title { text-align: center; color: #bbaaff; font-size: 24px; margin-bottom: 15px; text-shadow: 0 0 10px #7755ff; }
     .hub-nav { display: flex; gap: 10px; margin-bottom: 15px; }
-    .hub-tab { flex: 1; padding: 10px; text-align: center; background: #333; border-radius: 5px; cursor: pointer; }
-    .hub-tab.active { background: #5544aa; border: 1px solid #9988ff; }
+    .hub-tab { flex: 1; padding: 10px; text-align: center; background: #333; border-radius: 5px; cursor: pointer; transition: 0.2s;}
+    .hub-tab.active { background: #5544aa; border: 1px solid #9988ff; font-weight: bold;}
     .hub-content { flex: 1; display: none; flex-direction: column; gap: 15px; }
     .hub-content.active { display: flex; }
 
@@ -68,21 +68,21 @@
     .party-slot.selected { border-color: #ffaa00; background: #332200; }
     .party-slot .emoji { font-size: 36px; }
     .roster-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .roster-char { background: #222; padding: 10px; text-align: center; border-radius: 5px; border: 1px solid #444; cursor: pointer; }
+    .roster-char { background: #222; padding: 10px; text-align: center; border-radius: 5px; border: 1px solid #444; cursor: pointer; transition: 0.2s;}
     .roster-char:active { background: #444; }
-    .roster-char.in-party { opacity: 0.4; pointer-events: none; }
+    .roster-char.in-party { opacity: 0.4; pointer-events: none; border-color: #222; }
 
     /* 裝備介面 */
     .equip-layout { display: flex; gap: 10px; height: 100%; }
     .equip-chars { width: 30%; display: flex; flex-direction: column; gap: 5px; overflow-y: auto;}
-    .equip-char-btn { padding: 10px; background: #222; border: 1px solid #444; text-align: center; border-radius: 5px; cursor: pointer; }
-    .equip-char-btn.active { background: #44aa44; border-color: #66cc66;}
+    .equip-char-btn { padding: 10px; background: #222; border: 1px solid #444; text-align: center; border-radius: 5px; cursor: pointer; font-size: 14px;}
+    .equip-char-btn.active { background: #44aa44; border-color: #66cc66; font-weight:bold;}
     .equip-slots { flex: 1; background: #222; padding: 10px; border-radius: 5px; display: flex; flex-direction: column; gap: 8px; overflow-y:auto;}
     .equip-item { display: flex; flex-direction: column; background: #111; padding: 10px; border: 1px solid #555; border-radius: 5px; cursor: pointer;}
     .equip-item:active { background: #333; }
     .equip-row-top { display: flex; align-items: center; justify-content: space-between; }
     .equip-type { color: #888; font-size: 12px; width: 45px; }
-    .equip-name { flex: 1; text-align: left; padding-left: 5px; color: #ddd; font-weight: bold;}
+    .equip-name { flex: 1; text-align: left; padding-left: 5px; color: #ddd; font-weight: bold; font-size: 14px;}
     .equip-stats { font-size: 11px; color: #aaa; margin-top: 5px; padding-left: 50px;}
 
     /* 物品選擇彈窗 */
@@ -101,12 +101,31 @@
     .clear-title { font-size: 40px; font-weight: bold; color: #ffea00; text-shadow: 0 0 15px #ff5500; margin-bottom: 10px;}
     .boss-title { font-size: 45px; font-weight: bold; color: #ff0000; text-shadow: 0 0 20px #ffea00; margin-bottom: 10px;}
     .loot-text { font-size: 18px; font-weight: bold; color: #00ffaa; text-shadow: 0 0 5px #000; background: rgba(0,0,0,0.6); display: inline-block; padding: 5px 15px; border-radius: 20px; max-width: 90%; word-wrap: break-word;}
+
+    /* 自定義 Toast 訊息與 Game Over UI */
+    #toast-msg {
+        position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+        background: rgba(255, 50, 50, 0.95); color: white; padding: 10px 25px;
+        border-radius: 10px; z-index: 1000; opacity: 0; transition: opacity 0.3s;
+        pointer-events: none; font-weight: bold; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    #game-over-ui {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.9); z-index: 500; display: none;
+        flex-direction: column; align-items: center; justify-content: center;
+    }
+    .game-over-title {
+        color: #ff3333; font-size: 48px; font-weight: bold; margin-bottom: 30px;
+        text-shadow: 0 0 20px #ff0000; letter-spacing: 5px;
+    }
 </style>
 </head>
 <body>
 
 <div id="game-container">
     <canvas id="game-canvas"></canvas>
+    
     <div id="battle-ui">
         <div id="stage-info">Stage <span id="ui-stage-num">1</span></div>
         <div id="stage-msg">
@@ -125,13 +144,14 @@
         </div>
     </div>
 
+    <!-- 時間的盡頭 UI -->
     <div id="end-of-time-ui">
         <div class="hub-title">🌌 時間的盡頭 🌌</div>
         <div style="text-align:center; color:#ccc; margin-bottom: 10px;">整理隊伍與裝備，迎接未知的挑戰。</div>
         
         <div class="hub-nav">
-            <div class="hub-tab active" onclick="switchHubTab('party')">組隊陣容</div>
-            <div class="hub-tab" onclick="switchHubTab('equip')">裝備與倉庫</div>
+            <div class="hub-tab active" onclick="switchHubTab('party', this)">組隊陣容</div>
+            <div class="hub-tab" onclick="switchHubTab('equip', this)">裝備與倉庫</div>
         </div>
 
         <div id="tab-party" class="hub-content active">
@@ -150,15 +170,24 @@
         <div class="start-btn" onclick="startNextStage()">進入下一關 ➔</div>
     </div>
 
+    <!-- 裝備選擇 Modal -->
     <div id="item-modal">
         <div class="modal-title" id="modal-title">選擇裝備</div>
         <div class="item-list" id="modal-item-list"></div>
         <div class="close-modal" onclick="closeItemModal()">關閉</div>
     </div>
+
+    <!-- Game Over 畫面 -->
+    <div id="game-over-ui">
+        <div class="game-over-title">全軍覆沒</div>
+        <div class="btn" style="padding:15px 40px; font-size:24px; background:linear-gradient(180deg, #aa0000, #550000); border-color:#ff5555;" onclick="restartGame()">重新開始</div>
+    </div>
+
+    <!-- 提示訊息 -->
+    <div id="toast-msg">提示訊息</div>
 </div>
 
 <script>
-/* STREAMING_CHUNK: Setting up Database & Biomes... */
 const DB = {
     classes: {
         warrior:   { id: 'warrior', name: '戰士', emoji: '🛡️', hp: 500, atk: 40, def: 30, spd: 40, color: '#e74c3c' },
@@ -169,52 +198,80 @@ const DB = {
         swordsman: { id: 'swordsman', name: '劍士', emoji: '⚔️', hp: 400, atk: 55, def: 25, spd: 50, color: '#e67e22' }
     },
     biomes: {
-        forest: { bg: 'linear-gradient(to bottom, #0f2027, #203a43, #2c5364)', enemies: ['slime', 'goblin', 'wolf'], boss: 'treant', scenery: ['🌲', '🌳', '🍄', '🌿'] },
-        graveyard: { bg: 'linear-gradient(to bottom, #141e30, #243b55, #000000)', enemies: ['skeleton', 'bat', 'zombie'], boss: 'lich', scenery: ['🪦', '💀', '🥀', '🦴'] },
-        volcano: { bg: 'linear-gradient(to bottom, #4a0000, #220000, #110000)', enemies: ['imp', 'hellhound', 'bat'], boss: 'dragon', scenery: ['🌋', '🔥', '🔥', '☄️'] }
+        forest: { bg: 'linear-gradient(to bottom, #0f2027, #203a43, #2c5364)', enemies: [{proto:'slime',name:'草史萊姆',emoji:'🌿'}, {proto:'goblin',name:'哥布林',emoji:'👺'}, {proto:'wolf',name:'森林狼',emoji:'🐺'}], boss: {proto:'treant',name:'千年樹妖',emoji:'🌳'}, scenery: ['🌲', '🌳', '🍄', '🌿'] },
+        graveyard: { bg: 'linear-gradient(to bottom, #141e30, #243b55, #000000)', enemies: [{proto:'skeleton',name:'骷髏兵',emoji:'💀'}, {proto:'bat',name:'吸血蝙蝠',emoji:'🦇'}, {proto:'zombie',name:'殭屍',emoji:'🧟'}], boss: {proto:'lich',name:'巫妖',emoji:'🧙‍♂️'}, scenery: ['🪦', '💀', '🥀', '🦴'] },
+        volcano: { bg: 'linear-gradient(to bottom, #4a0000, #220000, #110000)', enemies: [{proto:'imp',name:'火焰小鬼',emoji:'👹'}, {proto:'hellhound',name:'地獄犬',emoji:'🐕‍🦺'}, {proto:'bat',name:'焰蝙蝠',emoji:'🦇'}], boss: {proto:'dragon',name:'遠古紅龍',emoji:'🐉'}, scenery: ['🌋', '🔥', '🔥', '☄️'] },
+        ocean: { bg: 'linear-gradient(to bottom, #001f3f, #0074D9, #7FDBFF)', enemies: [{proto:'slime',name:'水史萊姆',emoji:'💧'}, {proto:'goblin',name:'魚人',emoji:'🧜‍♂️'}, {proto:'wolf',name:'海豹',emoji:'🦭'}], boss: {proto:'dragon',name:'深海龍王',emoji:'🐲'}, scenery: ['🌊', '🐚', '珊瑚', '🐟'] },
+        desert: { bg: 'linear-gradient(to bottom, #873600, #D35400, #F39C12)', enemies: [{proto:'slime',name:'砂史萊姆',emoji:'🧽'}, {proto:'skeleton',name:'木乃伊',emoji:'🤕'}, {proto:'wolf',name:'巨蠍',emoji:'🦂'}], boss: {proto:'lich',name:'獅身人面像',emoji:'🦁'}, scenery: ['🌵', '🏜️', '🐪', '☀️'] },
+        snow: { bg: 'linear-gradient(to bottom, #bdc3c7, #2c3e50)', enemies: [{proto:'slime',name:'冰史萊姆',emoji:'🧊'}, {proto:'wolf',name:'雪狼',emoji:'🐺'}, {proto:'zombie',name:'雪人',emoji:'⛄'}], boss: {proto:'dragon',name:'冰霜巨龍',emoji:'🦕'}, scenery: ['❄️', '🏔️', '☃️', '🌲'] },
+        sky: { bg: 'linear-gradient(to bottom, #83a4d4, #b6fbff)', enemies: [{proto:'slime',name:'雲史萊姆',emoji:'☁️'}, {proto:'bat',name:'鳥人',emoji:'🦅'}, {proto:'hellhound',name:'鷹獅',emoji:'🪽'}], boss: {proto:'treant',name:'天空泰坦',emoji:'🗿'}, scenery: ['☁️', '☀️', '🕊️', '🌈'] },
+        machine: { bg: 'linear-gradient(to bottom, #333333, #555555, #777777)', enemies: [{proto:'slime',name:'機油史萊姆',emoji:'🛢️'}, {proto:'hellhound',name:'機械犬',emoji:'🤖'}, {proto:'goblin',name:'齒輪怪',emoji:'⚙️'}], boss: {proto:'lich',name:'終極機甲',emoji:'👾'}, scenery: ['🏭', '🔩', '🔧', '🔋'] },
+        void: { bg: 'linear-gradient(to bottom, #1a0033, #000000)', enemies: [{proto:'slime',name:'虛空史萊姆',emoji:'🌌'}, {proto:'wolf',name:'暗影狼',emoji:'🌑'}, {proto:'skeleton',name:'死神',emoji:'☠️'}], boss: {proto:'dragon',name:'虛空恐懼',emoji:'👁️'}, scenery: ['🌌', '✨', '🌀', '☄️'] }
     },
     enemies: {
-        // 普通怪物
-        slime:    { name: '史萊姆', emoji: '💧', hp: 120, atk: 12, def: 2, spd: 30, type: 'melee', radius: 18 },
-        wolf:     { name: '野狼', emoji: '🐺', hp: 180, atk: 25, def: 5, spd: 55, type: 'melee', radius: 22 },
-        goblin:   { name: '哥布林', emoji: '👺', hp: 150, atk: 15, def: 5, spd: 35, type: 'melee', radius: 20 },
-        skeleton: { name: '骷髏兵', emoji: '💀', hp: 140, atk: 25, def: 10, spd: 40, type: 'melee', radius: 18 },
-        zombie:   { name: '殭屍', emoji: '🧟', hp: 350, atk: 20, def: 15, spd: 20, type: 'melee', radius: 22 },
-        bat:      { name: '吸血蝙蝠', emoji: '🦇', hp: 100, atk: 20, def: 0, spd: 65, type: 'melee', radius: 15 },
-        imp:      { name: '火焰小鬼', emoji: '👹', hp: 160, atk: 35, def: 5, spd: 50, type: 'ranged', radius: 18 },
-        hellhound:{ name: '地獄犬', emoji: '🐕‍🦺', hp: 250, atk: 30, def: 10, spd: 60, type: 'melee', radius: 24 },
-        // 魔王 (大體積、高數值)
-        treant:   { name: '千年樹妖', emoji: '🌳', hp: 1800, atk: 60, def: 40, spd: 25, type: 'melee', radius: 45, isBoss: true },
-        lich:     { name: '巫妖', emoji: '🧙‍♂️', hp: 1500, atk: 80, def: 20, spd: 45, type: 'ranged', radius: 40, isBoss: true },
-        dragon:   { name: '遠古紅龍', emoji: '🐉', hp: 2500, atk: 90, def: 50, spd: 35, type: 'melee', radius: 55, isBoss: true }
+        slime:    { hp: 120, atk: 12, def: 2, spd: 30, type: 'melee', radius: 18 },
+        wolf:     { hp: 180, atk: 25, def: 5, spd: 55, type: 'melee', radius: 22 },
+        goblin:   { hp: 150, atk: 15, def: 5, spd: 35, type: 'melee', radius: 20 },
+        skeleton: { hp: 140, atk: 25, def: 10, spd: 40, type: 'melee', radius: 18 },
+        zombie:   { hp: 350, atk: 20, def: 15, spd: 20, type: 'melee', radius: 22 },
+        bat:      { hp: 100, atk: 20, def: 0, spd: 65, type: 'melee', radius: 15 },
+        imp:      { hp: 160, atk: 35, def: 5, spd: 50, type: 'ranged', radius: 18 },
+        hellhound:{ hp: 250, atk: 30, def: 10, spd: 60, type: 'melee', radius: 24 },
+        treant:   { hp: 1800, atk: 60, def: 40, spd: 25, type: 'melee', radius: 45 },
+        lich:     { hp: 1500, atk: 80, def: 20, spd: 45, type: 'ranged', radius: 40 },
+        dragon:   { hp: 2500, atk: 90, def: 50, spd: 35, type: 'melee', radius: 55 }
     },
+    // 加入 cd (冷卻回合數) 與 status (異常與增益狀態)
     skills: {
-        attack:       { name: "普通攻擊", type: "damage", target: "single", power: 1.0, desc: "造成100%攻擊力傷害" },
-        taunt_slash:  { name: "嘲諷斬", type: "damage_pull", target: "single", power: 1.2, aoeRadius: 150, desc: "單體傷害，並將周圍敵人拉向目標" },
-        whirlwind:    { name: "大風車", type: "damage", target: "self_aoe", power: 0.8, aoeRadius: 120, desc: "對自身周圍敵人造成傷害" },
-        meteor:       { name: "隕石術", type: "damage", target: "single_aoe", power: 2.0, aoeRadius: 100, desc: "對指定目標及其周圍造成巨大魔法傷害" },
-        laser:        { name: "貫穿雷射", type: "damage_line", target: "single", power: 1.5, lineWidth: 40, desc: "對指定直線上的敵人造成貫穿傷害" },
-        heal:         { name: "單體大補", type: "heal", target: "ally_single", power: 2.5, desc: "大幅恢復指定隊友血量" },
-        holy_nova:    { name: "神聖新星", type: "heal_damage", target: "self_aoe", power: 1.0, aoeRadius: 150, desc: "自身範圍補血並對敵人造成微量傷害" },
-        poison_dag:   { name: "毒刃", type: "damage", target: "single", power: 2.5, desc: "極高單體傷害" },
-        smoke_bomb:   { name: "煙霧彈", type: "damage", target: "self_aoe", power: 0.5, aoeRadius: 200, desc: "大範圍微量傷害" },
-        arrow_rain:   { name: "箭雨", type: "damage", target: "single_aoe", power: 1.2, aoeRadius: 120, desc: "對指定區域造成範圍傷害" },
-        iai_slash:    { name: "居合斬", type: "damage", target: "single", power: 1.8, desc: "高速拔刀斬" },
+        attack:       { name: "普通攻擊", type: "damage", target: "single", power: 1.0, cd: 0, desc: "造成100%攻擊力傷害" },
+        taunt_slash:  { name: "嘲諷斬", type: "damage_pull", target: "single", power: 1.2, aoeRadius: 150, cd: 2, desc: "單體傷害，並將周圍敵人拉向目標" },
+        whirlwind:    { name: "大風車", type: "damage", target: "self_aoe", power: 0.8, aoeRadius: 120, cd: 3, desc: "突進後持續對周圍敵人造成傷害(不會歸位)" },
+        meteor:       { name: "隕石術", type: "damage", target: "single_aoe", power: 2.0, aoeRadius: 100, cd: 4, desc: "對指定目標及其周圍造成巨大魔法傷害" },
+        laser:        { name: "貫穿雷射", type: "damage_line", target: "single", power: 1.5, lineWidth: 40, cd: 3, desc: "對指定直線上的敵人造成貫穿傷害" },
+        heal:         { name: "單體大補", type: "heal", target: "ally_single", power: 2.5, cd: 3, desc: "大幅恢復指定隊友血量" },
+        holy_nova:    { name: "神聖新星", type: "heal_damage", target: "self_aoe", power: 1.0, aoeRadius: 150, cd: 4, desc: "自身範圍補血並對敵人造成微量傷害" },
+        poison_dag:   { name: "毒刃", type: "damage", target: "single", power: 2.5, cd: 2, desc: "極高單體傷害" },
+        smoke_bomb:   { name: "煙霧彈", type: "damage", target: "self_aoe", power: 0.5, aoeRadius: 200, cd: 3, desc: "大範圍微量傷害" },
+        arrow_rain:   { name: "箭雨", type: "damage", target: "single_aoe", power: 1.2, aoeRadius: 120, cd: 3, desc: "對指定區域造成範圍傷害" },
+        iai_slash:    { name: "居合斬", type: "damage", target: "single", power: 1.8, cd: 2, desc: "高速拔刀斬" },
+        first_aid:    { name: "急救", type: "heal", target: "ally_single", power: 1.0, cd: 1, desc: "小幅恢復指定隊友血量" },
+        blood_suck:   { name: "吸血打擊", type: "damage_heal_self", target: "single", power: 1.5, cd: 2, desc: "對單體造成傷害並恢復自身血量" },
+        magic_missile:{ name: "魔法飛彈", type: "damage", target: "random_aoe", power: 1.2, aoeRadius: 80, cd: 3, desc: "自動轟炸隨機敵人及其周圍" },
+        earthquake:   { name: "地震", type: "damage", target: "self_aoe", power: 1.2, aoeRadius: 500, cd: 5, desc: "全畫面大範圍震擊傷害" }, 
+        snipe:        { name: "狙擊", type: "damage", target: "single", power: 3.5, cd: 4, desc: "超高單體貫穿傷害" },
+        chain_light:  { name: "連鎖閃電", type: "random_multi", target: "random_aoe", power: 0.6, hits: 4, color: '#00ffff', cd: 4, desc: "隨機劈落四道閃電" },
         
-        first_aid:    { name: "急救", type: "heal", target: "ally_single", power: 1.0, desc: "小幅恢復指定隊友血量" },
-        blood_suck:   { name: "吸血打擊", type: "damage_heal_self", target: "single", power: 1.5, desc: "對單體造成傷害並恢復自身血量" },
-        magic_missile:{ name: "魔法飛彈", type: "damage", target: "random_aoe", power: 1.2, aoeRadius: 80, desc: "自動轟炸隨機敵人及其周圍" },
-        earthquake:   { name: "地震", type: "damage", target: "self_aoe", power: 1.2, aoeRadius: 500, desc: "全畫面大範圍震擊傷害" }, // 超大範圍，不會走位
-        
-        // 新增特化技能
-        snipe:        { name: "狙擊", type: "damage", target: "single", power: 3.5, desc: "超高單體貫穿傷害" },
-        chain_light:  { name: "連鎖閃電", type: "random_multi", target: "random_aoe", power: 0.6, hits: 4, color: '#00ffff', desc: "隨機劈落四道閃電" },
+        excalibur_slash:{ name: "聖劍斬", type: "damage", target: "single", power: 2.5, cd: 2, desc: "光明的強力單體斬擊" },
+        venom_strike: { name: "毒液打擊", type: "damage", target: "single", power: 1.5, status: {type:'poison', dur:5, val:0.05}, cd: 3, desc: "單體傷害，附加中毒(每秒扣5%血)" },
+        hemorrhage:   { name: "大出血", type: "damage", target: "single", power: 1.8, status: {type:'bleed', dur:3, val:0.1}, cd: 3, desc: "單體傷害，附加流血(每秒劇烈扣血)" },
+        flash_bang:   { name: "閃光彈", type: "damage", target: "self_aoe", power: 0.5, aoeRadius: 150, status: {type:'blind', dur:4, val:0}, cd: 4, desc: "範圍微傷，附加盲目(50%機率攻擊Miss)" },
+        thunder_strike: { name: "雷霆一擊", type: "damage", target: "single_aoe", power: 1.5, aoeRadius: 100, status: {type:'paralyze', dur:2, val:0}, cd: 4, desc: "範圍傷害，附加麻痺(無法行動)" },
+        lullaby:      { name: "催眠曲", type: "damage", target: "self_aoe", power: 0.1, aoeRadius: 300, status: {type:'sleep', dur:6, val:0}, cd: 5, desc: "微傷，高機率附加睡眠(受擊會醒)" },
+        gorgon_gaze:  { name: "石化凝視", type: "damage", target: "single", power: 1.0, status: {type:'petrify', dur:4, val:0}, cd: 5, desc: "單體石化(無法行動，但防禦力翻倍)" },
+        cursed_slash: { name: "妖刀噬血", type: "damage_self_harm", target: "single", power: 3.5, cd: 3, desc: "極高傷害，但施放後自身受到反噬扣血" },
+        war_cry:      { name: "戰吼", type: "buff", target: "self_aoe", aoeRadius: 300, status: {type:'atk_up', dur:4, val:1.5}, cd: 5, desc: "提升全體友軍 50% 攻擊力" },
+        ninja_stars:  { name: "手裏劍陣", type: "random_multi", target: "random_aoe", power: 0.5, hits: 6, color: '#aaaaaa', cd: 3, desc: "隨機投擲6發手裏劍" },
+        assassinate:  { name: "暗殺", type: "damage", target: "single", power: 3.0, cd: 3, desc: "極高單體致命傷害" },
+        holy_shield:  { name: "聖盾庇護", type: "buff", target: "self_aoe", aoeRadius: 200, status: {type:'def_up', dur:5, val:2.0}, cd: 5, desc: "提升全體友軍 100% 防禦力" },
+        healing_mist: { name: "治癒之霧", type: "heal_status", target: "self_aoe", power: 0.5, aoeRadius: 300, status: {type:'regen', dur:5, val:15}, cd: 4, desc: "全體微量恢復與持續回血" },
+        thorn_shield: { name: "荊棘護體", type: "buff", target: "self_aoe", aoeRadius: 50, status: {type:'def_up', dur:4, val:1.5}, cd: 4, desc: "大幅提升自身防禦力" },
+        berserk:      { name: "狂化", type: "buff", target: "self_aoe", aoeRadius: 50, status: {type:'atk_up', dur:5, val:2.0}, cd: 5, desc: "大幅提升自身攻擊力" },
+        shadow_step:  { name: "暗影步", type: "damage", target: "single", power: 2.0, status: {type:'blind', dur:3, val:0}, cd: 3, desc: "單體傷害並使目標盲目" },
+        exec_strike:  { name: "處決重擊", type: "damage", target: "single", power: 2.5, status: {type:'bleed', dur:4, val:0.08}, cd: 3, desc: "單體高傷並附加嚴重流血" },
+        mirror_beam:  { name: "幻鏡射線", type: "damage_line", target: "single", power: 1.5, lineWidth: 60, status: {type:'blind', dur:3, val:0}, cd: 4, desc: "寬直線貫穿傷害，附加盲目" },
+        phoenix_flame:{ name: "鳳凰天火", type: "damage", target: "self_aoe", power: 1.5, aoeRadius: 250, status: {type:'bleed', dur:3, val:0.1}, cd: 5, desc: "大範圍火焰傷害與灼燒(流血)" },
+        hero_aura:    { name: "英雄光環", type: "buff", target: "self_aoe", aoeRadius: 400, status: {type:'regen', dur:5, val:30}, cd: 5, desc: "全體超強持續恢復生命" },
+        life_bloom:   { name: "生命綻放", type: "heal", target: "ally_single", power: 4.0, cd: 4, desc: "巨量恢復單一友軍生命值" },
+        headshot:     { name: "爆頭", type: "damage", target: "single", power: 4.5, cd: 5, desc: "致命的單體超高傷害" },
+        blade_dance:  { name: "死亡劍舞", type: "random_multi", target: "random_aoe", power: 0.8, hits: 5, color: '#ffaaaa', cd: 4, desc: "隨機對敵人發動5次斬擊" },
 
-        // 合體技
-        combo_x_strike: { name: "X字斬 (合體)", type: "combo_damage", target: "single", power: 4.0, partners: ['warrior'], desc: "【與戰士合體】驚人的單體交叉斬擊", color: '#ff5500' },
-        combo_holy_sword: { name: "聖劍降臨 (合體)", type: "combo_damage_heal", target: "single_aoe", power: 3.0, aoeRadius: 150, partners: ['priest'], desc: "【與牧師合體】神聖範圍傷害+全體恢復", color: '#ffffaa' },
-        combo_shadow:     { name: "影襲 (合體)", type: "combo_damage", target: "single", power: 5.0, partners: ['rogue'], desc: "【與盜賊合體】瞬獄殺級別單體傷害", color: '#8800ff' },
-        combo_trinity:    { name: "三位一體大爆破", type: "combo_trinity", target: "self_aoe", power: 6.0, partners: ['mage', 'priest'], desc: "【終極合體:戰+法+牧】全體秒殺級傷害與回滿血！", color: '#ffffff', isUltimate: true }
+        combo_x_strike: { name: "X字斬 (合體)", type: "combo_damage", target: "single", power: 4.0, partners: ['warrior'], cd: 4, desc: "【戰士合體】單體交叉斬擊", color: '#ff5500' },
+        combo_holy_sword: { name: "聖劍降臨 (合體)", type: "combo_damage", target: "single_aoe", power: 3.0, aoeRadius: 150, partners: ['priest'], cd: 5, desc: "【牧師合體】範圍傷害+全體恢復", color: '#ffffaa' },
+        combo_shadow:     { name: "影襲 (合體)", type: "combo_damage", target: "single", power: 5.0, partners: ['rogue'], cd: 5, desc: "【盜賊合體】瞬獄殺級別單體傷害", color: '#8800ff' },
+        combo_gale:       { name: "颶風連擊 (合體)", type: "combo_damage", target: "single_aoe", power: 3.5, aoeRadius: 100, partners: ['rogue'], cd: 4, desc: "【盜賊合體】範圍暴風傷害", color: '#00ffaa' },
+        combo_arcane_blade: { name: "魔力劍刃 (合體)", type: "combo_damage", target: "single", power: 4.5, partners: ['mage'], cd: 4, desc: "【法師合體】強大單體魔法斬擊", color: '#55aaff' },
+        combo_sanctuary:  { name: "神聖庇護 (合體)", type: "heal_status", target: "self_aoe", power: 2.0, aoeRadius: 300, partners: ['ranger'], status: {type:'regen', dur:5, val:20}, cd: 6, desc: "【遊俠合體】全體大補血與持續恢復", color: '#aaffaa' },
+        combo_trinity:    { name: "三位一體大爆破", type: "combo_trinity", target: "self_aoe", power: 6.0, partners: ['mage', 'priest'], cd: 8, desc: "【終極合體:戰+法+牧】全體秒殺級傷害與回滿血！", color: '#ffffff', isUltimate: true }
     },
     items: {
         w_broadsword: { id:'w_broadsword', type:'weapon', name:'寬刃劍', exclusive:'warrior', stats:{atk:10, def:10}, skill1:'taunt_slash', skill2:'whirlwind' },
@@ -223,36 +280,65 @@ const DB = {
         w_dagger:     { id:'w_dagger', type:'weapon', name:'暗殺匕首', exclusive:'rogue', stats:{atk:15, spd:10}, skill1:'poison_dag', skill2:'smoke_bomb' },
         w_bow:        { id:'w_bow', type:'weapon', name:'長弓', exclusive:'ranger', stats:{atk:15, spd:5}, skill1:'arrow_rain' },
         w_katana:     { id:'w_katana', type:'weapon', name:'武士刀', exclusive:'swordsman', stats:{atk:25}, skill1:'iai_slash' },
-        
-        // 擴充武器
         w_sniper_bow: { id:'w_sniper_bow', type:'weapon', name:'神射手大弓', exclusive:'ranger', stats:{atk:35, spd:-10}, skill1:'snipe', desc:'賦予: 狙擊' },
         w_thunder:    { id:'w_thunder', type:'weapon', name:'雷霆法杖', exclusive:'mage', stats:{atk:30, spd:15}, skill1:'chain_light', desc:'賦予: 連鎖閃電' },
-        w_excalibur:  { id:'w_excalibur', type:'weapon', name:'王者之劍', exclusive:'swordsman', stats:{atk:40, hp:100}, skill1:'iai_slash', skill2:'combo_x_strike', desc:'解鎖合體技:X字斬(需戰士)' },
+        w_excalibur:  { id:'w_excalibur', type:'weapon', name:'王者之劍', exclusive:'swordsman', stats:{atk:40, hp:100}, skill1:'excalibur_slash', skill2:'combo_x_strike', desc:'賦予:聖劍斬, 解鎖合體技:X字斬(需戰士)' },
         
         h_vampire_mask:  { id:'h_vampire_mask', type:'head', name:'吸血鬼面具', stats:{def:10, hp:50}, skill1:'blood_suck', desc:'賦予: 吸血打擊' },
         h_wizard_hat:    { id:'h_wizard_hat', type:'head', name:'大賢者之帽', stats:{def:5, spd:10}, skill1:'magic_missile', desc:'賦予: 魔法飛彈' },
-        h_ninja_headband:{ id:'h_ninja_headband', type:'head', name:'忍野頭巾', stats:{def:8, spd:15}, skill1:'smoke_bomb', desc:'賦予: 煙霧彈' },
+        h_ninja_headband:{ id:'h_ninja_headband', type:'head', name:'忍野頭巾', stats:{def:8, spd:15}, skill1:'ninja_stars', desc:'賦予: 手裏劍陣' },
         
         b_holy_robe:     { id:'b_holy_robe', type:'body', name:'神聖法袍', stats:{def:10, hp:120}, skill1:'first_aid', desc:'賦予: 急救' },
-        b_spike_armor:   { id:'b_spike_armor', type:'body', name:'反甲風衣', stats:{def:15, hp:80}, skill1:'poison_dag', desc:'賦予: 毒刃' },
-        b_berserker_mail:{ id:'b_berserker_mail', type:'body', name:'狂戰士鎧甲', stats:{def:30, hp:200, spd:-10}, skill1:'whirlwind', desc:'賦予: 大風車' },
+        b_spike_armor:   { id:'b_spike_armor', type:'body', name:'反甲風衣', stats:{def:15, hp:80}, skill1:'thorn_shield', desc:'賦予: 荊棘護體' },
+        b_berserker_mail:{ id:'b_berserker_mail', type:'body', name:'狂戰士鎧甲', stats:{def:30, hp:200, spd:-10}, skill1:'berserk', desc:'賦予: 狂化' },
         
         a_earth_core:    { id:'a_earth_core', type:'acc', name:'大地核心', stats:{hp:200, def:10}, skill1:'earthquake', desc:'賦予: 地震' },
-        a_phoenix_feather:{ id:'a_phoenix_feather', type:'acc', name:'鳳凰羽毛', stats:{spd:25}, skill1:'holy_nova', desc:'賦予: 神聖新星' },
-        a_hero_badge:    { id:'a_hero_badge', type:'acc', name:'英雄徽章', stats:{atk:15, hp:100}, skill1:'combo_x_strike', desc:'解鎖合體技:X字斬(需戰士)' },
+        a_phoenix_feather:{ id:'a_phoenix_feather', type:'acc', name:'鳳凰羽毛', stats:{spd:25}, skill1:'phoenix_flame', desc:'賦予: 鳳凰天火' },
+        a_hero_badge:    { id:'a_hero_badge', type:'acc', name:'英雄徽章', stats:{atk:15, hp:100}, skill1:'hero_aura', desc:'賦予: 英雄光環' },
         a_holy_gem:      { id:'a_holy_gem', type:'acc', name:'聖光寶石', stats:{atk:10}, skill1:'combo_holy_sword', desc:'解鎖合體技:聖劍降臨(需牧師)' },
         a_assassin_scroll:{ id:'a_assassin_scroll', type:'acc', name:'暗殺者密卷', stats:{atk:25, spd:20}, skill1:'combo_shadow', desc:'解鎖合體技:影襲(需盜賊)' },
-        a_trinity_force: { id:'a_trinity_force', type:'acc', name:'三相之力', exclusive:'warrior', stats:{hp:300, atk:30, def:30, spd:20}, skill1:'combo_trinity', desc:'限定戰士。解鎖終極合體技:三位一體(需法師+牧師)' }
+        a_trinity_force: { id:'a_trinity_force', type:'acc', name:'三相之力', exclusive:'warrior', stats:{hp:300, atk:30, def:30, spd:20}, skill1:'combo_trinity', desc:'限定戰士。解鎖終極合體技:三位一體(需法師+牧師)' },
+        
+        // 新增 20 樣全新裝備與技能屬性
+        w_venom_bow:     { id:'w_venom_bow', type:'weapon', name:'毒液弩', exclusive:'ranger', stats:{atk:25, critR:0.1}, skill1:'venom_strike', desc:'爆擊+10%, 賦予:毒液打擊' },
+        w_blood_dagger:  { id:'w_blood_dagger', type:'weapon', name:'嗜血匕首', exclusive:'rogue', stats:{atk:30, eva:0.1}, skill1:'hemorrhage', desc:'閃避+10%, 賦予:大出血' },
+        w_flash_staff:   { id:'w_flash_staff', type:'weapon', name:'閃光法杖', exclusive:'priest', stats:{atk:15, hp:100, blk:0.1}, skill1:'flash_bang', desc:'格檔+10%, 賦予:閃光彈' },
+        w_thunder_hammer:{ id:'w_thunder_hammer', type:'weapon', name:'雷霆戰錘', exclusive:'warrior', stats:{atk:35, critD:0.5}, skill1:'thunder_strike', desc:'爆傷+50%, 賦予:雷霆一擊' },
+        w_lullaby_bell:  { id:'w_lullaby_bell', type:'weapon', name:'催眠搖鈴', exclusive:'mage', stats:{atk:10, spd:20, reg:5}, skill1:'lullaby', desc:'回血+5/s, 賦予:催眠曲' },
+        w_gorgon_blade:  { id:'w_gorgon_blade', type:'weapon', name:'蛇髮女妖之劍', exclusive:'swordsman', stats:{atk:25, def:15}, skill1:'gorgon_gaze', desc:'防禦+15, 賦予:石化凝視' },
+        w_cursed_blade:  { id:'w_cursed_blade', type:'weapon', name:'妖刀村正', exclusive:'swordsman', stats:{atk:60, reg:-10, critR:0.2}, skill1:'cursed_slash', desc:'極高攻與爆擊，賦予:妖刀噬血' },
+        w_wind_bow:      { id:'w_wind_bow', type:'weapon', name:'逐風長弓', exclusive:'ranger', stats:{atk:20, spd:40, eva:0.15}, skill1:'war_cry', desc:'極高攻速閃避，賦予:戰吼' },
+        h_assassin_cowl: { id:'h_assassin_cowl', type:'head', name:'刺客兜帽', stats:{def:5, critR:0.1, eva:0.1}, skill1:'assassinate', desc:'爆擊率+10%, 閃避率+10%, 賦予:暗殺' },
+        h_crusader_helm: { id:'h_crusader_helm', type:'head', name:'十字軍頭盔', stats:{def:15, hp:50, blk:0.15}, skill1:'holy_shield', desc:'格檔率+15%, 賦予:聖盾庇護' },
+        h_crown_regen:   { id:'h_crown_regen', type:'head', name:'復甦王冠', stats:{def:5, reg:15}, skill1:'healing_mist', desc:'每秒回血+15, 賦予:治癒之霧' },
+        b_ninja_suit:    { id:'b_ninja_suit', type:'body', name:'忍者裝束', stats:{def:8, spd:15, eva:0.2}, skill1:'shadow_step', desc:'閃避率+20%, 賦予:暗影步' },
+        b_gladiator:     { id:'b_gladiator', type:'body', name:'角鬥士重甲', stats:{def:20, hp:100, critD:0.5}, skill1:'exec_strike', desc:'爆擊傷害+50%, 賦予:處決重擊' },
+        b_mirror_armor:  { id:'b_mirror_armor', type:'body', name:'微光之鎧', stats:{def:15, blk:0.2}, skill1:'mirror_beam', desc:'格檔率+20%, 賦予:幻鏡射線' },
+        a_ring_vitality: { id:'a_ring_vitality', type:'acc', name:'活力戒指', stats:{hp:150, reg:20}, skill1:'life_bloom', desc:'每秒回血+20, 賦予:生命綻放' },
+        a_sniper_scope:  { id:'a_sniper_scope', type:'acc', name:'狙擊鏡', stats:{atk:10, critR:0.15}, skill1:'headshot', desc:'爆擊率+15%, 賦予:爆頭' },
+        a_dancer_charm:  { id:'a_dancer_charm', type:'acc', name:'舞者護符', stats:{spd:15, eva:0.15}, skill1:'blade_dance', desc:'閃避率+15%, 賦予:死亡劍舞' },
+        a_ranger_crest:  { id:'a_ranger_crest', type:'acc', name:'遊俠紋章', exclusive:'ranger', stats:{atk:15, hp:50}, skill1:'combo_gale', desc:'解鎖合體技:颶風連擊(需盜賊)' },
+        a_twin_blade:    { id:'a_twin_blade', type:'acc', name:'雙子護符', exclusive:'swordsman', stats:{atk:20, spd:10}, skill1:'combo_arcane_blade', desc:'解鎖合體技:魔力劍刃(需法師)' },
+        a_oathkeeper:    { id:'a_oathkeeper', type:'acc', name:'誓約之印', exclusive:'priest', stats:{def:10, reg:10}, skill1:'combo_sanctuary', desc:'解鎖合體技:神聖庇護(需遊俠)' }
     }
 };
 
-/* STREAMING_CHUNK: Initializing Player State... */
 function generateUID() { return 'uid_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5); }
+
+// UI 輔助函式：Toast 訊息
+function showToast(msg) {
+    const toast = document.getElementById('toast-msg');
+    toast.innerText = msg;
+    toast.style.opacity = 1;
+    setTimeout(() => { toast.style.opacity = 0; }, 2000);
+}
 
 const PlayerState = {
     stage: 1, inventory: [], roster: [], activePartyIds: ['warrior', 'mage', 'priest'],
     
     init() {
+        this.roster = [];
+        this.inventory = [];
         Object.keys(DB.classes).forEach(clsId => {
             this.roster.push({ id: clsId, classId: clsId, equip: { weapon: null, head: null, body: null, acc1: null, acc2: null } });
         });
@@ -264,7 +350,6 @@ const PlayerState = {
         this.addAndEquipItem('w_bow', 'ranger', 'weapon');
         this.addAndEquipItem('w_katana', 'swordsman', 'weapon');
 
-        // 給予初始有趣散件
         this.addItems(['h_vampire_mask', 'h_wizard_hat', 'b_holy_robe', 'b_berserker_mail', 'a_earth_core', 'w_sniper_bow', 'w_thunder', 'a_assassin_scroll', 'a_trinity_force']);
     },
     addItems(itemIds) {
@@ -284,7 +369,8 @@ const PlayerState = {
     getHero(id) { return this.roster.find(h => h.id === id); },
     getCalculatedStats(heroData) {
         const base = DB.classes[heroData.classId];
-        let stats = { hp: base.hp, maxHp: base.hp, atk: base.atk, def: base.def, spd: base.spd };
+        // 加入新的 5 個預設屬性
+        let stats = { hp: base.hp, maxHp: base.hp, atk: base.atk, def: base.def, spd: base.spd, critR: 0.05, critD: 1.5, eva: 0.05, blk: 0.0, reg: 0 };
         let skills = ['attack'];
         
         Object.values(heroData.equip).forEach(uid => {
@@ -297,6 +383,11 @@ const PlayerState = {
                         if (item.stats.atk) stats.atk += item.stats.atk;
                         if (item.stats.def) stats.def += item.stats.def;
                         if (item.stats.spd) stats.spd += item.stats.spd;
+                        if (item.stats.critR) stats.critR += item.stats.critR;
+                        if (item.stats.critD) stats.critD += item.stats.critD;
+                        if (item.stats.eva) stats.eva += item.stats.eva;
+                        if (item.stats.blk) stats.blk += item.stats.blk;
+                        if (item.stats.reg) stats.reg += item.stats.reg;
                     }
                     if (item.skill1) skills.push(item.skill1);
                     if (item.skill2) skills.push(item.skill2);
@@ -307,7 +398,6 @@ const PlayerState = {
     }
 };
 
-/* STREAMING_CHUNK: Setting up Entities and Physics... */
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 let GAME_WIDTH = 540; let GAME_HEIGHT = 960;
@@ -326,7 +416,15 @@ class Entity {
         this.isHero = isHero; this.id = data.id || generateUID();
         this.emoji = data.emoji; this.name = data.name;
         this.maxHp = data.stats.maxHp; this.hp = this.maxHp;
-        this.atk = data.stats.atk; this.def = data.stats.def; this.spd = data.stats.spd;
+        
+        // 記錄原始屬性供 Buff 計算
+        this.baseAtk = data.stats.atk; this.baseDef = data.stats.def; this.baseSpd = data.stats.spd;
+        this.atk = this.baseAtk; this.def = this.baseDef; this.spd = this.baseSpd;
+        
+        // 新屬性
+        this.critR = data.stats.critR || 0.05; this.critD = data.stats.critD || 1.5;
+        this.eva = data.stats.eva || 0; this.blk = data.stats.blk || 0; this.reg = data.stats.reg || 0;
+
         this.skills = data.skills || []; this.color = data.color || '#fff';
         this.radius = data.radius || 20;
         this.atb = (Math.random() * 200); this.atbMax = 1000;
@@ -334,22 +432,91 @@ class Entity {
         this.targetX = 0; this.targetY = 0; this.wanderTimer = 0;
         this.aiType = data.aiType || 'melee';
         this.isBoss = data.isBoss || false;
+        
+        // 技能冷卻與異常狀態追蹤
+        this.skillCooldowns = {};
+        this.status = [];
+        this.regTimer = 0;
     }
     get isDead() { return this.hp <= 0; }
-    takeDamage(amount, isHeal = false) {
-        if (this.isDead) return;
-        if (isHeal) {
-            let actualHeal = Math.floor(amount); this.hp = Math.min(this.maxHp, this.hp + actualHeal);
+    
+    applyStatus(type, dur, val) {
+        this.status.push({ type, dur, val });
+        let msg = '';
+        if(type==='poison') msg='中毒!'; if(type==='bleed') msg='流血!'; if(type==='blind') msg='盲目!'; 
+        if(type==='paralyze') msg='麻痺!'; if(type==='sleep') msg='睡眠!'; if(type==='petrify') msg='石化!';
+        if(type==='atk_up') msg='攻擊提升!'; if(type==='regen') msg='持續恢復!';
+        if(msg) effects.push(new TextEffect(this.x, this.y - 30, msg, '#ffaa00'));
+    }
+
+    takeDamage(dmgInfo) {
+        if (this.isDead) return 0;
+        if (dmgInfo.isHeal) {
+            let actualHeal = Math.floor(dmgInfo.amount); this.hp = Math.min(this.maxHp, this.hp + actualHeal);
             effects.push(new TextEffect(this.x, this.y - 20, `+${actualHeal}`, '#00ff00'));
+            return actualHeal;
         } else {
-            let actualDmg = Math.max(1, Math.floor(amount - this.def * 0.5)); this.hp -= actualDmg;
-            effects.push(new TextEffect(this.x, this.y - 20, `-${actualDmg}`, '#ff3333'));
+            // Evasion Check
+            if (!dmgInfo.noEvade && Math.random() < this.eva) {
+                effects.push(new TextEffect(this.x, this.y - 20, "Miss(迴避)", '#cccccc'));
+                return 0;
+            }
+            
+            // Waking up from sleep on damage
+            let sleepIdx = this.status.findIndex(s => s.type === 'sleep');
+            if (sleepIdx > -1) { this.status.splice(sleepIdx, 1); effects.push(new TextEffect(this.x, this.y-30, "醒來!", '#ffffff')); }
+
+            let finalAmt = dmgInfo.amount;
+            let blocked = Math.random() < this.blk;
+            if (blocked) finalAmt *= 0.5;
+            
+            // Petrify def bonus (Def * 2)
+            let currentDef = this.status.find(s=>s.type==='petrify') ? this.def * 2 : this.def;
+            let actualDmg = Math.max(1, Math.floor(finalAmt - currentDef * 0.5));
+            this.hp -= actualDmg;
+            
+            let color = dmgInfo.isCrit ? '#ff8800' : '#ff3333';
+            let prefix = dmgInfo.isCrit ? 'CRIT -' : '-';
+            let suffix = blocked ? ' (格檔)' : '';
+            effects.push(new TextEffect(this.x, this.y - 20, `${prefix}${actualDmg}${suffix}`, color));
+            
             this.y += this.isHero ? 5 : -5;
-            if (this.hp <= 0) { this.hp = 0; this.state = 'dead'; this.atb = 0; }
+            if (this.hp <= 0) { this.hp = 0; this.state = 'dead'; this.atb = 0; this.status = []; }
+            return actualDmg;
         }
     }
     update(dt) {
-        if (this.isDead || menuOpen || targetingMode || this.state === 'acting' || victoryTriggered) return;
+        if (this.isDead || menuOpen || targetingMode || victoryTriggered) return;
+
+        let canAct = true;
+        this.atk = this.baseAtk; this.def = this.baseDef; this.spd = this.baseSpd;
+        let currentRegen = this.reg;
+
+        // Process Status Effects
+        for (let i = this.status.length - 1; i >= 0; i--) {
+            let s = this.status[i];
+            s.dur -= dt / 1000;
+            
+            if (s.type === 'poison') { if(Math.random()<0.05) this.takeDamage({amount: this.maxHp * s.val, noEvade: true}); }
+            if (s.type === 'bleed') { if(Math.random()<0.05) this.takeDamage({amount: this.maxHp * s.val, noEvade: true}); }
+            if (s.type === 'atk_up') { this.atk = this.baseAtk * s.val; }
+            if (s.type === 'def_up') { this.def = this.baseDef * s.val; }
+            if (s.type === 'regen') { currentRegen += s.val; }
+            
+            if (s.type === 'paralyze' || s.type === 'sleep' || s.type === 'petrify') canAct = false;
+            
+            if (s.dur <= 0) this.status.splice(i, 1);
+        }
+
+        // Passive Health Regen Logic
+        this.regTimer += dt;
+        if (this.regTimer >= 1000) {
+            this.regTimer = 0;
+            if (currentRegen > 0 && this.hp < this.maxHp) this.takeDamage({amount: currentRegen, isHeal: true});
+            if (currentRegen < 0) this.takeDamage({amount: -currentRegen, noEvade: true});
+        }
+
+        if (this.state === 'acting' || !canAct) return;
 
         if (this.state === 'idle') {
             this.atb += this.spd * (dt / 100); 
@@ -385,7 +552,19 @@ class Entity {
         ctx.font = `${this.radius * 2}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(this.emoji, this.x, this.y);
 
-        // 魔王血條加寬
+        // Draw Status Effect Icons
+        if (this.status.length > 0) {
+            let statusStr = this.status.map(s => {
+                if(s.type==='poison') return '☠️'; if(s.type==='bleed') return '🩸';
+                if(s.type==='paralyze') return '⚡'; if(s.type==='sleep') return '💤';
+                if(s.type==='blind') return '🕶️'; if(s.type==='petrify') return '🗿';
+                if(s.type==='atk_up') return '🔥'; if(s.type==='def_up') return '🛡️'; if(s.type==='regen') return '💖';
+                return '';
+            }).join('');
+            ctx.font = '12px Arial';
+            ctx.fillText(statusStr, this.x, this.y - this.radius - 22);
+        }
+
         const barW = this.isBoss ? 80 : 40; const barH = 6;
         ctx.fillStyle = '#000'; ctx.fillRect(this.x - barW/2, this.y - this.radius - 15, barW, barH);
         ctx.fillStyle = this.isHero ? '#2ecc71' : '#e74c3c';
@@ -405,27 +584,48 @@ class Entity {
         let target = heroes[Math.floor(Math.random() * heroes.length)];
         this.state = 'acting'; this.atb = 0;
         
-        if (this.aiType === 'melee') effects.push(new DashEffect(this, target.x, target.y, () => { target.takeDamage(this.atk); this.finishTurn(); }));
-        else effects.push(new ProjectileEffect(this.x, this.y, target.x, target.y, this.isBoss ? '#ff0000' : '#ff00ff', () => { target.takeDamage(this.atk); this.finishTurn(); }));
+        let isCrit = Math.random() < this.critR;
+        let isBlind = this.status.find(s=>s.type==='blind') && Math.random() < 0.5;
+        let dmgAmount = isCrit ? this.atk * this.critD : this.atk;
+        
+        const finishAction = () => {
+            if (!isBlind) target.takeDamage({amount: dmgAmount, isCrit}); 
+            else effects.push(new TextEffect(target.x, target.y-20, "Miss(盲目)", '#aaa'));
+            this.finishTurn(); 
+        };
+
+        if (this.aiType === 'melee') effects.push(new DashEffect(this, target.x, target.y, finishAction));
+        else effects.push(new ProjectileEffect(this.x, this.y, target.x, target.y, this.isBoss ? '#ff0000' : '#ff00ff', finishAction));
     }
-    finishTurn() { this.atb = 0; this.state = 'idle'; this.targetX = this.baseX; this.targetY = this.baseY; }
+    
+    // 行動結束，扣減技能 CD
+    finishTurn() { 
+        this.atb = 0; this.state = 'idle'; this.targetX = this.baseX; this.targetY = this.baseY; 
+        for (let key in this.skillCooldowns) {
+            if (this.skillCooldowns[key] > 0) this.skillCooldowns[key]--;
+        }
+    }
 }
 
-/* STREAMING_CHUNK: Defining Visual Effects... */
 class TextEffect {
     constructor(x,y,t,c){this.x=x;this.y=y;this.t=t;this.c=c;this.l=1;}
     update(dt){this.l-=dt/1000;this.y-=0.5;return this.l>0;}
     draw(ctx){ctx.globalAlpha=Math.max(0,this.l);ctx.fillStyle=this.c;ctx.font='bold 20px Arial';ctx.textAlign='center';ctx.fillText(this.t,this.x,this.y);ctx.globalAlpha=1;}
 }
 class DashEffect {
-    constructor(a,dx,dy,cb){this.a=a;this.sx=a.x;this.sy=a.y;this.dx=dx;this.dy=dy;this.p=0;this.cb=cb;this.ht=false;}
+    constructor(a,dx,dy,cb,ret=true){this.a=a;this.sx=a.x;this.sy=a.y;this.dx=dx;this.dy=dy;this.p=0;this.cb=cb;this.ht=false;this.ret=ret;}
     update(dt){
         this.p+=dt/250;
         if(this.p>=1){
-            if(!this.ht){this.cb();this.ht=true;}
-            this.a.x+=(this.sx-this.a.x)*0.2; this.a.y+=(this.sy-this.a.y)*0.2;
-            if(Math.abs(this.a.x-this.sx)<5){this.a.x=this.sx;this.a.y=this.sy;return false;}
-            return true;
+            if(!this.ht){
+                this.cb();this.ht=true;
+                if(!this.ret) return false;
+            }
+            if(this.ret){
+                this.a.x+=(this.sx-this.a.x)*0.2; this.a.y+=(this.sy-this.a.y)*0.2;
+                if(Math.abs(this.a.x-this.sx)<5){this.a.x=this.sx;this.a.y=this.sy;return false;}
+            }
+            return this.ret;
         }
         this.a.x=this.sx+(this.dx-this.sx)*Math.min(1,this.p); this.a.y=this.sy+(this.dy-this.sy)*Math.min(1,this.p);
         return true;
@@ -453,7 +653,6 @@ class ScreenFlashEffect {
     draw(ctx){ctx.globalAlpha=(this.l/this.d)*0.5;ctx.fillStyle=this.c;ctx.fillRect(0,0,GAME_WIDTH,GAME_HEIGHT);ctx.globalAlpha=1;}
 }
 
-/* STREAMING_CHUNK: Initializing Battle Logic & Biomes... */
 function getDistance(e1, e2) { return Math.hypot(e1.x - e2.x, e1.y - e2.y); }
 
 function initBattle() {
@@ -465,22 +664,19 @@ function initBattle() {
     document.getElementById('stage-msg').style.opacity = 0;
     document.getElementById('loot-info').style.display = 'none';
 
-    // 決定環境 Biome
     const biomeKeys = Object.keys(DB.biomes);
     const selectedBiome = DB.biomes[biomeKeys[Math.floor(Math.random() * biomeKeys.length)]];
     document.getElementById('game-canvas').style.background = selectedBiome.bg;
 
-    // 產生裝飾景物
     for(let i=0; i<8; i++) {
         sceneryObjects.push({
             x: Math.random() * GAME_WIDTH,
-            y: Math.random() * (GAME_HEIGHT * 0.4) + GAME_HEIGHT * 0.05, // 主要散佈在畫面上半部
+            y: Math.random() * (GAME_HEIGHT * 0.4) + GAME_HEIGHT * 0.05, 
             emoji: selectedBiome.scenery[Math.floor(Math.random() * selectedBiome.scenery.length)],
             size: 30 + Math.random() * 20
         });
     }
 
-    // 生成英雄
     const activeHeroes = PlayerState.activePartyIds.map(id => PlayerState.getHero(id)).filter(h => h);
     const heroSpacing = GAME_WIDTH / (activeHeroes.length + 1);
     const meleeHeroIds = ['warrior', 'rogue', 'swordsman'];
@@ -490,39 +686,41 @@ function initBattle() {
         let hero = new Entity(true, { id: hData.id, emoji: DB.classes[hData.classId].emoji, name: DB.classes[hData.classId].name, stats, skills, color: DB.classes[hData.classId].color });
         hero.baseX = heroSpacing * (index + 1);
         let isMelee = meleeHeroIds.includes(hData.classId);
-        hero.baseY = GAME_HEIGHT * (isMelee ? 0.58 : 0.72) + (Math.random() * 20 - 10);
+        // 修改：上移英雄的佈署位置避免 UI 遮擋
+        hero.baseY = GAME_HEIGHT * (isMelee ? 0.45 : 0.60) + (Math.random() * 20 - 10);
         hero.x = hero.baseX; hero.y = hero.baseY;
         entities.push(hero);
     });
 
-    // 決定是否為魔王戰 (每 5 關必定，平時 5% 機率)
-    let isBossWave = (PlayerState.stage % 5 === 0) || (Math.random() < 0.05);
+    // 修復魔王關卡邏輯：第3關起，每5關(5,10,15...)必遇魔王，平時無魔王
+    let isBossWave = false;
+    if (PlayerState.stage >= 3) {
+        isBossWave = (PlayerState.stage % 5 === 0);
+    }
 
     if (isBossWave) {
-        // 魔王戰
-        let bossData = DB.enemies[selectedBiome.boss];
+        let bossInfo = selectedBiome.boss;
+        let bossProto = DB.enemies[bossInfo.proto];
         let boss = new Entity(false, {
-            emoji: bossData.emoji, name: bossData.name, aiType: bossData.type, radius: bossData.radius, isBoss: true,
-            stats: { maxHp: bossData.hp * difficultyMultiplier, atk: bossData.atk * difficultyMultiplier, def: bossData.def * difficultyMultiplier, spd: bossData.spd }
+            emoji: bossInfo.emoji, name: bossInfo.name, aiType: bossProto.type, radius: bossProto.radius, isBoss: true,
+            stats: { maxHp: bossProto.hp * difficultyMultiplier, atk: bossProto.atk * difficultyMultiplier, def: bossProto.def * difficultyMultiplier, spd: bossProto.spd }
         });
-        boss.baseX = GAME_WIDTH / 2; boss.baseY = GAME_HEIGHT * 0.3; boss.x = boss.baseX; boss.y = boss.baseY;
+        boss.baseX = GAME_WIDTH / 2; boss.baseY = GAME_HEIGHT * 0.15; boss.x = boss.baseX; boss.y = boss.baseY;
         entities.push(boss);
         
-        // 給魔王配 1~2 隻小怪
         let minionCount = 1 + Math.floor(Math.random() * 2);
         for(let i=0; i<minionCount; i++) {
-            let mType = selectedBiome.enemies[Math.floor(Math.random() * selectedBiome.enemies.length)];
-            let mData = DB.enemies[mType];
+            let mInfo = selectedBiome.enemies[Math.floor(Math.random() * selectedBiome.enemies.length)];
+            let mProto = DB.enemies[mInfo.proto];
             let minion = new Entity(false, {
-                emoji: mData.emoji, name: mData.name, aiType: mData.type, radius: mData.radius,
-                stats: { maxHp: mData.hp * difficultyMultiplier, atk: mData.atk * difficultyMultiplier, def: mData.def * difficultyMultiplier, spd: mData.spd }
+                emoji: mInfo.emoji, name: mInfo.name, aiType: mProto.type, radius: mProto.radius,
+                stats: { maxHp: mProto.hp * difficultyMultiplier, atk: mProto.atk * difficultyMultiplier, def: mProto.def * difficultyMultiplier, spd: mProto.spd }
             });
             minion.baseX = (i===0) ? GAME_WIDTH*0.2 : GAME_WIDTH*0.8; 
-            minion.baseY = GAME_HEIGHT * 0.4; minion.x = minion.baseX; minion.y = minion.baseY;
+            minion.baseY = GAME_HEIGHT * 0.30; minion.x = minion.baseX; minion.y = minion.baseY;
             entities.push(minion);
         }
         
-        // 顯示警告
         let msg = document.getElementById('stage-msg');
         document.getElementById('stage-msg-title').className = 'boss-title';
         document.getElementById('stage-msg-title').innerText = '⚠️ BOSS BATTLE ⚠️';
@@ -530,20 +728,20 @@ function initBattle() {
         setTimeout(() => { if(battleActive) msg.style.opacity = 0; }, 2000);
 
     } else {
-        // 普通戰鬥
         const enemyCount = 3 + Math.floor(Math.random() * 3);
         const enemySpacing = GAME_WIDTH / (enemyCount + 1);
         
         for (let i = 0; i < enemyCount; i++) {
-            let mType = selectedBiome.enemies[Math.floor(Math.random() * selectedBiome.enemies.length)];
-            let baseData = DB.enemies[mType];
+            let mInfo = selectedBiome.enemies[Math.floor(Math.random() * selectedBiome.enemies.length)];
+            let mProto = DB.enemies[mInfo.proto];
             let enemy = new Entity(false, {
-                emoji: baseData.emoji, name: baseData.name, aiType: baseData.type, radius: baseData.radius,
-                stats: { maxHp: baseData.hp * difficultyMultiplier, atk: baseData.atk * difficultyMultiplier, def: baseData.def * difficultyMultiplier, spd: baseData.spd }
+                emoji: mInfo.emoji, name: mInfo.name, aiType: mProto.type, radius: mProto.radius,
+                stats: { maxHp: mProto.hp * difficultyMultiplier, atk: mProto.atk * difficultyMultiplier, def: mProto.def * difficultyMultiplier, spd: mProto.spd }
             });
             enemy.baseX = enemySpacing * (i + 1); 
-            let isEnemyMelee = baseData.type === 'melee';
-            enemy.baseY = GAME_HEIGHT * (isEnemyMelee ? 0.42 : 0.28) + (Math.random() * 20 - 10);
+            let isEnemyMelee = mProto.type === 'melee';
+            // 修改：上移一般魔物的佈署位置
+            enemy.baseY = GAME_HEIGHT * (isEnemyMelee ? 0.30 : 0.20) + (Math.random() * 20 - 10);
             enemy.x = enemy.baseX; enemy.y = enemy.baseY;
             entities.push(enemy);
         }
@@ -553,7 +751,6 @@ function initBattle() {
     requestAnimationFrame(gameLoop);
 }
 
-/* STREAMING_CHUNK: Managing Skill Actions and Targeting... */
 function openMenu(hero) {
     if (menuOpen || targetingMode || victoryTriggered) return;
     menuOpen = true; currentActor = hero;
@@ -566,7 +763,9 @@ function openMenu(hero) {
     
     uniqueSkills.forEach(skillId => {
         const skill = DB.skills[skillId]; if(!skill) return;
-        let isCombo = skill.type.startsWith('combo'); let canCast = true; let partnersInBattle = [];
+        let isCombo = skill.type.startsWith('combo'); 
+        let canCast = true; 
+        let partnersInBattle = [];
         
         if (isCombo) {
             skill.partners.forEach(pClass => {
@@ -576,9 +775,17 @@ function openMenu(hero) {
             if (partnersInBattle.length !== skill.partners.length) canCast = false;
         }
 
+        // 判斷技能是否在冷卻中
+        let currentCd = hero.skillCooldowns[skillId] || 0;
+        if (currentCd > 0) canCast = false;
+
         let btn = document.createElement('div');
         btn.className = 'btn' + (isCombo ? (skill.isUltimate ? ' combo-ultimate' : ' combo') : '') + (!canCast ? ' disabled' : '');
-        btn.innerHTML = `<strong>${skill.name}</strong><div style="font-size:11px; margin-top:4px;">${skill.desc}</div>`;
+        
+        // 如果在冷卻中，加入紅色的 CD 提示
+        let cdText = currentCd > 0 ? `<span style="color:#ff5555; margin-left:8px; font-weight:900;">[CD: ${currentCd}]</span>` : '';
+        
+        btn.innerHTML = `<strong>${skill.name}</strong>${cdText}<div style="font-size:11px; margin-top:4px;">${skill.desc}</div>`;
         if (canCast) btn.onclick = () => prepareSkill(hero, skillId, skill, partnersInBattle);
         container.appendChild(btn);
     });
@@ -622,24 +829,50 @@ canvas.addEventListener('pointerdown', (e) => {
     }
 });
 
-/* STREAMING_CHUNK: Executing Actions and Dash calculations... */
 function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
     actor.state = 'acting'; actor.atb = 0; partners.forEach(p => { p.atb = 0; });
     menuOpen = false;
     
+    actor.skillCooldowns[skillId] = skill.cd || 0;
+    
     let enemies = entities.filter(e => !e.isHero && !e.isDead);
     let allies = entities.filter(e => e.isHero && !e.isDead);
-    let dmg = actor.atk * skill.power;
+    
+    // Status Logic For Attacker
+    let isBlind = actor.status.find(s=>s.type==='blind') && Math.random() < 0.5;
+    let isCrit = Math.random() < actor.critR;
+    let baseDmg = isCrit ? (actor.atk * actor.critD) : actor.atk;
+    let dmg = baseDmg * skill.power;
+    
     const finish = () => { actor.finishTurn(); };
+    
+    const applyDamage = (target, amount, heal=false) => {
+        if (isBlind && !heal) { effects.push(new TextEffect(target.x, target.y-20, "Miss(盲目)", '#aaa')); return 0; }
+        let actualDmg = target.takeDamage({amount, isHeal: heal, isCrit});
+        // 賦予技能指定的異常狀態
+        if (!heal && actualDmg > 0 && skill.status && Math.random() < 0.8) {
+            target.applyStatus(skill.status.type, skill.status.dur, skill.status.val);
+        }
+        // 特殊吸血技能
+        if (!heal && skill.type === 'damage_heal_self') {
+            actor.takeDamage({amount: actualDmg * 0.5, isHeal: true});
+        }
+        return actualDmg;
+    };
 
-    if (skill.type === 'damage') {
+    if (skill.type.includes('damage') || skill.type === 'buff') {
         if (skill.target === 'single') {
-            effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => { mainTarget.takeDamage(dmg); })); setTimeout(finish, 400); 
+            effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => { 
+                applyDamage(mainTarget, dmg); 
+                if (skill.type === 'damage_self_harm') {
+                    actor.takeDamage({amount: actor.maxHp * 0.2, noEvade: true});
+                }
+            })); setTimeout(finish, 400); 
         } else if (skill.target === 'self_aoe') {
-            if (skill.aoeRadius > 300) { // 全畫面技能(如地震)，不移動原地放
+            if (skill.aoeRadius > 300) { 
                 effects.push(new ExplosionEffect(GAME_WIDTH/2, GAME_HEIGHT/2, skill.aoeRadius, '#aaaaaa', finish));
-                enemies.forEach(e => { e.takeDamage(dmg); });
-            } else if (enemies.length > 0) { // 近戰範圍技(如大風車)，切入最近敵人
+                enemies.forEach(e => { applyDamage(e, dmg); });
+            } else if (enemies.length > 0) { 
                 let nearestEnemy = enemies.reduce((nearest, current) => getDistance(actor, current) < getDistance(actor, nearest) ? current : nearest);
                 let dist = getDistance(actor, nearestEnemy);
                 let dashRadius = Math.max(10, skill.aoeRadius * 0.6); 
@@ -651,19 +884,29 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
                     destY = actor.y + (nearestEnemy.y - actor.y) * (moveDist / dist);
                 }
                 effects.push(new DashEffect(actor, destX, destY, () => {
+                    // 修改：大風車或範圍自身攻擊，完成衝刺後更新角色底座基準點，停留在原地且不再折返
+                    actor.baseX = destX; 
+                    actor.baseY = destY;
+                    
                     effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#aaaaaa', finish));
-                    enemies.forEach(e => { if (getDistance(actor, e) <= skill.aoeRadius) e.takeDamage(dmg); });
-                }));
+                    enemies.forEach(e => { if (getDistance(actor, e) <= skill.aoeRadius) applyDamage(e, dmg); });
+                }, false)); // 傳入 false 避免 DashEffect 回彈
             } else {
                 effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#aaaaaa', finish));
             }
         } else if (skill.target === 'single_aoe') {
             effects.push(new ProjectileEffect(actor.x, actor.y - 300, mainTarget.x, mainTarget.y, '#ff4400', () => {
                 effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, skill.aoeRadius, '#ff4400', finish));
-                enemies.forEach(e => { if (getDistance(mainTarget, e) <= skill.aoeRadius) e.takeDamage(dmg); });
+                enemies.forEach(e => { if (getDistance(mainTarget, e) <= skill.aoeRadius) applyDamage(e, dmg); });
             }));
         } 
     } 
+    
+    // 獨立處理 Buff 技能
+    if (skill.type === 'buff') {
+        effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#aaffaa', finish));
+        allies.forEach(a => { if (getDistance(actor, a) <= skill.aoeRadius) a.applyStatus(skill.status.type, skill.status.dur, skill.status.val); });
+    }
     else if (skill.type === 'random_multi') {
         let hits = skill.hits || 3;
         for(let i=0; i<hits; i++) {
@@ -672,7 +915,7 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
                 if(aliveEnemies.length === 0) return;
                 let rt = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
                 effects.push(new ProjectileEffect(actor.x, actor.y - 50, rt.x, rt.y, skill.color || '#ffff00', () => {
-                    rt.takeDamage(dmg); effects.push(new ExplosionEffect(rt.x, rt.y, 30, skill.color || '#ffff00'));
+                    applyDamage(rt, dmg); effects.push(new ExplosionEffect(rt.x, rt.y, 30, skill.color || '#ffff00'));
                 }));
             }, i * 200);
         }
@@ -680,14 +923,9 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
     }
     else if (skill.type === 'damage_pull') {
         effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => {
-            mainTarget.takeDamage(dmg);
+            applyDamage(mainTarget, dmg);
             enemies.forEach(e => { if (e !== mainTarget && getDistance(mainTarget, e) <= skill.aoeRadius) { e.targetX = mainTarget.x + (Math.random()-0.5)*20; e.targetY = mainTarget.y + (Math.random()-0.5)*20; } });
             setTimeout(finish, 200);
-        }));
-    }
-    else if (skill.type === 'damage_heal_self') {
-        effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => {
-            mainTarget.takeDamage(dmg); actor.takeDamage(dmg * 0.5, true); setTimeout(finish, 200);
         }));
     }
     else if (skill.type === 'damage_line') {
@@ -696,11 +934,19 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
             let l2 = (mainTarget.x-actor.x)**2 + (mainTarget.y-actor.y)**2; if (l2===0) return;
             let t = ((e.x-actor.x)*(mainTarget.x-actor.x) + (e.y-actor.y)*(mainTarget.y-actor.y))/l2; t = Math.max(0, Math.min(1, t)); 
             let dist = Math.hypot(e.x-(actor.x+t*(mainTarget.x-actor.x)), e.y-(actor.y+t*(mainTarget.y-actor.y))); 
-            if (dist <= skill.lineWidth/2 + e.radius) e.takeDamage(dmg); 
+            if (dist <= skill.lineWidth/2 + e.radius) applyDamage(e, dmg); 
         });
     }
-    else if (skill.type === 'heal') {
-        effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 40, '#00ff00', finish)); mainTarget.takeDamage(actor.atk * skill.power, true);
+    else if (skill.type === 'heal' || skill.type === 'heal_status') {
+        effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, skill.aoeRadius || 40, '#00ff00', finish)); 
+        if (skill.target === 'self_aoe') {
+            allies.forEach(a => { 
+                applyDamage(a, baseDmg * skill.power, true);
+                if (skill.status) a.applyStatus(skill.status.type, skill.status.dur, skill.status.val);
+            });
+        } else {
+            applyDamage(mainTarget, baseDmg * skill.power, true);
+        }
     }
     else if (skill.type === 'heal_damage') {
         if (enemies.length > 0) {
@@ -709,42 +955,48 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
             let destX = actor.x, destY = actor.y;
             if (dist > 0 && moveDist > 0) { destX = actor.x + (nearestEnemy.x - actor.x) * (moveDist / dist); destY = actor.y + (nearestEnemy.y - actor.y) * (moveDist / dist); }
             effects.push(new DashEffect(actor, destX, destY, () => {
+                actor.baseX = destX; actor.baseY = destY;
                 effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#ffffaa', finish));
-                allies.forEach(a => { if(getDistance(actor, a) <= skill.aoeRadius) a.takeDamage(actor.atk * skill.power, true); });
-                enemies.forEach(e => { if(getDistance(actor, e) <= skill.aoeRadius) e.takeDamage(actor.atk * 0.5); });
-            }));
+                allies.forEach(a => { if(getDistance(actor, a) <= skill.aoeRadius) applyDamage(a, baseDmg * skill.power, true); });
+                enemies.forEach(e => { if(getDistance(actor, e) <= skill.aoeRadius) applyDamage(e, baseDmg * 0.5); });
+            }, false)); // 傳入 false 避免 DashEffect 回彈
         } else {
             effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius, '#ffffaa', finish));
-            allies.forEach(a => { if(getDistance(actor, a) <= skill.aoeRadius) a.takeDamage(actor.atk * skill.power, true); });
+            allies.forEach(a => { if(getDistance(actor, a) <= skill.aoeRadius) applyDamage(a, baseDmg * skill.power, true); });
         }
     }
     else if (skill.type.startsWith('combo')) {
         effects.push(new ScreenFlashEffect(skill.color, 0.5));
-        let totalAtk = actor.atk; partners.forEach(p => { totalAtk += p.atk; }); let comboDmg = totalAtk * (skill.power / (partners.length+1));
+        let totalAtk = actor.atk; partners.forEach(p => { totalAtk += p.atk; }); 
+        let comboDmg = isCrit ? (totalAtk * actor.critD) * (skill.power / (partners.length+1)) : totalAtk * (skill.power / (partners.length+1));
         
         if (skillId === 'combo_x_strike' || skillId === 'combo_shadow') {
             let p1 = actor, p2 = partners[0];
             effects.push(new DashEffect(p1, mainTarget.x - 30, mainTarget.y - 30, () => { p1.finishTurn(); }));
             effects.push(new DashEffect(p2, mainTarget.x + 30, mainTarget.y - 30, () => {
-                effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 60, skill.color, () => { mainTarget.takeDamage(comboDmg); })); p2.finishTurn();
+                effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 60, skill.color, () => { applyDamage(mainTarget, comboDmg); })); p2.finishTurn();
             }));
-        } else if (skillId === 'combo_holy_sword') {
-            effects.push(new ExplosionEffect(GAME_WIDTH/2, GAME_HEIGHT/2, 300, skill.color, () => {
-                enemies.forEach(e => e.takeDamage(comboDmg)); allies.forEach(a => a.takeDamage(comboDmg * 0.5, true));
+        } else if (skillId === 'combo_arcane_blade') {
+            let p1 = actor;
+            effects.push(new DashEffect(p1, mainTarget.x, mainTarget.y - 40, () => {
+                effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 80, skill.color, () => { applyDamage(mainTarget, comboDmg); })); p1.finishTurn(); partners.forEach(p=>p.finishTurn());
+            }));
+        } else if (skillId === 'combo_holy_sword' || skillId === 'combo_gale') {
+            effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, skill.aoeRadius, skill.color, () => {
+                enemies.forEach(e => { if(getDistance(mainTarget, e) <= skill.aoeRadius) applyDamage(e, comboDmg); }); 
+                if(skillId === 'combo_holy_sword') allies.forEach(a => applyDamage(a, comboDmg * 0.5, true));
                 actor.finishTurn(); partners.forEach(p=>p.finishTurn());
             }));
         } else if (skillId === 'combo_trinity') {
-            // 三位一體大爆破
             effects.push(new ExplosionEffect(GAME_WIDTH/2, GAME_HEIGHT/2, 600, skill.color, () => {
-                enemies.forEach(e => e.takeDamage(comboDmg * 2)); 
-                allies.forEach(a => a.takeDamage(9999, true)); // 全滿血
+                enemies.forEach(e => applyDamage(e, comboDmg * 2)); 
+                allies.forEach(a => applyDamage(a, 9999, true)); // 全滿血
                 actor.finishTurn(); partners.forEach(p=>p.finishTurn());
             }));
         }
     }
 }
 
-/* STREAMING_CHUNK: Validating Win State... */
 function processVictory() {
     victoryTriggered = true; menuOpen = false; targetingMode = false;
     document.getElementById('action-menu').style.display = 'none';
@@ -792,7 +1044,13 @@ function gameLoop(timestamp) {
     let aliveEnemies = entities.filter(e => !e.isHero && !e.isDead);
     let aliveHeroes = entities.filter(e => e.isHero && !e.isDead);
 
-    if (aliveHeroes.length === 0) { battleActive = false; alert("全軍覆沒... F5 重新開始"); return; }
+    // 修改: 把 alert 換成優雅的 Game Over 畫面
+    if (aliveHeroes.length === 0) { 
+        battleActive = false; 
+        document.getElementById('game-over-ui').style.display = 'flex';
+        return; 
+    }
+    
     if (aliveEnemies.length === 0 && effects.length === 0 && !victoryTriggered) processVictory();
 
     entities.sort((a, b) => a.y - b.y);
@@ -802,16 +1060,16 @@ function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
 }
 
-/* STREAMING_CHUNK: Managing End of Time UI... */
 function openEndOfTimeHub() {
     document.getElementById('end-of-time-ui').style.display = 'flex';
     renderPartyHub();
 }
 
-function switchHubTab(tabName) {
+// 修正: 加入 el 參數取代全局 event.target，避免瀏覽器相容性錯誤
+function switchHubTab(tabName, el) {
     document.querySelectorAll('.hub-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.hub-content').forEach(c => c.classList.remove('active'));
-    event.target.classList.add('active');
+    el.classList.add('active');
     document.getElementById(`tab-${tabName}`).classList.add('active');
     if (tabName === 'party') renderPartyHub();
     if (tabName === 'equip') renderEquipHub();
@@ -941,11 +1199,25 @@ function openItemModal(slotKey, hero) {
 function closeItemModal() { document.getElementById('item-modal').style.display = 'none'; }
 
 function startNextStage() {
-    if (PlayerState.activePartyIds.filter(id => id).length === 0) { alert("至少需要派一名隊員上場！"); return; }
+    // 修正: 將 alert 改為 showToast 以提供更好的無縫體驗
+    if (PlayerState.activePartyIds.filter(id => id).length === 0) { 
+        showToast("至少需要派一名隊員上場！"); 
+        return; 
+    }
     document.getElementById('end-of-time-ui').style.display = 'none';
     initBattle();
 }
 
+function restartGame() {
+    document.getElementById('game-over-ui').style.display = 'none';
+    PlayerState.stage = 1;
+    PlayerState.activePartyIds = ['warrior', 'mage', 'priest'];
+    difficultyMultiplier = 1.0;
+    PlayerState.init();
+    initBattle();
+}
+
+/* 遊戲初始化入口 */
 PlayerState.init();
 initBattle();
 </script>
