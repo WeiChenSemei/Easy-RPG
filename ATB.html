@@ -720,7 +720,13 @@ class Entity {
             }
             
             this.y += this.isHero ? 5 : -5;
-            if (this.hp <= 0) { this.hp = 0; this.state = 'dead'; this.atb = 0; this.debuffs={}; this.buffs={}; }
+            if (this.hp <= 0) { this.hp = 0; this.state = 'dead'; this.atb = 0; this.debuffs={}; this.buffs={}; 
+            if (currentActor && currentActor.id === this.id) {
+               menuOpen = false;
+               document.getElementById('action-menu').style.display = 'none';
+               cancelTargeting(); // 取消瞄準狀態
+               }
+            }
         }
     }
     
@@ -789,6 +795,7 @@ class Entity {
     }
     
     finishTurn() { 
+        if (this.isDead) return;
         this.atb = 0; this.state = 'idle'; this.targetX = this.baseX; this.targetY = this.baseY; 
         for (let key in this.skillCooldowns) { if (this.skillCooldowns[key] > 0) this.skillCooldowns[key]--; }
     }
@@ -1005,6 +1012,7 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
             
             effects.push(new DashEffect(p, actor.x + offsetX, actor.y, () => {
                 effects.push(new ExplosionEffect(p.x, p.y, 35, skill.color || '#ffffaa'));
+                p.baseX = p.x; p.baseY = p.y;
             }, false));
         });
         
@@ -1105,10 +1113,10 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
         effects.push(new ScreenFlashEffect(skill.color, 0.5));
         let p1 = actor, p2 = partners[0];
         
-        effects.push(new DashEffect(p1, mainTarget.x - 30, mainTarget.y - 30, () => {}, false));
+        effects.push(new DashEffect(p1, mainTarget.x - 30, mainTarget.y - 30, () => {p1.baseX = p1.x; p1.baseY = p1.y;}, false));
         
         effects.push(new DashEffect(p2, mainTarget.x + 30, mainTarget.y - 30, () => 
-        { effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 60, skill.color, () => 
+        { p2.baseX = p2.x; p2.baseY = p2.y;effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 60, skill.color, () => 
         { enemies.forEach(e => { if (getDistance(mainTarget, e) <= (skill.aoeRadius || 60)) applyDamage(e, dmg); });}));
          finish(); }, false));
     }
