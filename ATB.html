@@ -322,11 +322,11 @@ const DB = {
         cherry_blossom:{ name: "櫻吹雪", type: "damage", target: "self_aoe", power: 1.5, aoeRadius: 300, cd: 4, color: '#ffaaaa', applyDebuff: {type: 'bleed', turns: 2, name: '流血', color: '#ffaaaa'}, desc: "大範圍流血斬" },
 
         // Duo
-        combo_x_strike:  { name: "X字斬", type: "combo_damage", target: "single", power: 4.0, partners: ['warrior'], cd: 4, desc: "【劍+戰】單體交叉斬", color: '#ff5500' },
+        combo_x_strike:  { name: "X字斬", type: "combo_damage", target: "combo_special", power: 4.0, partners: ['warrior'], cd: 4, desc: "【劍+戰】單體交叉斬", color: '#ff5500' },
         combo_holy_sword:{ name: "聖劍降臨", type: "combo_damage_heal", target: "single_aoe", power: 3.0, aoeRadius: 200, partners: ['priest'], cd: 5, desc: "【劍+牧】範圍傷+全癒", color: '#ffffaa' },
-        combo_shadow:    { name: "影襲", type: "combo_damage", target: "single", power: 5.0, partners: ['rogue'], cd: 5, desc: "【劍+賊】瞬獄單體", color: '#8800ff' },
+        combo_shadow:    { name: "影襲", type: "combo_damage", target: "combo_special", power: 5.0, partners: ['rogue'], cd: 5, desc: "【劍+賊】瞬獄單體", color: '#8800ff' },
         combo_fire_ice:  { name: "冰火交加", type: "combo_damage", target: "single_aoe", power: 3.5, aoeRadius: 200, partners: ['ranger'], cd: 5, applyDebuff: {type: 'stun', turns: 1, name: '冰凍', color: '#00ffff'}, desc: "【法+遊】轟炸並冰凍", color: '#ff00aa' },
-        combo_charge:    { name: "野蠻衝鋒", type: "combo_damage", target: "single_dash_aoe", power: 3.0, aoeRadius: 150, partners: ['rogue'], cd: 4, desc: "【戰+賊】衝入敵陣爆發", color: '#aa3300' },
+        combo_charge:    { name: "野蠻衝鋒", type: "combo_damage", target: "combo_special", power: 3.0, aoeRadius: 150, partners: ['rogue'], cd: 4, desc: "【戰+賊】衝入敵陣爆發", color: '#aa3300' },
         combo_goddess:   { name: "女神之淚", type: "heal", target: "ally_aoe", power: 4.0, aoeRadius: 800, partners: ['mage'], cd: 5, desc: "【牧+法】無死角治癒", color: '#aaffff' },
 
         // Trio (Ultimate)
@@ -1005,7 +1005,7 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
             
             effects.push(new DashEffect(p, actor.x + offsetX, actor.y, () => {
                 effects.push(new ExplosionEffect(p.x, p.y, 35, skill.color || '#ffffaa'));
-            }, true));
+            }, false));
         });
         
         dmg = totalAtk * (skill.power / (partners.length+1)) * skillMultiplier;
@@ -1100,11 +1100,17 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
             if (dist <= (skill.lineWidth||40)/2 + e.radius) applyDamage(e, dmg); 
         });
     }
-    else if (skillId === 'combo_x_strike' || skillId === 'combo_shadow') {
+    // 只要是 "combo_special" 的招式，就會進入這個雙人突進的專屬特效
+    else if (skill.target === 'combo_special') {
         effects.push(new ScreenFlashEffect(skill.color, 0.5));
         let p1 = actor, p2 = partners[0];
-        effects.push(new DashEffect(p1, mainTarget.x - 30, mainTarget.y - 30, () => {}, true));
-        effects.push(new DashEffect(p2, mainTarget.x + 30, mainTarget.y - 30, () => { effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 60, skill.color, () => { applyDamage(mainTarget, dmg); })); finish(); }, true));
+        
+        effects.push(new DashEffect(p1, mainTarget.x - 30, mainTarget.y - 30, () => {}, false));
+        
+        effects.push(new DashEffect(p2, mainTarget.x + 30, mainTarget.y - 30, () => 
+        { effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 60, skill.color, () => 
+        { enemies.forEach(e => { if (getDistance(mainTarget, e) <= (skill.aoeRadius || 60)) applyDamage(e, dmg); });}));
+         finish(); }, false));
     }
     else { finish(); }
 }
@@ -1164,7 +1170,7 @@ function processGameOver() {
     document.getElementById('hub-return-btn').style.display = 'block';
     msg.style.opacity = 1;
     
-    // 戰敗時自動存檔，保留本次戰鬥中獲得的數值與技能經驗成長
+    PlayerState.battleCount++;
     saveGame();
 }
 
@@ -1307,8 +1313,12 @@ function renderEquipHub() {
             ${renderRow('格檔 (BLK)', stats.blk, 0, true)}
             ${renderRow('秒回血 (REG)', stats.reg, 0, true)}
             <div style="margin-top:15px; color:#aaa; font-size:11px; text-align:center;">已裝備技能</div>
-            <div <div style="color:#00ffcc; text-align:center; margin-top:5px; line-height:1.4;">
-            ${skills.map(sid => {let lv = hero.skillLevels[sid] || 1; return DB.skills[sid] ? `${DB.skills[sid].name} <span style="color:#fff; font-size:0.9em;">(Lv.${lv})</span>` : sid;}).join(', ')}
+            <div style="display:flex; flex-direction:column; gap:4px; margin-top:5px;">
+                ${skills.map(sid => {
+                    let lv = hero.skillLevels[sid] || 1; 
+                    return DB.skills[sid] ? `<div style="background:#222; padding:4px; border-radius:3px; border:1px solid #444; color:#00ffcc; text-align:center;">${DB.skills[sid].name} <span style="color:#fff; font-size:0.9em;">(Lv.${lv})</span></div>` : '';
+                }).join('')}
+            </div>
         `;
     }
 }
