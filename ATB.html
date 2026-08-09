@@ -270,11 +270,11 @@ const DB = {
         { key: 'atk', name: '攻擊', isPct: false, baseRoll: 2, weight: 100 },
         { key: 'def', name: '防禦', isPct: false, baseRoll: 2, weight: 100 },
         { key: 'spd', name: '速度', isPct: false, baseRoll: 1, weight: 80 },
-        { key: 'critR', name: '爆擊率', isPct: true, baseRoll: 0.01, max: 0.8, weight: 30 },
-        { key: 'critD', name: '爆傷', isPct: true, baseRoll: 0.05, max: 3.0, weight: 20 },
-        { key: 'eva', name: '閃避率', isPct: true, baseRoll: 0.01, max: 0.6, weight: 30 },
-        { key: 'blk', name: '格檔率', isPct: true, baseRoll: 0.01, max: 0.6, weight: 40 },
-        { key: 'reg', name: '每秒回血', isPct: true, baseRoll: 0.01, max: 0.5, weight: 10 }
+        { key: 'critR', name: '爆擊率', isPct: true, baseRoll: 0.003, max: 0.8, weight: 30 },
+        { key: 'critD', name: '爆傷', isPct: true, baseRoll: 0.02, max: 3.0, weight: 20 },
+        { key: 'eva', name: '閃避率', isPct: true, baseRoll: 0.003, max: 0.6, weight: 30 },
+        { key: 'blk', name: '格檔率', isPct: true, baseRoll: 0.004, max: 0.6, weight: 40 },
+        { key: 'reg', name: '每秒回血', isPct: true, baseRoll: 0.002, max: 0.5, weight: 10 }
     ],
     skills: {
         attack:        { name: "普通攻擊", type: "damage", target: "single", power: 1.0, cd: 0, desc: "基本攻擊" },
@@ -856,7 +856,11 @@ function initBattle() {
     let isBossWave = (PlayerState.stage >= 3 && PlayerState.stage % 5 === 0);
 
     const getEnemySkills = (isBoss) => {
-        let allSkills = Object.keys(DB.skills).filter(k => DB.skills[k].type.includes('damage') || DB.skills[k].type === 'self_aoe' || DB.skills[k].type === 'single_aoe' || DB.skills[k].type === 'random_aoe');
+        let allSkills = Object.keys(DB.skills).filter(k => {
+            let sk = DB.skills[k];
+            if (sk.partners) return false;
+            return sk.type.includes('damage') || sk.type === 'self_aoe' || sk.type === 'single_aoe' || sk.type === 'random_aoe';
+        });
         let assigned = ['attack'];
         let count = isBoss ? 3 : 1;
         for(let i=0; i<count; i++) {
@@ -912,8 +916,14 @@ function openMenu(hero) {
         
         let skLv = hero.rosterRef.skillLevels[skillId] || 1;
         
-        btn.innerHTML = `<div><strong>${skill.name}</strong> <span style="font-size:10px; color:#aaa;">Lv.${skLv}</span>${cdText}</div><div style="font-size:11px; margin-top:4px; color:#aaa;">${skill.desc}</div>`;
+        // 新增：如果合體技不能放(缺隊友)，在描述加上提示
+        let missingPartnerText = '';
+        if (isCombo && !canCast && (hero.skillCooldowns[skillId] || 0) <= 0) {
+            missingPartnerText = `<br><span style="color:#ff5555; font-weight:bold;">(缺乏存活的隊友)</span>`;
+        }
+        btn.innerHTML = `<strong>${skill.name}</strong>${cdText}<div style="font-size:11px; margin-top:4px; color:#aaa;">${skill.desc}${missingPartnerText}</div>`;
         if (canCast) btn.onclick = () => prepareSkill(hero, skillId, skill, partnersInBattle);
+
         container.appendChild(btn);
     });
 }
@@ -982,7 +992,12 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
     let dmg = currentAtk * (skill.power || 1.0) * skillMultiplier;
     
     if(skill.type.startsWith('combo') && skill.power > 0) {
-        let totalAtk = currentAtk; partners.forEach(p => { totalAtk += (p.buffs.atk_up ? p.atk * p.buffs.atk_up.val : p.atk); });
+        let totalAtk = actor.atk; 
+        partners.forEach(p => { totalAtk += (p.buffs && p.buffs.atk_up ? p.atk * p.buffs.atk_up.val : p.atk);    
+        effects.push(new TextEffect(p.x, p.y - 40, "發功!", skill.color || '#ffffaa', 16));
+        p.y -= 15; // 讓隊友稍微跳起來
+        });
+        
         dmg = totalAtk * (skill.power / (partners.length+1)) * skillMultiplier;
     }
     
