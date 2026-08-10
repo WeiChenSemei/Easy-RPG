@@ -322,11 +322,11 @@ const DB = {
         cherry_blossom:{ name: "櫻吹雪", type: "damage", target: "self_aoe", power: 1.5, aoeRadius: 300, cd: 4, color: '#ffaaaa', applyDebuff: {type: 'bleed', turns: 2, name: '流血', color: '#ffaaaa'}, desc: "大範圍流血斬" },
 
         // Duo
-        combo_x_strike:  { name: "X字斬", type: "combo_damage", target: "single", power: 4.0, partners: ['warrior'], cd: 4, desc: "【劍+戰】單體交叉斬", color: '#ff5500' },
+        combo_x_strike:  { name: "X字斬", type: "combo_damage", target: "combo_special", power: 4.0, partners: ['warrior'], cd: 4, desc: "【劍+戰】單體交叉斬", color: '#ff5500' },
         combo_holy_sword:{ name: "聖劍降臨", type: "combo_damage_heal", target: "single_aoe", power: 3.0, aoeRadius: 200, partners: ['priest'], cd: 5, desc: "【劍+牧】範圍傷+全癒", color: '#ffffaa' },
-        combo_shadow:    { name: "影襲", type: "combo_damage", target: "single", power: 5.0, partners: ['rogue'], cd: 5, desc: "【劍+賊】瞬獄單體", color: '#8800ff' },
+        combo_shadow:    { name: "影襲", type: "combo_damage", target: "combo_special", power: 5.0, partners: ['rogue'], cd: 5, desc: "【劍+賊】瞬獄單體", color: '#8800ff' },
         combo_fire_ice:  { name: "冰火交加", type: "combo_damage", target: "single_aoe", power: 3.5, aoeRadius: 200, partners: ['ranger'], cd: 5, applyDebuff: {type: 'stun', turns: 1, name: '冰凍', color: '#00ffff'}, desc: "【法+遊】轟炸並冰凍", color: '#ff00aa' },
-        combo_charge:    { name: "野蠻衝鋒", type: "combo_damage", target: "single_dash_aoe", power: 3.0, aoeRadius: 150, partners: ['rogue'], cd: 4, desc: "【戰+賊】衝入敵陣爆發", color: '#aa3300' },
+        combo_charge:    { name: "野蠻衝鋒", type: "combo_damage", target: "combo_special", power: 3.0, aoeRadius: 150, partners: ['rogue'], cd: 4, desc: "【戰+賊】衝入敵陣爆發", color: '#aa3300' },
         combo_goddess:   { name: "女神之淚", type: "heal", target: "ally_aoe", power: 4.0, aoeRadius: 800, partners: ['mage'], cd: 5, desc: "【牧+法】無死角治癒", color: '#aaffff' },
 
         // Trio (Ultimate)
@@ -440,7 +440,7 @@ function showSysMsg(msg, onConfirm, showCancel = false) {
 }
 
 const PlayerState = {
-    stage: 1, targetStage: 1, maxStage: 1, magicStones: 0, inventory: [], roster: [], activePartyIds: ['warrior', 'mage', 'priest'],
+    stage: 1, targetStage: 1, maxStage: 1, magicStones: 0, battleCount: 0, inventory: [], roster: [], activePartyIds: ['warrior', 'mage', 'priest'],
     
     initNew() {
         this.stage = 1; this.targetStage = 1; this.maxStage = 1; this.magicStones = 0; this.inventory = []; this.roster = [];
@@ -487,7 +487,7 @@ const PlayerState = {
 
         // 輔助函式：計算單一屬性數值
         const rollStatValue = (sType) => {
-            let rawVal = sType.baseRoll * stageLv * rarity.mult * (0.8 + Math.random()*0.4);
+            let rawVal = sType.baseRoll * Math.max(1, 1 + (stageLv * 0.1)) * rarity.mult * (0.5 + Math.random() * 0.5);
             return sType.isPct ? Math.min(sType.max || Infinity, rawVal) : Math.max(1, Math.floor(rawVal));
         };
 
@@ -719,7 +719,10 @@ class Entity {
             }
             
             this.y += this.isHero ? 5 : -5;
-            if (this.hp <= 0) { this.hp = 0; this.state = 'dead'; this.atb = 0; this.debuffs={}; this.buffs={}; }
+            if (this.hp <= 0) { 
+                if (currentActor && currentActor.id === this.id) 
+                { menuOpen = false; document.getElementById('action-menu').style.display = 'none'; cancelTargeting(); }
+                this.hp = 0; this.state = 'dead'; this.atb = 0; this.debuffs={}; this.buffs={}; }
         }
     }
     
@@ -787,7 +790,8 @@ class Entity {
         executeSkillWithTarget(this, skillToUse, skillData, [], target);
     }
     
-    finishTurn() { 
+    finishTurn() {
+        if (this.isDead) return; 
         this.atb = 0; this.state = 'idle'; this.targetX = this.baseX; this.targetY = this.baseY; 
         for (let key in this.skillCooldowns) { if (this.skillCooldowns[key] > 0) this.skillCooldowns[key]--; }
     }
@@ -852,8 +856,8 @@ function initBattle() {
         entities.push(hero);
     });
 
-    difficultyMultiplier = 1.0 + (PlayerState.stage - 1) * 0.15;
-    let isBossWave = (PlayerState.stage >= 3 && PlayerState.stage % 5 === 0);
+    difficultyMultiplier = 1.0 + (PlayerState.stage - 1) * 0.01;
+    let isBossWave = (PlayerState.battleCount % 5 === 4);
 
     const getEnemySkills = (isBoss) => {
         let allSkills = Object.keys(DB.skills).filter(k => {
@@ -993,9 +997,20 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
     
     if(skill.type.startsWith('combo') && skill.power > 0) {
         let totalAtk = actor.atk; 
-        partners.forEach(p => { totalAtk += (p.buffs && p.buffs.atk_up ? p.atk * p.buffs.atk_up.val : p.atk);    
-        effects.push(new TextEffect(p.x, p.y - 40, "發功!", skill.color || '#ffffaa', 16));
-        p.y -= 15; // 讓隊友稍微跳起來
+        
+        effects.push(new ExplosionEffect(actor.x, actor.y, 50, skill.color || '#ffffaa'));
+
+        partners.forEach((p, index) => { 
+            totalAtk += (p.buffs && p.buffs.atk_up ? p.atk * p.buffs.atk_up.val : p.atk);
+            
+            if (skill.target !== 'combo_special') {
+                let offsetX = (index % 2 === 0 ? 35 : -35) * (Math.floor(index / 2) + 1);
+                
+                effects.push(new DashEffect(p, actor.x + offsetX, actor.y, () => {
+                    effects.push(new ExplosionEffect(p.x, p.y, 35, skill.color || '#ffffaa'));
+                    p.baseX = p.x; p.baseY = p.y;
+                }, false));
+            }
         });
         
         dmg = totalAtk * (skill.power / (partners.length+1)) * skillMultiplier;
@@ -1116,13 +1131,15 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
             if (dist <= (skill.lineWidth||40)/2 + e.radius) applyDamage(e, dmg); 
         });
     }
-    else if (skillId === 'combo_x_strike' || skillId === 'combo_shadow') {
+    else if (skill.target === 'combo_special') {
         effects.push(new ScreenFlashEffect(skill.color, 0.5));
         let p1 = actor, p2 = partners[0];
-        effects.push(new DashEffect(p1, mainTarget.x - 30, mainTarget.y - 30, () => {}, true));
-        effects.push(new DashEffect(p2, mainTarget.x + 30, mainTarget.y - 30, () => { effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 60, skill.color, () => { applyDamage(mainTarget, dmg); })); finish(); }, true));
+        effects.push(new DashEffect(p1, mainTarget.x - 30, mainTarget.y - 30, () => { p1.baseX = p1.x; p1.baseY = p1.y; }, false));        
+        effects.push(new DashEffect(p2, mainTarget.x + 30, mainTarget.y - 30, () => { 
+            p2.baseX = p2.x; p2.baseY = p2.y; 
+            effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 60, skill.color, () => { enemies.forEach(e => { if (getDistance(mainTarget, e) <= (skill.aoeRadius || 60)) applyDamage(e, dmg); });})); 
+            finish(); }, false));
     }
-    else { finish(); }
 }
 
 function processVictory() {
@@ -1133,7 +1150,7 @@ function processVictory() {
     let isBoss = entities.some(e => e.isBoss && e.isDead);
     
     // Magic Stones Reward
-    let stonesEarned = PlayerState.stage * (isBoss ? 50 : 10);
+    let stonesEarned = Math.max(1, Math.floor(PlayerState.stage * (isBoss ? 50 : 10) * (0.5 + Math.random() * 0.5)));
     PlayerState.magicStones += stonesEarned;
     
     // Loot Roll
@@ -1158,7 +1175,7 @@ function processVictory() {
     if (PlayerState.stage === PlayerState.maxStage) {
         PlayerState.maxStage++;
     }
-    
+    PlayerState.battleCount++;
     saveGame(); // Auto save
     
     setTimeout(() => {
@@ -1177,7 +1194,7 @@ function processGameOver() {
     document.getElementById('hub-return-btn').style.display = 'block';
     msg.style.opacity = 1;
     
-    // 戰敗時自動存檔，保留本次戰鬥中獲得的數值與技能經驗成長
+    PlayerState.battleCount++;
     saveGame();
 }
 
@@ -1319,8 +1336,9 @@ function renderEquipHub() {
             ${renderRow('閃避 (EVA)', stats.eva, 0, true)}
             ${renderRow('格檔 (BLK)', stats.blk, 0, true)}
             ${renderRow('秒回血 (REG)', stats.reg, 0, true)}
-            <div style="margin-top:15px; color:#aaa; font-size:11px; text-align:center;">已裝備技能</div>
-            <div style="color:#00ffcc; text-align:center; margin-top:5px; line-height:1.4;">${skills.map(sid => DB.skills[sid]?DB.skills[sid].name:sid).join(', ')}</div>
+            <div style="display:flex; flex-direction:column; gap:4px; margin-top:5px;">
+            ${skills.map(sid => {let lv = hero.skillLevels[sid] || 1; return DB.skills[sid] ? `<div style="background:#222; padding:4px; border-radius:3px; border:1px solid #444; color:#00ffcc; text-align:center;">${DB.skills[sid].name} <span style="color:#fff; font-size:0.9em;">(Lv.${lv})</span></div>` : '';}).join('')}
+            </div>
         `;
     }
 }
