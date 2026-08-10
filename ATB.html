@@ -859,6 +859,16 @@ function initBattle() {
     difficultyMultiplier = 1.0 + (PlayerState.stage - 1) * 0.01;
     let isBossWave = (PlayerState.battleCount % 5 === 4);
 
+    let totalSpd = 0;
+    let heroCount = 0;
+    entities.forEach(e => {
+        if (e.isHero) {
+            totalSpd += e.spd;
+            heroCount++;
+        }
+    });
+    let avgSpd = heroCount > 0 ? (totalSpd / heroCount) : 50; // 防呆機制，確保有預設值
+
     const getEnemySkills = (isBoss) => {
         let allSkills = Object.keys(DB.skills).filter(k => {
             let sk = DB.skills[k];
@@ -876,7 +886,8 @@ function initBattle() {
 
     if (isBossWave) {
         let bossSkin = selectedBiome.enemySkins.boss; let proto = DB.enemyPrototypes.boss;
-        let boss = new Entity(false, { emoji: bossSkin.e, name: bossSkin.n, aiType: proto.type, radius: proto.radius, isBoss: true, stats: { maxHp: proto.hp * difficultyMultiplier, atk: proto.atk * difficultyMultiplier, def: proto.def * difficultyMultiplier, spd: proto.spd }, skills: getEnemySkills(true) });
+        // 將 proto.spd 替換為動態計算的 avgSpd * (0.5 ~ 1.5)
+        let boss = new Entity(false, { emoji: bossSkin.e, name: bossSkin.n, aiType: proto.type, radius: proto.radius, isBoss: true, stats: { maxHp: proto.hp * difficultyMultiplier, atk: proto.atk * difficultyMultiplier, def: proto.def * difficultyMultiplier, spd: Math.floor(avgSpd * (0.5 + Math.random())) }, skills: getEnemySkills(true) });
         boss.baseX = GAME_WIDTH / 2; boss.baseY = GAME_HEIGHT * 0.25; boss.x = boss.baseX; boss.y = boss.baseY; entities.push(boss);
         
         document.getElementById('stage-msg-title').className = 'boss-title'; document.getElementById('stage-msg-title').innerText = '⚠️ BOSS BATTLE ⚠️';
@@ -886,7 +897,8 @@ function initBattle() {
         for (let i = 0; i < enemyCount; i++) {
             let skinKey = skinTypes[Math.floor(Math.random() * skinTypes.length)];
             let skin = selectedBiome.enemySkins[skinKey]; let proto = DB.enemyPrototypes[skinKey];
-            let enemy = new Entity(false, { emoji: skin.e, name: skin.n, aiType: proto.type, radius: proto.radius, stats: { maxHp: proto.hp * difficultyMultiplier, atk: proto.atk * difficultyMultiplier, def: proto.def * difficultyMultiplier, spd: proto.spd }, skills: getEnemySkills(false) });
+            // 同樣將一般怪物的 proto.spd 替換為動態計算的 avgSpd * (0.5 ~ 1.5)
+            let enemy = new Entity(false, { emoji: skin.e, name: skin.n, aiType: proto.type, radius: proto.radius, stats: { maxHp: proto.hp * difficultyMultiplier, atk: proto.atk * difficultyMultiplier, def: proto.def * difficultyMultiplier, spd: Math.floor(avgSpd * (0.5 + Math.random())) }, skills: getEnemySkills(false) });
             enemy.baseX = enemySpacing * (i + 1); enemy.baseY = GAME_HEIGHT * (proto.type === 'melee' ? 0.35 : 0.22) + (Math.random() * 20 - 10);
             enemy.x = enemy.baseX; enemy.y = enemy.baseY; entities.push(enemy);
         }
