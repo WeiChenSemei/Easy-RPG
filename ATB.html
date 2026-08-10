@@ -860,7 +860,7 @@ function initBattle() {
         entities.push(hero);
     });
 
-    difficultyMultiplier = 1.0 + (PlayerState.stage - 1) * 0.1;
+    difficultyMultiplier = 1.0 + (PlayerState.stage - 1) * 0.01;
     let isBossWave = (PlayerState.battleCount % 5 === 4);
 
     const getEnemySkills = (isBoss) => {
@@ -1008,12 +1008,14 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
         partners.forEach((p, index) => { 
             totalAtk += (p.buffs && p.buffs.atk_up ? p.atk * p.buffs.atk_up.val : p.atk);
             
-            let offsetX = (index % 2 === 0 ? 35 : -35) * (Math.floor(index / 2) + 1);
-            
-            effects.push(new DashEffect(p, actor.x + offsetX, actor.y, () => {
-                effects.push(new ExplosionEffect(p.x, p.y, 35, skill.color || '#ffffaa'));
-                p.baseX = p.x; p.baseY = p.y;
-            }, false));
+            if (skill.target !== 'combo_special') {
+                let offsetX = (index % 2 === 0 ? 35 : -35) * (Math.floor(index / 2) + 1);
+                effects.push(new DashEffect(p, actor.x + offsetX, actor.y, () => {
+                    effects.push(new ExplosionEffect(p.x, p.y, 35, skill.color || '#ffffaa'));
+                    p.baseX = p.x; 
+                    p.baseY = p.y;
+                }, false));
+            }
         });
         
         dmg = totalAtk * (skill.power / (partners.length+1)) * skillMultiplier;
