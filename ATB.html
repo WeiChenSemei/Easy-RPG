@@ -670,7 +670,7 @@ function confirmReset() {
 
 const canvas = document.getElementById('game-canvas'); const ctx = canvas.getContext('2d');
 let GAME_WIDTH = 540; let GAME_HEIGHT = 960;
-let battleActive = false; let entities = []; let effects = []; let sceneryObjects = [];
+let battleActive = false; let entities = []; let effects = []; let sceneryObjects = [];let screenShake = 0;
 let menuOpen = false; let targetingMode = false; let victoryTriggered = false; let currentActor = null; 
 let pendingSkill = null; let pendingSkillId = null; let pendingPartners = []; let validTargets = [];
 let lastTime = 0; let difficultyMultiplier = 1.0;
@@ -696,7 +696,7 @@ class Entity {
         this.targetX = 0; this.targetY = 0; this.wanderTimer = 0;
         this.aiType = data.aiType || 'melee'; this.isBoss = data.isBoss || false;
         
-        this.skillCooldowns = {}; this.debuffs = {}; this.buffs = {}; 
+        this.skillCooldowns = {}; this.debuffs = {}; this.buffs = {}; this.hitFlash = 0;
     }
     get isDead() { return this.hp <= 0; }
     
@@ -708,7 +708,7 @@ class Entity {
         } else {
             let currentDef = this.def; if (this.buffs.def_up) currentDef *= this.buffs.def_up.val;
             let actualDmg = Math.max(1, Math.floor(amount - currentDef * 0.5)); this.hp -= actualDmg;
-            
+            this.hitFlash = 150;
             let color = isCrit ? '#ffea00' : '#ff3333'; let size = isCrit ? 32 : 20; let prefix = isCrit ? "Crit! " : "";
             effects.push(new TextEffect(this.x, this.y - 30, `-${actualDmg} ${prefix}`, color, size));
             
@@ -732,6 +732,7 @@ class Entity {
     }
     
     update(dt) {
+        if (this.hitFlash > 0) this.hitFlash -= dt;
         if (this.isDead || menuOpen || targetingMode || this.state === 'acting' || victoryTriggered) return;
         if (this.state === 'idle') {
             this.atb += this.spd * (dt / 100); 
@@ -768,7 +769,10 @@ class Entity {
             let t = performance.now() / 200; let pulse = Math.abs(Math.sin(t)) * 5;
             ctx.strokeStyle = this.isHero ? '#00ff00' : '#ff3333'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius + 10 + pulse, 0, Math.PI * 2); ctx.stroke();
         }
-        ctx.fillStyle = '#ffffff'; ctx.font = `${this.radius * 2}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(this.emoji, this.x, this.y);
+        ctx.fillStyle = '#ffffff'; ctx.font = `${this.radius * 2}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; 
+        let drawX = this.x;let drawY = this.y;if (this.hitFlash > 0) {drawX += (Math.random() - 0.5) * 8; drawY += (Math.random() - 0.5) * 8;}
+        ctx.fillText(this.emoji, this.x, this.y);
+        if (this.hitFlash > 0) {ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';ctx.beginPath();ctx.arc(drawX, drawY, this.radius, 0, Math.PI * 2);ctx.fill();}
         
         let statusY = this.y - this.radius - 25; let iconSpacing = 12; let startX = this.x - (Object.keys(this.debuffs).length * iconSpacing)/2;
         ctx.font = `12px Arial`;
@@ -803,12 +807,33 @@ class Entity {
 }
 
 // Effects
-class TextEffect { constructor(x,y,t,c,s=20){this.x=x;this.y=y;this.t=t;this.c=c;this.s=s;this.l=1;} update(dt){this.l-=dt/1000;this.y-=0.5;return this.l>0;} draw(ctx){ctx.globalAlpha=Math.max(0,this.l);ctx.fillStyle=this.c;ctx.font=`bold ${this.s}px Arial`;ctx.textAlign='center';ctx.fillText(this.t,this.x,this.y);ctx.globalAlpha=1;} }
-class DashEffect { constructor(a,dx,dy,cb,ret=true){this.a=a;this.sx=a.x;this.sy=a.y;this.dx=dx;this.dy=dy;this.p=0;this.cb=cb;this.ht=false;this.ret=ret;} update(dt){ this.p+=dt/250; if(this.p>=1){ if(!this.ht){this.cb();this.ht=true;} if (this.ret) { this.a.x+=(this.sx-this.a.x)*0.2; this.a.y+=(this.sy-this.a.y)*0.2; if(Math.abs(this.a.x-this.sx)<5){this.a.x=this.sx;this.a.y=this.sy;return false;} return true; } else { return false; } } this.a.x=this.sx+(this.dx-this.sx)*Math.min(1,this.p); this.a.y=this.sy+(this.dy-this.sy)*Math.min(1,this.p); return true; } draw(){} }
-class ProjectileEffect { constructor(sx,sy,tx,ty,c,cb){this.x=sx;this.y=sy;this.tx=tx;this.ty=ty;this.c=c;this.cb=cb;let d=Math.hypot(tx-sx,ty-sy);this.vx=(tx-sx)/d*15;this.vy=(ty-sy)/d*15;} update(dt){this.x+=this.vx;this.y+=this.vy;if(Math.hypot(this.tx-this.x,this.ty-this.y)<20){this.cb();return false;}return true;} draw(ctx){ctx.fillStyle=this.c;ctx.beginPath();ctx.arc(this.x,this.y,8,0,Math.PI*2);ctx.fill();} }
-class ExplosionEffect { constructor(x,y,r,c,cb){this.x=x;this.y=y;this.r=r;this.c=c;this.l=0.5;this.m=0.5;this.cb=cb;} update(dt){this.l-=dt/1000;if(this.l<=0){if(this.cb)this.cb();return false;}return true;} draw(ctx){let p=1-(this.l/this.m);ctx.globalAlpha=1-p;ctx.fillStyle=this.c;ctx.beginPath();ctx.arc(this.x,this.y,this.r*p,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;} }
-class LaserEffect { constructor(sx,sy,tx,ty,w,cb){this.sx=sx;this.sy=sy;this.w=w;let d=Math.hypot(tx-sx,ty-sy);this.ex=sx+(tx-sx)/d*1000;this.ey=sy+(ty-sy)/d*1000;this.l=0.4;this.m=0.4;this.cb=cb;} update(dt){this.l-=dt/1000;if(this.l<=0){if(this.cb)this.cb();return false;}return true;} draw(ctx){ctx.globalAlpha=this.l/this.m;ctx.strokeStyle='#00ffff';ctx.lineWidth=this.w;ctx.beginPath();ctx.moveTo(this.sx,this.sy);ctx.lineTo(this.ex,this.ey);ctx.stroke();ctx.globalAlpha=1;} }
-class ScreenFlashEffect { constructor(c,d){this.c=c;this.l=d;this.d=d;} update(dt){this.l-=dt/1000;return this.l>0;} draw(ctx){ctx.globalAlpha=(this.l/this.d)*0.5;ctx.fillStyle=this.c;ctx.fillRect(0,0,GAME_WIDTH,GAME_HEIGHT);ctx.globalAlpha=1;} }
+class TextEffect { constructor(x,y,t,c,s=20){this.x=x;this.y=y;this.t=t;this.c=c;this.s=s;this.l=1;} 
+update(dt){this.l-=dt/1000;this.y-=0.5;return this.l>0;} 
+draw(ctx){ctx.globalAlpha=Math.max(0,this.l);ctx.fillStyle=this.c;ctx.font=`bold ${this.s}px Arial`;ctx.textAlign='center';ctx.fillText(this.t,this.x,this.y);ctx.globalAlpha=1;} }
+
+class DashEffect { constructor(a,dx,dy,cb,ret=true){this.a=a;this.sx=a.x;this.sy=a.y;this.dx=dx;this.dy=dy;this.p=0;this.cb=cb;this.ht=false;this.ret=ret;} 
+update(dt){ this.p+=dt/250; if(this.p>=1){ if(!this.ht){this.cb();this.ht=true;} if (this.ret) { this.a.x+=(this.sx-this.a.x)*0.2; this.a.y+=(this.sy-this.a.y)*0.2; if(Math.abs(this.a.x-this.sx)<5){this.a.x=this.sx;this.a.y=this.sy;return false;} return true; } else { return false; } } this.a.x=this.sx+(this.dx-this.sx)*Math.min(1,this.p); this.a.y=this.sy+(this.dy-this.sy)*Math.min(1,this.p); return true; } 
+draw(){} }
+
+class ProjectileEffect { constructor(sx,sy,tx,ty,c,cb){this.x=sx;this.y=sy;this.tx=tx;this.ty=ty;this.c=c;this.cb=cb;let d=Math.hypot(tx-sx,ty-sy);this.vx=(tx-sx)/d*15;this.vy=(ty-sy)/d*15;this.history = [];} 
+update(dt){this.history.push({x: this.x, y: this.y});if (this.history.length > 5) this.history.shift();this.x+=this.vx;this.y+=this.vy;if(Math.hypot(this.tx-this.x,this.ty-this.y)<20){this.cb();return false;}return true;} 
+draw(ctx) {for (let i = 0; i < this.history.length; i++) {let pt = this.history[i];let trailRatio = i / this.history.length; 
+ctx.globalAlpha = trailRatio * 0.6;ctx.fillStyle = this.c;ctx.beginPath();ctx.arc(pt.x, pt.y, 8 * trailRatio, 0, Math.PI * 2);ctx.fill();}
+ctx.globalAlpha = 1;ctx.fillStyle = '#ffffff';ctx.beginPath();ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);ctx.fill();}
+}
+
+class ExplosionEffect { constructor(x,y,r,c,cb){this.x=x;this.y=y;this.r=r;this.c=c;this.l=0.5;this.m=0.5;this.cb=cb;} update(dt){this.l-=dt/1000;if(this.l<=0){if(this.cb)this.cb();return false;}return true;} 
+draw(ctx) {let p = 1 - (this.l / this.m);ctx.globalAlpha = 1 - p;ctx.fillStyle = '#ffffff'; ctx.beginPath();ctx.arc(this.x, this.y, this.r * (1 - p) * 0.4, 0, Math.PI * 2);ctx.fill();
+ctx.strokeStyle = this.c;ctx.lineWidth = 15 * (1 - p); ctx.beginPath();ctx.arc(this.x, this.y, this.r * p, 0, Math.PI * 2);ctx.stroke();ctx.globalAlpha = 1;}
+ }
+
+class LaserEffect { constructor(sx,sy,tx,ty,w,cb){this.sx=sx;this.sy=sy;this.w=w;let d=Math.hypot(tx-sx,ty-sy);this.ex=sx+(tx-sx)/d*1000;this.ey=sy+(ty-sy)/d*1000;this.l=0.4;this.m=0.4;this.cb=cb;} 
+update(dt){this.l-=dt/1000;if(this.l<=0){if(this.cb)this.cb();return false;}return true;} 
+draw(ctx){ctx.globalAlpha=this.l/this.m;ctx.strokeStyle='#00ffff';ctx.lineWidth=this.w;ctx.beginPath();ctx.moveTo(this.sx,this.sy);ctx.lineTo(this.ex,this.ey);ctx.stroke();ctx.globalAlpha=1;} }
+
+class ScreenFlashEffect { constructor(c,d){this.c=c;this.l=d;this.d=d;} 
+update(dt){this.l-=dt/1000;return this.l>0;} 
+draw(ctx){ctx.globalAlpha=(this.l/this.d)*0.5;ctx.fillStyle=this.c;ctx.fillRect(0,0,GAME_WIDTH,GAME_HEIGHT);ctx.globalAlpha=1;} }
 
 function getDistance(e1, e2) { return Math.hypot(e1.x - e2.x, e1.y - e2.y); }
 
@@ -1031,11 +1056,12 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
         });
         
         dmg = totalAtk * (skill.power / (partners.length+1)) * skillMultiplier;
+        screenShake = 20;
     }
     
     let currentCritR = actor.critR; if (actor.buffs.crit_up) currentCritR += actor.buffs.crit_up.val;
     let isCrit = currentCritR > 0 && Math.random() < currentCritR;
-    if (isCrit) dmg *= actor.critD;
+    if (isCrit) {dmg *= actor.critD;screenShake = 10;}
     
     // Assassinate auto-crit
     if (skillId === 'assassinate') { isCrit = true; dmg = currentAtk * skill.power * skillMultiplier * actor.critD; }
@@ -1219,6 +1245,9 @@ function gameLoop(timestamp) {
     if (!battleActive) return;
     let dt = timestamp - lastTime; lastTime = timestamp; if (dt > 100) dt = 100;
     ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    
+    if (screenShake > 0) {ctx.save();ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);screenShake -= dt / 20;}
+    
     ctx.globalAlpha = 0.3; sceneryObjects.forEach(s => { ctx.font = `${s.size}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(s.emoji, s.x, s.y); }); ctx.globalAlpha = 1.0;
     
     let aliveEnemies = entities.filter(e => !e.isHero && !e.isDead); let aliveHeroes = entities.filter(e => e.isHero && !e.isDead);
@@ -1265,6 +1294,7 @@ function gameLoop(timestamp) {
         }
     }
     
+    if (screenShake > 0) ctx.restore();
     requestAnimationFrame(gameLoop);
 }
 
@@ -1462,7 +1492,7 @@ function forgeAction(actionType) {
             if(pool.length === 0) break;
             let idx = pickByWeight(pool); // 使用權重抽取
             let sType = pool.splice(idx, 1)[0];
-            let rawVal = sType.baseRoll * PlayerState.stage * rarity.mult * (0.8 + Math.random()*0.4);
+            let rawVal = sType.baseRoll * Math.max(1, 1 + (PlayerState.stage * 0.1)) * rarity.mult * (0.5 + Math.random() * 0.5);
             generatedStats[sType.key] = sType.isPct ? Math.min(sType.max || Infinity, rawVal) : Math.max(1, Math.floor(rawVal));
         }
         invItem.stats = generatedStats;
@@ -1482,7 +1512,7 @@ function forgeAction(actionType) {
         PlayerState.magicStones -= costs.add;
         let idx = pickByWeight(pool); // 使用權重抽取
         let sType = pool[idx];
-        let rawVal = sType.baseRoll * PlayerState.stage * rarity.mult * (0.8 + Math.random()*0.4);
+        let rawVal = sType.baseRoll * Math.max(1, 1 + (PlayerState.stage * 0.1)) * rarity.mult * (0.5 + Math.random() * 0.5);
         invItem.stats[sType.key] = sType.isPct ? Math.min(sType.max || Infinity, rawVal) : Math.max(1, Math.floor(rawVal));
     }
     saveGame(); renderForgeHub();
