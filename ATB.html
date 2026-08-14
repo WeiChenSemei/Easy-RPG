@@ -1293,6 +1293,7 @@ function processGameOver() {
     saveGame();
 }
 
+
 function gameLoop(timestamp) {
     if (!battleActive) return;
     let dt = timestamp - lastTime; lastTime = timestamp; if (dt > 100) dt = 100;
@@ -1314,34 +1315,18 @@ function gameLoop(timestamp) {
             let e1 = entities[i];
             let e2 = entities[j];
             
-            // 死掉的不要互相推擠
             if (e1.isDead || e2.isDead) continue;
             
-            // 如果其中有人正在「衝刺 (acting)」，通常我們會讓他暫時穿透別人，
-            // 但如果您希望衝刺也會把人撞開，就移除這個檢查。
             //if (e1.state === 'acting' || e2.state === 'acting') continue;
 
-            let dx = e1.x - e2.x;
-            let dy = e1.y - e2.y;
-            let dist = Math.hypot(dx, dy);
-            // 期望距離 = 兩者半徑總和 + 一點點空隙
-            let minDist = e1.radius + e2.radius + 5; 
+            let dx = e1.x - e2.x;let dy = e1.y - e2.y;
+            let dist = Math.hypot(dx, dy);let minDist = e1.radius + e2.radius + 5; 
 
-            if (dist > 0 && dist < minDist) {
-                // 算出他們重疊了多少
-                let overlap = minDist - dist;
-                // 分攤推力，越重的(Boss)推得越少，這裡簡單平分
-                let pushForce = overlap * 0.1; // 推力係數，越小看起來越像軟糖，越大越硬
-                
-                // 單位向量
-                let nx = dx / dist;
-                let ny = dy / dist;
-
-                // 互相推開
-                e1.x += nx * pushForce;
-                e1.y += ny * pushForce;
-                e2.x -= nx * pushForce;
-                e2.y -= ny * pushForce;
+            if (dist > 0 && dist < minDist) {   
+                let overlap = minDist - dist;let pushForce = overlap * 0.1;
+                let nx = dx / dist;let ny = dy / dist;
+                e1.x += nx * pushForce;e1.y += ny * pushForce;
+                e2.x -= nx * pushForce;e2.y -= ny * pushForce;
             }
         }
     }
@@ -1351,13 +1336,20 @@ function gameLoop(timestamp) {
 }
 
 function openEndOfTimeHub() {
+    // Hide battle-related UI elements completely
     document.getElementById('stage-msg').style.opacity = 0;
     document.getElementById('hub-return-btn').style.display = 'none';
+    document.getElementById('action-menu').style.display = 'none';
+    document.getElementById('targeting-ui').style.display = 'none';
+    document.getElementById('game-canvas').style.background = '#222'; // Reset background
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT); // Clear canvas
+    
+    // Show hub UI
     document.getElementById('end-of-time-ui').style.display = 'flex';
     document.getElementById('ui-magic-stones-hub').innerText = PlayerState.magicStones;
     document.getElementById('hub-target-stage').innerText = PlayerState.targetStage;
 
-    renderPartyHub();
+    switchHubTab(document.querySelectorAll('.hub-tab')[0], 'party');
 }
 
 function changeHubStage(delta) {
@@ -1453,7 +1445,22 @@ function renderForgeHub() {
     let equipMap = {};
     PlayerState.roster.forEach(h => { Object.values(h.equip).forEach(uid => { if (uid) equipMap[uid] = DB.classes[h.classId].name; }); });
 
-    PlayerState.inventory.forEach(invItem => {
+    // Sort inventory by rarity (legendary -> common) and then by name
+    let sortedInventory = [...PlayerState.inventory].sort((a, b) => {
+        const rarityWeights = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
+        const weightA = rarityWeights[a.rarity] || 0;
+        const weightB = rarityWeights[b.rarity] || 0;
+        
+        if (weightA !== weightB) {
+            return weightB - weightA; // Descending rarity
+        } else {
+            const nameA = DB.items[a.itemId] ? DB.items[a.itemId].name : "";
+            const nameB = DB.items[b.itemId] ? DB.items[b.itemId].name : "";
+            return nameA.localeCompare(nameB); // Ascending name
+        }
+    });
+
+    sortedInventory.forEach(invItem => {
         let itemTemp = DB.items[invItem.itemId];
         if (!itemTemp) return; // 確保有這件裝備的資料 
         let rarity = DB.rarities[invItem.rarity];
