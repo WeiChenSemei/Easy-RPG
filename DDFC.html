@@ -306,10 +306,9 @@ function loadGame() {
                     warehouse = (data.warehouse || []).map(w => ({ item: EQUIPMENT_DB.find(e => e.id === w.id), count: w.count })).filter(w => w.item);
                     player1 = deserializeHero(data.p1);
                     player2 = deserializeHero(data.p2);
-                    updateHeroUI(); updateBeltUI();
                     
                     document.getElementById('screen-char-select').style.display = 'none';
-                    enterTown(true); // 讀檔後安全進入城鎮
+                    enterTown(true); 
                 }, () => {}, true);
             }
         }
@@ -336,7 +335,7 @@ const GameState = { MENU: 0, PLAYING: 1, PATH_SELECT: 2, LOOT: 3, GAMEOVER: 4, I
 let currentState = GameState.MENU;
 let lastTime = performance.now(), gameTime = 0, scrollY = 0;
 let kills = 0, currentStageIndex = 0, stagesSinceLastTown = 0;
-window.justLeftTown = false; // 用來標記剛離開城鎮，下一關不升級
+window.justLeftTown = false; 
 
 const HERO_CLASSES = [
     { id: 0, name: '聖騎士', emoji: '🛡️', hp: 250, speed: 200, style: 'melee', atkType: 'slash', cd: 0.9, dmg: 40, desc: '血厚防高，大範圍近戰揮擊' },
@@ -644,6 +643,19 @@ function unequipToWarehouse(hero, slot) {
     }
 }
 
+// 統一管理與更新頂部英雄圖示及血條
+function updateHeroUI() {
+    if(player1) {
+        document.getElementById('p1-icon').innerText = player1.data.emoji;
+        document.getElementById('p1-hp').style.width = `${Math.max(0, player1.hp/player1.maxHp)*100}%`;
+    }
+    if(player2) {
+        document.getElementById('p2-icon').innerText = player2.data.emoji;
+        document.getElementById('p2-hp').style.width = `${Math.max(0, player2.hp/player2.maxHp)*100}%`;
+    }
+    document.getElementById('ui-stage-num').innerText = Math.max(1, currentStageIndex);
+}
+
 const charGrid = document.getElementById('char-grid');
 HERO_CLASSES.forEach((c) => {
     let card = document.createElement('div'); card.className = 'char-card';
@@ -669,11 +681,6 @@ document.getElementById('btn-start-game').onclick = () => {
     saveGame();
     lastTime = performance.now();
 };
-
-function updateHeroUI() {
-    if(player1) document.getElementById('p1-icon').innerText = player1.data.emoji;
-    if(player2) document.getElementById('p2-icon').innerText = player2.data.emoji;
-}
 
 window.useItem = function(idx) {
     if(currentState !== GameState.PLAYING || !player1 || !player2) return;
@@ -778,6 +785,7 @@ window.unequipItem = function(heroIdx, slot) {
     showCustomAlert('卸下裝備', `確定要將 ${hero.equips[slot].name} 退回圖鑑嗎？`, () => {
         unequipToWarehouse(hero, slot);
         hero.recalculateStats();
+        updateHeroUI(); // 手動更新 UI 血量
         renderInvCol('inv-p1', player1, 0); 
         renderInvCol('inv-p2', player2, 1);
         if(document.getElementById('screen-warehouse').style.display === 'flex') openWarehouse();
@@ -787,11 +795,9 @@ window.unequipItem = function(heroIdx, slot) {
 
 let stageEnemyTimer = 0, stageBossSpawned = false, stageEnvTimer = 0;
 
-// 【重寫後的關卡重置邏輯】
 function resetStage(theme) {
     currentTheme = theme; 
     
-    // 如果剛離開城鎮，就不增加關卡等級，維持原樣！
     if (window.justLeftTown) {
         window.justLeftTown = false;
     } else {
@@ -799,8 +805,9 @@ function resetStage(theme) {
     }
     
     stagesSinceLastTown++;
-    document.getElementById('ui-stage-num').innerText = Math.max(1, currentStageIndex);
+    updateHeroUI();
     document.getElementById('ui-stage').innerText = theme.name;
+    
     activeBullets.forEach(b => bulletPool.release(b)); activeBullets.length = 0;
     activeEnemies.forEach(e => enemyPool.release(e)); activeEnemies.length = 0;
     activeDrops.forEach(d => dropPool.release(d)); activeDrops.length = 0;
@@ -912,26 +919,27 @@ function enterTown(skipIncrement = false) {
     currentState = GameState.TOWN;
     if (!skipIncrement) {
         stagesSinceLastTown = 0;
-        currentStageIndex++; // 推進一關作為城鎮的關卡數
-        window.justLeftTown = true; // 標記下次出城不要升級
+        currentStageIndex++; 
+        window.justLeftTown = true; 
     }
     currentTheme = { bg: '#141c14', grid: '#243324', envs: [] };
-    
-    document.getElementById('ui-stage-num').innerText = Math.max(1, currentStageIndex);
-    document.getElementById('ui-stage').innerText = "🏡 寧靜城鎮";
     
     if(player1.hp <= 0) player1.hp = player1.maxHp; else player1.hp = Math.min(player1.maxHp, player1.hp + player1.maxHp*0.5);
     if(player2.hp <= 0) player2.hp = player2.maxHp; else player2.hp = Math.min(player2.maxHp, player2.hp + player2.maxHp*0.5);
     
     player1.isLeader = true; player2.isLeader = false; 
+    
+    // 【核心修正】在進入城鎮、恢復血量後，強制更新 UI 長度，避免卡在全黑狀態
+    updateHeroUI();
+    document.getElementById('ui-stage').innerText = "🏡 寧靜城鎮";
+    
     document.getElementById('screen-town').style.display = 'flex';
     saveGame();
 }
 
-// 【離開城鎮時的標記設定】
 window.leaveTown = function() {
     document.getElementById('screen-town').style.display = 'none';
-    window.justLeftTown = true; // 確保強制不升級
+    window.justLeftTown = true; 
     showPathChoices(true); 
 };
 
@@ -997,6 +1005,7 @@ window.equipFromWarehouse = function(itemId, heroIdx, slot) {
         hero.equips[slot] = wData.item; 
         wData.count--; 
         hero.recalculateStats();
+        updateHeroUI(); // 手動更新 UI 血量
         openWarehouse(); 
         saveGame();
     }, null, true);
@@ -1216,10 +1225,10 @@ function update(dt) {
     }
 
     if (player1 && player2) {
+        // 在戰鬥畫面中維持動態血量更新
         document.getElementById('p1-hp').style.width = `${Math.max(0, player1.hp/player1.maxHp)*100}%`;
         document.getElementById('p2-hp').style.width = `${Math.max(0, player2.hp/player2.maxHp)*100}%`;
         
-        // 【核心修正】將全滅判定移出怪物碰撞迴圈，放置於主更新邏輯結尾，確保被陷阱、子彈擊殺也能順利觸發回城
         if(player1.hp <= 0 && player2.hp <= 0 && !isDeadTransitioning) {
             isDeadTransitioning = true;
             showCustomAlert("💀 全隊陣亡！", "冒險者們倒下了...但命運不允許你們在此終結。\n你們被送回城鎮，關卡難度已下降一級。", () => {
@@ -1229,7 +1238,7 @@ function update(dt) {
                     currentStageIndex = 0; 
                 }
                 isDeadTransitioning = false;
-                window.justLeftTown = false; // 這次回城鎮不把剛死掉的地方標記為不升級，讓他正常進入新階段
+                window.justLeftTown = false; 
                 enterTown(true); 
             });
         }
