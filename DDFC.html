@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>龍與地下城：命運抉擇 (終極版)</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #050302; overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none; user-select: none;
+        }
+        canvas { display: block; width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+
+        /* HUD 頂部列 */
+        #hud-top {
+            position: absolute; top: 10px; left: 10px; right: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(20, 12, 6, 0.85); border: 2px solid #c5a059; border-radius: 8px;
+            padding: 8px 12px; color: #f3e5ab; font-size: 0.85rem; font-weight: bold;
+            pointer-events: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.8); z-index: 50;
+        }
+        .hero-stat { display: flex; flex-direction: column; align-items: center; }
+        .bar-bg { width: 70px; height: 10px; background: #2a1a0a; border: 1px solid #c5a059; border-radius: 5px; overflow: hidden; margin-top: 4px;}
+        .hp-fill { width: 100%; height: 100%; background: #32cd32; transition: width 0.2s; }
+        
+        .btn-inventory {
+            background: #3d2410; border: 2px solid #ffd700; border-radius: 50%;
+            width: 40px; height: 40px; display: flex; justify-content: center; align-items: center;
+            font-size: 1.2rem; cursor: pointer; box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            transition: transform 0.1s;
+        }
+        .btn-inventory:active { transform: scale(0.9); }
+
+        /* 底部 5 格物品欄 */
+        #belt-container {
+            position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 8px; background: rgba(15, 8, 4, 0.9); border: 2px solid #8b5a2b;
+            border-radius: 10px; padding: 6px; z-index: 10; pointer-events: auto;
+        }
+        .belt-slot {
+            width: 45px; height: 45px; background: #2a180b; border: 2px solid #c5a059; border-radius: 6px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: #fff; font-size: 1.2rem; cursor: pointer; position: relative; transition: transform 0.1s;
+        }
+        .belt-slot:active { transform: scale(0.9); background: #5c3718; }
+        .belt-count {
+            position: absolute; bottom: 2px; right: 4px; font-size: 0.65rem;
+            color: #ffd700; font-weight: bold; text-shadow: 1px 1px #000;
+        }
+
+        /* 彈出視窗基礎樣式 */
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 2, 0, 0.92); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; color: #f3e5ab;
+            padding: 20px; box-sizing: border-box;
+        }
+        .panel {
+            background: linear-gradient(180deg, #2c1a0c, #140a04); border: 3px solid #c5a059; border-radius: 12px;
+            padding: 20px; width: 95%; max-width: 450px; box-shadow: 0 0 25px rgba(197, 160, 89, 0.4); text-align: center;
+            max-height: 80vh; overflow-y: auto;
+        }
+        h2 { margin-top: 0; color: #ffd700; text-shadow: 2px 2px #500; font-size: 1.3rem; }
+
+        .char-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
+        .char-card {
+            background: #1a0d05; border: 2px solid #5c3a1e; border-radius: 8px; padding: 10px; cursor: pointer;
+            transition: all 0.2s; display: flex; flex-direction: column; align-items: center;
+        }
+        .char-card:hover, .char-card.selected { border-color: #ffd700; background: #3d2410; box-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
+        .char-avatar { font-size: 2rem; }
+        .char-name { font-size: 0.8rem; font-weight: bold; color: #ffd700; margin-top: 4px; }
+        .char-desc { font-size: 0.65rem; color: #aaa; margin-top: 4px; line-height: 1.2;}
+
+        .path-container { display: flex; flex-direction: column; gap: 12px; margin: 15px 0; }
+        .path-btn {
+            background: linear-gradient(180deg, #3d2410, #1f1006); border: 2px solid #c5a059; border-radius: 8px;
+            padding: 12px; color: #ffd700; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 12px;
+            text-align: left; transition: all 0.2s;
+        }
+        .path-btn:hover { border-color: #fff; background: #5c3718; transform: scale(1.02); }
+
+        .arcade-btn {
+            padding: 10px 20px; font-size: 1rem; background: linear-gradient(180deg, #ffd700, #b8860b);
+            color: #000; border: 2px solid #fff; border-radius: 8px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 0 #5c4033, 0 0 12px #ffd700; margin-top: 15px; text-shadow: 1px 1px #fff;
+        }
+        .arcade-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #5c4033; }
+        .arcade-btn.secondary { background: linear-gradient(180deg, #888, #444); color: #fff; border-color: #aaa; box-shadow: 0 4px 0 #222; }
+
+        .inv-layout { display: flex; justify-content: space-between; gap: 10px; margin-top: 15px; text-align: left;}
+        .inv-col { flex: 1; background: #1a0d05; border: 1px solid #c5a059; border-radius: 8px; padding: 10px; }
+        .inv-slot { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.75rem; background: #2a180b; padding: 5px; border-radius: 5px;}
+        .inv-icon { font-size: 1.2rem; background: #000; border-radius: 4px; padding: 2px; }
+        .inv-empty { color: #666; font-style: italic; }
+        .inv-name { color: #ffd700; font-weight: bold; }
+
+        .equip-compare {
+            display: flex; justify-content: space-between; background: #1a0d05; 
+            border: 1px solid #8b5a2b; border-radius: 8px; padding: 8px; margin-top: 15px; font-size: 0.8rem;
+        }
+        .compare-side { flex: 1; display: flex; flex-direction: column; align-items: center; }
+        .compare-item { margin-top: 5px; color: #aaa; }
+        .compare-item span { font-size: 1.2rem; }
+
+        /* 裝備倉庫 UI (圖鑑版) */
+        .wh-item {
+            background: #2a180b; border: 1px solid #c5a059; border-radius: 6px; padding: 8px; margin-bottom: 10px;
+            display: flex; align-items: center; justify-content: space-between; text-align: left; transition: all 0.2s;
+        }
+        .wh-item.disabled { background: #1a1005; border-color: #555; }
+        .wh-btns button { padding: 4px 8px; font-size: 0.7rem; margin-left: 5px; background: #3d2410; color: #ffd700; border: 1px solid #ffd700; border-radius: 4px; cursor: pointer; }
+
+        /* 自訂彈窗 */
+        #custom-alert {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 100;
+            background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center;
+        }
+        .alert-box { background: #2c1a0c; border: 2px solid #ffd700; border-radius: 10px; padding: 20px; text-align: center; color: #fff; max-width: 300px; box-shadow: 0 0 20px #000; }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud-top">
+        <div class="hero-stat">
+            <div style="display:flex; align-items:center; gap:5px;"><span id="p1-icon">🛡️</span> 主將</div>
+            <div class="bar-bg"><div id="p1-hp" class="hp-fill"></div></div>
+        </div>
+        <div style="text-align:center;">
+            <div style="font-size:0.7rem; color:#aaa;">Stage <span id="ui-stage-num">1</span></div>
+            <div id="ui-stage" style="color:#ffd700; font-size:0.85rem; margin-top:2px;">🌲幽暗森林</div>
+        </div>
+        <div class="btn-inventory" onclick="toggleInventory()" title="檢視裝備">🎒</div>
+        <div class="hero-stat">
+            <div style="display:flex; align-items:center; gap:5px;">副將 <span id="p2-icon">🧙‍♂️</span></div>
+            <div class="bar-bg"><div id="p2-hp" class="hp-fill"></div></div>
+        </div>
+    </div>
+
+    <!-- 底部 5 格腰帶 -->
+    <div id="belt-container">
+        <div class="belt-slot" onclick="useItem(0)"><span id="slot-icon-0">🧪</span><span id="slot-count-0" class="belt-count">3</span></div>
+        <div class="belt-slot" onclick="useItem(1)"><span id="slot-icon-1">💣</span><span id="slot-count-1" class="belt-count">2</span></div>
+        <div class="belt-slot" onclick="useItem(2)"><span id="slot-icon-2">🗡️</span><span id="slot-count-2" class="belt-count">5</span></div>
+        <div class="belt-slot" onclick="useItem(3)"><span id="slot-icon-3">🛡️</span><span id="slot-count-3" class="belt-count">1</span></div>
+        <div class="belt-slot" onclick="useItem(4)"><span id="slot-icon-4">⚡</span><span id="slot-count-4" class="belt-count">2</span></div>
+    </div>
+
+    <!-- 自訂彈窗 -->
+    <div id="custom-alert">
+        <div class="alert-box">
+            <h3 id="alert-title" style="margin-top:0; color:#ffd700;">提示</h3>
+            <p id="alert-msg" style="font-size:0.9rem; line-height: 1.4; white-space: pre-wrap;"></p>
+            <div style="display:flex; justify-content:center; gap:10px; margin-top:15px;">
+                <button id="alert-btn-cancel" class="arcade-btn secondary" style="padding:6px 15px; display:none;">取消</button>
+                <button id="alert-btn-ok" class="arcade-btn" style="padding:6px 15px;">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. 英雄選擇 -->
+    <div id="screen-char-select" class="overlay" style="z-index: 30;">
+        <div class="panel">
+            <h2>選擇你的首發英雄</h2>
+            <p style="font-size:0.75rem; color:#ccc;">系統將自動派駐一名副將隨行戰鬥！支援鍵盤 WASD 移動。</p>
+            <div class="char-grid" id="char-grid"></div>
+            <button id="btn-start-game" class="arcade-btn" style="display:none;">進入地下城 (START)</button>
+        </div>
+    </div>
+
+    <!-- 2. 分歧路線 -->
+    <div id="screen-path-select" class="overlay" style="display:none; z-index: 30;">
+        <div class="panel">
+            <h2>⚔️ 關卡獲勝！選擇前進路線</h2>
+            <div class="path-container" id="path-choices"></div>
+        </div>
+    </div>
+
+    <!-- 3. 戰利品分配 -->
+    <div id="screen-loot" class="overlay" style="display:none; z-index: 30;">
+        <div class="panel">
+            <h2>💎 取得地下城寶藏</h2>
+            <div id="loot-card-container" style="margin: 15px 0;"></div>
+            
+            <div class="equip-compare" id="loot-compare"></div>
+
+            <p style="font-size:0.85rem; color:#ffd700; margin-top: 15px;">要替換給哪一位英雄？ (舊裝備將退回圖鑑)</p>
+            <div style="display:flex; justify-content:center; gap:10px;">
+                <button class="arcade-btn" style="padding:8px 15px;" onclick="equipLoot(0)">主將</button>
+                <button class="arcade-btn" style="padding:8px 15px;" onclick="equipLoot(1)">副將</button>
+            </div>
+            <div style="display:flex; justify-content:center; gap:10px; margin-top:10px;">
+                <button class="arcade-btn secondary" style="padding:6px 15px;" onclick="equipLoot(-2)">存入裝備倉庫</button>
+                <button class="arcade-btn secondary" style="padding:6px 15px;" onclick="equipLoot(-1)">捨棄轉換成 🧪x3</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 城鎮中繼站 -->
+    <div id="screen-town" class="overlay" style="display:none; z-index: 30;">
+        <div class="panel">
+            <h2>🏡 寧靜城鎮</h2>
+            <p style="font-size:0.85rem; color:#ccc;">你在城鎮中獲得了休整。所有陣亡的英雄已歸隊且滿血復活！</p>
+            <div style="display:flex; justify-content:center; gap:10px; margin: 20px 0;">
+                <button class="arcade-btn" onclick="openWarehouse()">打開裝備圖鑑</button>
+                <button class="arcade-btn" onclick="openRecruit()">酒館招募副將</button>
+            </div>
+            <button class="arcade-btn secondary" onclick="leaveTown()">離開城鎮，繼續冒險</button>
+        </div>
+    </div>
+
+    <!-- 4.1 倉庫介面 (圖鑑) -->
+    <div id="screen-warehouse" class="overlay" style="display:none; z-index: 40;">
+        <div class="panel" style="max-width: 550px;">
+            <h2>🎒 裝備倉庫 (收藏圖鑑)</h2>
+            <p style="font-size:0.75rem; color:#aaa; margin-top:-5px;">(顯示遊戲中所有的裝備，已獲得即可隨時穿戴)</p>
+            <div id="wh-list" style="text-align:left; margin:15px 0; max-height:45vh; overflow-y:auto; border:1px solid #555; padding:10px; border-radius:8px;"></div>
+            <button class="arcade-btn" onclick="document.getElementById('screen-warehouse').style.display='none'">關閉圖鑑</button>
+        </div>
+    </div>
+
+    <!-- 4.2 酒館招募 -->
+    <div id="screen-recruit" class="overlay" style="display:none; z-index: 40;">
+        <div class="panel">
+            <h2>🍻 酒館招募</h2>
+            <p style="font-size:0.85rem; color:#ffd700;">選擇一名新英雄替換目前的副將 (原本副將身上的裝備將會退回圖鑑)：</p>
+            <div class="char-grid" id="recruit-grid"></div>
+            <button class="arcade-btn secondary" onclick="document.getElementById('screen-recruit').style.display='none'">取消招募</button>
+        </div>
+    </div>
+
+    <!-- 4.3 戰鬥/城鎮 共通的裝備背包檢視 -->
+    <div id="screen-inventory" class="overlay" style="display:none; z-index: 45;">
+        <div class="panel" style="max-width: 600px;">
+            <h2>🎒 小隊裝備總覽</h2>
+            <p style="font-size:0.75rem; color:#aaa; margin-top:-5px;">(戰鬥中僅供檢視，若於城鎮內開啟則可手動卸下裝備)</p>
+            <div class="inv-layout">
+                <div class="inv-col" id="inv-p1"></div>
+                <div class="inv-col" id="inv-p2"></div>
+            </div>
+            <button class="arcade-btn" onclick="toggleInventory()">關閉背包</button>
+        </div>
+    </div>
+
+<script>
+// ====== 嚴格防護的本地存檔系統 ======
+function serializeHero(hero) {
+    if(!hero) return null;
+    return {
+        id: hero.data.id,
+        isLeader: hero.isLeader,
+        hp: hero.hp,
+        permStats: hero.permStats,
+        equips: {
+            weapon: hero.equips.weapon ? hero.equips.weapon.id : null,
+            head: hero.equips.head ? hero.equips.head.id : null,
+            body: hero.equips.body ? hero.equips.body.id : null,
+            acc: hero.equips.acc ? hero.equips.acc.id : null
+        }
+    };
+}
+function deserializeHero(data) {
+    let h = new Hero(HERO_CLASSES.find(c => c.id === data.id), data.isLeader);
+    h.permStats = data.permStats || { hp: 0, dmg: 0, reduc: 0 };
+    ['weapon', 'head', 'body', 'acc'].forEach(s => {
+        h.equips[s] = data.equips[s] ? EQUIPMENT_DB.find(e => e.id === data.equips[s]) : null;
+    });
+    h.recalculateStats();
+    h.hp = Math.min(h.maxHp, data.hp);
+    return h;
+}
+
+function saveGame() {
+    try {
+        const data = {
+            stage: currentStageIndex,
+            stagesSinceLastTown: stagesSinceLastTown,
+            kills: kills,
+            beltItems: beltItems,
+            warehouse: warehouse.map(w => ({ id: w.item.id, count: w.count })),
+            p1: player1 ? serializeHero(player1) : null,
+            p2: player2 ? serializeHero(player2) : null
+        };
+        localStorage.setItem('dnd_fates_choice_save', JSON.stringify(data));
+    } catch (e) {
+        console.warn("[系統防護] 當前環境阻擋了本地存檔，存檔動作已跳過，但遊戲可正常進行。");
+    }
+}
+
+function loadGame() {
+    try {
+        const saved = localStorage.getItem('dnd_fates_choice_save');
+        if (saved) {
+            const data = JSON.parse(saved);
+            if(data.p1 && data.p2) {
+                showCustomAlert("系統提示", "發現本地儲存的冒險進度，是否接續上一次的旅程？", () => {
+                    currentStageIndex = data.stage || 1;
+                    stagesSinceLastTown = data.stagesSinceLastTown || 0;
+                    kills = data.kills || 0;
+                    if(data.beltItems) beltItems = data.beltItems;
+                    warehouse = (data.warehouse || []).map(w => ({ item: EQUIPMENT_DB.find(e => e.id === w.id), count: w.count })).filter(w => w.item);
+                    player1 = deserializeHero(data.p1);
+                    player2 = deserializeHero(data.p2);
+                    updateHeroUI(); updateBeltUI();
+                    
+                    document.getElementById('screen-char-select').style.display = 'none';
+                    enterTown(); 
+                }, () => {}, true);
+            }
+        }
+    } catch (e) {
+        console.warn("[系統防護] 當前環境阻擋了讀取本地存檔。");
+    }
+}
+
+// ====== 遊戲核心系統 ======
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+let width, height, densityScale;
+
+function resize() { 
+    width = window.innerWidth || 800; 
+    height = window.innerHeight || 600; 
+    canvas.width = width; 
+    canvas.height = height; 
+    densityScale = Math.max(0.4, Math.min(1.5, width / 800));
+}
+window.addEventListener('resize', resize); resize();
+
+const GameState = { MENU: 0, PLAYING: 1, PATH_SELECT: 2, LOOT: 3, GAMEOVER: 4, INVENTORY: 5, TOWN: 6 };
+let currentState = GameState.MENU;
+let lastTime = performance.now(), gameTime = 0, scrollY = 0;
+let kills = 0, currentStageIndex = 0, stagesSinceLastTown = 0;
+
+const HERO_CLASSES = [
+    { id: 0, name: '聖騎士', emoji: '🛡️', hp: 250, speed: 200, style: 'melee', atkType: 'slash', cd: 0.9, dmg: 40, desc: '血厚防高，大範圍近戰揮擊' },
+    { id: 1, name: '大法師', emoji: '🧙‍♂️', hp: 120, speed: 180, style: 'ranged', atkType: 'magic', cd: 1.2, dmg: 50, desc: '發射高傷爆破魔法' },
+    { id: 2, name: '神射手', emoji: '🏹', hp: 150, speed: 240, style: 'ranged', atkType: 'arrow', cd: 0.35, dmg: 15, desc: '極高攻速，穿透箭矢' },
+    { id: 3, name: '狂戰士', emoji: '⚔️', hp: 200, speed: 250, style: 'melee', atkType: 'heavy', cd: 0.6, dmg: 35, desc: '極快移速，近戰連斬' },
+    { id: 4, name: '影武者', emoji: '🗡️', hp: 130, speed: 260, style: 'ranged', atkType: 'dagger', cd: 0.45, dmg: 22, desc: '高速發射暗器' },
+    { id: 5, name: '神官',   emoji: '✝️', hp: 160, speed: 190, style: 'ranged', atkType: 'holy', cd: 1.0, dmg: 30, desc: '每5秒自動治癒全隊' }
+];
+
+const STAGE_THEMES = [
+    { id: 'forest', name: '🌲 幽暗森林', bg: '#0d1a0d', grid: '#1a331a', boss: '👹 樹精魔王', mobs: ['👺', '🕷️', '🐺', '🦇'], envs: [{type:'obstacle', e:'🪨', s:24}, {type:'scenery', e:'🌿', s:20}] },
+    { id: 'dungeon', name: '💀 亡靈地牢', bg: '#0f0f1a', grid: '#1f1f3a', boss: '☠️ 死靈法師', mobs: ['💀', '🧟', '👻', '🦇'], envs: [{type:'obstacle', e:'🏺', s:20}, {type:'trap', e:'🪤', s:25}, {type:'scenery', e:'🦴', s:18}] },
+    { id: 'volcano', name: '🌋 巨龍火山', bg: '#1a0800', grid: '#331000', boss: '🐉 遠古紅龍', mobs: ['🔥', '🦎', '👿', '🦇'], envs: [{type:'trap', e:'🌋', s:30}, {type:'obstacle', e:'🪨', s:22}] },
+    { id: 'tundra', name: '❄️ 冰封雪原', bg: '#0a1420', grid: '#142840', boss: '⛄ 雪山巨魔', mobs: ['🐺', '🧊', '🦅', '🐧'], envs: [{type:'obstacle', e:'🧊', s:25}, {type:'scenery', e:'⛄', s:20}] },
+    { id: 'desert', name: '🏜️ 沙漠遺跡', bg: '#20150a', grid: '#402a14', boss: '🪦 詛咒法老', mobs: ['🦂', '🐍', '🦅', '💀'], envs: [{type:'obstacle', e:'🗿', s:28}, {type:'trap', e:'🌵', s:20}] },
+    { id: 'abyss', name: '🌌 深淵裂隙', bg: '#130a1f', grid: '#26143e', boss: '👁️ 凝視者', mobs: ['👾', '🐙', '🦇', '👻'], envs: [{type:'obstacle', e:'🔮', s:20}, {type:'trap', e:'🕳️', s:30}] },
+    { id: 'swamp', name: '🐸 腐敗沼澤', bg: '#0f1a14', grid: '#1c3326', boss: '🐸 巨型毒蟾', mobs: ['🐍', '🦟', '🐊', '🧟'], envs: [{type:'trap', e:'🫧', s:20}, {type:'obstacle', e:'🪵', s:25}] },
+    { id: 'crystal', name: '💎 螢光晶洞', bg: '#1a0a20', grid: '#331440', boss: '💎 水晶巨魔', mobs: ['🦇', '🪨', '🔮', '🕷️'], envs: [{type:'obstacle', e:'💎', s:24}, {type:'scenery', e:'✨', s:15}] },
+    { id: 'sky', name: '👼 天空之城', bg: '#0a1e28', grid: '#143c50', boss: '👼 墮落天使', mobs: ['🦅', '☁️', '⚡', '🕊️'], envs: [{type:'obstacle', e:'🏛️', s:28}, {type:'trap', e:'🌪️', s:25}] },
+    { id: 'ruins', name: '🤖 古代城墟', bg: '#1c1c15', grid: '#38382a', boss: '🛡️ 鐵甲巨像', mobs: ['🤖', '👻', '🦇', '💀'], envs: [{type:'obstacle', e:'🏚️', s:30}, {type:'scenery', e:'⚙️', s:18}] },
+    { id: 'ocean', name: '🦑 深海神殿', bg: '#00131a', grid: '#002633', boss: '🦑 深海巨妖', mobs: ['🦈', '🦀', '🐙', '🧜‍♀️'], envs: [{type:'obstacle', e:'🪸', s:22}, {type:'trap', e:'🌪️', s:25}] },
+    { id: 'mushroom', name: '🍄 迷幻菇林', bg: '#1f0d16', grid: '#3d1a2c', boss: '🍄 菇神大帝', mobs: ['🐌', '🐛', '🍄', '🧚'], envs: [{type:'obstacle', e:'🍄', s:26}, {type:'scenery', e:'✨', s:15}] }
+];
+let currentTheme = STAGE_THEMES[0];
+
+const EQUIPMENT_DB = [
+    { id: 'w1', name: '狂亂雙斧', slot: 'weapon', emoji: '🪓', desc: '發射兩把穿透飛斧', type: 'axe' },
+    { id: 'w2', name: '星隕法杖', slot: 'weapon', emoji: '☄️', desc: '召喚高傷隕石', type: 'meteor' },
+    { id: 'w3', name: '神聖十字劍', slot: 'weapon', emoji: '🗡️', desc: '發射大型十字劍氣', type: 'cross' },
+    { id: 'w4', name: '劇毒吹箭', slot: 'weapon', emoji: '🎋', desc: '高速毒刺連發', type: 'poison' },
+    { id: 'w5', name: '寒冰魔杖', slot: 'weapon', emoji: '❄️', desc: '扇形散射冰霜彈', type: 'ice' },
+    { id: 'w6', name: '雷霆戰錘', slot: 'weapon', emoji: '🔨', desc: '極短射程毀滅性重擊', type: 'hammer' },
+    { id: 'w7', name: '脈衝射線', slot: 'weapon', emoji: '⚡', desc: '高速穿透雷射', type: 'laser' },
+    { id: 'w8', name: '精靈長弓', slot: 'weapon', emoji: '🏹', desc: '快速穿透遠程箭矢', type: 'arrow' },
+    { id: 'h1', name: '刺客頭巾', slot: 'head', emoji: '🥷', desc: '攻擊冷卻減少 25%', stat: { cdMult: 0.75 } },
+    { id: 'h2', name: '聖王之冠', slot: 'head', emoji: '👑', desc: '受到傷害降低 20%', stat: { dmgReduc: 0.8 } },
+    { id: 'h3', name: '大法師帽', slot: 'head', emoji: '🧙', desc: '冷卻-35%，但受傷增加10%', stat: { cdMult: 0.65, dmgReduc: 1.1 } },
+    { id: 'h4', name: '狂戰牛角盔', slot: 'head', emoji: '🪖', desc: '生命+50，近戰反傷 40', stat: { hpBonus: 50, thorns: 40 } },
+    { id: 'h5', name: '遊俠兜帽', slot: 'head', emoji: '🪶', desc: '移速+15%，冷卻-10%', stat: { spdMult: 1.15, cdMult: 0.9 } },
+    { id: 'h6', name: '神官軟帽', slot: 'head', emoji: '🎓', desc: '生命+100，減傷 10%', stat: { hpBonus: 100, dmgReduc: 0.9 } },
+    { id: 'b1', name: '巨獸之鎧', slot: 'body', emoji: '🪨', desc: '最大生命增加 200', stat: { hpBonus: 200 } },
+    { id: 'b2', name: '荊棘外衣', slot: 'body', emoji: '🌵', desc: '被觸碰反彈 80 傷害', stat: { thorns: 80 } },
+    { id: 'b3', name: '奧術法袍', slot: 'body', emoji: '👘', desc: '攻擊傷害提升 30%', stat: { dmgMult: 1.3 } },
+    { id: 'b4', name: '幻影披風', slot: 'body', emoji: '🦇', desc: '減傷25%，但生命-50', stat: { dmgReduc: 0.75, hpBonus: -50 } },
+    { id: 'b5', name: '神聖板甲', slot: 'body', emoji: '🛡️', desc: '生命+150，減傷 15%', stat: { hpBonus: 150, dmgReduc: 0.85 } },
+    { id: 'b6', name: '輕盈皮甲', slot: 'body', emoji: '🦺', desc: '移動速度提升 25%', stat: { spdMult: 1.25 } },
+    { id: 'a1', name: '追風斗篷', slot: 'acc', emoji: '💨', desc: '移動速度增加 30%', stat: { spdMult: 1.3 } },
+    { id: 'a2', name: '吸血鬼戒指', slot: 'acc', emoji: '💍', desc: '攻擊命中回復 5 生命', stat: { lifesteal: 5 } },
+    { id: 'a3', name: '多重箭袋', slot: 'acc', emoji: '🎒', desc: '每次攻擊額外發射 2 發', stat: { extraProj: 2 } },
+    { id: 'a4', name: '巨力護腕', slot: 'acc', emoji: '💪', desc: '攻擊傷害提升 50%', stat: { dmgMult: 1.5 } },
+    { id: 'a5', name: '生命寶石', slot: 'acc', emoji: '💎', desc: '每秒自動回復 10 生命', stat: { regen: 10 } },
+    { id: 'a6', name: '復甦十字架', slot: 'acc', emoji: '✝️', desc: '吸血+2，最大生命+100', stat: { lifesteal: 2, hpBonus: 100 } }
+];
+
+let warehouse = []; 
+let currentLootItem = null;
+let moveTarget = { x: 0, y: 0 };
+let scrollSpeed = 60;
+let isDeadTransitioning = false;
+
+let alertCallback = null;
+function showCustomAlert(title, msg, onOk, onCancel, showCancel=false) {
+    document.getElementById('alert-title').innerText = title;
+    document.getElementById('alert-msg').innerText = msg;
+    let btnCancel = document.getElementById('alert-btn-cancel');
+    btnCancel.style.display = showCancel ? 'inline-block' : 'none';
+    alertCallback = { ok: onOk, cancel: onCancel };
+    document.getElementById('custom-alert').style.display = 'flex';
+}
+document.getElementById('alert-btn-ok').onclick = () => { document.getElementById('custom-alert').style.display = 'none'; if(alertCallback && alertCallback.ok) alertCallback.ok(); };
+document.getElementById('alert-btn-cancel').onclick = () => { document.getElementById('custom-alert').style.display = 'none'; if(alertCallback && alertCallback.cancel) alertCallback.cancel(); };
+
+let beltItems = [
+    { id: 'heal', emoji: '🧪', count: 5, name: '治療藥水', cd: 0 },
+    { id: 'bomb', emoji: '💣', count: 3, name: '爆裂炸彈', cd: 0 },
+    { id: 'dart', emoji: '🗡️', count: 10, name: '飛刀', cd: 0 },
+    { id: 'shield', emoji: '🛡️', count: 2, name: '聖界盾', cd: 0 },
+    { id: 'bolt', emoji: '⚡', count: 3, name: '雷電卷軸', cd: 0 }
+];
+
+const keys = {};
+window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+class Pool {
+    constructor(factory, size=50) {
+        this.factory = factory; this.inactive = [];
+        for(let i=0; i<size; i++) this.inactive.push(this.factory());
+    }
+    get() { let obj = this.inactive.length > 0 ? this.inactive.pop() : this.factory(); obj.active = true; return obj; }
+    release(obj) { obj.active = false; this.inactive.push(obj); }
+}
+
+const activeBullets = []; const activeEnemies = []; const activeParticles = []; const activeDrops = []; const activeEnvs = [];
+const bulletPool = new Pool(() => ({ active: false, x: 0, y: 0, vx: 0, vy: 0, dmg: 0, emoji: '🔥', size: 12, life: 0, isEnemy: false, pierce: false, owner: null }), 300);
+const enemyPool = new Pool(() => ({ active: false, x: 0, y: 0, vx: 0, vy: 0, hp: 10, maxHp: 10, speed: 60, emoji: '💀', size: 16, isBoss: false, isRanged: false, shootTimer: 0 }), 100);
+const particlePool = new Pool(() => ({ active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, text: '✨', size: 12 }), 400);
+const dropPool = new Pool(() => ({ active: false, x: 0, y: 0, type: 'heal', emoji: '💖', life: 15 }), 50);
+const envPool = new Pool(() => ({ active: false, x: 0, y: 0, type: 'obstacle', emoji: '🪨', size: 20 }), 50);
+
+class Hero {
+    constructor(classData, isLeader) {
+        this.data = classData;
+        this.isLeader = isLeader;
+        this.x = width / 2 + (isLeader ? 0 : 40);
+        this.y = height * 0.75 + (isLeader ? 0 : 20);
+        this.baseHp = classData.hp;
+        this.maxHp = this.baseHp;
+        this.hp = this.maxHp;
+        this.equips = { weapon: null, head: null, body: null, acc: null };
+        this.permStats = { hp: 0, dmg: 0, reduc: 0 }; 
+        this.atkCd = 0;
+        this.invincibleTimer = 0;
+        this.healTimer = 0;
+    }
+
+    recalculateStats() {
+        let bonusHp = this.equips.body && this.equips.body.stat.hpBonus ? this.equips.body.stat.hpBonus : 0;
+        bonusHp += this.equips.acc && this.equips.acc.stat.hpBonus ? this.equips.acc.stat.hpBonus : 0;
+        bonusHp += this.equips.head && this.equips.head.stat.hpBonus ? this.equips.head.stat.hpBonus : 0;
+        bonusHp += this.permStats.hp; 
+        
+        let oldMax = this.maxHp;
+        this.maxHp = Math.max(10, this.baseHp + bonusHp);
+        this.hp = Math.max(1, Math.min(this.maxHp, this.hp + (this.maxHp - oldMax)));
+    }
+
+    update(dt, leaderX, leaderY) {
+        if(this.invincibleTimer > 0) this.invincibleTimer -= dt;
+        this.atkCd -= dt;
+
+        if(this.hp > 0 && this.hp < this.maxHp) {
+            let regen = 0;
+            ['head', 'body', 'acc'].forEach(s => { if(this.equips[s] && this.equips[s].stat.regen) regen += this.equips[s].stat.regen; });
+            if(regen > 0) this.hp = Math.min(this.maxHp, this.hp + regen * dt);
+        }
+
+        if(this.data.id === 5 && player1 && player2) {
+            this.healTimer += dt;
+            if(this.healTimer >= 5.0) {
+                this.healTimer = 0;
+                if(player1.hp > 0 && player1.hp < player1.maxHp) player1.hp = Math.min(player1.maxHp, player1.hp + 20);
+                if(player2.hp > 0 && player2.hp < player2.maxHp) player2.hp = Math.min(player2.maxHp, player2.hp + 20);
+                spawnParticle(player1.x, player1.y, 0, -20, 0.5, '✨', 16);
+                spawnParticle(player2.x, player2.y, 0, -20, 0.5, '✨', 16);
+            }
+        }
+
+        let speedMult = 1.0;
+        ['head', 'body', 'acc'].forEach(s => { if(this.equips[s] && this.equips[s].stat.spdMult) speedMult *= this.equips[s].stat.spdMult; });
+        let actualSpeed = this.data.speed * speedMult;
+        let tx = this.x, ty = this.y;
+
+        if (this.isLeader) {
+            let kx = 0, ky = 0;
+            if(keys['w'] || keys['arrowup']) ky -= 1;
+            if(keys['s'] || keys['arrowdown']) ky += 1;
+            if(keys['a'] || keys['arrowleft']) kx -= 1;
+            if(keys['d'] || keys['arrowright']) kx += 1;
+            
+            if(kx !== 0 || ky !== 0) {
+                let len = Math.sqrt(kx*kx + ky*ky);
+                moveTarget.x = this.x + (kx/len)*100;
+                moveTarget.y = this.y + (ky/len)*100;
+            }
+            tx = moveTarget.x; ty = moveTarget.y;
+        } else {
+            let nearest = getNearestEnemy(this.x, this.y, 300);
+            if (this.data.style === 'melee') {
+                if (nearest) { tx = nearest.x; ty = nearest.y; }
+                else { tx = leaderX + 30; ty = leaderY + 30; }
+            } else {
+                if (nearest && getDist(this.x, this.y, nearest.x, nearest.y) < 150) {
+                    tx = this.x + (this.x - nearest.x); ty = this.y + (this.y - nearest.y);
+                } else { tx = leaderX - 30; ty = leaderY + 30; }
+            }
+        }
+
+        let dx = tx - this.x, dy = ty - this.y;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist > 5) {
+            this.x += (dx / dist) * actualSpeed * dt;
+            this.y += (dy / dist) * actualSpeed * dt;
+        }
+
+        for(let env of activeEnvs) {
+            if(env.type === 'obstacle' || env.type === 'trap') {
+                let d = getDist(this.x, this.y, env.x, env.y);
+                if(env.type === 'obstacle' && d < 12 + env.size) {
+                    let push = (12 + env.size) - d;
+                    this.x += (this.x - env.x)/d * push; this.y += (this.y - env.y)/d * push;
+                } else if (env.type === 'trap' && d < 10 + env.size && this.invincibleTimer <= 0) {
+                    this.hp -= 10; this.invincibleTimer = 0.5;
+                    spawnParticle(this.x, this.y, 0, 0, 0.3, '💥', 12);
+                }
+            }
+        }
+
+        this.x = Math.max(20, Math.min(width-20, this.x));
+        this.y = Math.max(20, Math.min(height-20, this.y));
+        if(this.isLeader) { moveTarget.x = this.x; moveTarget.y = this.y; }
+
+        if (this.atkCd <= 0) {
+            let cdMult = 1.0;
+            ['head', 'body', 'acc'].forEach(s => { if(this.equips[s] && this.equips[s].stat.cdMult) cdMult *= this.equips[s].stat.cdMult; });
+            this.atkCd = this.data.cd * cdMult;
+            this.shoot();
+        }
+    }
+
+    shoot() {
+        let target = getNearestEnemy(this.x, this.y, 450);
+        let angle = -Math.PI / 2;
+        if(target) angle = Math.atan2(target.y - this.y, target.x - this.x);
+
+        let extraP = this.equips.acc && this.equips.acc.stat.extraProj ? this.equips.acc.stat.extraProj : 0;
+        let projCount = 1 + extraP;
+        if (this.data.id === 2 || this.data.id === 4) projCount += 2; 
+
+        let wType = this.equips.weapon ? this.equips.weapon.type : this.data.atkType;
+        let pSpeed = 450, pSize = 14, pLife = 1.2, pPierce = false, pEmoji = '✨';
+
+        let pDmg = this.data.dmg + this.permStats.dmg;
+        let dMult = 1.0;
+        ['head', 'body', 'acc'].forEach(s => { if(this.equips[s] && this.equips[s].stat.dmgMult) dMult *= this.equips[s].stat.dmgMult; });
+        pDmg *= dMult;
+
+        switch(wType) {
+            case 'slash': pEmoji = '🌙'; pSpeed = 300; pSize = 28; pLife = 0.3; pPierce = true; break;
+            case 'heavy': pEmoji = '💢'; pSpeed = 250; pSize = 22; pLife = 0.25; pPierce = true; break;
+            case 'arrow': pEmoji = '🏹'; pSpeed = 700; pSize = 12; pPierce = true; break;
+            case 'magic': pEmoji = '🔥'; pSpeed = 350; pSize = 16; break;
+            case 'dagger': pEmoji = '🗡️'; pSpeed = 600; pSize = 12; pPierce = true; break;
+            case 'holy': pEmoji = '❇️'; pSpeed = 450; pSize = 18; pPierce = true; break;
+            case 'axe': pEmoji = '🪓'; pSpeed = 400; pSize = 20; pPierce = true; break;
+            case 'meteor': pEmoji = '☄️'; pSpeed = 250; pSize = 30; pPierce = false; pDmg *= 1.5; break;
+            case 'cross': pEmoji = '✝️'; pSpeed = 300; pSize = 28; pPierce = true; pDmg *= 1.2; break;
+            case 'poison': pEmoji = '🎋'; pSpeed = 550; pSize = 10; pPierce = true; pDmg *= 0.8; projCount += 2; break;
+            case 'ice': pEmoji = '❄️'; pSpeed = 300; pSize = 16; pPierce = false; projCount += 2; break;
+            case 'hammer': pEmoji = '🔨'; pSpeed = 200; pSize = 35; pPierce = true; pLife = 0.2; pDmg *= 1.8; break;
+            case 'laser': pEmoji = '⚡'; pSpeed = 800; pSize = 10; pPierce = true; pDmg *= 0.7; break;
+        }
+
+        for(let i=0; i<projCount; i++) {
+            let offsetAngle = angle + (i - Math.floor(projCount/2)) * 0.2;
+            let b = bulletPool.get();
+            b.x = this.x; b.y = this.y; b.vx = Math.cos(offsetAngle)*pSpeed; b.vy = Math.sin(offsetAngle)*pSpeed;
+            b.dmg = pDmg; b.emoji = pEmoji; b.size = pSize; b.life = pLife; b.pierce = pPierce;
+            b.isEnemy = false; b.owner = this;
+            activeBullets.push(b);
+        }
+    }
+
+    draw(ctx) {
+        if(this.invincibleTimer > 0 && Math.floor(this.invincibleTimer*15)%2===0) return;
+        ctx.font = '26px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(this.data.emoji, this.x, this.y);
+        if(this.equips.head) { ctx.font = '12px serif'; ctx.fillText(this.equips.head.emoji, this.x, this.y - 18); }
+    }
+}
+
+let player1 = null, player2 = null, selectedLeaderId = 0;
+
+function getDist(x1,y1,x2,y2) { return Math.sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)); }
+function getNearestEnemy(x, y, maxDist) {
+    let nearest = null, minDist = maxDist * maxDist;
+    for(let e of activeEnemies) {
+        let d = getDist(x,y, e.x, e.y);
+        if(d*d < minDist) { minDist = d*d; nearest = e; }
+    }
+    return nearest;
+}
+function spawnParticle(x, y, vx, vy, life, text, size=14) {
+    let p = particlePool.get(); p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.life = p.maxLife = life; p.text = text; p.size = size;
+    activeParticles.push(p);
+}
+function spawnExplosion(x, y, emoji='💥', count=10) {
+    for(let i=0; i<count; i++) {
+        let a = Math.random()*Math.PI*2, s = Math.random()*100+50;
+        spawnParticle(x, y, Math.cos(a)*s, Math.sin(a)*s, 0.4, emoji, 16);
+    }
+}
+function dropItem(x, y) {
+    let d = dropPool.get();
+    d.x = x; d.y = y; d.life = 15;
+    if(Math.random() < 0.5) {
+        d.type = 'heal'; d.emoji = '💖';
+    } else {
+        let bItem = beltItems[Math.floor(Math.random()*beltItems.length)];
+        d.type = bItem.id; d.emoji = bItem.emoji; 
+    }
+    activeDrops.push(d);
+}
+
+function storeToWarehouse(itemData) {
+    let exist = warehouse.find(w => w.item.id === itemData.id);
+    if(exist) exist.count++;
+    else warehouse.push({ item: itemData, count: 1 });
+}
+function unequipToWarehouse(hero, slot) {
+    if(hero.equips[slot]) {
+        storeToWarehouse(hero.equips[slot]);
+        hero.equips[slot] = null;
+    }
+}
+
+const charGrid = document.getElementById('char-grid');
+HERO_CLASSES.forEach((c) => {
+    let card = document.createElement('div'); card.className = 'char-card';
+    card.innerHTML = `<div class="char-avatar">${c.emoji}</div><div class="char-name">${c.name}</div><div class="char-desc">${c.desc}</div>`;
+    card.onclick = () => {
+        document.querySelectorAll('.char-card').forEach(k => k.classList.remove('selected'));
+        card.classList.add('selected'); selectedLeaderId = c.id;
+        document.getElementById('btn-start-game').style.display = 'block';
+    };
+    charGrid.appendChild(card);
+});
+
+document.getElementById('btn-start-game').onclick = () => {
+    let p1Data = HERO_CLASSES[selectedLeaderId];
+    let p2Data = HERO_CLASSES.filter(c => c.id !== selectedLeaderId)[Math.floor(Math.random()*5)];
+    player1 = new Hero(p1Data, true); player2 = new Hero(p2Data, false);
+    updateHeroUI();
+    document.getElementById('screen-char-select').style.display = 'none';
+    currentStageIndex = 0; stagesSinceLastTown = 0; moveTarget.x = player1.x; moveTarget.y = player1.y;
+    resetStage(STAGE_THEMES[0]);
+    currentState = GameState.PLAYING; 
+    saveGame();
+    lastTime = performance.now();
+};
+
+function updateHeroUI() {
+    if(player1) document.getElementById('p1-icon').innerText = player1.data.emoji;
+    if(player2) document.getElementById('p2-icon').innerText = player2.data.emoji;
+}
+
+window.useItem = function(idx) {
+    if(currentState !== GameState.PLAYING || !player1 || !player2) return;
+    let item = beltItems[idx];
+    if(item.count <= 0) return;
+    item.count--; updateBeltUI();
+
+    if(item.id === 'heal') {
+        if(player1.hp > 0) player1.hp = Math.min(player1.maxHp, player1.hp + 150);
+        if(player2.hp > 0) player2.hp = Math.min(player2.maxHp, player2.hp + 150);
+        spawnParticle(player1.x, player1.y, 0, -30, 0.5, '💖', 20);
+    } else if(item.id === 'bomb') {
+        for(let e of activeEnemies) e.hp -= 300;
+        // 華麗炸彈特效：全畫面多重爆破
+        for(let i=0; i<8; i++) {
+            setTimeout(() => {
+                spawnExplosion(Math.random()*width, Math.random()*height*0.8, '💥', 30);
+            }, i * 120);
+        }
+    } else if(item.id === 'shield') {
+        if(player1.hp > 0) player1.invincibleTimer = 6.0;
+        if(player2.hp > 0) player2.invincibleTimer = 6.0;
+        // 護盾特效：環繞保護圈
+        [player1, player2].forEach(p => {
+            if(p && p.hp > 0) {
+                for(let i=0; i<12; i++) {
+                    let a = (i/12)*Math.PI*2;
+                    spawnParticle(p.x + Math.cos(a)*10, p.y + Math.sin(a)*10, Math.cos(a)*60, Math.sin(a)*60, 0.8, '🛡️', 20);
+                }
+            }
+        });
+    } else if(item.id === 'dart') {
+        for(let i=0; i<12; i++) {
+            let a = (i/12)*Math.PI*2, b = bulletPool.get();
+            b.x = player1.x; b.y = player1.y; b.vx = Math.cos(a)*600; b.vy = Math.sin(a)*600;
+            b.dmg = 100; b.emoji = '🗡️'; b.size = 14; b.life = 2.0; b.pierce = true; b.isEnemy = false; activeBullets.push(b);
+        }
+    } else if(item.id === 'bolt') {
+        // 落雷特效：對每個敵人劈下
+        activeEnemies.forEach((e, idx) => {
+            setTimeout(() => {
+                for(let i=0; i<5; i++) {
+                    spawnParticle(e.x + (Math.random()-0.5)*20, e.y - i*30, 0, 0, 0.5, '⚡', 35 + Math.random()*20);
+                }
+                e.hp -= 200;
+            }, Math.min(idx * 80, 500)); // 避免敵人太多動畫延遲過久
+        });
+    }
+};
+function updateBeltUI() { beltItems.forEach((item, idx) => document.getElementById(`slot-count-${idx}`).innerText = item.count); }
+
+let isDragging = false, lastTouch = {x:0, y:0};
+function onTouchStart(e) { if(currentState !== GameState.PLAYING) return; isDragging = true; lastTouch.x = e.touches?e.touches[0].clientX:e.clientX; lastTouch.y = e.touches?e.touches[0].clientY:e.clientY; }
+function onTouchMove(e) {
+    if(!isDragging || currentState !== GameState.PLAYING) return;
+    let cx = e.touches?e.touches[0].clientX:e.clientX, cy = e.touches?e.touches[0].clientY:e.clientY;
+    moveTarget.x += (cx - lastTouch.x) * 1.5; moveTarget.y += (cy - lastTouch.y) * 1.5;
+    lastTouch.x = cx; lastTouch.y = cy;
+    if(e.cancelable && e.target === canvas) e.preventDefault();
+}
+function onTouchEnd() { isDragging = false; }
+canvas.addEventListener('touchstart', onTouchStart, {passive: false}); canvas.addEventListener('touchmove', onTouchMove, {passive: false}); canvas.addEventListener('touchend', onTouchEnd);
+canvas.addEventListener('mousedown', onTouchStart); window.addEventListener('mousemove', onTouchMove); window.addEventListener('mouseup', onTouchEnd);
+
+let previousState = GameState.MENU;
+window.toggleInventory = function() {
+    let invScreen = document.getElementById('screen-inventory');
+    if (invScreen.style.display === 'flex') {
+        invScreen.style.display = 'none';
+        currentState = previousState;
+        lastTime = performance.now();
+    } else if ((currentState === GameState.PLAYING || currentState === GameState.TOWN) && player1 && player2) {
+        previousState = currentState;
+        currentState = GameState.INVENTORY;
+        invScreen.style.display = 'flex';
+        renderInvCol('inv-p1', player1, 0); 
+        renderInvCol('inv-p2', player2, 1);
+    }
+};
+
+function renderInvCol(id, hero, heroIdx) {
+    let html = `<div style="text-align:center; margin-bottom:10px; font-size:1.2rem; color:${hero.isLeader?'#00ffff':'#ff00ff'}">${hero.data.emoji} ${hero.data.name}</div>`;
+    ['weapon', 'head', 'body', 'acc'].forEach(slot => {
+        let eq = hero.equips[slot];
+        let slotName = {weapon:'武器', head:'頭盔', body:'護甲', acc:'飾品'}[slot];
+        if(eq) {
+            html += `<div class="inv-slot" style="position:relative; padding-right:45px;">
+                        <span class="inv-icon">${eq.emoji}</span>
+                        <div><div class="inv-name">${eq.name}</div><div style="color:#aaa; font-size:0.65rem;">${eq.desc}</div></div>
+                        ${currentState === GameState.INVENTORY && previousState === GameState.TOWN 
+                            ? `<button style="position:absolute; right:5px; top:50%; transform:translateY(-50%); padding:4px 8px; font-size:0.7rem; background:linear-gradient(180deg, #aa3333, #661111); color:#fff; border:1px solid #ffaa00; border-radius:4px; cursor:pointer;" onclick="unequipItem(${heroIdx}, '${slot}')">卸下</button>` 
+                            : ''}
+                     </div>`;
+        } else {
+            html += `<div class="inv-slot"><span class="inv-icon" style="color:#555;">[ ]</span><div class="inv-empty">${slotName} 空缺</div></div>`;
+        }
+    });
+    document.getElementById(id).innerHTML = html;
+}
+
+window.unequipItem = function(heroIdx, slot) {
+    let hero = heroIdx === 0 ? player1 : player2;
+    if(!hero || hero.hp <= 0) return;
+    showCustomAlert('卸下裝備', `確定要將 ${hero.equips[slot].name} 退回圖鑑嗎？`, () => {
+        unequipToWarehouse(hero, slot);
+        hero.recalculateStats();
+        renderInvCol('inv-p1', player1, 0); 
+        renderInvCol('inv-p2', player2, 1);
+        if(document.getElementById('screen-warehouse').style.display === 'flex') openWarehouse();
+        saveGame();
+    }, null, true);
+};
+
+let stageEnemyTimer = 0, stageBossSpawned = false, stageEnvTimer = 0;
+function resetStage(theme) {
+    currentTheme = theme; currentStageIndex++; stagesSinceLastTown++;
+    document.getElementById('ui-stage-num').innerText = currentStageIndex;
+    document.getElementById('ui-stage').innerText = theme.name;
+    activeBullets.forEach(b => bulletPool.release(b)); activeBullets.length = 0;
+    activeEnemies.forEach(e => enemyPool.release(e)); activeEnemies.length = 0;
+    activeDrops.forEach(d => dropPool.release(d)); activeDrops.length = 0;
+    activeEnvs.forEach(v => envPool.release(v)); activeEnvs.length = 0;
+    stageEnemyTimer = 25.0; 
+    stageBossSpawned = false;
+    
+    if(player1 && player1.hp <= 0 && player2 && player2.hp > 0) {
+        player2.isLeader = true; player1.isLeader = false;
+        moveTarget.x = player2.x; moveTarget.y = player2.y;
+    } else if (player1 && player1.hp > 0) {
+        player1.isLeader = true; player2.isLeader = false;
+        moveTarget.x = player1.x; moveTarget.y = player1.y;
+    }
+}
+
+function spawnEnemy(isBoss=false) {
+    let e = enemyPool.get();
+    e.x = Math.random()*(width-40)+20; e.y = -50;
+    if(isBoss) {
+        e.x = width/2; e.hp = e.maxHp = 1500 + (currentStageIndex*800); e.speed = 45;
+        e.emoji = currentTheme.boss.split(' ')[0]; e.size = 45; e.isBoss = true; e.shootTimer = 2.0; e.isRanged = false;
+    } else {
+        e.hp = e.maxHp = 30 + (currentStageIndex*15); e.speed = 70 + Math.random()*50; 
+        e.emoji = currentTheme.mobs[Math.floor(Math.random()*currentTheme.mobs.length)];
+        e.size = 18; e.isBoss = false; e.isRanged = Math.random() < 0.25; e.shootTimer = 1.5;
+    }
+    activeEnemies.push(e);
+}
+
+function spawnEnvironment() {
+    if(!currentTheme.envs || currentTheme.envs.length === 0) return;
+    let envData = currentTheme.envs[Math.floor(Math.random()*currentTheme.envs.length)];
+    let env = envPool.get();
+    env.type = envData.type; env.emoji = envData.e; env.size = envData.s;
+    env.x = Math.random()*(width-40)+20; env.y = -50;
+    activeEnvs.push(env);
+}
+
+// 屬性成長系統大幅下修
+function rollStatGrowth() {
+    let msg = [];
+    [player1, player2].forEach(p => {
+        // 機率從 35% 降低到 15%
+        if(p && p.hp > 0 && Math.random() < 0.15) {
+            let stat = Math.floor(Math.random() * 3);
+            if (stat === 0) {
+                let inc = Math.floor(Math.random()*4) + 2; // +2~5生命
+                p.permStats.hp += inc;
+                msg.push(`${p.data.name} 最大生命+${inc}`);
+            } else if (stat === 1) {
+                let inc = 1; // 固定+1攻擊
+                p.permStats.dmg += inc;
+                msg.push(`${p.data.name} 攻擊力+${inc}`);
+            } else {
+                let inc = 0.005; // 固定+0.5%減傷
+                p.permStats.reduc += inc;
+                msg.push(`${p.data.name} 減傷+0.5%`);
+            }
+            p.recalculateStats();
+        }
+    });
+    if(msg.length > 0) {
+        msg.forEach((m, i) => spawnParticle(width/2, height/2 - (i*30), 0, -20, 2.5, m, 18));
+    }
+}
+
+function showPathChoices() {
+    currentState = GameState.PATH_SELECT;
+    saveGame();
+    let choicesContainer = document.getElementById('path-choices'); choicesContainer.innerHTML = '';
+    
+    let randomThemes = STAGE_THEMES.sort(() => 0.5-Math.random()).slice(0, 2);
+    let townChance = 0;
+    if(stagesSinceLastTown >= 5) townChance = 1.0;
+    else if(stagesSinceLastTown >= 3) townChance = 0.5;
+
+    if(Math.random() < townChance) {
+        randomThemes[1] = { id: 'town', name: '🏡 寧靜城鎮', boss: '🍻 休整與補給' };
+    }
+
+    randomThemes.forEach(t => {
+        let btn = document.createElement('div'); btn.className = 'path-btn';
+        if(t.id === 'town') {
+            btn.innerHTML = `<span style="font-size:2.2rem;">🏡</span> <div><b style="color:#32cd32;">${t.name}</b><br><small style="color:#aaa;">安全區: 招募與復活</small></div>`;
+            btn.onclick = () => { document.getElementById('screen-path-select').style.display = 'none'; enterTown(); };
+        } else {
+            btn.innerHTML = `<span style="font-size:2.2rem;">${t.boss.split(' ')[0]}</span> <div><b>${t.name}</b><br><small style="color:#aaa;">強敵: ${t.boss}</small></div>`;
+            btn.onclick = () => { document.getElementById('screen-path-select').style.display = 'none'; triggerLootScreen(t.id); };
+        }
+        choicesContainer.appendChild(btn);
+    });
+    document.getElementById('screen-path-select').style.display = 'flex';
+}
+
+function enterTown() {
+    currentState = GameState.TOWN;
+    stagesSinceLastTown = 0;
+    currentTheme = { bg: '#141c14', grid: '#243324', envs: [] };
+    document.getElementById('ui-stage').innerText = "🏡 寧靜城鎮";
+    
+    if(player1.hp <= 0) player1.hp = player1.maxHp; else player1.hp = Math.min(player1.maxHp, player1.hp + player1.maxHp*0.5);
+    if(player2.hp <= 0) player2.hp = player2.maxHp; else player2.hp = Math.min(player2.maxHp, player2.hp + player2.maxHp*0.5);
+    
+    player1.isLeader = true; player2.isLeader = false; 
+    document.getElementById('screen-town').style.display = 'flex';
+    saveGame();
+}
+
+window.leaveTown = function() {
+    document.getElementById('screen-town').style.display = 'none';
+    showPathChoices(); 
+};
+
+window.openRecruit = function() {
+    let grid = document.getElementById('recruit-grid'); grid.innerHTML = '';
+    let available = HERO_CLASSES.filter(c => c.id !== player1.data.id && c.id !== player2.data.id).sort(() => 0.5-Math.random()).slice(0, 2);
+    available.forEach(c => {
+        let card = document.createElement('div'); card.className = 'char-card';
+        card.innerHTML = `<div class="char-avatar">${c.emoji}</div><div class="char-name">${c.name}</div><div class="char-desc">${c.desc}</div>`;
+        card.onclick = () => {
+            showCustomAlert('確認招募', `確定要招募 ${c.name} 取代目前的副將 ${player2.data.name} 嗎？\n(原本副將的裝備將退回圖鑑)`, () => {
+                ['weapon', 'head', 'body', 'acc'].forEach(s => unequipToWarehouse(player2, s));
+                player2 = new Hero(c, false);
+                updateHeroUI();
+                document.getElementById('screen-recruit').style.display = 'none';
+                saveGame();
+                showCustomAlert('招募成功', `${c.name} 加入了隊伍！`);
+            }, null, true);
+        };
+        grid.appendChild(card);
+    });
+    document.getElementById('screen-recruit').style.display = 'flex';
+};
+
+// 完整圖鑑模式的倉庫
+window.openWarehouse = function() {
+    let list = document.getElementById('wh-list'); list.innerHTML = '';
+    
+    EQUIPMENT_DB.forEach(itemData => {
+        let wData = warehouse.find(w => w.item.id === itemData.id);
+        let count = wData ? wData.count : 0;
+        
+        let div = document.createElement('div'); 
+        div.className = `wh-item ${count <= 0 ? 'disabled' : ''}`;
+        
+        let btnHtml = count > 0 ? `
+            <button onclick="equipFromWarehouse('${itemData.id}', 0, '${itemData.slot}')">主將</button>
+            <button onclick="equipFromWarehouse('${itemData.id}', 1, '${itemData.slot}')">副將</button>
+        ` : `<span style="font-size:0.75rem; color:#666;">(尚未獲得)</span>`;
+        
+        div.innerHTML = `
+            <div>
+                <span style="font-size:1.5rem; filter: ${count>0 ? 'none' : 'grayscale(100%) opacity(0.5)'};">${itemData.emoji}</span> 
+                <b style="color:${count>0 ? '#ffd700' : '#777'};">${itemData.name}</b> 
+                <span style="color:#aaa; font-size:0.7rem;">(x${count})</span><br>
+                <span style="font-size:0.75rem; color:${count>0 ? '#ccc' : '#555'};">${itemData.desc}</span>
+            </div>
+            <div class="wh-btns">${btnHtml}</div>
+        `;
+        list.appendChild(div);
+    });
+    document.getElementById('screen-warehouse').style.display = 'flex';
+};
+
+window.equipFromWarehouse = function(itemId, heroIdx, slot) {
+    let wData = warehouse.find(w => w.item.id === itemId);
+    if(!wData || wData.count <= 0) return;
+    
+    let hero = heroIdx === 0 ? player1 : player2;
+    if(!hero || hero.hp <= 0) { showCustomAlert('無法裝備', '該英雄已陣亡或不存在！'); return; }
+
+    showCustomAlert('確認裝備', `要讓 ${hero.data.name} 裝備 ${wData.item.name} 嗎？`, () => {
+        unequipToWarehouse(hero, slot); 
+        hero.equips[slot] = wData.item; 
+        wData.count--; 
+        hero.recalculateStats();
+        openWarehouse(); 
+        saveGame();
+    }, null, true);
+};
+
+function triggerLootScreen(nextThemeId) {
+    currentState = GameState.LOOT;
+    currentLootItem = EQUIPMENT_DB[Math.floor(Math.random()*EQUIPMENT_DB.length)];
+    
+    document.getElementById('loot-card-container').innerHTML = `<div style="background:#2a180b; border:2px solid #ffd700; border-radius:8px; padding:15px; display:flex; align-items:center; gap:15px; text-align:left;"><span style="font-size:2.5rem;">${currentLootItem.emoji}</span><div><div style="color:#ffd700; font-weight:bold; font-size:1.1rem;">${currentLootItem.name}</div><div style="font-size:0.85rem; color:#ccc; margin-top:5px;">${currentLootItem.desc}</div></div></div>`;
+    
+    let p1Eq = player1.equips[currentLootItem.slot];
+    let p2Eq = player2.equips[currentLootItem.slot];
+    
+    document.getElementById('loot-compare').innerHTML = `
+        <div class="compare-side">
+            <div style="color:#00ffff; font-weight:bold;">${player1.data.emoji} 主將目前裝備</div>
+            <div class="compare-item">${p1Eq ? `<span>${p1Eq.emoji}</span><br>${p1Eq.name}` : `(空)`}</div>
+        </div>
+        <div style="width:1px; background:#8b5a2b; margin: 0 10px;"></div>
+        <div class="compare-side">
+            <div style="color:#ff00ff; font-weight:bold;">${player2.data.emoji} 副將目前裝備</div>
+            <div class="compare-item">${p2Eq ? `<span>${p2Eq.emoji}</span><br>${p2Eq.name}` : `(空)`}</div>
+        </div>
+    `;
+
+    document.getElementById('screen-loot').style.display = 'flex';
+    document.getElementById('screen-loot').setAttribute('data-next', nextThemeId);
+}
+
+window.equipLoot = function(actionType) {
+    if(actionType >= 0 && player1 && player2) {
+        let hero = actionType === 0 ? player1 : player2;
+        if(hero.hp <= 0) { showCustomAlert('無法裝備', '該英雄已陣亡！'); return; }
+        
+        unequipToWarehouse(hero, currentLootItem.slot); 
+        hero.equips[currentLootItem.slot] = currentLootItem; 
+        hero.recalculateStats();
+    } else if (actionType === -2) {
+        storeToWarehouse(currentLootItem);
+    } else {
+        beltItems[0].count += 3; updateBeltUI(); 
+    }
+    
+    document.getElementById('screen-loot').style.display = 'none';
+    let nextThemeId = document.getElementById('screen-loot').getAttribute('data-next');
+    let nextTheme = STAGE_THEMES.find(t => t.id === nextThemeId);
+    resetStage(nextTheme); currentState = GameState.PLAYING; lastTime = performance.now();
+    saveGame();
+};
+
+function update(dt) {
+    gameTime += dt; 
+    if (!player1 || !player2) return;
+
+    if (player1.hp > 0) player1.update(dt, player1.x, player1.y);
+    if (player2.hp > 0) player2.update(dt, player1.hp > 0 ? player1.x : player2.x, player1.hp > 0 ? player1.y : player2.y);
+
+    stageEnvTimer -= dt;
+    if(stageEnvTimer <= 0) {
+        stageEnvTimer = (1.0 + Math.random()*1.5) / densityScale;
+        spawnEnvironment();
+    }
+
+    if(!stageBossSpawned) {
+        stageEnemyTimer -= dt;
+        if(stageEnemyTimer <= 0) { stageBossSpawned = true; spawnEnemy(true); }
+        else if(Math.random() < (0.05 + currentStageIndex*0.015) * densityScale) spawnEnemy(false);
+    }
+
+    for(let i = activeEnvs.length - 1; i >= 0; i--) {
+        let env = activeEnvs[i];
+        env.y += scrollSpeed * dt; 
+        if(env.y > height + 50) { envPool.release(env); activeEnvs.splice(i, 1); }
+    }
+
+    for(let i = activeEnemies.length - 1; i >= 0; i--) {
+        let e = activeEnemies[i];
+        if(e.y > height + 100) { enemyPool.release(e); activeEnemies.splice(i, 1); continue; }
+
+        if(e.hp <= 0) {
+            kills++; spawnExplosion(e.x, e.y, '💥', e.isBoss?40:8);
+            if(Math.random() < (e.isBoss?1.0:0.18)) dropItem(e.x, e.y); 
+            if(e.isBoss) { 
+                rollStatGrowth(); 
+                enemyPool.release(e); activeEnemies.splice(i, 1); 
+                showPathChoices(); 
+                return; 
+            }
+            enemyPool.release(e); activeEnemies.splice(i, 1); continue;
+        }
+
+        let targetPlayer = (player1.hp > 0) ? player1 : ((player2.hp > 0) ? player2 : null);
+        if(targetPlayer) {
+            let dx = targetPlayer.x - e.x, dy = targetPlayer.y - e.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            
+            if(e.isRanged && dist < 300) {
+                e.x += (dx/dist)*e.speed*0.1*dt; e.y += (dy/dist)*e.speed*0.1*dt; 
+                e.shootTimer -= dt;
+                if(e.shootTimer <= 0) {
+                    e.shootTimer = 2.0;
+                    let b = bulletPool.get(); b.x = e.x; b.y = e.y;
+                    b.vx = (dx/dist)*250; b.vy = (dy/dist)*250;
+                    b.dmg = 15 + (currentStageIndex*2); b.emoji = '🟣'; b.size = 12; b.life = 2.5; b.isEnemy = true; activeBullets.push(b);
+                }
+            } else {
+                if(dist > 0) { e.x += (dx/dist)*e.speed*dt; e.y += (dy/dist)*e.speed*dt; }
+            }
+        }
+
+        for(let env of activeEnvs) {
+            if(env.type === 'obstacle') {
+                let d = getDist(e.x, e.y, env.x, env.y);
+                if(d < 10 + env.size) {
+                    let push = (10 + env.size) - d;
+                    e.x += (e.x - env.x)/d * push; e.y += (e.y - env.y)/d * push;
+                }
+            } else if (env.type === 'trap') {
+                let d = getDist(e.x, e.y, env.x, env.y);
+                if(d < 10 + env.size && Math.random() < 0.1) { e.hp -= 5; spawnParticle(e.x, e.y, 0, 0, 0.2, '💥', 8); }
+            }
+        }
+
+        if(e.isBoss) {
+            e.shootTimer -= dt;
+            if(e.shootTimer <= 0) {
+                e.shootTimer = 2.0;
+                for(let a=0; a<Math.PI*2; a+=Math.PI/4) {
+                    let b = bulletPool.get(); b.x = e.x; b.y = e.y; b.vx = Math.cos(a)*180; b.vy = Math.sin(a)*180;
+                    b.dmg = 25 + (currentStageIndex*5); b.emoji = '🔥'; b.size = 16; b.life = 4.0; b.isEnemy = true; activeBullets.push(b);
+                }
+            }
+        }
+
+        [player1, player2].forEach(p => {
+            if(p.hp > 0 && getDist(p.x, p.y, e.x, e.y) < e.size+12 && p.invincibleTimer <= 0) {
+                let dmg = e.isBoss ? (50 + currentStageIndex*5) : (20 + currentStageIndex*2);
+                let thorns = 0; ['head', 'body', 'acc'].forEach(s => { if(p.equips[s] && p.equips[s].stat.thorns) thorns += p.equips[s].stat.thorns; });
+                if(thorns > 0) { e.hp -= thorns; spawnParticle(e.x, e.y, 0, 0, 0.3, '💥', 12); }
+                
+                let reduc = 1.0; ['head', 'body', 'acc'].forEach(s => { if(p.equips[s] && p.equips[s].stat.dmgReduc) reduc *= p.equips[s].stat.dmgReduc; });
+                reduc -= p.permStats.reduc; 
+                reduc = Math.max(0.1, reduc); 
+                
+                p.hp -= dmg * reduc; p.invincibleTimer = 1.0;
+                
+                if(player1.hp <= 0 && player2.hp <= 0 && !isDeadTransitioning) {
+                    isDeadTransitioning = true;
+                    showCustomAlert("💀 全隊陣亡！", "冒險者們倒下了...但命運不允許你們在此終結。\n你們被送回城鎮，關卡難度已下降一級。", () => {
+                        currentStageIndex = Math.max(1, currentStageIndex - 1);
+                        isDeadTransitioning = false;
+                        enterTown();
+                    });
+                }
+            }
+        });
+    }
+
+    for(let i = activeDrops.length - 1; i >= 0; i--) {
+        let d = activeDrops[i]; d.life -= dt; d.y += scrollSpeed * dt; 
+        if(d.life <= 0 || d.y > height + 50) { dropPool.release(d); activeDrops.splice(i, 1); continue; }
+        
+        [player1, player2].forEach(p => {
+            if(p.hp > 0 && getDist(p.x, p.y, d.x, d.y) < 35) {
+                if(d.type === 'heal') {
+                    if (player1.hp > 0) player1.hp = Math.min(player1.maxHp, player1.hp + 40);
+                    if (player2.hp > 0) player2.hp = Math.min(player2.maxHp, player2.hp + 40);
+                    spawnParticle(d.x, d.y, 0, -20, 0.5, '💖', 18);
+                } else {
+                    let bItem = beltItems.find(b => b.id === d.type);
+                    if(bItem) { bItem.count++; updateBeltUI(); spawnParticle(d.x, d.y, 0, -20, 0.5, '⬆️', 18); }
+                }
+                d.life = 0;
+            }
+        });
+    }
+
+    for(let i = activeBullets.length - 1; i >= 0; i--) {
+        let b = activeBullets[i]; b.life -= dt;
+        if(b.life <= 0 || b.x < -50 || b.x > width + 50 || b.y < -50 || b.y > height + 50) { bulletPool.release(b); activeBullets.splice(i, 1); continue; }
+        b.x += b.vx * dt; b.y += b.vy * dt;
+
+        let hitObstacle = false;
+        for(let env of activeEnvs) {
+            if(env.type === 'obstacle' && getDist(b.x, b.y, env.x, env.y) < b.size + env.size) {
+                hitObstacle = true; spawnParticle(b.x, b.y, -b.vx*0.2, -b.vy*0.2, 0.2, '💨', 10); break;
+            }
+        }
+        if(hitObstacle) { b.life = 0; continue; }
+
+        if(!b.isEnemy) {
+            for(let e of activeEnemies) {
+                if(getDist(b.x, b.y, e.x, e.y) < e.size + b.size) {
+                    e.hp -= b.dmg; spawnParticle(b.x, b.y, 0, 0, 0.2, '✨', 12);
+                    if(b.owner && b.owner.hp > 0 && b.owner.equips.acc && b.owner.equips.acc.stat.lifesteal) {
+                        b.owner.hp = Math.min(b.owner.maxHp, b.owner.hp + b.owner.equips.acc.stat.lifesteal);
+                    }
+                    if(!b.pierce) { b.life = 0; break; }
+                }
+            }
+        } else {
+            [player1, player2].forEach(p => {
+                if(p.hp > 0 && getDist(p.x, p.y, b.x, b.y) < 14 + b.size && p.invincibleTimer <= 0) {
+                    let reduc = 1.0; ['head', 'body', 'acc'].forEach(s => { if(p.equips[s] && p.equips[s].stat.dmgReduc) reduc *= p.equips[s].stat.dmgReduc; });
+                    reduc -= p.permStats.reduc; 
+                    reduc = Math.max(0.1, reduc); 
+                    
+                    p.hp -= b.dmg * reduc; p.invincibleTimer = 0.5; b.life = 0;
+                }
+            });
+        }
+    }
+
+    for(let i = activeParticles.length - 1; i >= 0; i--) {
+        let p = activeParticles[i]; p.life -= dt;
+        if(p.life <= 0) { particlePool.release(p); activeParticles.splice(i, 1); continue; }
+        p.x += p.vx * dt; p.y += p.vy * dt;
+    }
+
+    if (player1 && player2) {
+        document.getElementById('p1-hp').style.width = `${Math.max(0, player1.hp/player1.maxHp)*100}%`;
+        document.getElementById('p2-hp').style.width = `${Math.max(0, player2.hp/player2.maxHp)*100}%`;
+    }
+}
+
+function draw(ctx) {
+    ctx.fillStyle = currentTheme.bg; ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = currentTheme.grid || '#000'; ctx.lineWidth = 2;
+    let tileSize = 60, offsetY = scrollY % tileSize;
+    for(let x=0; x<width; x+=tileSize) for(let y=-tileSize; y<height+tileSize; y+=tileSize) ctx.strokeRect(x, y+offsetY, tileSize, tileSize);
+
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    
+    activeEnvs.forEach(env => {
+        ctx.font = `${env.size * 1.5}px serif`;
+        ctx.globalAlpha = env.type === 'scenery' ? 0.6 : 1.0;
+        ctx.fillText(env.emoji, env.x, env.y);
+    });
+    ctx.globalAlpha = 1.0;
+
+    activeDrops.forEach(d => { ctx.font = '22px serif'; ctx.fillText(d.emoji, d.x, d.y); });
+    
+    activeParticles.forEach(p => { ctx.font = `bold ${p.size}px serif`; ctx.fillStyle = '#ffd700'; ctx.globalAlpha = p.life/p.maxLife; ctx.fillText(p.text, p.x, p.y); }); 
+    ctx.globalAlpha = 1.0;
+    
+    activeEnemies.forEach(e => {
+        ctx.font = `${e.size * 1.5}px serif`; ctx.fillText(e.emoji, e.x, e.y);
+        if(e.hp < e.maxHp) { ctx.fillStyle = '#000'; ctx.fillRect(e.x-15, e.y-e.size-8, 30, 4); ctx.fillStyle = '#f00'; ctx.fillRect(e.x-15, e.y-e.size-8, 30*(e.hp/e.maxHp), 4); }
+    });
+    
+    activeBullets.forEach(b => { ctx.font = `${b.size * 1.5}px serif`; ctx.fillText(b.emoji, b.x, b.y); });
+    
+    if(player2 && player2.hp > 0) player2.draw(ctx);
+    if(player1 && player1.hp > 0) player1.draw(ctx);
+}
+
+function gameLoop(timestamp) {
+    let dt = (timestamp - lastTime) / 1000; 
+    if(dt > 0.1) dt = 0.1;
+    lastTime = timestamp; 
+    
+    scrollY += scrollSpeed * dt;
+
+    if (currentState === GameState.PLAYING) update(dt); 
+    draw(ctx); 
+    requestAnimationFrame(gameLoop);
+}
+
+window.onload = function() {
+    resize();
+    lastTime = performance.now();
+    loadGame();
+    requestAnimationFrame(gameLoop);
+};
+</script>
+</body>
+</html>
