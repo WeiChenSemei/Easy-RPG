@@ -306,6 +306,7 @@ function loadGame() {
                     warehouse = (data.warehouse || []).map(w => ({ item: EQUIPMENT_DB.find(e => e.id === w.id), count: w.count })).filter(w => w.item);
                     player1 = deserializeHero(data.p1);
                     player2 = deserializeHero(data.p2);
+                    updateHeroUI(); updateBeltUI();
                     
                     document.getElementById('screen-char-select').style.display = 'none';
                     enterTown(true); 
@@ -394,8 +395,12 @@ const EQUIPMENT_DB = [
 let warehouse = []; 
 let currentLootItem = null;
 let moveTarget = { x: 0, y: 0 };
-let scrollSpeed = 60;
+let scrollSpeed = 60; // 動態畫面捲動速度
 let isDeadTransitioning = false;
+
+// 突發魔物入侵參數
+window.isMonsterInvasion = false;
+window.invasionTimer = 0;
 
 let alertCallback = null;
 function showCustomAlert(title, msg, onOk, onCancel, showCancel=false) {
@@ -643,7 +648,6 @@ function unequipToWarehouse(hero, slot) {
     }
 }
 
-// 統一管理與更新頂部英雄圖示及血條
 function updateHeroUI() {
     if(player1) {
         document.getElementById('p1-icon').innerText = player1.data.emoji;
@@ -785,7 +789,7 @@ window.unequipItem = function(heroIdx, slot) {
     showCustomAlert('卸下裝備', `確定要將 ${hero.equips[slot].name} 退回圖鑑嗎？`, () => {
         unequipToWarehouse(hero, slot);
         hero.recalculateStats();
-        updateHeroUI(); // 手動更新 UI 血量
+        updateHeroUI(); 
         renderInvCol('inv-p1', player1, 0); 
         renderInvCol('inv-p2', player2, 1);
         if(document.getElementById('screen-warehouse').style.display === 'flex') openWarehouse();
@@ -807,6 +811,11 @@ function resetStage(theme) {
     stagesSinceLastTown++;
     updateHeroUI();
     document.getElementById('ui-stage').innerText = theme.name;
+    
+    // 初始化關卡參數
+    scrollSpeed = 60; // 恢復正常捲動速度
+    window.isMonsterInvasion = (currentStageIndex >= 3 && Math.random() < 0.20); // 20% 機率突發魔物大軍
+    window.invasionTimer = 5.0 + Math.random() * 10.0; // 進入關卡 5~15 秒後爆發
     
     activeBullets.forEach(b => bulletPool.release(b)); activeBullets.length = 0;
     activeEnemies.forEach(e => enemyPool.release(e)); activeEnemies.length = 0;
@@ -836,6 +845,7 @@ function spawnEnemy(isBoss=false) {
         e.size = 18; e.isBoss = false; e.isRanged = Math.random() < 0.25; e.shootTimer = 1.5;
     }
     activeEnemies.push(e);
+    return e; // 回傳方便後續調整
 }
 
 function spawnEnvironment() {
@@ -878,7 +888,9 @@ function showPathChoices(skipLoot = false) {
     saveGame();
     let choicesContainer = document.getElementById('path-choices'); choicesContainer.innerHTML = '';
     
-    let randomThemes = STAGE_THEMES.sort(() => 0.5-Math.random()).slice(0, 2);
+    // 【修改】過濾掉目前的場景，確保分歧路線不重複
+    let availableThemes = STAGE_THEMES.filter(t => t.id !== currentTheme.id);
+    let randomThemes = availableThemes.sort(() => 0.5-Math.random()).slice(0, 2);
     let townChance = 0;
     if(stagesSinceLastTown >= 5) townChance = 1.0;
     else if(stagesSinceLastTown >= 3) townChance = 0.5;
@@ -922,14 +934,13 @@ function enterTown(skipIncrement = false) {
         currentStageIndex++; 
         window.justLeftTown = true; 
     }
-    currentTheme = { bg: '#141c14', grid: '#243324', envs: [] };
+    currentTheme = { id: 'town', bg: '#141c14', grid: '#243324', envs: [] };
     
     if(player1.hp <= 0) player1.hp = player1.maxHp; else player1.hp = Math.min(player1.maxHp, player1.hp + player1.maxHp*0.5);
     if(player2.hp <= 0) player2.hp = player2.maxHp; else player2.hp = Math.min(player2.maxHp, player2.hp + player2.maxHp*0.5);
     
     player1.isLeader = true; player2.isLeader = false; 
     
-    // 【核心修正】在進入城鎮、恢復血量後，強制更新 UI 長度，避免卡在全黑狀態
     updateHeroUI();
     document.getElementById('ui-stage').innerText = "🏡 寧靜城鎮";
     
@@ -1005,7 +1016,7 @@ window.equipFromWarehouse = function(itemId, heroIdx, slot) {
         hero.equips[slot] = wData.item; 
         wData.count--; 
         hero.recalculateStats();
-        updateHeroUI(); // 手動更新 UI 血量
+        updateHeroUI(); 
         openWarehouse(); 
         saveGame();
     }, null, true);
@@ -1079,8 +1090,33 @@ function update(dt) {
 
     if(!stageBossSpawned) {
         stageEnemyTimer -= dt;
-        if(stageEnemyTimer <= 0) { stageBossSpawned = true; spawnEnemy(true); }
-        else if(Math.random() < (0.05 + currentStageIndex*0.015) * densityScale) spawnEnemy(false);
+        if(stageEnemyTimer <= 0) { 
+            stageBossSpawned = true; 
+            spawnEnemy(true); 
+            // 【修改】Boss 出現時大幅降低背景捲動速度
+            scrollSpeed = 15; 
+            spawnParticle(width/2, height/3, 0, -10, 3.0, '⚠️ BOSS 降臨！', 28);
+        }
+        else {
+            // 【修改】平滑且低速增長的生成率，避免後期滿怪
+            let baseSpawnRate = 0.03;
+            let growth = Math.min(currentStageIndex * 0.002, 0.04); 
+            if(Math.random() < (baseSpawnRate + growth) * densityScale) spawnEnemy(false);
+            
+            // 【新增】突發事件：魔物大軍入侵
+            if(window.isMonsterInvasion) {
+                window.invasionTimer -= dt;
+                if(window.invasionTimer <= 0) {
+                    window.isMonsterInvasion = false;
+                    spawnParticle(width/2, height/3, 0, -20, 3.0, '⚠️ 魔物大量入侵！', 24);
+                    let spawnCount = 6 + Math.floor(Math.random() * 6);
+                    for(let k=0; k<spawnCount; k++) {
+                        let e = spawnEnemy(false);
+                        if(e) e.y = -50 - (Math.random() * 120); // 讓怪物稍微錯開 Y 軸
+                    }
+                }
+            }
+        }
     }
 
     for(let i = activeEnvs.length - 1; i >= 0; i--) {
@@ -1225,7 +1261,6 @@ function update(dt) {
     }
 
     if (player1 && player2) {
-        // 在戰鬥畫面中維持動態血量更新
         document.getElementById('p1-hp').style.width = `${Math.max(0, player1.hp/player1.maxHp)*100}%`;
         document.getElementById('p2-hp').style.width = `${Math.max(0, player2.hp/player2.maxHp)*100}%`;
         
