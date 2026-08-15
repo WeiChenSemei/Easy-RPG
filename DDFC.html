@@ -309,7 +309,7 @@ function loadGame() {
                     updateHeroUI(); updateBeltUI();
                     
                     document.getElementById('screen-char-select').style.display = 'none';
-                    enterTown(); 
+                    enterTown(true); // 讀取進度時不要額外增加 Stage 數量
                 }, () => {}, true);
             }
         }
@@ -434,7 +434,7 @@ const activeBullets = []; const activeEnemies = []; const activeParticles = []; 
 const bulletPool = new Pool(() => ({ active: false, x: 0, y: 0, vx: 0, vy: 0, dmg: 0, emoji: '🔥', size: 12, life: 0, isEnemy: false, pierce: false, owner: null }), 300);
 const enemyPool = new Pool(() => ({ active: false, x: 0, y: 0, vx: 0, vy: 0, hp: 10, maxHp: 10, speed: 60, emoji: '💀', size: 16, isBoss: false, isRanged: false, shootTimer: 0 }), 100);
 const particlePool = new Pool(() => ({ active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, text: '✨', size: 12 }), 400);
-const dropPool = new Pool(() => ({ active: false, x: 0, y: 0, type: 'heal', emoji: '💖', life: 15 }), 50);
+const dropPool = new Pool(() => ({ active: false, x: 0, y: 0, type: 'hp_orb', emoji: '💖', life: 15 }), 50);
 const envPool = new Pool(() => ({ active: false, x: 0, y: 0, type: 'obstacle', emoji: '🪨', size: 20 }), 50);
 
 class Hero {
@@ -623,7 +623,8 @@ function dropItem(x, y) {
     let d = dropPool.get();
     d.x = x; d.y = y; d.life = 15;
     if(Math.random() < 0.5) {
-        d.type = 'heal'; d.emoji = '💖';
+        // [Bug修正1]: 把直接回血的掉落物 ID 改成 hp_orb，避免跟腰帶裡頭的 heal (藥水) 衝突
+        d.type = 'hp_orb'; d.emoji = '💖'; 
     } else {
         let bItem = beltItems[Math.floor(Math.random()*beltItems.length)];
         d.type = bItem.id; d.emoji = bItem.emoji; 
@@ -710,14 +711,15 @@ window.useItem = function(idx) {
             b.dmg = 100; b.emoji = '🗡️'; b.size = 14; b.life = 2.0; b.pierce = true; b.isEnemy = false; activeBullets.push(b);
         }
     } else if(item.id === 'bolt') {
-        // 落雷特效：對每個敵人劈下
+        // 落雷特效：對每個敵人劈下連續落雷
         activeEnemies.forEach((e, idx) => {
             setTimeout(() => {
+                if(!e || e.hp <= 0) return;
                 for(let i=0; i<5; i++) {
                     spawnParticle(e.x + (Math.random()-0.5)*20, e.y - i*30, 0, 0, 0.5, '⚡', 35 + Math.random()*20);
                 }
                 e.hp -= 200;
-            }, Math.min(idx * 80, 500)); // 避免敵人太多動畫延遲過久
+            }, Math.min(idx * 80, 500)); 
         });
     }
 };
@@ -833,7 +835,7 @@ function spawnEnvironment() {
 function rollStatGrowth() {
     let msg = [];
     [player1, player2].forEach(p => {
-        // 機率從 35% 降低到 15%
+        // [數值調整]: 機率降低至 15%，且數值調降
         if(p && p.hp > 0 && Math.random() < 0.15) {
             let stat = Math.floor(Math.random() * 3);
             if (stat === 0) {
@@ -857,7 +859,8 @@ function rollStatGrowth() {
     }
 }
 
-function showPathChoices() {
+// [Bug修正2]: 控制離開城鎮時不要取得新裝備
+function showPathChoices(skipLoot = false) {
     currentState = GameState.PATH_SELECT;
     saveGame();
     let choicesContainer = document.getElementById('path-choices'); choicesContainer.innerHTML = '';
@@ -867,7 +870,7 @@ function showPathChoices() {
     if(stagesSinceLastTown >= 5) townChance = 1.0;
     else if(stagesSinceLastTown >= 3) townChance = 0.5;
 
-    if(Math.random() < townChance) {
+    if(!skipLoot && Math.random() < townChance) {
         randomThemes[1] = { id: 'town', name: '🏡 寧靜城鎮', boss: '🍻 休整與補給' };
     }
 
@@ -875,20 +878,43 @@ function showPathChoices() {
         let btn = document.createElement('div'); btn.className = 'path-btn';
         if(t.id === 'town') {
             btn.innerHTML = `<span style="font-size:2.2rem;">🏡</span> <div><b style="color:#32cd32;">${t.name}</b><br><small style="color:#aaa;">安全區: 招募與復活</small></div>`;
-            btn.onclick = () => { document.getElementById('screen-path-select').style.display = 'none'; enterTown(); };
+            btn.onclick = () => { 
+                document.getElementById('screen-path-select').style.display = 'none'; 
+                if (skipLoot) enterTown(); else triggerLootScreen('town'); 
+            };
         } else {
             btn.innerHTML = `<span style="font-size:2.2rem;">${t.boss.split(' ')[0]}</span> <div><b>${t.name}</b><br><small style="color:#aaa;">強敵: ${t.boss}</small></div>`;
-            btn.onclick = () => { document.getElementById('screen-path-select').style.display = 'none'; triggerLootScreen(t.id); };
+            btn.onclick = () => { 
+                document.getElementById('screen-path-select').style.display = 'none'; 
+                if (skipLoot) {
+                    // 若是從城鎮出發，直接進入關卡，跳過拿裝備
+                    let nextTheme = STAGE_THEMES.find(theme => theme.id === t.id);
+                    resetStage(nextTheme); 
+                    currentState = GameState.PLAYING; 
+                    lastTime = performance.now();
+                    saveGame();
+                } else {
+                    // 正常打贏 Boss 則先拿裝備
+                    triggerLootScreen(t.id); 
+                }
+            };
         }
         choicesContainer.appendChild(btn);
     });
     document.getElementById('screen-path-select').style.display = 'flex';
 }
 
-function enterTown() {
+// [Bug修正3 & 4]: 進入城鎮時正確增減 stage 並同步更新左上角 UI
+function enterTown(skipIncrement = false) {
     currentState = GameState.TOWN;
-    stagesSinceLastTown = 0;
+    if (!skipIncrement) {
+        stagesSinceLastTown = 0;
+        currentStageIndex++; 
+    }
     currentTheme = { bg: '#141c14', grid: '#243324', envs: [] };
+    
+    // 更新介面的顯示
+    document.getElementById('ui-stage-num').innerText = Math.max(1, currentStageIndex);
     document.getElementById('ui-stage').innerText = "🏡 寧靜城鎮";
     
     if(player1.hp <= 0) player1.hp = player1.maxHp; else player1.hp = Math.min(player1.maxHp, player1.hp + player1.maxHp*0.5);
@@ -901,7 +927,7 @@ function enterTown() {
 
 window.leaveTown = function() {
     document.getElementById('screen-town').style.display = 'none';
-    showPathChoices(); 
+    showPathChoices(true); // 傳入 true 表示跳過拿裝備的環節
 };
 
 window.openRecruit = function() {
@@ -1013,8 +1039,16 @@ window.equipLoot = function(actionType) {
     
     document.getElementById('screen-loot').style.display = 'none';
     let nextThemeId = document.getElementById('screen-loot').getAttribute('data-next');
-    let nextTheme = STAGE_THEMES.find(t => t.id === nextThemeId);
-    resetStage(nextTheme); currentState = GameState.PLAYING; lastTime = performance.now();
+    
+    // 如果下一個是要去城鎮，裝備拿完後應該直接進城鎮
+    if (nextThemeId === 'town') {
+        enterTown();
+    } else {
+        let nextTheme = STAGE_THEMES.find(t => t.id === nextThemeId);
+        resetStage(nextTheme); 
+        currentState = GameState.PLAYING; 
+        lastTime = performance.now();
+    }
     saveGame();
 };
 
@@ -1117,9 +1151,13 @@ function update(dt) {
                 if(player1.hp <= 0 && player2.hp <= 0 && !isDeadTransitioning) {
                     isDeadTransitioning = true;
                     showCustomAlert("💀 全隊陣亡！", "冒險者們倒下了...但命運不允許你們在此終結。\n你們被送回城鎮，關卡難度已下降一級。", () => {
-                        currentStageIndex = Math.max(1, currentStageIndex - 1);
+                        if (currentStageIndex > 1) {
+                            currentStageIndex -= 1;
+                        } else {
+                            currentStageIndex = 0; // 歸零，使出城鎮後 resetStage 會變回 1
+                        }
                         isDeadTransitioning = false;
-                        enterTown();
+                        enterTown(true); // 送回城鎮 (傳入true避免重新增加階段)
                     });
                 }
             }
@@ -1132,7 +1170,7 @@ function update(dt) {
         
         [player1, player2].forEach(p => {
             if(p.hp > 0 && getDist(p.x, p.y, d.x, d.y) < 35) {
-                if(d.type === 'heal') {
+                if(d.type === 'hp_orb') {
                     if (player1.hp > 0) player1.hp = Math.min(player1.maxHp, player1.hp + 40);
                     if (player2.hp > 0) player2.hp = Math.min(player2.maxHp, player2.hp + 40);
                     spawnParticle(d.x, d.y, 0, -20, 0.5, '💖', 18);
