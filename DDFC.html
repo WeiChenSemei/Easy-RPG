@@ -309,7 +309,7 @@ function loadGame() {
                     updateHeroUI(); updateBeltUI();
                     
                     document.getElementById('screen-char-select').style.display = 'none';
-                    enterTown(true); // 讀取進度時不要額外增加 Stage 數量
+                    enterTown(true); // 讀檔後安全進入城鎮
                 }, () => {}, true);
             }
         }
@@ -336,6 +336,7 @@ const GameState = { MENU: 0, PLAYING: 1, PATH_SELECT: 2, LOOT: 3, GAMEOVER: 4, I
 let currentState = GameState.MENU;
 let lastTime = performance.now(), gameTime = 0, scrollY = 0;
 let kills = 0, currentStageIndex = 0, stagesSinceLastTown = 0;
+window.justLeftTown = false; // 用來標記剛離開城鎮，下一關不升級
 
 const HERO_CLASSES = [
     { id: 0, name: '聖騎士', emoji: '🛡️', hp: 250, speed: 200, style: 'melee', atkType: 'slash', cd: 0.9, dmg: 40, desc: '血厚防高，大範圍近戰揮擊' },
@@ -623,7 +624,6 @@ function dropItem(x, y) {
     let d = dropPool.get();
     d.x = x; d.y = y; d.life = 15;
     if(Math.random() < 0.5) {
-        // [Bug修正1]: 把直接回血的掉落物 ID 改成 hp_orb，避免跟腰帶裡頭的 heal (藥水) 衝突
         d.type = 'hp_orb'; d.emoji = '💖'; 
     } else {
         let bItem = beltItems[Math.floor(Math.random()*beltItems.length)];
@@ -663,6 +663,7 @@ document.getElementById('btn-start-game').onclick = () => {
     updateHeroUI();
     document.getElementById('screen-char-select').style.display = 'none';
     currentStageIndex = 0; stagesSinceLastTown = 0; moveTarget.x = player1.x; moveTarget.y = player1.y;
+    window.justLeftTown = false;
     resetStage(STAGE_THEMES[0]);
     currentState = GameState.PLAYING; 
     saveGame();
@@ -686,7 +687,6 @@ window.useItem = function(idx) {
         spawnParticle(player1.x, player1.y, 0, -30, 0.5, '💖', 20);
     } else if(item.id === 'bomb') {
         for(let e of activeEnemies) e.hp -= 300;
-        // 華麗炸彈特效：全畫面多重爆破
         for(let i=0; i<8; i++) {
             setTimeout(() => {
                 spawnExplosion(Math.random()*width, Math.random()*height*0.8, '💥', 30);
@@ -695,7 +695,6 @@ window.useItem = function(idx) {
     } else if(item.id === 'shield') {
         if(player1.hp > 0) player1.invincibleTimer = 6.0;
         if(player2.hp > 0) player2.invincibleTimer = 6.0;
-        // 護盾特效：環繞保護圈
         [player1, player2].forEach(p => {
             if(p && p.hp > 0) {
                 for(let i=0; i<12; i++) {
@@ -711,7 +710,6 @@ window.useItem = function(idx) {
             b.dmg = 100; b.emoji = '🗡️'; b.size = 14; b.life = 2.0; b.pierce = true; b.isEnemy = false; activeBullets.push(b);
         }
     } else if(item.id === 'bolt') {
-        // 落雷特效：對每個敵人劈下連續落雷
         activeEnemies.forEach((e, idx) => {
             setTimeout(() => {
                 if(!e || e.hp <= 0) return;
@@ -788,9 +786,20 @@ window.unequipItem = function(heroIdx, slot) {
 };
 
 let stageEnemyTimer = 0, stageBossSpawned = false, stageEnvTimer = 0;
+
+// 【重寫後的關卡重置邏輯】
 function resetStage(theme) {
-    currentTheme = theme; currentStageIndex++; stagesSinceLastTown++;
-    document.getElementById('ui-stage-num').innerText = currentStageIndex;
+    currentTheme = theme; 
+    
+    // 如果剛離開城鎮，就不增加關卡等級，維持原樣！
+    if (window.justLeftTown) {
+        window.justLeftTown = false;
+    } else {
+        currentStageIndex++; 
+    }
+    
+    stagesSinceLastTown++;
+    document.getElementById('ui-stage-num').innerText = Math.max(1, currentStageIndex);
     document.getElementById('ui-stage').innerText = theme.name;
     activeBullets.forEach(b => bulletPool.release(b)); activeBullets.length = 0;
     activeEnemies.forEach(e => enemyPool.release(e)); activeEnemies.length = 0;
@@ -831,23 +840,21 @@ function spawnEnvironment() {
     activeEnvs.push(env);
 }
 
-// 屬性成長系統大幅下修
 function rollStatGrowth() {
     let msg = [];
     [player1, player2].forEach(p => {
-        // [數值調整]: 機率降低至 15%，且數值調降
         if(p && p.hp > 0 && Math.random() < 0.15) {
             let stat = Math.floor(Math.random() * 3);
             if (stat === 0) {
-                let inc = Math.floor(Math.random()*4) + 2; // +2~5生命
+                let inc = Math.floor(Math.random()*4) + 2; 
                 p.permStats.hp += inc;
                 msg.push(`${p.data.name} 最大生命+${inc}`);
             } else if (stat === 1) {
-                let inc = 1; // 固定+1攻擊
+                let inc = 1; 
                 p.permStats.dmg += inc;
                 msg.push(`${p.data.name} 攻擊力+${inc}`);
             } else {
-                let inc = 0.005; // 固定+0.5%減傷
+                let inc = 0.005; 
                 p.permStats.reduc += inc;
                 msg.push(`${p.data.name} 減傷+0.5%`);
             }
@@ -859,7 +866,6 @@ function rollStatGrowth() {
     }
 }
 
-// [Bug修正2]: 控制離開城鎮時不要取得新裝備
 function showPathChoices(skipLoot = false) {
     currentState = GameState.PATH_SELECT;
     saveGame();
@@ -887,14 +893,12 @@ function showPathChoices(skipLoot = false) {
             btn.onclick = () => { 
                 document.getElementById('screen-path-select').style.display = 'none'; 
                 if (skipLoot) {
-                    // 若是從城鎮出發，直接進入關卡，跳過拿裝備
                     let nextTheme = STAGE_THEMES.find(theme => theme.id === t.id);
                     resetStage(nextTheme); 
                     currentState = GameState.PLAYING; 
                     lastTime = performance.now();
                     saveGame();
                 } else {
-                    // 正常打贏 Boss 則先拿裝備
                     triggerLootScreen(t.id); 
                 }
             };
@@ -904,16 +908,15 @@ function showPathChoices(skipLoot = false) {
     document.getElementById('screen-path-select').style.display = 'flex';
 }
 
-// [Bug修正3 & 4]: 進入城鎮時正確增減 stage 並同步更新左上角 UI
 function enterTown(skipIncrement = false) {
     currentState = GameState.TOWN;
     if (!skipIncrement) {
         stagesSinceLastTown = 0;
-        currentStageIndex++; 
+        currentStageIndex++; // 推進一關作為城鎮的關卡數
+        window.justLeftTown = true; // 標記下次出城不要升級
     }
     currentTheme = { bg: '#141c14', grid: '#243324', envs: [] };
     
-    // 更新介面的顯示
     document.getElementById('ui-stage-num').innerText = Math.max(1, currentStageIndex);
     document.getElementById('ui-stage').innerText = "🏡 寧靜城鎮";
     
@@ -925,9 +928,11 @@ function enterTown(skipIncrement = false) {
     saveGame();
 }
 
+// 【離開城鎮時的標記設定】
 window.leaveTown = function() {
     document.getElementById('screen-town').style.display = 'none';
-    showPathChoices(true); // 傳入 true 表示跳過拿裝備的環節
+    window.justLeftTown = true; // 確保強制不升級
+    showPathChoices(true); 
 };
 
 window.openRecruit = function() {
@@ -951,7 +956,6 @@ window.openRecruit = function() {
     document.getElementById('screen-recruit').style.display = 'flex';
 };
 
-// 完整圖鑑模式的倉庫
 window.openWarehouse = function() {
     let list = document.getElementById('wh-list'); list.innerHTML = '';
     
@@ -1040,7 +1044,6 @@ window.equipLoot = function(actionType) {
     document.getElementById('screen-loot').style.display = 'none';
     let nextThemeId = document.getElementById('screen-loot').getAttribute('data-next');
     
-    // 如果下一個是要去城鎮，裝備拿完後應該直接進城鎮
     if (nextThemeId === 'town') {
         enterTown();
     } else {
@@ -1147,19 +1150,6 @@ function update(dt) {
                 reduc = Math.max(0.1, reduc); 
                 
                 p.hp -= dmg * reduc; p.invincibleTimer = 1.0;
-                
-                if(player1.hp <= 0 && player2.hp <= 0 && !isDeadTransitioning) {
-                    isDeadTransitioning = true;
-                    showCustomAlert("💀 全隊陣亡！", "冒險者們倒下了...但命運不允許你們在此終結。\n你們被送回城鎮，關卡難度已下降一級。", () => {
-                        if (currentStageIndex > 1) {
-                            currentStageIndex -= 1;
-                        } else {
-                            currentStageIndex = 0; // 歸零，使出城鎮後 resetStage 會變回 1
-                        }
-                        isDeadTransitioning = false;
-                        enterTown(true); // 送回城鎮 (傳入true避免重新增加階段)
-                    });
-                }
             }
         });
     }
@@ -1228,6 +1218,21 @@ function update(dt) {
     if (player1 && player2) {
         document.getElementById('p1-hp').style.width = `${Math.max(0, player1.hp/player1.maxHp)*100}%`;
         document.getElementById('p2-hp').style.width = `${Math.max(0, player2.hp/player2.maxHp)*100}%`;
+        
+        // 【核心修正】將全滅判定移出怪物碰撞迴圈，放置於主更新邏輯結尾，確保被陷阱、子彈擊殺也能順利觸發回城
+        if(player1.hp <= 0 && player2.hp <= 0 && !isDeadTransitioning) {
+            isDeadTransitioning = true;
+            showCustomAlert("💀 全隊陣亡！", "冒險者們倒下了...但命運不允許你們在此終結。\n你們被送回城鎮，關卡難度已下降一級。", () => {
+                if (currentStageIndex > 1) {
+                    currentStageIndex -= 1;
+                } else {
+                    currentStageIndex = 0; 
+                }
+                isDeadTransitioning = false;
+                window.justLeftTown = false; // 這次回城鎮不把剛死掉的地方標記為不升級，讓他正常進入新階段
+                enterTown(true); 
+            });
+        }
     }
 }
 
