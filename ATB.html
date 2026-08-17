@@ -313,7 +313,7 @@ const DB = {
         toxic_cloud:   { name: "劇毒霧霾", type: "damage", target: "single_aoe", power: 0.5, aoeRadius: 150, cd: 4, applyDebuff: {type: 'poison', turns: 4, name: '猛毒', color: '#00ff00'}, desc: "大範圍猛毒" },
         // Ranger
         arrow_rain:    { name: "箭雨", type: "damage", target: "single_aoe", power: 1.2, aoeRadius: 120, cd: 3, desc: "灑落箭矢" },
-        snipe:         { name: "狙擊", type: "damage", target: "single", power: 3.5, cd: 4, color: '#00FFFF',desc: "巨額傷害" },
+        snipe:         { name: "狙擊", type: "damage", target: "single", power: 3.5, cd: 4, color: '#00FFFF',ranged: true, desc: "巨額傷害" },
         trap:          { name: "陷阱包", type: "damage", target: "single_aoe", power: 1.0, aoeRadius: 80, cd: 3, applyDebuff: {type: 'bleed', turns: 3, name: '流血', color: '#ff0000'}, desc: "範圍流血" },
         piercing_shot: { name: "穿透箭", type: "damage_line", target: "damage_line", power: 1.5, lineWidth: 30, cd: 3, color: '#ffffff', desc: "無死角貫穿" },
         eagle_eye:     { name: "鷹眼", type: "buff", target: "self", cd: 4, desc: "提升爆擊率", applyBuff: {type: 'crit_up', value: 0.2, turns: 3} },
@@ -1131,7 +1131,7 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
         if (skillId === 'combo_valkyrie') allies.forEach(a => { a.state='idle'; applyDamage(a, a.maxHp, true); });
     }
     else if (skill.target === 'single') {
-        effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => {
+        const hitCallback = () => {
             let hpBefore = mainTarget.hp;
             if (skill.color) {effects.push(new ExplosionEffect(mainTarget.x, mainTarget.y, 100, skill.color));}
             applyDamage(mainTarget, dmg);
@@ -1152,9 +1152,12 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
                 }
             }            
             setTimeout(finish, 300);
-        }, true));
-    }
-    else if (skill.target === 'single_dash_aoe') {
+        };
+
+        if (skill.ranged) {effects.push(new ProjectileEffect(actor.x, actor.y - 30, mainTarget.x, mainTarget.y, skill.color || '#ffffff', hitCallback));
+        } else {effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, hitCallback, true));
+      }
+    } else if (skill.target === 'single_dash_aoe') {
         effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => {
             actor.baseX = mainTarget.x; actor.baseY = mainTarget.y;
             if (skill.hits > 1) {
