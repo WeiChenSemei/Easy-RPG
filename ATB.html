@@ -322,7 +322,7 @@ const DB = {
         iai_slash:     { name: "居合斬", type: "damage", target: "single", power: 1.8, cd: 2, desc: "極速拔刀" },
         blood_blade:   { name: "妖刀噬血", type: "damage_heal_self", target: "single", power: 2.0, cd: 3, desc: "痛擊並吸血" },
         dragon_flash:  { name: "龍閃", type: "damage_line", target: "damage_line", power: 2.0, lineWidth: 60, cd: 4, desc: "霸道直線斬" },
-        sword_dance:   { name: "劍舞", type: "damage", target: "single_dash_aoe", power: 1.2, aoeRadius: 100, cd: 3, desc: "範圍斬擊" },
+        sword_dance:   { name: "劍舞", type: "damage", target: "single_dash_aoe", power: 0.3, hits: 4, aoeRadius: 100, cd: 3, color: '#ffaa00', desc: "衝入敵陣4次範圍連斬" },
         counter_stance: { name: "招架架勢", type: "buff", target: "self", cd: 3, desc: "提升格檔率", applyBuff: {type: 'blk_up', value: 0.2, turns: 3} },
         cherry_blossom:{ name: "櫻吹雪", type: "damage", target: "self_aoe", power: 1.5, aoeRadius: 300, cd: 4, color: '#ffaaaa', applyDebuff: {type: 'bleed', turns: 2, name: '流血', color: '#ffaaaa'}, desc: "大範圍流血斬" },
 
@@ -1156,8 +1156,18 @@ function executeSkillWithTarget(actor, skillId, skill, partners, mainTarget) {
     else if (skill.target === 'single_dash_aoe') {
         effects.push(new DashEffect(actor, mainTarget.x, mainTarget.y, () => {
             actor.baseX = mainTarget.x; actor.baseY = mainTarget.y;
-            effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius || 120, skill.color || '#aaaaaa', finish));
-            enemies.forEach(e => { if (getDistance(actor, e) <= (skill.aoeRadius || 120)) applyDamage(e, dmg); });
+            if (skill.hits > 1) {
+                for (let i = 0; i < skill.hits; i++) {
+                    setTimeout(() => {
+                        let offsetX = (Math.random() - 0.5) * 80;
+                        let offsetY = (Math.random() - 0.5) * 80;
+                        effects.push(new ExplosionEffect(actor.x + offsetX, actor.y + offsetY, (skill.aoeRadius || 100) * 0.8, skill.color || '#cccccc'));
+                        enemies.forEach(e => { if (getDistance(actor, e) <= (skill.aoeRadius || 120)) applyDamage(e, dmg); });
+                    }, i * 200); // 每 200 毫秒砍一刀
+                } setTimeout(finish, skill.hits * 200 + 200); // 結束回合
+            } else { effects.push(new ExplosionEffect(actor.x, actor.y, skill.aoeRadius || 120, skill.color || '#aaaaaa', finish));
+                     enemies.forEach(e => { if (getDistance(actor, e) <= (skill.aoeRadius || 120)) applyDamage(e, dmg); });
+                   }
         }, false));
     }
     else if (skill.target === 'single_aoe') {
