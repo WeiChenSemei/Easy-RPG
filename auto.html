@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>世代傳承：全自動觀測者 RPG</title>
+    <style>
+        :root {
+            --bg-color: #0f0f16;
+            --panel-bg: rgba(30, 30, 40, 0.85);
+            --border-color: #4a4a5a;
+            --text-color: #e0e0e0;
+            --accent-color: #f39c12;
+            --hero-color: #3498db;
+            --enemy-color: #e74c3c;
+            --tile-size: min(4.5vmin, 45px);
+        }
+
+        body {
+            font-family: "微軟正黑體", sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0; padding: 0;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden; user-select: none;
+        }
+
+        #map-container {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1; transition: background-color 1s, filter 1s;
+        }
+
+        #world-map {
+            position: relative; display: grid;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            border: 2px solid #222; background: #000;
+        }
+
+        .tile {
+            width: var(--tile-size); height: var(--tile-size);
+            display: flex; justify-content: center; align-items: center;
+            font-size: calc(var(--tile-size) * 0.6);
+        }
+
+        .terrain-town { background-color: #7f8c8d; }
+        .terrain-plains { background-color: #27ae60; }
+        .terrain-forest { background-color: #1e8449; }
+        .terrain-desert { background-color: #d4ac0d; }
+        .terrain-mountain { background-color: #5d6d7e; }
+        .terrain-dungeon { background-color: #2c3e50; border: 1px solid rgba(142,68,173,0.5); box-sizing: border-box; }
+        
+        .maze-wall { background-color: #111; color: #333; }
+        .maze-floor { background-color: #333; }
+        .maze-stairs { background-color: #8e44ad; animation: pulse 2s infinite; }
+
+        @keyframes pulse { 0% { filter: brightness(1); } 50% { filter: brightness(1.5); } 100% { filter: brightness(1); } }
+
+        .entity {
+            position: absolute; width: var(--tile-size); height: var(--tile-size);
+            display: flex; justify-content: center; align-items: center;
+            font-size: calc(var(--tile-size) * 0.7);
+            left: calc(var(--x, 0) * var(--tile-size));
+            top: calc(var(--y, 0) * var(--tile-size));
+            transition: left 0.2s linear, top 0.2s linear; z-index: 10;
+        }
+        .hero-entity { text-shadow: 0 0 8px var(--hero-color); z-index: 20;}
+        .enemy-entity { text-shadow: 0 0 8px var(--enemy-color); }
+
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 50; }
+
+        #mini-hud {
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            background: var(--panel-bg); border: 1px solid var(--border-color);
+            padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; gap: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); pointer-events: auto; backdrop-filter: blur(8px);
+        }
+
+        .mini-name { font-weight: bold; color: var(--accent-color); font-size: 1.1rem; }
+        .mini-state { font-size: 0.9rem; color: #aaa; width: 100px; text-align: center;}
+        
+        .progress-bar-bg { width: 120px; background: #222; height: 12px; border-radius: 6px; overflow: hidden; border: 1px solid #000;}
+        .progress-bar-fill { height: 100%; background: #e74c3c; transition: width 0.3s; }
+        .exp-fill { background: #3498db; }
+
+        #controls { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+        .btn-group-h { display: flex; gap: 5px; }
+
+        #hud-log-container {
+            position: absolute; bottom: 20px; left: 20px; width: 320px;
+            background: rgba(0,0,0,0.6); border: 1px solid var(--border-color);
+            padding: 10px; border-radius: 8px; pointer-events: none;
+            backdrop-filter: blur(5px); z-index: 60;
+        }
+        #hud-log { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; font-size: 0.85rem; }
+        .hud-log-entry { animation: fadeIn 0.3s forwards; text-shadow: 1px 1px 2px #000; line-height: 1.4; word-wrap: break-word;}
+
+        button {
+            background-color: var(--panel-bg); color: white; border: 1px solid var(--border-color);
+            padding: 12px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;
+            transition: all 0.2s; backdrop-filter: blur(5px); box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        button:hover { background-color: #4a4a5a; transform: translateY(-2px); }
+        button.active { background-color: var(--accent-color); color: #000; border-color: #d68910; }
+        button.primary { background-color: #2980b9; border-color: #1f618d; }
+        button.primary:hover { background-color: #3498db; }
+        button.danger { background-color: #c0392b; border-color: #922b21; }
+        button.danger:hover { background-color: #e74c3c; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center;
+            z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s; backdrop-filter: blur(3px);
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content {
+            background: var(--panel-bg); border: 2px solid var(--border-color); border-radius: 12px;
+            padding: 25px; width: 90%; max-width: 480px; max-height: 85vh; display: flex; flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8); position: relative; transform: translateY(20px); transition: transform 0.3s;
+        }
+        .modal-overlay.active .modal-content { transform: translateY(0); }
+        .modal-close { position: absolute; top: 15px; right: 15px; background: none; border: none; color: #aaa; font-size: 1.5rem; cursor: pointer; padding: 0; width: 30px; height: 30px; box-shadow: none; backdrop-filter: none; }
+        .modal-close:hover { color: white; transform: scale(1.1); background: none; }
+        .modal-title { margin-top: 0; color: var(--accent-color); padding-bottom: 10px; text-align: center; font-size: 1.4rem; }
+
+        .tab-btn { background: transparent; border: 1px solid #555; color: #aaa; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+        .tab-btn.active { background: var(--accent-color); color: #000; border-color: var(--accent-color); }
+        .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.1); }
+
+        #log-content, #graveyard-content { flex: 1; overflow-y: auto; font-size: 0.95rem; line-height: 1.6; padding-right: 10px; }
+        .log-entry { margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px dashed #3a3a45; opacity: 0; animation: fadeIn 0.3s forwards; }
+        .log-time { color: #888; font-size: 0.8rem; margin-right: 5px; }
+        .log-combat { color: #ff7675; }
+        .log-event { color: #f39c12; }
+        .log-system { color: #00b894; font-weight: bold; }
+        .log-skill { color: #a29bfe; font-weight: bold; }
+        .log-quest { color: #f1c40f; font-weight: bold; }
+
+        .stat-group { margin-bottom: 12px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; border: 1px solid #333;}
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem;}
+        .stat-label { color: #aaa; }
+        .stat-value { font-weight: bold; }
+        
+        @keyframes attack-bump { 0% { transform: scale(1) translateX(0); } 50% { transform: scale(1.4) translateX(20%); } 100% { transform: scale(1) translateX(0); } }
+        @keyframes take-damage { 0% { filter: brightness(1); transform: translateX(0); } 25% { filter: brightness(3) drop-shadow(0 0 8px red); transform: translateX(-4px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-4px); } 100% { filter: brightness(1); transform: translateX(0); } }
+        @keyframes fadeOutUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-30px) scale(1.2); } }
+        @keyframes fadeIn { to { opacity: 1; } }
+        
+        .anim-attack { animation: attack-bump 0.2s ease-in-out; z-index: 30; }
+        .anim-damage { animation: take-damage 0.3s ease-in-out; }
+        
+        .floating-text {
+            position: absolute; color: #ff4757; font-weight: bold; font-size: calc(var(--tile-size) * 0.5);
+            pointer-events: none; z-index: 40; animation: fadeOutUp 1s forwards;
+            text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #777; }
+
+        @media (max-width: 768px) {
+            #mini-hud { width: 92%; top: 10px; padding: 10px; flex-wrap: wrap; justify-content: center; gap: 8px; border-radius: 15px; box-sizing: border-box; }
+            .mini-name { font-size: 1rem; }
+            .progress-bar-bg { width: 100px; }
+            
+            #controls { bottom: 10px; left: 10px; right: 10px; width: calc(100% - 20px); flex-direction: row; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+            #controls .btn-group-h { width: 100%; justify-content: space-between; gap: 8px; }
+            #controls .btn-group-h button { flex: 1; padding: 10px 5px; font-size: 0.9rem; }
+            #controls > button.primary { flex: calc(50% - 4px); padding: 10px 5px; font-size: 0.9rem; margin: 0; }
+            
+            #hud-log-container { bottom: 110px; left: 10px; width: calc(100% - 20px); max-width: none; box-sizing: border-box; }
+            #hud-log { font-size: 0.8rem; }
+            .modal-content { width: 95%; padding: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map-container"><div id="world-map"></div></div>
+
+    <div id="ui-layer">
+        <div id="mini-hud">
+            <div id="hud-env" style="font-size: 1.2rem; text-shadow: 0 0 5px #000; margin-right: 5px;">☀️</div>
+            <div class="mini-name" id="hud-name">觀測中...</div>
+            <div style="display:flex; flex-direction:column; gap:3px;">
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="hud-hp-bar" style="width: 100%;"></div></div>
+                <div class="progress-bar-bg" style="height:4px; background:#111;"><div class="progress-bar-fill exp-fill" id="hud-exp-bar" style="width: 0%;"></div></div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:center; width: 120px;">
+                <div class="mini-state" id="hud-state">載入中</div>
+                <div id="hud-quest" style="font-size: 0.75rem; color: #f1c40f; margin-top:2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; text-align: center;"></div>
+            </div>
+        </div>
+
+        <div id="hud-log-container"><div id="hud-log"></div></div>
+
+        <div id="controls">
+            <div class="btn-group-h">
+                <button id="btn-speed-1" class="active" onclick="Game.setSpeed(1)">1x</button>
+                <button id="btn-speed-3" onclick="Game.setSpeed(3)">3x</button>
+                <button id="btn-speed-10" onclick="Game.setSpeed(10)">10x</button>
+            </div>
+            <button class="primary" onclick="UI.toggleModal('stats-modal')">📋 英雄狀態</button>
+            <button class="primary" onclick="UI.toggleModal('log-modal')">📜 冒險日誌</button>
+        </div>
+    </div>
+
+    <!-- 英雄狀態 Modal -->
+    <div id="stats-modal" class="modal-overlay" onclick="UI.closeModalOnBgClick(event, 'stats-modal')">
+        <div class="modal-content">
+            <button class="modal-close" onclick="UI.toggleModal('stats-modal')">×</button>
+            <h3 class="modal-title" style="border-bottom: 2px solid #444;">英雄詳細狀態</h3>
+            
+            <div class="stat-group">
+                <div class="stat-row"><span class="stat-label">世代</span> <span class="stat-value" id="ui-gen" style="color:var(--accent-color);">第 1 代</span></div>
+                <div class="stat-row"><span class="stat-label">姓名</span> <span class="stat-value" id="ui-name">未命名</span></div>
+                <div class="stat-row"><span class="stat-label">稱號 (名聲)</span> <span class="stat-value" id="ui-title" style="color:#fde047;">平民 (0)</span></div>
+                <div class="stat-row"><span class="stat-label">職業</span> <span class="stat-value" id="ui-class">平民</span></div>
+                <div class="stat-row"><span class="stat-label">性格</span> <span class="stat-value" id="ui-trait" style="color:#fb923c;">平凡</span></div>
+                <div class="stat-row"><span class="stat-label">年齡</span> <span class="stat-value" id="ui-age">18 歲</span></div>
+                <div class="stat-row"><span class="stat-label">當前委託</span> <span class="stat-value" id="ui-quest" style="color:#f1c40f;">無</span></div>
+            </div>
+
+            <div class="stat-group">
+                <div class="stat-row"><span class="stat-label">HP</span> <span class="stat-value" id="ui-hp">100/100</span></div>
+                <div class="stat-row"><span class="stat-label">等級 (EXP)</span> <span class="stat-value" id="ui-level">Lv 1</span></div>
+                <div class="stat-row"><span class="stat-label">金幣 (G)</span> <span class="stat-value" id="ui-gold" style="color:gold;">0</span></div>
+            </div>
+
+            <div class="stat-group">
+                <div class="stat-row"><span class="stat-label">攻擊力 (STR)</span> <span class="stat-value" id="ui-atk">10</span></div>
+                <div class="stat-row"><span class="stat-label">防禦力 (DEF)</span> <span class="stat-value" id="ui-def">5</span></div>
+                <div class="stat-row"><span class="stat-label">裝備</span> <span class="stat-value" id="ui-equip" style="color:#2ecc71; text-align:right;">布衣<br>樹枝</span></div>
+                <div class="stat-row"><span class="stat-label">同伴</span> <span class="stat-value" id="ui-companion" style="color:#9b59b6;">無</span></div>
+                <div class="stat-row"><span class="stat-label">技能</span> <span class="stat-value" id="ui-skills" style="color:#a29bfe; text-align:right;">無</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 冒險日誌/英靈殿 Modal -->
+    <div id="log-modal" class="modal-overlay" onclick="UI.closeModalOnBgClick(event, 'log-modal')">
+        <div class="modal-content" style="height: 75vh;">
+            <button class="modal-close" onclick="UI.toggleModal('log-modal')">×</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #444; padding-bottom: 10px; margin-bottom: 15px; padding-right: 35px; margin-top: 5px;">
+                <div style="display:flex; gap:10px;">
+                    <button id="tab-btn-log" class="tab-btn active" onclick="UI.switchTab('log')">📜 編年史</button>
+                    <button id="tab-btn-grave" class="tab-btn" onclick="UI.switchTab('grave')">🪦 英靈殿</button>
+                </div>
+                <button class="danger" onclick="UI.toggleModal('reset-modal')" style="padding: 8px 12px; font-size:0.85rem;">🔄 重置存檔</button>
+            </div>
+            
+            <!-- 日誌區塊 -->
+            <div id="log-content" style="display: block;"></div>
+            <!-- 英靈殿區塊 -->
+            <div id="graveyard-content" style="display: none; padding: 10px;"></div>
+        </div>
+    </div>
+
+    <!-- 重置警告 Modal -->
+    <div id="reset-modal" class="modal-overlay" style="z-index: 1000;" onclick="UI.closeModalOnBgClick(event, 'reset-modal')">
+        <div class="modal-content" style="text-align:center; max-width: 320px;">
+            <h3 style="color:#e74c3c; margin-top:0;">⚠️ 警告</h3>
+            <p style="color:#ddd; line-height:1.5;">確定要清除所有的存檔與英靈紀錄，讓世界回歸虛無嗎？此操作不可逆！</p>
+            <div style="display:flex; justify-content:center; gap: 15px; margin-top: 20px;">
+                <button onclick="UI.toggleModal('reset-modal')" style="background:#555;">取消</button>
+                <button onclick="StorageManager.clearAndReset()" class="danger">確定重置</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+const Dice = {
+    roll: (sides, count = 1) => {
+        let total = 0;
+        for(let i=0; i<count; i++) total += Math.floor(Math.random() * sides) + 1;
+        return total;
+    },
+    check: (modifier, dc) => {
+        const r = Dice.roll(20);
+        return { roll: r, total: r + modifier, success: (r + modifier) >= dc, crit: r === 20, fumble: r === 1 };
+    }
+};
+
+const DATA = {
+    MapSize: 21, MazeSize: 15,
+    Titles: [
+        { name: "平民", req: 0 }, { name: "貴族", req: 50 }, { name: "男爵", req: 150 },
+        { name: "子爵", req: 300 }, { name: "伯爵", req: 500 }, { name: "侯爵", req: 800 },
+        { name: "公爵", req: 1200 }, { name: "大公", req: 1800 }, { name: "國王", req: 2600 },
+        { name: "皇帝", req: 4000 }
+    ],
+    Names: {
+        first: ["亞特", "菲歐", "萊恩", "艾爾", "卡爾", "西利", "克勞", "雷神", "伊莉", "尤娜", "賽弗", "緹雅"],
+        last:  ["斯", "娜", "德", "文", "斯頓", "亞", "特", "索爾", "莎", "露", "恩"]
+    },
+    Classes: {
+        "劍士": { hp: 20, atk: 5, def: 3, icon: '⚔️', skills: [
+            { name: '重擊', icon: '💥', desc: '造成大量傷害', exec: (h, t, lvl) => { let dmg = Math.max(1, Math.floor(h.getAtk()*(1.5 + lvl*0.15)) - t.data.def); t.takeDamage(dmg); }},
+            { name: '迴旋斬', icon: '🌪️', desc: '附加固定傷害', exec: (h, t, lvl) => { let dmg = Math.max(1, h.getAtk() - t.data.def) + 10 + lvl*5; t.takeDamage(dmg); }},
+            { name: '破甲', icon: '🗡️', desc: '無視部分防禦', exec: (h, t, lvl) => { let dmg = Math.max(1, h.getAtk() - Math.floor(t.data.def/(2 + lvl*0.2))); t.takeDamage(dmg); }}
+        ]},
+        "法師": { hp: 10, atk: 8, def: 1, icon: '🪄', skills: [
+            { name: '火球術', icon: '🔥', desc: '魔法傷害', exec: (h, t, lvl) => { let dmg = h.getAtk() + Dice.roll(10, 2) + lvl*8; t.takeDamage(dmg); }},
+            { name: '生命汲取', icon: '🦇', desc: '吸血', exec: (h, t, lvl) => { let dmg = Math.max(1, h.getAtk() - t.data.def) + lvl*3; t.takeDamage(dmg); h.hp = Math.min(h.maxHp, h.hp + dmg); }},
+            { name: '隕石術', icon: '☄️', desc: '極大魔法傷害', exec: (h, t, lvl) => { let dmg = Math.floor(h.getAtk() * (1.8 + lvl*0.2)) + Dice.roll(20); t.takeDamage(dmg); }}
+        ]},
+        "盜賊": { hp: 15, atk: 6, def: 2, icon: '🗡️', skills: [
+            { name: '毒刃', icon: '🐍', desc: '真實毒傷', exec: (h, t, lvl) => { let dmg = Math.max(1, h.getAtk() - t.data.def) + 8 + lvl*6; t.takeDamage(dmg); }},
+            { name: '偷竊', icon: '💰', desc: '攻擊並竊取', exec: (h, t, lvl) => { let dmg = Math.max(1, h.getAtk() - t.data.def); t.takeDamage(dmg); let st = Dice.roll(10) + lvl*5; h.gold += st; UI.log(`💰 順手牽羊偷到了 ${st}G!`, 'event'); }},
+            { name: '致命背刺', icon: '🔪', desc: '高倍傷害', exec: (h, t, lvl) => { let dmg = Math.max(1, Math.floor(h.getAtk()*(2 + lvl*0.2)) - t.data.def); t.takeDamage(dmg); }}
+        ]},
+        "遊俠": { hp: 16, atk: 5, def: 2, icon: '🏹', skills: [
+            { name: '二連矢', icon: '🏹', desc: '連擊', exec: (h, t, lvl) => { let d1 = Math.max(1, Math.floor(h.getAtk()*(1+lvl*0.1)) - t.data.def); let d2 = Math.max(1, Math.floor(h.getAtk()*(1+lvl*0.1)) - t.data.def); t.takeDamage(d1); setTimeout(()=>t.takeDamage(d2), 150); }},
+            { name: '弱點狙擊', icon: '🎯', desc: '無視防禦', exec: (h, t, lvl) => { let dmg = h.getAtk() + Dice.roll(6) + lvl*4; t.takeDamage(dmg); }},
+            { name: '爆裂箭', icon: '💥', desc: '爆炸傷害', exec: (h, t, lvl) => { let dmg = Math.max(1, h.getAtk() - t.data.def) + Dice.roll(15) + lvl*7; t.takeDamage(dmg); }}
+        ]},
+        "聖騎": { hp: 25, atk: 4, def: 5, icon: '🛡️', skills: [
+            { name: '聖光治癒', icon: '✨', desc: '恢復HP', exec: (h, t, lvl) => { let heal = Math.floor(h.maxHp * (0.3 + lvl*0.1)); h.hp = Math.min(h.maxHp, h.hp + heal); UI.spawnFloatingText(h.x, h.y, 'Heal'); }},
+            { name: '神聖制裁', icon: '⚡', desc: '神聖傷害', exec: (h, t, lvl) => { let dmg = Math.max(1, h.getAtk() - t.data.def) + Dice.roll(8, 2) + lvl*5; t.takeDamage(dmg); }},
+            { name: '盾擊', icon: '🛡️', desc: '防禦轉傷害', exec: (h, t, lvl) => { let dmg = Math.max(1, Math.floor(h.getDef() * (1.5 + lvl*0.2)) - t.data.def); t.takeDamage(dmg); }}
+        ]}
+    },
+    Terrains: {
+        'TOWN':     { id: 'town', symbol: '🏰', name: '城鎮', color: 'terrain-town', safe: true },
+        'PLAINS':   { id: 'plains', symbol: '', name: '微風平原', color: 'terrain-plains', encRate: 15, mazeTheme: 'plains_maze' },
+        'FOREST':   { id: 'forest', symbol: '🌲', name: '迷霧森林', color: 'terrain-forest', encRate: 25, mazeTheme: 'forest_maze' },
+        'DESERT':   { id: 'desert', symbol: '🌵', name: '無盡沙漠', color: 'terrain-desert', encRate: 35, mazeTheme: 'desert_maze' },
+        'MOUNTAIN': { id: 'mountain', symbol: '⛰️', name: '龍骨高山', color: 'terrain-mountain', encRate: 20, mazeTheme: 'mountain_maze' },
+        'DUNGEON':  { id: 'dungeon', symbol: '💀', name: '深淵之口', color: 'terrain-dungeon', encRate: 60, mazeTheme: 'abyss_maze' }
+    },
+    MazeThemes: {
+        'plains_maze': { name: '地底土窟', wall: '🪨', floor: '', bgColor: '#1a2517' },
+        'forest_maze': { name: '樹海遺跡', wall: '🌳', floor: '🌿', bgColor: '#0f2415' },
+        'desert_maze': { name: '流沙古墓', wall: '🧱', floor: '🟨', bgColor: '#2a220b' },
+        'mountain_maze': { name: '廢棄礦坑', wall: '🪨', floor: '🟫', bgColor: '#181b1e' },
+        'abyss_maze': { name: '無盡深淵', wall: '⬛', floor: '🟪', bgColor: '#0a0510' }
+    },
+    Enemies: [
+        { name: '史萊姆', icon: '💧', hp: 15, atk: 2, def: 1, exp: 5, gold: 2, zones: ['plains', 'plains_maze'] },
+        { name: '哥布林', icon: '👺', hp: 25, atk: 5, def: 2, exp: 12, gold: 5, zones: ['plains', 'forest', 'forest_maze'] },
+        { name: '狂暴野狼', icon: '🐺', hp: 35, atk: 8, def: 3, exp: 20, gold: 2, zones: ['forest', 'mountain'] },
+        { name: '木乃伊', icon: '🤕', hp: 45, atk: 10, def: 4, exp: 28, gold: 12, zones: ['desert_maze'] },
+        { name: '巨型沙蟲', icon: '🐛', hp: 50, atk: 12, def: 5, exp: 35, gold: 15, zones: ['desert', 'desert_maze'] },
+        { name: '穴居岩怪', icon: '🧌', hp: 70, atk: 15, def: 8, exp: 50, gold: 18, zones: ['mountain_maze'] },
+        { name: '獨眼食人魔', icon: '👹', hp: 80, atk: 18, def: 6, exp: 55, gold: 25, zones: ['mountain', 'abyss_maze'] },
+        { name: '骷髏騎士', icon: '💀', hp: 60, atk: 15, def: 10, exp: 45, gold: 20, zones: ['dungeon', 'abyss_maze'] },
+        { name: '深淵魔龍', icon: '🐉', hp: 250, atk: 35, def: 15, exp: 300, gold: 200, zones: ['abyss_maze'] }
+    ],
+    Equipments: [
+        { name: '鐵劍', type: 'atk', val: 5, cost: 20 }, { name: '鋼劍', type: 'atk', val: 15, cost: 100 }, { name: '勇者之劍', type: 'atk', val: 40, cost: 800 },
+        { name: '皮甲', type: 'def', val: 3, cost: 20 }, { name: '鐵甲', type: 'def', val: 10, cost: 100 }, { name: '秘銀鎧甲', type: 'def', val: 25, cost: 800 }
+    ],
+    Traits: [
+        { name: "平凡", desc: "沒有什麼特別的。" },
+        { name: "膽小鬼", desc: "血量低於 30% 時容易因恐懼而逃跑。" },
+        { name: "路痴", desc: "移動時有小機率走錯方向。" },
+        { name: "守財奴", desc: "購買裝備的意願大幅降低。" },
+        { name: "莽夫", desc: "戰鬥中容易暴擊，但也容易被暴擊。" },
+        { name: "萬人迷", desc: "在旅途中結交同伴的機率翻倍。" }
+    ],
+    EquipAffixes: [
+        { name: "破舊的 ", costMod: 0.5, valMod: 0.8 }, { name: "普通的 ", costMod: 1.0, valMod: 1.0 },
+        { name: "精良的 ", costMod: 1.5, valMod: 1.2 }, { name: "傳說的 ", costMod: 3.0, valMod: 2.0 }
+    ],
+    EnemyAffixes: [
+        { name: "虛弱的 ", hpMod: 0.7, atkMod: 0.8, defMod: 0.8, goldMod: 0.5 }, { name: "狂暴的 ", hpMod: 1.2, atkMod: 1.5, defMod: 0.8, goldMod: 1.5 },
+        { name: "堅硬的 ", hpMod: 1.5, atkMod: 0.8, defMod: 1.5, goldMod: 1.5 }, { name: "富有的 ", hpMod: 1.0, atkMod: 1.0, defMod: 1.0, goldMod: 3.0 },
+        { name: "菁英 ", hpMod: 2.0, atkMod: 1.5, defMod: 1.5, goldMod: 2.5 }
+    ],
+    Events: [
+        { desc: "在路邊發現一個神祕寶箱...", resolve: (h) => { let c=Dice.check(h.lvl,10); if(c.success){let g=Dice.roll(10,3); h.gold+=g; return `【幸運】解除陷阱，獲得 ${g}G！`;}else{let d=Dice.roll(6); h.takeDamage(d); return `【陷阱】受毒氣傷害 ${d}點。`;} }},
+        { desc: "在旅途中稍作休息...", resolve: (h) => { h.gainExp(15); return `【頓悟】獲得 15 點經驗值。`; }},
+        { desc: "遇到一名落魄的流浪武士...", resolve: (h) => { let chance = (h.trait && h.trait.name==='萬人迷')?8:4; if(Dice.roll(10) > (10-chance)) { let n=DATA.Names.first[Dice.roll(DATA.Names.first.length)-1]; h.addCompanion(n+"武士",8,3); return `【同伴】${n}武士 決定報恩，結伴同行！`;} return `【事件】給了他些旅費，他離開了。`; }},
+        { desc: "看見流星劃過天際...", resolve: (h) => { h.hp = h.maxHp; return `【奇蹟】向流星許願，傷勢完全恢復了！`; }},
+        { desc: "誤踩到地上的捕獸夾！", resolve: (h) => { h.takeDamage(10); return `【倒楣】鮮血直流，受到 10 點傷害。`; }},
+        { desc: "撿到一個鼓鼓的錢袋！", resolve: (h) => { let g=Dice.roll(20,2); h.gold+=g; return `【發財】裡面裝了 ${g} 金幣！`; }},
+        { desc: "在樹下發現奇異的蘑菇...", resolve: (h) => { if(Dice.roll(2)===1){ h.hp=Math.min(h.maxHp, h.hp+20); return `【美味】味道不錯，恢復 20 HP。`; }else{ h.takeDamage(15); return `【中毒】肚子一陣劇痛，失去 15 HP。`; } }},
+        { desc: "前方出現了空間裂縫！", resolve: (h) => { h.useTeleportScroll(); return `【異象】被強行吸入，回到了城鎮！`; }},
+        { desc: "遇到一位遊吟詩人...", resolve: (h) => { h.gainExp(20); return `【聆聽】聽他講述英雄史詩，獲得 20 EXP。`; }},
+        { desc: "發現一口散發著微光的生命之泉...", resolve: (h) => { 
+            h.hp = h.maxHp; 
+            if (h.age > 20) {
+                let reduced = Dice.roll(5) + 2; // 變年輕 3~7 歲
+                h.age = Math.max(18, h.age - reduced);
+                return `【奇蹟】飲用泉水後，傷勢痊癒，且壽命延長了！(年齡減少了 ${reduced} 歲)`;
+            }
+            return `【治癒】飲用泉水，恢復了所有 HP。`; 
+        }},
+        { desc: "探索到古老的矮人鐵砧...", resolve: (h) => { 
+            let isWeapon = Dice.roll(2) === 1;
+            let equip = isWeapon ? h.weapon : h.armor;
+            equip.lvl++;
+            let inc = Math.max(2, Math.floor(equip.val * 0.2)); // 提升至少 2 點或 20%
+            equip.val += inc;
+            return `【鍛造】矮人英靈現身為你賜福，【${equip.name}】免費強化到了 +${equip.lvl-1}！`;
+        }}
+    ]
+};
+
+const QuestManager = {
+    generate: (hero) => {
+        const types = ['HUNT', 'RESCUE', 'GATHER', 'BOSS'];
+        let type = types[Dice.roll(types.length)-1];
+        
+        let zones = Object.keys(DATA.Terrains).filter(k => k !== 'TOWN');
+        let tKey = zones[Dice.roll(zones.length)-1];
+        let terrain = DATA.Terrains[tKey];
+        
+        let q = { type: type, status: 'ACTIVE', targetZone: terrain.id, targetMaze: null, current: 0, reward: hero.lvl * 30, exp: hero.lvl * 40 };
+        
+        if(type === 'HUNT') {
+            let pool = DATA.Enemies.filter(e => e.zones.includes(terrain.id));
+            if(pool.length === 0) pool = DATA.Enemies;
+            let enemy = pool[Dice.roll(pool.length)-1];
+            q.targetId = enemy.name;
+            q.required = 3 + Dice.roll(4);
+            q.desc = `討伐 ${q.required} 隻 ${q.targetId}`;
+        } else if(type === 'RESCUE') {
+            q.targetMaze = terrain.mazeTheme;
+            let targetName;
+            do { targetName = DATA.Names.first[Dice.roll(DATA.Names.first.length)-1]; } while (hero.name.includes(targetName));
+            q.targetId = targetName;
+            q.desc = `救援 ${q.targetId}`;
+            q.reward *= 1.5;
+        } else if(type === 'GATHER') {
+            q.targetMaze = terrain.mazeTheme;
+            const items = ["翡翠寶石", "遠古卷軸", "精靈之淚", "龍骨碎片"];
+            q.targetId = items[Dice.roll(items.length)-1];
+            q.desc = `尋找 ${q.targetId}`;
+            q.reward *= 1.2;
+        } else if(type === 'BOSS') {
+            q.targetMaze = terrain.mazeTheme;
+            const pre = ["邪惡", "殘暴", "深淵", "混沌"];
+            const suf = ["領主", "統帥", "巨獸", "魔王"];
+            q.targetId = pre[Dice.roll(pre.length)-1] + suf[Dice.roll(suf.length)-1];
+            q.desc = `討伐 ${q.targetId}`;
+            q.reward *= 3; q.exp *= 2;
+        }
+        return q;
+    }
+};
+
+const UI = {
+    logContainer: null,
+    
+    init: () => {
+        UI.logContainer = document.getElementById('log-content');
+    },
+
+    toggleModal: (modalId) => {
+        const modal = document.getElementById(modalId);
+        if(!modal) return;
+        modal.classList.toggle('active');
+        if(modalId === 'log-modal' && modal.classList.contains('active')) {
+            if(UI.logContainer) UI.logContainer.scrollTop = UI.logContainer.scrollHeight;
+            if(document.getElementById('tab-btn-grave').classList.contains('active')) UI.renderGraveyard();
+        }
+    },
+    closeModalOnBgClick: (e, modalId) => { if (e.target.id === modalId) UI.toggleModal(modalId); },
+
+    switchTab: (tab) => {
+        document.getElementById('tab-btn-log').classList.remove('active');
+        document.getElementById('tab-btn-grave').classList.remove('active');
+        document.getElementById('log-content').style.display = 'none';
+        document.getElementById('graveyard-content').style.display = 'none';
+
+        if(tab === 'log') {
+            document.getElementById('tab-btn-log').classList.add('active');
+            document.getElementById('log-content').style.display = 'block';
+            if(UI.logContainer) UI.logContainer.scrollTop = UI.logContainer.scrollHeight;
+        } else {
+            document.getElementById('tab-btn-grave').classList.add('active');
+            document.getElementById('graveyard-content').style.display = 'block';
+            UI.renderGraveyard();
+        }
+    },
+
+    log: (msg, type = '') => {
+        if(!UI.logContainer) return;
+        const div = document.createElement('div');
+        div.className = `log-entry log-${type}`;
+        const now = new Date();
+        const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        div.innerHTML = `<span class="log-time">[${timeStr}]</span> ${msg}`;
+        UI.logContainer.appendChild(div);
+        
+        if(document.getElementById('log-modal').classList.contains('active') && document.getElementById('tab-btn-log').classList.contains('active')) {
+            UI.logContainer.scrollTop = UI.logContainer.scrollHeight;
+        }
+        if(UI.logContainer.children.length > 100) UI.logContainer.removeChild(UI.logContainer.firstChild);
+
+        const hudLog = document.getElementById('hud-log');
+        const hudDiv = document.createElement('div');
+        hudDiv.className = `hud-log-entry log-${type}`;
+        hudDiv.innerHTML = msg;
+        hudLog.appendChild(hudDiv);
+        if(hudLog.children.length > 3) hudLog.removeChild(hudLog.firstChild);
+    },
+
+    updateStats: (hero) => {
+        document.getElementById('hud-name').innerText = `[${hero.title}] ${hero.name}`;
+        document.getElementById('hud-hp-bar').style.width = `${Math.max(0, (hero.hp/hero.maxHp)*100)}%`;
+        let nextExp = hero.lvl * 20;
+        document.getElementById('hud-exp-bar').style.width = `${Math.min(100, (hero.exp/nextExp)*100)}%`;
+        
+        let stateText = hero.stateTrans();
+        if(hero.state === 'MAZE_EXPLORE') stateText = `迷宮 B${Game.mazeDepth}F`;
+        
+        const stateColors = { 'TOWN':'#2ecc71', 'EXPLORE':'#f1c40f', 'MAZE_EXPLORE':'#9b59b6', 'COMBAT':'#e74c3c', 'DEAD':'#7f8c8d', 'TRANSITION':'#aaa' };
+        const hudState = document.getElementById('hud-state');
+        hudState.innerText = stateText;
+        hudState.style.color = stateColors[hero.state] || '#aaa';
+
+        let questStr = "無委託";
+        if (hero.quest) {
+            questStr = hero.quest.status === 'RETURN' ? `[可回報] ${hero.quest.desc}` : hero.quest.desc;
+            if (hero.quest.type === 'HUNT' && hero.quest.status === 'ACTIVE') {
+                questStr += ` (${hero.quest.current}/${hero.quest.required})`;
+            }
+        }
+        document.getElementById('hud-quest').innerText = questStr;
+        document.getElementById('ui-quest').innerText = questStr;
+
+        document.getElementById('ui-gen').innerText = `第 ${Game.generation} 代`;
+        document.getElementById('ui-name').innerText = `${DATA.Classes[hero.job].icon} ${hero.name}`;
+        document.getElementById('ui-title').innerText = `${hero.title} (${hero.reputation})`;
+        document.getElementById('ui-class').innerText = hero.job;
+        document.getElementById('ui-trait').innerText = hero.trait ? hero.trait.name : '平凡';
+        document.getElementById('ui-trait').title = hero.trait ? hero.trait.desc : '';
+        document.getElementById('ui-age').innerText = `${Math.floor(hero.age)} 歲` + (hero.age>50?" (衰老中)":"");
+        document.getElementById('ui-hp').innerText = `${Math.floor(hero.hp)}/${hero.maxHp}`;
+        document.getElementById('ui-level').innerText = `Lv ${hero.lvl} (${hero.exp}/${nextExp})`;
+        document.getElementById('ui-gold').innerText = Math.floor(hero.gold);
+        
+        document.getElementById('ui-atk').innerText = hero.getAtk();
+        document.getElementById('ui-def').innerText = hero.getDef();
+        
+        let weaponStr = (hero.weapon.lvl > 1 ? `<span style="color:#f39c12;">+${hero.weapon.lvl-1}</span> ` : '') + hero.weapon.name;
+        let armorStr = (hero.armor.lvl > 1 ? `<span style="color:#f39c12;">+${hero.armor.lvl-1}</span> ` : '') + hero.armor.name;
+        document.getElementById('ui-equip').innerHTML = `${weaponStr}<br>${armorStr}`;
+        
+        document.getElementById('ui-companion').innerText = hero.companions && hero.companions.length>0 ? hero.companions.map(c=>c.name).join(', ') : "無";
+        
+        let skillsStr = hero.skills.map(s => `${s.icon}${s.name} <span style="color:#f39c12;">Lv.${s.lvl || 1}</span>`).join('<br>') || "無";
+        document.getElementById('ui-skills').innerHTML = skillsStr;
+    },
+
+    updateEnvInfo: () => {
+        let envIcon = '☀️';
+        if (Game.hour >= 18 || Game.hour < 6) envIcon = '🌙';
+        else if (Game.weather === 'RAIN') envIcon = '🌧️';
+        else if (Game.weather === 'FOG') envIcon = '🌫️';
+        let el = document.getElementById('hud-env');
+        if(el) el.innerText = envIcon;
+    },
+
+    spawnFloatingText: (x, y, text) => {
+        const el = document.createElement('div');
+        el.className = 'floating-text';
+        el.innerText = text;
+        el.style.left = `calc(${x} * var(--tile-size) + var(--tile-size)*0.2)`;
+        el.style.top = `calc(${y} * var(--tile-size) - var(--tile-size)*0.3)`;
+        document.getElementById('world-map').appendChild(el);
+        setTimeout(() => el.remove(), 1000);
+    },
+
+    renderGraveyard: () => {
+        const container = document.getElementById('graveyard-content');
+        if(!container) return;
+        container.innerHTML = '';
+        if(Game.graveyard.length === 0) {
+            container.innerHTML = '<div style="text-align:center; color:#888; margin-top:20px;">英靈殿空空如也，尚未有英雄隕落。</div>';
+            return;
+        }
+        const graves = [...Game.graveyard].reverse();
+        graves.forEach(g => {
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.style.padding = '10px';
+            div.style.backgroundColor = 'rgba(0,0,0,0.4)';
+            div.style.borderRadius = '8px';
+            div.style.border = '1px solid #444';
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span style="color:var(--accent-color); font-weight:bold;">第 ${g.gen} 代</span>
+                    <span style="color:#94a3b8; font-size:0.8rem;">享年 ${g.age} 歲</span>
+                </div>
+                <div style="font-size:1.1rem; margin-bottom:5px;"><b>[${g.title || '平民'}] ${g.name}</b> <span style="font-size:0.9rem; color:#94a3b8;">(${g.job} Lv.${g.lvl})</span></div>
+                <div style="color:#fca5a5; font-size:0.9rem;">死因：${g.reason}</div>
+            `;
+            container.appendChild(div);
+        });
+    }
+};
+
+const StorageManager = {
+    save: () => {
+        if(!Game.hero || Game.hero.state === 'DEAD') return;
+        try {
+            const saveData = {
+                generation: Game.generation,
+                hour: Game.hour,
+                tickCount: Game.tickCount,
+                graveyard: Game.graveyard,
+                heroData: {
+                    name: Game.hero.name, job: Game.hero.job, lvl: Game.hero.lvl, exp: Game.hero.exp,
+                    maxHp: Game.hero.maxHp, hp: Game.hero.hp, baseAtk: Game.hero.baseAtk, baseDef: Game.hero.baseDef,
+                    gold: Game.hero.gold, age: Game.hero.age, weapon: Game.hero.weapon, armor: Game.hero.armor,
+                    bonusAtk: Game.hero.bonusAtk, bonusDef: Game.hero.bonusDef, skills: Game.hero.skills,
+                    companions: Game.hero.companions, state: Game.hero.state,
+                    reputation: Game.hero.reputation, title: Game.hero.title, trait: Game.hero.trait,
+                    quest: Game.hero.quest
+                }
+            };
+            localStorage.setItem('AutoObserverRPG_Save', JSON.stringify(saveData));
+        } catch (e) {
+            console.error("Save failed", e);
+        }
+    },
+    load: () => {
+        try {
+            let data = localStorage.getItem('AutoObserverRPG_Save');
+            if(data) return JSON.parse(data);
+        } catch(e) {
+            console.error("Load failed", e);
+        }
+        return null;
+    },
+    clearAndReset: () => {
+        localStorage.removeItem('AutoObserverRPG_Save');
+        location.reload();
+    }
+};
+
+class MapRenderer {
+    static render(grid, size, bgColor = '#000') {
+        const domMap = document.getElementById('world-map');
+        domMap.innerHTML = '';
+        domMap.style.gridTemplateColumns = `repeat(${size}, var(--tile-size))`;
+        domMap.style.gridTemplateRows = `repeat(${size}, var(--tile-size))`;
+        document.getElementById('map-container').style.backgroundColor = bgColor;
+        
+        for(let y = 0; y < size; y++) {
+            for(let x = 0; x < size; x++) {
+                let cell = grid[y][x];
+                const tile = document.createElement('div');
+                tile.className = `tile ${cell.color || ''}`;
+                tile.innerText = cell.symbol;
+                domMap.appendChild(tile);
+            }
+        }
+        if(Game.hero) Game.hero.attachDOM();
+        if(Game.hero && Game.hero.currentEnemy) Game.hero.currentEnemy.attachDOM();
+    }
+
+    static findNextStep(grid, sx, sy, tx, ty) {
+        let q = [[sx, sy]];
+        let parent = {};
+        let visited = new Set([`${sx},${sy}`]);
+        let dirs = [[1,0], [-1,0], [0,1], [0,-1]];
+        
+        while(q.length > 0) {
+            let [cx, cy] = q.shift();
+            if (cx === tx && cy === ty) break;
+            dirs.sort(() => Math.random() - 0.5);
+            for(let [dx, dy] of dirs) {
+                let nx = cx+dx, ny = cy+dy;
+                if(grid[ny] && grid[ny][nx] && grid[ny][nx].passable && !visited.has(`${nx},${ny}`)) {
+                    visited.add(`${nx},${ny}`);
+                    parent[`${nx},${ny}`] = [cx, cy];
+                    q.push([nx, ny]);
+                }
+            }
+        }
+        if (!parent[`${tx},${ty}`]) return null;
+        let curr = [tx, ty];
+        while(parent[`${curr[0]},${curr[1]}`] && (parent[`${curr[0]},${curr[1]}`][0] !== sx || parent[`${curr[0]},${curr[1]}`][1] !== sy)) {
+            curr = parent[`${curr[0]},${curr[1]}`];
+        }
+        return { x: curr[0], y: curr[1] };
+    }
+}
+
+class WorldMap {
+    constructor(size) {
+        this.size = size; this.grid = []; 
+        this.townPos = { x: Math.floor(size/2), y: Math.floor(size/2) };
+        this.generate();
+    }
+    generate() {
+        for(let y = 0; y < this.size; y++) {
+            this.grid[y] = [];
+            for(let x = 0; x < this.size; x++) {
+                let terrainKey = 'PLAINS';
+                let dist = Math.abs(x - this.townPos.x) + Math.abs(y - this.townPos.y);
+                
+                if (x === this.townPos.x && y === this.townPos.y) terrainKey = 'TOWN';
+                else if (dist > 16) terrainKey = 'DUNGEON';
+                else if (dist > 11) terrainKey = Dice.roll(10) > 5 ? 'MOUNTAIN' : 'DESERT';
+                else if (dist > 5) terrainKey = Dice.roll(10) > 4 ? 'FOREST' : 'PLAINS';
+
+                this.grid[y][x] = { ...DATA.Terrains[terrainKey], passable: true };
+            }
+        }
+    }
+    render() { MapRenderer.render(this.grid, this.size, '#0f0f16'); }
+    getCell(x, y) { return this.grid[y] ? this.grid[y][x] : null; }
+    getCellsByZone(zoneId) {
+        let cells = [];
+        for(let y = 0; y < this.size; y++) {
+            for(let x = 0; x < this.size; x++) {
+                if(this.grid[y][x].id === zoneId) cells.push({x, y});
+            }
+        }
+        return cells;
+    }
+}
+
+class MazeMap {
+    constructor(size, themeKey) {
+        this.size = size; this.grid = [];
+        this.theme = DATA.MazeThemes[themeKey];
+        this.themeKey = themeKey;
+        this.startPos = { x: 1, y: 1 };
+        this.stairsPos = { x: size-2, y: size-2 };
+        this.generate();
+    }
+    generate() {
+        for(let y = 0; y < this.size; y++) {
+            this.grid[y] = [];
+            for(let x = 0; x < this.size; x++) {
+                this.grid[y][x] = { id: 'wall', symbol: this.theme.wall, color: 'maze-wall', passable: false };
+            }
+        }
+        let carve = (cx, cy) => {
+            let dirs = [[0,-2], [0,2], [-2,0], [2,0]].sort(()=>Math.random()-0.5);
+            for(let [dx, dy] of dirs) {
+                let nx = cx + dx, ny = cy + dy;
+                if(nx > 0 && nx < this.size-1 && ny > 0 && ny < this.size-1 && !this.grid[ny][nx].passable) {
+                    this.grid[cy + dy/2][cx + dx/2] = { id: 'floor', symbol: this.theme.floor, color: 'maze-floor', passable: true, encRate: 20 };
+                    this.grid[ny][nx] = { id: 'floor', symbol: this.theme.floor, color: 'maze-floor', passable: true, encRate: 20 };
+                    carve(nx, ny);
+                }
+            }
+        };
+        this.grid[1][1] = { id: 'floor', symbol: this.theme.floor, color: 'maze-floor', passable: true, encRate: 0 };
+        carve(1, 1);
+        this.grid[this.stairsPos.y][this.stairsPos.x] = { id: 'stairs', symbol: '🌀', color: 'maze-stairs', passable: true, encRate: 0 };
+    }
+    render() { MapRenderer.render(this.grid, this.size, this.theme.bgColor); }
+    getCell(x, y) { return this.grid[y] ? this.grid[y][x] : null; }
+}
+
+class Entity {
+    constructor(x, y, icon, cssClass) {
+        this.x = x; this.y = y; this.icon = icon; this.cssClass = cssClass;
+        this.dom = document.createElement('div');
+        this.dom.className = `entity ${cssClass}`;
+        this.dom.innerText = icon;
+        this.updatePosition();
+    }
+    attachDOM() {
+        let map = document.getElementById('world-map');
+        if(map && !this.dom.parentNode) map.appendChild(this.dom);
+        this.updatePosition();
+    }
+    removeDOM() { if(this.dom && this.dom.parentNode) this.dom.parentNode.removeChild(this.dom); }
+    updatePosition() {
+        this.dom.style.setProperty('--x', this.x);
+        this.dom.style.setProperty('--y', this.y);
+    }
+    animAttack() { this.dom.classList.remove('anim-attack'); void this.dom.offsetWidth; this.dom.classList.add('anim-attack'); }
+    animDamage() { this.dom.classList.remove('anim-damage'); void this.dom.offsetWidth; this.dom.classList.add('anim-damage'); }
+}
+
+class Hero extends Entity {
+    constructor(heritageGold = 0, generation = 1, loadData = null) {
+        super(Game.worldMap.townPos.x, Game.worldMap.townPos.y, '🧍', 'hero-entity');
+        
+        if (loadData) {
+            Object.assign(this, loadData);
+            this.dom.innerText = DATA.Classes[this.job].icon;
+            // Force return to town if was anywhere else to prevent visual glitch on reload
+            this.x = Game.worldMap.townPos.x;
+            this.y = Game.worldMap.townPos.y;
+            this.state = 'TOWN';
+            this.currentEnemy = null;
+            this.targetPos = null;
+        } else {
+            let rClass = Object.keys(DATA.Classes)[Dice.roll(Object.keys(DATA.Classes).length) - 1];
+            let classData = DATA.Classes[rClass];
+            
+            this.name = DATA.Names.first[Dice.roll(DATA.Names.first.length)-1] + DATA.Names.last[Dice.roll(DATA.Names.last.length)-1];
+            if(generation > 1) this.name += ` ${['二','三','四','五','六','七','八','九','十'][generation-2] || 'X'}世`;
+            
+            this.job = rClass; this.dom.innerText = classData.icon; 
+            this.trait = DATA.Traits[Dice.roll(DATA.Traits.length) - 1];
+            
+            this.lvl = 1; this.exp = 0;
+            this.maxHp = classData.hp * 5; this.hp = this.maxHp;
+            this.baseAtk = classData.atk; this.baseDef = classData.def;
+            this.gold = heritageGold; this.age = 18.0;
+            
+            this.reputation = 0; this.title = '平民';
+            
+            this.weapon = { name: '樹枝', val: 0, lvl: 1 };
+            this.armor = { name:'布衣', val: 0, lvl: 1 };
+            this.companions = []; this.bonusAtk = 0; this.bonusDef = 0;
+            
+            this.skills = []; this.state = 'TOWN'; 
+            this.targetPos = null; this.currentEnemy = null; this.worldSavePos = null;
+            
+            if (generation > 1) {
+                UI.log(`✨ 新世代降臨！${this.name} (${this.job}) 繼承了 ${this.gold} G 重新出發！`, 'system');
+            } else {
+                UI.log(`✨ 新世代降臨！${this.name} (${this.job}) 開始了旅程。`, 'system');
+            }
+        }
+        this.updatePosition();
+        UI.updateStats(this);
+    }
+
+    getAtk() { return this.baseAtk + this.weapon.val + this.bonusAtk; }
+    getDef() { return this.baseDef + this.armor.val + this.bonusDef; }
+    
+    getTitleIndex() { return DATA.Titles.findIndex(t => t.name === this.title) || 0; }
+
+    checkTitlePromotion() {
+        let currentTitleIndex = this.getTitleIndex();
+        let nextTitle = DATA.Titles[currentTitleIndex + 1];
+        while (nextTitle && this.reputation >= nextTitle.req) {
+            this.title = nextTitle.name;
+            UI.log(`👑 【加冕】${this.name} 的名聲遠播，榮獲王國冊封為【${this.title}】！`, 'system');
+            currentTitleIndex++;
+            nextTitle = DATA.Titles[currentTitleIndex + 1];
+        }
+    }
+    
+    stateTrans() {
+        const trans = { 'TOWN':'城鎮休整', 'EXPLORE':'探索世界', 'MAZE_EXPLORE':'探索迷宮', 'COMBAT':'戰鬥中', 'DEAD':'已死亡', 'TRANSITION':'轉換中' };
+        return trans[this.state] || this.state;
+    }
+
+    takeDamage(amt) {
+        amt = Math.floor(amt);
+        this.hp -= amt; this.animDamage();
+        UI.spawnFloatingText(this.x, this.y, `-${amt}`);
+        if(this.hp <= 0) { this.hp = 0; this.die("戰死沙場"); }
+    }
+
+    addCompanion(name, bAtk, bDef) {
+        this.companions.push({ name, bAtk, bDef });
+        this.bonusAtk += bAtk; this.bonusDef += bDef;
+        UI.log(`🤝 ${name} 加入了隊伍！(全體攻擊+${bAtk}, 防禦+${bDef})`, 'event');
+    }
+
+    removeCompanion() {
+        if (this.companions.length === 0) return;
+        let idx = Dice.roll(this.companions.length) - 1;
+        let leaving = this.companions.splice(idx, 1)[0];
+        this.bonusAtk -= leaving.bAtk; this.bonusDef -= leaving.bDef;
+        UI.log(`👋 ${leaving.name} 覺得這段旅程已經足夠，向 ${this.name} 道別後離開了隊伍。`, 'event');
+    }
+
+    gainExp(amt) {
+        this.exp += amt;
+        let nextLvl = this.lvl * 20;
+        if(this.exp >= nextLvl) {
+            this.exp -= nextLvl; this.lvl++;
+            this.maxHp += 12; this.baseAtk += 3; this.baseDef += 1;
+            this.hp = this.maxHp; 
+            UI.log(`🌟 ${this.name} 升到了等級 ${this.lvl}！`, 'event');
+            
+            let classSkills = DATA.Classes[this.job].skills;
+            if(Dice.roll(100) <= 35 && classSkills) {
+                let available = classSkills.filter(s => !this.skills.find(mySkill => mySkill.name === s.name));
+                if(available.length > 0) {
+                    let learned = available[Dice.roll(available.length)-1];
+                    this.skills.push({ name: learned.name, icon: learned.icon, lvl: 1 });
+                    UI.log(`💡 ${this.name} 領悟了專屬技能：【${learned.name}】！`, 'log-skill');
+                }
+            }
+        }
+    }
+
+    die(reason) {
+        this.state = 'DEAD';
+        this.dom.style.filter = 'grayscale(100%)';
+        this.dom.innerText = '🪦';
+        UI.log(`✝️ ${this.name} 的旅途結束了。原因：${reason}。享年 ${Math.floor(this.age)} 歲。`, 'system');
+        UI.log(`⚠️ 所有的裝備與技能皆隨風消逝，留下 ${Math.floor(this.gold * 0.5)} G 傳承給後代。`, 'system');
+        
+        Game.graveyard.push({
+            gen: Game.generation, name: this.name, title: this.title,
+            job: this.job, lvl: this.lvl, age: Math.floor(this.age), reason: reason
+        });
+        
+        if(document.getElementById('log-modal').classList.contains('active') && document.getElementById('tab-btn-grave').classList.contains('active')) {
+            UI.renderGraveyard();
+        }
+
+        this.companions = []; 
+        StorageManager.save();
+        UI.updateStats(this);
+        Game.scheduleRebirth(this.gold * 0.5); 
+    }
+
+    useTeleportScroll() {
+        UI.log(`📜 ${this.name} 捏碎了【傳送卷軸】，化為一道白光回到城鎮！`, 'system');
+        if (this.currentEnemy) {
+            this.currentEnemy.removeDOM();
+            this.currentEnemy = null;
+        }
+        if (Game.currentMap !== Game.worldMap) {
+            Game.mazeDepth = 0;
+            this.removeDOM(); 
+            Game.currentMap = Game.worldMap;
+            Game.worldMap.render();
+            this.attachDOM(); 
+        }
+        this.x = Game.worldMap.townPos.x;
+        this.y = Game.worldMap.townPos.y;
+        this.targetPos = null;
+        this.state = 'TOWN';
+        this.stateBackup = null;
+        this.updatePosition();
+    }
+
+    update() {
+        if(this.state === 'DEAD' || this.state === 'TRANSITION') return;
+        this.age += 0.02; 
+        if(this.age > 65 && Dice.roll(100) < (this.age - 60)) { this.die("年邁壽終正寢"); return; }
+
+        if (this.companions.length > 0 && this.state !== 'COMBAT' && Dice.roll(1000) <= 5) {
+            this.removeCompanion();
+        }
+
+        const logic = {
+            'TOWN': () => this.logicTown(),
+            'EXPLORE': () => this.logicExploreWorld(),
+            'MAZE_EXPLORE': () => this.logicExploreMaze(),
+            'COMBAT': () => this.logicCombat()
+        };
+        if(logic[this.state]) logic[this.state]();
+        
+        this.updatePosition();
+        UI.updateStats(this);
+    }
+
+    logicTown() {
+        if(this.hp < this.maxHp) {
+            this.hp = this.maxHp;
+            UI.log(`🏨 ${this.name} 在旅館休息，恢復了體力。`);
+        }
+        
+        if(this.quest && this.quest.status === 'RETURN') {
+            this.gold += this.quest.reward;
+            this.gainExp(this.quest.exp);
+            
+            let repGains = { 'HUNT': 15, 'GATHER': 20, 'RESCUE': 30, 'BOSS': 100 };
+            let repGained = repGains[this.quest.type] || 10;
+            this.reputation += repGained;
+            
+            UI.log(`💰 成功回報委託【${this.quest.desc}】！獲 ${this.quest.reward}G，名聲 +${repGained}。`, 'log-quest');
+            this.checkTitlePromotion();
+            this.quest = null;
+        }
+
+        // 城鎮鐵匠強化事件 (如果金幣足夠，15%機率強化當前裝備)
+        if (this.gold > 50 && Dice.roll(100) <= 15) {
+            let isWeapon = Dice.roll(2) === 1;
+            let equip = isWeapon ? this.weapon : this.armor;
+            if (equip.lvl < 10) {
+                this.gold -= 50;
+                equip.lvl++;
+                let inc = Math.max(1, Math.floor(equip.val * 0.15)); // 提升數值
+                equip.val += inc;
+                UI.log(`🔨 找鐵匠花費 50G，【${equip.name}】升級到了 +${equip.lvl-1}！`, 'event');
+            }
+        } else if (DATA.Equipments) {
+            // 購買新裝備
+            if (this.trait.name !== '守財奴' || Dice.roll(100) > 70) {
+                let buyGear = (type, current) => {
+                    let up = DATA.Equipments.find(e => e.type === type && e.cost <= this.gold && e.val > current.val);
+                    if(up) { 
+                        let aff = DATA.EquipAffixes[Dice.roll(DATA.EquipAffixes.length)-1];
+                        let realCost = Math.floor(up.cost * aff.costMod);
+                        let realVal = Math.floor(up.val * aff.valMod);
+                        if(this.gold >= realCost && realVal > current.val) {
+                            this.gold -= realCost; 
+                            return { name: aff.name + up.name, val: realVal, lvl: 1 }; 
+                        }
+                    }
+                    return null;
+                };
+                let newW = buyGear('atk', this.weapon);
+                if(newW) { this.weapon = newW; UI.log(`💰 購買了武器 ${this.weapon.name}`); }
+                let newA = buyGear('def', this.armor);
+                if(newA) { this.armor = newA; UI.log(`💰 購買了防具 ${this.armor.name}`); }
+            }
+        }
+
+        if(this.lvl >= 3 && Dice.roll(100) <= 5) {
+            let otherClasses = Object.keys(DATA.Classes).filter(k => k !== this.job);
+            if(otherClasses.length > 0) {
+                let newJob = otherClasses[Dice.roll(otherClasses.length) - 1];
+                this.job = newJob;
+                this.dom.innerText = DATA.Classes[newJob].icon; 
+                this.baseAtk += 2; this.baseDef += 2; 
+                UI.log(`✨ 【轉職】${this.name} 捨棄過去，轉職成為了【${newJob}】！`, 'system');
+                UI.updateStats(this);
+            }
+        }
+
+        let titleIdx = this.getTitleIndex();
+        let questChance = 50 + (titleIdx * 5); 
+
+        if(!this.quest && Dice.roll(100) <= questChance) {
+            this.quest = QuestManager.generate(this);
+            UI.log(`📜 在佈告欄接取了新委託：【${this.quest.desc}】`, 'log-quest');
+        } else if (!this.quest && titleIdx >= 3 && Dice.roll(100) <= 20) {
+            UI.log(`😤 作為一名崇高的${this.title}，正積極尋找目標維持榮耀...`);
+        }
+
+        if(this.quest && this.quest.status === 'ACTIVE') {
+            let cells = Game.worldMap.getCellsByZone(this.quest.targetZone);
+            if(cells.length > 0) {
+                let targetTile = cells[Math.floor(Math.random()*cells.length)];
+                this.targetPos = { x: targetTile.x, y: targetTile.y };
+                UI.log(`🚶 ${this.name} 為了執行委託，前往 ${this.quest.desc.split(' ')[1]}。`);
+            }
+        } else {
+            this.targetPos = { x: Dice.roll(Game.worldMap.size)-1, y: Dice.roll(Game.worldMap.size)-1 };
+            UI.log(`🚶 ${this.name} 漫無目的地前往外界探索。`);
+        }
+        this.state = 'EXPLORE';
+    }
+
+    logicExploreWorld() {
+        if(this.targetPos) {
+            let dx = Math.sign(this.targetPos.x - this.x);
+            let dy = Math.sign(this.targetPos.y - this.y);
+            if(this.trait.name === '路痴' && Dice.roll(100) <= 15) { dx = Dice.roll(3) - 2; dy = Dice.roll(3) - 2; }
+
+            if(dx !== 0 && dy !== 0) { if(Dice.roll(2)===1) this.x += dx; else this.y += dy; }
+            else { this.x += dx; this.y += dy; }
+
+            if(this.x === Game.worldMap.townPos.x && this.y === Game.worldMap.townPos.y) {
+                this.state = 'TOWN'; this.targetPos = null; UI.log(`🏡 回到了城鎮。`); return;
+            }
+            if(this.x === this.targetPos.x && this.y === this.targetPos.y) {
+                if(this.quest && this.quest.status === 'ACTIVE' && this.quest.targetZone) {
+                    let cell = Game.worldMap.getCell(this.x, this.y);
+                    if(cell && cell.id === this.quest.targetZone) {
+                        let cells = Game.worldMap.getCellsByZone(this.quest.targetZone);
+                        if(cells.length > 0) {
+                            let nextTile = cells[Math.floor(Math.random()*cells.length)];
+                            this.targetPos = { x: nextTile.x, y: nextTile.y };
+                            return; 
+                        }
+                    }
+                }
+                this.targetPos = Game.worldMap.townPos; 
+            }
+        }
+
+        let cell = Game.worldMap.getCell(this.x, this.y);
+        if(!cell || cell.safe) return;
+
+        if(Dice.roll(100) <= cell.encRate) {
+            let envEnemy = DATA.Enemies.filter(e => e.zones.includes(cell.id));
+            if(envEnemy.length > 0) { this.triggerCombat(envEnemy); return; }
+        }
+        
+        let isMazeQuest = this.quest && this.quest.status === 'ACTIVE' && this.quest.targetMaze;
+        if (isMazeQuest) {
+            if (this.quest.targetZone === cell.id && Dice.roll(100) <= 25) {
+                UI.log(`🕳️ 找到了目標！進入了 ${DATA.MazeThemes[cell.mazeTheme].name}。`, 'event');
+                this.worldSavePos = { x: this.x, y: this.y, target: this.targetPos };
+                Game.enterMaze(cell.mazeTheme);
+                return;
+            }
+        } else {
+            if(Dice.roll(100) <= 3) {
+                UI.log(`🕳️ 發現神祕入口... 決定深入探索！`, 'event');
+                this.worldSavePos = { x: this.x, y: this.y, target: this.targetPos };
+                Game.enterMaze(cell.mazeTheme);
+                return;
+            }
+        }
+
+        if(Dice.roll(100) <= 5) {
+            let ev = DATA.Events[Dice.roll(DATA.Events.length) - 1];
+            UI.log(`🎲 ${ev.desc}`);
+            let resultText = ev.resolve(this);
+            UI.log(`👉 ${resultText}`, 'event');
+        }
+    }
+
+    logicExploreMaze() {
+        let maze = Game.currentMap;
+        if (maze === Game.worldMap) return; // 安全檢查
+        
+        let isMazeQuest = this.quest && this.quest.status === 'ACTIVE' && this.quest.targetMaze;
+        if (isMazeQuest && this.quest.targetMaze !== maze.themeKey) {
+            UI.log(`🏃 發現不是任務目標，決定使用傳送卷軸離開。`, 'event');
+            this.useTeleportScroll();
+            return;
+        }
+
+        if(Game.mazeDepth >= 3 && this.quest && this.quest.type === 'BOSS' && this.quest.status === 'ACTIVE' && this.quest.targetMaze === maze.themeKey) {
+            if(Dice.roll(100) <= 20) { 
+                let bossData = { name: this.quest.targetId, icon: '👑', hp: 150 + this.lvl*40, atk: 12 + this.lvl*4, def: 8 + this.lvl*2, exp: this.quest.exp, gold: this.quest.reward, zones: [] };
+                this.currentEnemy = new Enemy(this.x, this.y, bossData);
+                this.currentEnemy.attachDOM();
+                this.stateBackup = this.state; this.state = 'COMBAT';
+                UI.log(`🚨 遭遇了任務目標：【${this.quest.targetId}】！`, 'log-quest');
+                return;
+            }
+        }
+
+        if(this.quest && this.quest.status === 'ACTIVE' && (this.quest.type === 'GATHER' || this.quest.type === 'RESCUE')) {
+            if(this.quest.targetMaze === maze.themeKey && Dice.roll(100) <= 10) {
+                this.quest.status = 'RETURN';
+                let act = this.quest.type === 'RESCUE' ? '救出了' : '找到了';
+                if (this.quest.type === 'RESCUE') this.addCompanion(this.quest.targetId, 3, 2);
+                UI.log(`🎯 任務達成！成功${act}【${this.quest.targetId}】，英雄使用傳送卷軸回城。`, 'log-quest');
+                this.useTeleportScroll();
+                return;
+            }
+        }
+
+        if(maze.stairsPos && this.x === maze.stairsPos.x && this.y === maze.stairsPos.y) {
+            if(this.hp <= this.maxHp * 0.4 || (!isMazeQuest && Game.mazeDepth >= 3)) {
+                UI.log(`🏃 決定使用傳送卷軸返回城鎮。`, 'event');
+                this.useTeleportScroll();
+                return;
+            }
+            UI.log(`🌀 繼續深入 B${Game.mazeDepth + 1}F。`, 'event');
+            Game.enterMaze(maze.themeKey, Game.mazeDepth + 1);
+            return;
+        }
+
+        let next = MapRenderer.findNextStep(maze.grid, this.x, this.y, maze.stairsPos.x, maze.stairsPos.y);
+        if(next) {
+            this.x = next.x; this.y = next.y;
+        } else {
+            let dx = Dice.roll(3) - 2; let dy = Dice.roll(3) - 2;
+            let nx = this.x + dx; let ny = this.y + dy;
+            if(nx > 0 && nx < maze.size - 1) this.x = nx;
+            if(ny > 0 && ny < maze.size - 1) this.y = ny;
+        }
+
+        let cell = maze.getCell(this.x, this.y);
+        if(cell && cell.encRate > 0 && Dice.roll(100) <= cell.encRate) {
+            let envEnemy = DATA.Enemies.filter(e => e.zones.includes(maze.themeKey));
+            if(envEnemy.length > 0) { this.triggerCombat(envEnemy); return; }
+        }
+
+        if(Dice.roll(100) <= 3) {
+            let ev = DATA.Events[Dice.roll(DATA.Events.length) - 1];
+            UI.log(`🎲 ${ev.desc}`);
+            UI.log(`👉 ${ev.resolve(this)}`, 'event');
+        }
+    }
+
+    triggerCombat(enemyPool) {
+        let eData = enemyPool[Dice.roll(enemyPool.length) - 1];
+        this.currentEnemy = new Enemy(this.x, this.y, eData);
+        this.currentEnemy.attachDOM();
+        this.stateBackup = this.state; 
+        this.state = 'COMBAT';
+        UI.log(`⚔️ 遭遇了 ${eData.name}！`, 'combat');
+    }
+
+    logicCombat() {
+        if(!this.currentEnemy) { this.state = this.stateBackup || 'EXPLORE'; return; }
+        let enemy = this.currentEnemy;
+
+        if (this.trait.name === '膽小鬼' && this.hp <= this.maxHp * 0.3 && Dice.roll(100) <= 50) {
+            UI.log(`🏃 太可怕了！${this.name} 嚇得捏碎傳送卷軸逃走！`, 'event');
+            this.useTeleportScroll();
+            return;
+        }
+
+        this.animAttack();
+        
+        let skillUsed = false;
+        let sk = null;
+        if(this.skills.length > 0 && Dice.roll(100) <= 25) {
+            sk = this.skills[Dice.roll(this.skills.length)-1];
+            // 從 Classes 中取得執行函數
+            let classSkillDef = DATA.Classes[this.job].skills.find(s => s.name === sk.name);
+            if(classSkillDef) {
+                UI.spawnFloatingText(this.x, this.y, sk.icon);
+                UI.log(`${this.name} 施放了【${sk.name}】！`, 'log-skill');
+                classSkillDef.exec(this, enemy, sk.lvl);
+                skillUsed = true;
+            }
+        }
+
+        if(!skillUsed) {
+            let critReq = this.trait.name === '莽夫' ? 18 : 20;
+            let roll = Dice.roll(20);
+            let isCrit = roll >= critReq;
+            let hitCheck = { success: (roll + this.getAtk()) >= (enemy.data.def + 10), crit: isCrit };
+
+            if(hitCheck.success) {
+                let dmg = Math.max(1, Math.floor(this.getAtk()/2) + Dice.roll(6) + (hitCheck.crit ? 10 : 0) - enemy.data.def);
+                enemy.takeDamage(dmg);
+                if(hitCheck.crit) UI.log(`💥 暴擊！造成 ${dmg} 點傷害。`, 'combat');
+            } else {
+                UI.spawnFloatingText(enemy.x, enemy.y, "Miss");
+            }
+        } else {
+            // 技能升級機率
+            if(Dice.roll(100) <= Math.max(5, 30 - sk.lvl * 5)) {
+                sk.lvl++;
+                UI.log(`✨ 【熟練】對【${sk.name}】的領悟加深，提升至 Lv.${sk.lvl}！`, 'log-skill');
+            }
+        }
+
+        if(enemy.hp <= 0) {
+            UI.log(`🏆 擊敗 ${enemy.data.name}！獲 ${enemy.data.exp} EXP, ${enemy.data.gold} G。`, 'combat');
+            this.gainExp(enemy.data.exp);
+            this.gold += enemy.data.gold;
+            
+            let teleported = false;
+            if(this.quest && this.quest.status === 'ACTIVE') {
+                if((this.quest.type === 'HUNT' || this.quest.type === 'BOSS') && enemy.data.name === this.quest.targetId) {
+                    this.quest.current++;
+                    let req = this.quest.required || 1;
+                    if(this.quest.current >= req) {
+                        this.quest.status = 'RETURN';
+                        UI.log(`🎯 任務達成！使用傳送卷軸返回城鎮回報。`, 'log-quest');
+                        teleported = true;
+                    } else {
+                        UI.log(`🎯 任務進度更新：${this.quest.current}/${req}`, 'log-quest');
+                    }
+                }
+            }
+
+            enemy.removeDOM();
+            this.currentEnemy = null;
+            
+            if (teleported) this.useTeleportScroll();
+            else this.state = this.stateBackup; 
+            return;
+        }
+
+        setTimeout(() => { 
+            if(this.state !== 'COMBAT' || !this.currentEnemy) return;
+            enemy.animAttack();
+            let r = Dice.roll(20);
+            let eIsCrit = (this.trait.name === '莽夫' ? r >= 18 : r === 20); 
+            let eHit = { success: (r + enemy.data.atk) >= (this.getDef() + 10), crit: eIsCrit };
+            
+            if(eHit.success) {
+                let edmg = Math.max(1, Math.floor(enemy.data.atk/2) + Dice.roll(4) + (eHit.crit?5:0) - this.getDef());
+                this.takeDamage(edmg);
+            } else {
+                UI.spawnFloatingText(this.x, this.y, "Miss");
+            }
+        }, 150); 
+    }
+}
+
+class Enemy extends Entity {
+    constructor(x, y, data) {
+        super(x, y, data.icon, 'enemy-entity');
+        this.data = JSON.parse(JSON.stringify(data)); 
+        if(Dice.roll(100) > 60) {
+            let aff = DATA.EnemyAffixes[Dice.roll(DATA.EnemyAffixes.length)-1];
+            this.data.name = aff.name + this.data.name;
+            this.data.atk = Math.floor(this.data.atk * aff.atkMod);
+            this.data.def = Math.floor(this.data.def * aff.defMod);
+            this.data.hp = Math.floor(this.data.hp * aff.hpMod);
+            this.data.gold = Math.floor(this.data.gold * aff.goldMod);
+        }
+        if(Game.hour >= 18 || Game.hour < 6) {
+            this.data.atk = Math.floor(this.data.atk * 1.3);
+            this.data.hp = Math.floor(this.data.hp * 1.3);
+        }
+        this.hp = this.data.hp;
+        
+        let offsetX = (Math.random() > 0.5 ? 0.3 : -0.3);
+        let offsetY = (Math.random() > 0.5 ? 0.3 : -0.3);
+        this.dom.style.transform = `translate(calc(${offsetX} * var(--tile-size)), calc(${offsetY} * var(--tile-size)))`;
+    }
+    takeDamage(amt) {
+        amt = Math.floor(amt);
+        this.hp -= amt; this.animDamage();
+        UI.spawnFloatingText(this.x, this.y, `-${amt}`);
+    }
+}
+
+const Game = {
+    worldMap: null, currentMap: null, mazeDepth: 0,
+    hero: null, generation: 1, graveyard: [],
+    tickRate: 800, intervalId: null,
+    hour: 8, tickCount: 0, weather: 'SUNNY',
+    
+    init: () => {
+        UI.init();
+        Game.worldMap = new WorldMap(DATA.MapSize);
+        Game.currentMap = Game.worldMap;
+        
+        let savedData = StorageManager.load();
+        if(savedData) {
+            Game.generation = savedData.generation || 1;
+            Game.hour = savedData.hour || 8;
+            Game.tickCount = savedData.tickCount || 0;
+            Game.graveyard = savedData.graveyard || [];
+            
+            Game.worldMap.render();
+            if(savedData.heroData) {
+                Game.hero = new Hero(0, Game.generation, savedData.heroData);
+            } else {
+                Game.hero = new Hero();
+            }
+        } else {
+            Game.worldMap.render();
+            Game.hero = new Hero();
+        }
+        Game.hero.attachDOM();
+        Game.startLoop();
+    },
+
+    enterMaze: (themeKey, depth = 1) => {
+        Game.hero.state = 'TRANSITION'; 
+        Game.mazeDepth = depth;
+        Game.hero.removeDOM();
+        if(Game.hero.currentEnemy) Game.hero.currentEnemy.removeDOM();
+        
+        Game.currentMap = new MazeMap(DATA.MazeSize, themeKey);
+        document.getElementById('map-container').style.backgroundColor = Game.currentMap.theme.bgColor;
+        
+        setTimeout(() => {
+            Game.currentMap.render(); 
+            Game.hero.x = 1; Game.hero.y = 1; 
+            Game.hero.state = 'MAZE_EXPLORE';
+            Game.hero.attachDOM();
+        }, 300);
+    },
+
+    updateTime: () => {
+        Game.tickCount++;
+        if(Game.tickCount % 8 === 0) { 
+            Game.hour = (Game.hour + 1) % 24;
+            if(Game.hour === 6 || Game.hour === 18) {
+                let weathers = ['SUNNY', 'SUNNY', 'SUNNY', 'RAIN', 'FOG'];
+                Game.weather = weathers[Dice.roll(weathers.length)-1];
+            }
+            Game.updateMapVisuals();
+            UI.updateEnvInfo();
+        }
+    },
+
+    updateMapVisuals: () => {
+        let filter = '';
+        let isNight = Game.hour >= 18 || Game.hour < 6;
+        if (isNight) filter += 'brightness(0.55) sepia(0.2) hue-rotate(190deg) ';
+        if (Game.weather === 'RAIN') filter += 'contrast(0.9) blur(0.5px) ';
+        else if (Game.weather === 'FOG') filter += 'blur(1.5px) grayscale(0.3) ';
+        document.getElementById('map-container').style.filter = filter;
+    },
+
+    startLoop: () => {
+        if(Game.intervalId) clearInterval(Game.intervalId);
+        Game.intervalId = setInterval(() => { 
+            if(Game.hero) Game.hero.update(); 
+            Game.updateTime();
+            if(Game.tickCount % 20 === 0) StorageManager.save(); 
+        }, Game.tickRate);
+    },
+
+    setSpeed: (multiplier) => {
+        document.querySelectorAll('.btn-group-h button').forEach(b => b.classList.remove('active'));
+        document.getElementById(`btn-speed-${multiplier}`).classList.add('active');
+        Game.tickRate = 800 / multiplier;
+        Game.startLoop();
+    },
+
+    scheduleRebirth: (inheritGold) => {
+        setTimeout(() => {
+            Game.hero.removeDOM(); 
+            if(Game.hero.currentEnemy) Game.hero.currentEnemy.removeDOM(); 
+            
+            if(Game.currentMap !== Game.worldMap) {
+                Game.currentMap = Game.worldMap;
+                Game.worldMap.render();
+            }
+            Game.generation++;
+            Game.hero = new Hero(Math.floor(inheritGold), Game.generation);
+            Game.hero.attachDOM();
+            StorageManager.save();
+        }, 3000); 
+    }
+};
+
+window.onload = Game.init;
+</script>
+</body>
+</html>
