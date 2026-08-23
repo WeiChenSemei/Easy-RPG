@@ -145,7 +145,19 @@
         @keyframes take-damage { 0% { filter: brightness(1); transform: translateX(0); } 25% { filter: brightness(3) drop-shadow(0 0 8px red); transform: translateX(-4px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-4px); } 100% { filter: brightness(1); transform: translateX(0); } }
         @keyframes fadeOutUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-30px) scale(1.2); } }
         @keyframes fadeIn { to { opacity: 1; } }
+        @keyframes rainbowText { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         
+        .legendary-text {
+            background: linear-gradient(90deg, #ff4d4d, #f9cb28, #4ade80, #3b82f6, #a855f7, #ff4d4d);
+            background-size: 200% auto;
+            color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: rainbowText 3s linear infinite;
+            font-weight: 900;
+            text-shadow: 0 0 8px rgba(255,255,255,0.4);
+        }
+
         .anim-attack { animation: attack-bump 0.2s ease-in-out; z-index: 30; }
         .anim-damage { animation: take-damage 0.3s ease-in-out; }
         
@@ -249,14 +261,17 @@
                 <div style="display:flex; gap:10px;">
                     <button id="tab-btn-log" class="tab-btn active" onclick="UI.switchTab('log')">📜 編年史</button>
                     <button id="tab-btn-grave" class="tab-btn" onclick="UI.switchTab('grave')">🪦 英靈殿</button>
+                    <button id="tab-btn-vault" class="tab-btn" onclick="UI.switchTab('vault')">💎 藏寶庫</button>
                 </div>
-                <button class="danger" onclick="UI.toggleModal('reset-modal')" style="padding: 8px 12px; font-size:0.85rem;">🔄 重置存檔</button>
+                <button class="danger" onclick="UI.toggleModal('reset-modal')" style="padding: 8px 12px; font-size:0.85rem;">🔄 重置</button>
             </div>
             
             <!-- 日誌區塊 -->
             <div id="log-content" style="display: block;"></div>
             <!-- 英靈殿區塊 -->
             <div id="graveyard-content" style="display: none; padding: 10px;"></div>
+            <!-- 藏寶庫區塊 -->
+            <div id="vault-content" style="display: none; padding: 10px; overflow-y: auto; height: 100%;"></div>
         </div>
     </div>
 
@@ -380,7 +395,7 @@ const DATA = {
         { desc: "撿到一個鼓鼓的錢袋！", resolve: (h) => { let g=Dice.roll(20,2); h.gold+=g; return `【發財】裡面裝了 ${g} 金幣！`; }},
         { desc: "在樹下發現奇異的蘑菇...", resolve: (h) => { if(Dice.roll(2)===1){ h.hp=Math.min(h.maxHp, h.hp+20); return `【美味】味道不錯，恢復 20 HP。`; }else{ h.takeDamage(15); return `【中毒】肚子一陣劇痛，失去 15 HP。`; } }},
         { desc: "前方出現了空間裂縫！", resolve: (h) => { h.useTeleportScroll(); return `【異象】被強行吸入，回到了城鎮！`; }},
-        { desc: "遇到一位遊吟詩人...", resolve: (h) => { h.gainExp(20); return `【聆聽】聽他講述英雄史詩，獲得 20 EXP。`; }},
+        { desc: "遇到一位吟遊詩人...", resolve: (h) => { h.gainExp(20); return `【聆聽】聽他講述英雄史詩，獲得 20 EXP。`; }},
         { desc: "發現一口散發著微光的生命之泉...", resolve: (h) => { 
             h.hp = h.maxHp; 
             if (h.age > 20) {let reduced = Dice.roll(5) + 2; // 變年輕 3~7 歲
@@ -404,16 +419,19 @@ const DATA = {
                 return `【力有未逮】不敵強盜，受傷損失 10 HP，但保住了商隊。`;
             }
         }},
-        { desc: "協助村莊修繕損壞的橋樑...", resolve: (h) => {h.reputation += 3; h.gainExp(15); h.checkTitlePromotion();
+        { desc: "修繕損壞的通道...", resolve: (h) => {h.reputation += 3; h.gainExp(15); h.checkTitlePromotion();
             return `【熱心公益】村民非常感激，獲得 15 EXP，名聲 +3。`;
         }},
-        { desc: "在酒館平息了一場危險的鬥毆。", resolve: (h) => {h.reputation += 2; h.checkTitlePromotion();
+        { desc: "平息了一場危險的鬥毆。", resolve: (h) => {h.reputation += 2; h.checkTitlePromotion();
             return `【調停者】大家對你刮目相看，名聲 +2。`;
         }},
         { desc: "遇到受傷的旅行者...", resolve: (h) => {h.reputation += 3; h.checkTitlePromotion();
             return `【善舉】給予了急救與乾糧，旅行者連聲道謝，名聲 +3。`;
         }}
-    ]
+    ],
+    LegendaryPrefixes: ["鳳凰", "麒麟", "聖王", "青龍", "朱雀", "白虎", "玄武"],
+    LegendaryWeaponSuffixes: ["大刀", "神弓", "大劍", "神槍", "雙刀", "重斧", "神杖", "魔杖", "棍"],
+    LegendaryArmorSuffixes: ["鎧甲", "法袍", "神盾", "披風", "斗篷"]
 };
 
 const QuestManager = {
@@ -473,6 +491,7 @@ const UI = {
         if(modalId === 'log-modal' && modal.classList.contains('active')) {
             if(UI.logContainer) UI.logContainer.scrollTop = UI.logContainer.scrollHeight;
             if(document.getElementById('tab-btn-grave').classList.contains('active')) UI.renderGraveyard();
+            if(document.getElementById('tab-btn-vault').classList.contains('active')) UI.renderVault();
         }
     },
     closeModalOnBgClick: (e, modalId) => { if (e.target.id === modalId) UI.toggleModal(modalId); },
@@ -480,17 +499,23 @@ const UI = {
     switchTab: (tab) => {
         document.getElementById('tab-btn-log').classList.remove('active');
         document.getElementById('tab-btn-grave').classList.remove('active');
+        document.getElementById('tab-btn-vault').classList.remove('active');
         document.getElementById('log-content').style.display = 'none';
         document.getElementById('graveyard-content').style.display = 'none';
+        document.getElementById('vault-content').style.display = 'none';
 
         if(tab === 'log') {
             document.getElementById('tab-btn-log').classList.add('active');
             document.getElementById('log-content').style.display = 'block';
             if(UI.logContainer) UI.logContainer.scrollTop = UI.logContainer.scrollHeight;
-        } else {
+        } else if(tab === 'grave') {
             document.getElementById('tab-btn-grave').classList.add('active');
             document.getElementById('graveyard-content').style.display = 'block';
             UI.renderGraveyard();
+        } else {
+            document.getElementById('tab-btn-vault').classList.add('active');
+            document.getElementById('vault-content').style.display = 'block';
+            UI.renderVault();
         }
     },
 
@@ -554,9 +579,13 @@ const UI = {
         document.getElementById('ui-atk').innerText = hero.getAtk();
         document.getElementById('ui-def').innerText = hero.getDef();
         
-        let weaponStr = (hero.weapon.lvl > 1 ? `<span style="color:#f39c12;">+${hero.weapon.lvl-1}</span> ` : '') + hero.weapon.name;
-        let armorStr = (hero.armor.lvl > 1 ? `<span style="color:#f39c12;">+${hero.armor.lvl-1}</span> ` : '') + hero.armor.name;
-        document.getElementById('ui-equip').innerHTML = `${weaponStr}<br>${armorStr}`;
+        let formatEquip = (eq) => {
+            let lvlStr = eq.lvl > 1 ? `<span style="color:#f39c12;">+${eq.lvl-1}</span> ` : '';
+            let nameStr = eq.isLegendary ? `<span class="legendary-text">${eq.name}</span>` : eq.name;
+            return lvlStr + nameStr;
+        };
+
+        document.getElementById('ui-equip').innerHTML = `${formatEquip(hero.weapon)}<br>${formatEquip(hero.armor)}`;
         
         document.getElementById('ui-companion').innerText = hero.companions && hero.companions.length>0 ? hero.companions.map(c=>c.name).join(', ') : "無";
         
@@ -609,6 +638,39 @@ const UI = {
             `;
             container.appendChild(div);
         });
+    },
+
+    renderVault: () => {
+        const container = document.getElementById('vault-content');
+        if(!container) return;
+        container.innerHTML = '';
+        if(!Game.vault || Game.vault.length === 0) {
+            container.innerHTML = '<div style="text-align:center; color:#888; margin-top:20px;">藏寶庫空空如也，尚無傳說裝備出土。</div>';
+            return;
+        }
+        const items = [...Game.vault].reverse();
+        items.forEach(v => {
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.style.padding = '10px';
+            div.style.backgroundColor = 'rgba(20, 15, 0, 0.6)';
+            div.style.borderRadius = '8px';
+            div.style.border = '1px solid #d4af37';
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items: center;">
+                    <span class="legendary-text" style="font-size:1.15rem;">${v.itemName} ${v.lvl > 1 ? `(+${v.lvl-1})` : ''}</span>
+                    <span style="color:#fcd34d; font-size:0.85rem;">${v.type === 'weapon' ? '⚔️ 武器' : '🛡️ 防具'}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:0.9rem; color:#aaa;">
+                    <span>原持有者：[${v.heroTitle}] ${v.heroName}</span>
+                    <span>第 ${v.gen} 代</span>
+                </div>
+                <div style="font-size:0.85rem; color:#888; margin-top: 4px;">
+                    數值加成：+${v.val}
+                </div>
+            `;
+            container.appendChild(div);
+        });
     }
 };
 
@@ -621,6 +683,7 @@ const StorageManager = {
                 hour: Game.hour,
                 tickCount: Game.tickCount,
                 graveyard: Game.graveyard,
+                vault: Game.vault,
                 heroData: {
                     name: Game.hero.name, job: Game.hero.job, lvl: Game.hero.lvl, exp: Game.hero.exp,
                     maxHp: Game.hero.maxHp, hp: Game.hero.hp, baseAtk: Game.hero.baseAtk, baseDef: Game.hero.baseDef,
@@ -914,8 +977,24 @@ class Hero extends Entity {
             job: this.job, lvl: this.lvl, age: Math.floor(this.age), reason: reason
         });
         
+        // 檢查並登錄傳說裝備到藏寶庫
+        let stashLegendary = (eq, type) => {
+            if (eq && eq.isLegendary) {
+                Game.vault.push({
+                    itemName: eq.name, lvl: eq.lvl, val: eq.val, type: type,
+                    heroName: this.name, heroTitle: this.title, gen: Game.generation
+                });
+                UI.log(`💎 傳說${type === 'weapon' ? '武器' : '防具'}【${eq.name}】被後世珍藏於藏寶庫中。`, 'system');
+            }
+        };
+        stashLegendary(this.weapon, 'weapon');
+        stashLegendary(this.armor, 'armor');
+        
         if(document.getElementById('log-modal').classList.contains('active') && document.getElementById('tab-btn-grave').classList.contains('active')) {
             UI.renderGraveyard();
+        }
+        if(document.getElementById('log-modal').classList.contains('active') && document.getElementById('tab-btn-vault').classList.contains('active')) {
+            UI.renderVault();
         }
 
         this.companions = []; 
@@ -1249,6 +1328,21 @@ class Hero extends Entity {
             if(this.quest && this.quest.status === 'ACTIVE') {
                 if((this.quest.type === 'HUNT' || this.quest.type === 'BOSS') && enemy.data.name === this.quest.targetId) {
                     this.quest.current++;
+                    
+                    // 討伐 BOSS 傳說裝備掉落判定
+                    if (this.quest.type === 'BOSS' && Dice.roll(100) <= 60) {
+                        let isWeapon = Dice.roll(2) === 1;
+                        let equip = isWeapon ? this.weapon : this.armor;
+                        let prefix = DATA.LegendaryPrefixes[Dice.roll(DATA.LegendaryPrefixes.length)-1];
+                        let suffixPool = isWeapon ? DATA.LegendaryWeaponSuffixes : DATA.LegendaryArmorSuffixes;
+                        let suffix = suffixPool[Dice.roll(suffixPool.length)-1];
+                        
+                        equip.name = prefix + suffix;
+                        equip.isLegendary = true;
+                        equip.val += 15 + this.lvl * 2; // 給予額外數值加成
+                        UI.log(`✨ 【傳說降臨】從魔王身上獲得了神祕力量！原裝備蛻變為 <span class="legendary-text">${equip.name}</span>！`, 'event');
+                    }
+
                     let req = this.quest.required || 1;
                     if(this.quest.current >= req) {
                         this.quest.status = 'RETURN';
@@ -1316,7 +1410,7 @@ class Enemy extends Entity {
 
 const Game = {
     worldMap: null, currentMap: null, mazeDepth: 0,
-    hero: null, generation: 1, graveyard: [],
+    hero: null, generation: 1, graveyard: [], vault: [],
     tickRate: 800, intervalId: null,
     hour: 8, tickCount: 0, weather: 'SUNNY',
     
@@ -1331,6 +1425,7 @@ const Game = {
             Game.hour = savedData.hour || 8;
             Game.tickCount = savedData.tickCount || 0;
             Game.graveyard = savedData.graveyard || [];
+            Game.vault = savedData.vault || [];
             
             Game.worldMap.render();
             if(savedData.heroData) {
