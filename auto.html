@@ -22,7 +22,7 @@
             color: var(--text-color);
             margin: 0; padding: 0;
             display: flex; justify-content: center; align-items: center;
-            height: 100vh; overflow: hidden; user-select: none;
+            height: 100vh; overflow: hidden; user-select: none;overscroll-behavior: none;
         }
 
         #map-container {
@@ -127,6 +127,7 @@
         .tab-btn.active { background: var(--accent-color); color: #000; border-color: var(--accent-color); }
         .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.1); }
 
+        #log-content, #graveyard-content, #vault-content, .modal-content {overscroll-behavior: contain;}
         #log-content, #graveyard-content { flex: 1; overflow-y: auto; font-size: 0.95rem; line-height: 1.6; padding-right: 10px; }
         .log-entry { margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px dashed #3a3a45; opacity: 0; animation: fadeIn 0.3s forwards; }
         .log-time { color: #888; font-size: 0.8rem; margin-right: 5px; }
@@ -135,7 +136,7 @@
         .log-system { color: #00b894; font-weight: bold; }
         .log-skill { color: #a29bfe; font-weight: bold; }
         .log-quest { color: #f1c40f; font-weight: bold; }
-
+        
         .stat-group { margin-bottom: 12px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; border: 1px solid #333;}
         .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem;}
         .stat-label { color: #aaa; }
@@ -299,7 +300,14 @@ const Dice = {
         return { roll: r, total: r + modifier, success: (r + modifier) >= dc, crit: r === 20, fumble: r === 1 };
     }
 };
-
+const toRoman = (num) => {
+    const rules = {M:1000, CM:900, D:500, CD:400, C:100, XC:90, L:50, XL:40, X:10, IX:9, V:5, IV:4, I:1};
+    let res = '';
+    for (let i in rules) {
+        while (num >= rules[i]) { res += i; num -= rules[i]; }
+    }
+    return res;
+};
 const DATA = {
     MapSize: 21, MazeSize: 15,
     Titles: [
@@ -400,38 +408,48 @@ const DATA = {
             h.hp = h.maxHp; 
             if (h.age > 20) {let reduced = Dice.roll(5) + 2; // 變年輕 3~7 歲
                 h.age = Math.max(18, h.age - reduced);
-                return `【奇蹟】飲用泉水後，傷勢痊癒，且壽命延長了！(年齡減少了 ${reduced} 歲)`;
-            }
-            return `【治癒】飲用泉水，恢復了所有 HP。`; 
-        }},
+                return `【奇蹟】飲用泉水後，傷勢痊癒，且壽命延長了！(年齡減少了 ${reduced} 歲)`;}
+            return `【治癒】飲用泉水，恢復了所有 HP。`; }},
         { desc: "探索到古老的矮人鐵砧...", resolve: (h) => { 
             let isWeapon = Dice.roll(2) === 1;
             let equip = isWeapon ? h.weapon : h.armor;
             equip.lvl++;
             let inc = Math.max(2, Math.floor(equip.val * 0.2)); // 提升至少 2 點或 20%
             equip.val += inc;
-            return `【鍛造】矮人英靈現身為你賜福，【${equip.name}】免費強化到了 +${equip.lvl-1}！`;
-        }},
+            return `【鍛造】矮人英靈現身為你賜福，【${equip.name}】免費強化到了 +${equip.lvl-1}！`;}},
         { desc: "遇到被強盜襲擊的商隊！", resolve: (h) => {
             if (Dice.roll(20) + Math.floor(h.lvl/2) > 10) {h.reputation += 5; h.gold += 20; h.checkTitlePromotion();
                 return `【行俠仗義】成功擊退強盜！獲得 20G，名聲 +5。`;
             } else {h.takeDamage(10);
-                return `【力有未逮】不敵強盜，受傷損失 10 HP，但保住了商隊。`;
-            }
-        }},
+                return `【力有未逮】不敵強盜，受傷損失 10 HP，但保住了商隊。`;}}},
         { desc: "修繕損壞的通道...", resolve: (h) => {h.reputation += 3; h.gainExp(15); h.checkTitlePromotion();
-            return `【熱心公益】村民非常感激，獲得 15 EXP，名聲 +3。`;
-        }},
+            return `【熱心公益】村民非常感激，獲得 15 EXP，名聲 +3。`;}},
         { desc: "平息了一場危險的鬥毆。", resolve: (h) => {h.reputation += 2; h.checkTitlePromotion();
-            return `【調停者】大家對你刮目相看，名聲 +2。`;
-        }},
+            return `【調停者】大家對你刮目相看，名聲 +2。`;}},
         { desc: "遇到受傷的旅行者...", resolve: (h) => {h.reputation += 3; h.checkTitlePromotion();
-            return `【善舉】給予了急救與乾糧，旅行者連聲道謝，名聲 +3。`;
-        }}
+            return `【善舉】給予了急救與乾糧，旅行者連聲道謝，名聲 +3。`;}},
+        { desc: "遇到一隻可愛的流浪狗...", resolve: (h) => { 
+            let chance = (h.trait && h.trait.name === '萬人迷') ? 9 : 6; 
+            if(Dice.roll(10) > (10 - chance)) { h.addCompanion("戰犬汪汪", 5, 1); return `【同伴】戰犬汪汪 決定跟隨你，加入了隊伍！`;} 
+            h.reputation += 1; h.checkTitlePromotion();
+            return `【善舉】餵了牠一點乾糧，獲得了狗狗的感謝，名聲 +1。`; }},
+        { desc: "遇到一位神秘的商人...", resolve: (h) => { 
+            if(h.gold >= 30) { h.gold -= 30; h.gainExp(50); return `【交易】花費 30G 買下智慧之書，獲得 50 EXP！`;} 
+            return `【事件】看著昂貴的商品囊中羞澀，只好默默離開。`; }},
+        { desc: "遇到一群妖精在跳舞...", resolve: (h) => { h.bonusAtk += 1; return `【祝福】加入了妖精的舞會獲得祝福，永久攻擊力 +1！`; }},
+        { desc: "不小心踢到了路邊的墓碑...", resolve: (h) => { 
+            let evEnemy = DATA.Enemies.find(e => e.name === '骷髏騎士'); 
+            if(evEnemy) { h.currentEnemy = new Enemy(h.x, h.y, evEnemy); h.stateBackup = h.state; h.state = 'COMBAT'; 
+            return `【詛咒】驚醒了亡靈！進入戰鬥！`; } 
+            return `什麼事也沒發生。`; }},
+        { desc: "突然下起了一陣酸雨...", resolve: (h) => { 
+            if (h.armor.val > 0) {h.armor.val = Math.max(0, h.armor.val - 1); return `【鏽蝕】裝備稍微被腐蝕了，防禦力 -1。`; }
+            return `【倒楣】淋了一身濕，幸好裝備已經破到不能再破了。`;}},
+        { desc: "在路邊發現一具白骨...", resolve: (h) => { h.gold += 15; return `【搜刮】從他身上找到了 15 金幣，默默替他祈禱。`; }}
     ],
-    LegendaryPrefixes: ["鳳凰", "麒麟", "聖王", "青龍", "朱雀", "白虎", "玄武"],
-    LegendaryWeaponSuffixes: ["大刀", "神弓", "大劍", "神槍", "雙刀", "重斧", "神杖", "魔杖", "棍"],
-    LegendaryArmorSuffixes: ["鎧甲", "法袍", "神盾", "披風", "斗篷"]
+    LegendaryPrefixes: ["鳳凰", "麒麟", "聖煌", "青龍", "朱雀", "白虎", "玄武", "無限", "究極","王者","至尊"],
+    LegendaryWeaponSuffixes: ["大刀", "神弓", "巨劍", "神槍", "雙刀", "重斧", "神杖", "魔杖", "長棍","長矛"],
+    LegendaryArmorSuffixes: ["鎧甲", "法袍", "神盾", "披風", "斗篷","套裝","重鎧"]
 };
 
 const QuestManager = {
@@ -493,6 +511,10 @@ const UI = {
             if(document.getElementById('tab-btn-grave').classList.contains('active')) UI.renderGraveyard();
             if(document.getElementById('tab-btn-vault').classList.contains('active')) UI.renderVault();
         }
+        const anyModalActive = document.querySelectorAll('.modal-overlay.active').length > 0;
+        if (anyModalActive) {clearInterval(Game.intervalId); // 如果有任何視窗打開，暫停遊戲
+         } else {Game.startLoop(); // 視窗都關閉了，繼續遊戲
+        }
     },
     closeModalOnBgClick: (e, modalId) => { if (e.target.id === modalId) UI.toggleModal(modalId); },
 
@@ -542,7 +564,7 @@ const UI = {
     },
 
     updateStats: (hero) => {
-        document.getElementById('hud-name').innerText = `[${hero.title}] ${hero.name}`;
+        document.getElementById('hud-name').innerText = `[${hero.title}] ${hero.name} ${toRoman(Game.generation)}`;
         document.getElementById('hud-hp-bar').style.width = `${Math.max(0, (hero.hp/hero.maxHp)*100)}%`;
         let nextExp = hero.lvl * 20;
         document.getElementById('hud-exp-bar').style.width = `${Math.min(100, (hero.exp/nextExp)*100)}%`;
@@ -662,7 +684,7 @@ const UI = {
                     <span style="color:#fcd34d; font-size:0.85rem;">${v.type === 'weapon' ? '⚔️ 武器' : '🛡️ 防具'}</span>
                 </div>
                 <div style="display:flex; justify-content:space-between; font-size:0.9rem; color:#aaa;">
-                    <span>原持有者：[${v.heroTitle}] ${v.heroName}</span>
+                    <span>原持有者：[${v.heroTitle}] ${v.heroName} ${toRoman(v.gen)}</span>
                     <span>第 ${v.gen} 代</span>
                 </div>
                 <div style="font-size:0.85rem; color:#888; margin-top: 4px;">
@@ -873,7 +895,6 @@ class Hero extends Entity {
             let classData = DATA.Classes[rClass];
             
             this.name = DATA.Names.first[Dice.roll(DATA.Names.first.length)-1] + DATA.Names.last[Dice.roll(DATA.Names.last.length)-1];
-            if(generation > 1) this.name += ` ${['二','三','四','五','六','七','八','九','十'][generation-2] || 'X'}世`;
             
             this.job = rClass; this.dom.innerText = classData.icon; 
             this.trait = DATA.Traits[Dice.roll(DATA.Traits.length) - 1];
@@ -1027,7 +1048,7 @@ class Hero extends Entity {
     update() {
         if(this.state === 'DEAD' || this.state === 'TRANSITION') return;
         this.age += 0.02; 
-        if(this.age > 65 && Dice.roll(100) < (this.age - 60)) { this.die("年邁壽終正寢"); return; }
+        if(this.age > 65 && Dice.roll(5000) < (this.age - 60)) { this.die("年邁壽終正寢"); return; }
 
         if (this.companions.length > 0 && this.state !== 'COMBAT' && Dice.roll(1000) <= 5) {
             this.removeCompanion();
@@ -1326,7 +1347,7 @@ class Hero extends Entity {
             
             let teleported = false;
             if(this.quest && this.quest.status === 'ACTIVE') {
-                if((this.quest.type === 'HUNT' || this.quest.type === 'BOSS') && enemy.data.name === this.quest.targetId) {
+                if((this.quest.type === 'HUNT' || this.quest.type === 'BOSS') && enemy.data.name.includes(this.quest.targetId)) {
                     this.quest.current++;
                     
                     // 討伐 BOSS 傳說裝備掉落判定
@@ -1474,9 +1495,9 @@ const Game = {
     updateMapVisuals: () => {
         let filter = '';
         let isNight = Game.hour >= 18 || Game.hour < 6;
-        if (isNight) filter += 'brightness(0.55) sepia(0.2) hue-rotate(190deg) ';
-        if (Game.weather === 'RAIN') filter += 'contrast(0.9) blur(0.5px) ';
-        else if (Game.weather === 'FOG') filter += 'blur(1.5px) grayscale(0.3) ';
+        if (isNight) {filter += 'brightness(0.55) sepia(0.2) hue-rotate(190deg) ';
+        } else {if (Game.weather === 'RAIN') filter += 'contrast(0.9) blur(0.5px) ';
+        else if (Game.weather === 'FOG') filter += 'blur(1.5px) grayscale(0.3) ';}
         document.getElementById('map-container').style.filter = filter;
     },
 
