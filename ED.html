@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Emoji 地下城 - Roguelike</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background-color: #0f172a; color: #eee; 
+            touch-action: none; /* 防止手機瀏覽器滑動重整 */
+            overscroll-behavior: none; 
+            font-family: 'Courier New', Courier, monospace; 
+        }
+        
+        #viewport { 
+            display: grid; grid-template-columns: repeat(9, 1fr); grid-template-rows: repeat(9, 1fr); 
+            aspect-ratio: 1/1; width: 100%; max-width: 500px; margin: 0 auto; 
+            background-color: #000; border: 4px solid #334155; border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+        }
+        
+        .grid-cell { 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 7vw; user-select: none; position: relative; cursor: pointer; 
+            transition: opacity 0.3s, background-color 0.2s; 
+        }
+        @media (min-width: 500px) { .grid-cell { font-size: 38px; } }
+        
+        .btn-control { 
+            background: linear-gradient(145deg, #334155, #1e293b); color: white; 
+            border: 1px solid #475569; transition: transform 0.05s, filter 0.2s; 
+            text-shadow: 1px 1px 2px black;
+        }
+        .btn-control:active { transform: scale(0.95); filter: brightness(0.8); }
+        .btn-disabled { opacity: 0.5; filter: grayscale(1); pointer-events: none; }
+        
+        #msg-container::-webkit-scrollbar { display: none; }
+        #msg-container { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .modal-bg { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px); }
+        
+        /* 視野樣式 */
+        .fov-hidden { opacity: 0; }
+        .fov-dim { opacity: 0.3; filter: grayscale(50%); }
+        .fov-visible { opacity: 1; }
+        
+        /* 浮動傷害動畫 */
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-20px) scale(1.2); opacity: 0; }
+        }
+        .dmg-text { position: absolute; font-weight: bold; font-size: 0.4em; z-index: 10; animation: floatUp 0.8s ease-out forwards; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col">
+
+    <div class="flex flex-col h-full max-w-lg mx-auto w-full relative">
+        <!-- 頂部狀態列 -->
+        <div class="p-2 bg-slate-900 border-b border-slate-700 z-10 shadow-md flex flex-col gap-1">
+            <div class="flex justify-between items-center text-sm">
+                <div class="flex items-center gap-2">
+                    <span id="ui-hero-icon" class="text-2xl bg-slate-800 rounded p-1 border border-slate-600 shadow-inner">🧑</span>
+                    <div>
+                        <div class="font-bold text-yellow-400 leading-tight">
+                            <span id="ui-race-job">人類 冒險者</span> <span class="text-xs text-gray-400">Lv.<span id="ui-level">1</span></span>
+                        </div>
+                        <div class="text-xs text-blue-200">B<span id="ui-floor">1</span> 樓</div>
+                    </div>
+                </div>
+                <div class="text-right text-xs">
+                    <div class="text-red-400 font-bold tracking-wider">HP <span id="ui-hp" class="text-base">20</span>/<span id="ui-maxhp">20</span></div>
+                    <div class="text-blue-400 font-bold tracking-wider">MP <span id="ui-mp" class="text-base">10</span>/<span id="ui-maxmp">10</span></div>
+                </div>
+            </div>
+            
+            <div class="flex justify-between text-xs bg-slate-800 rounded p-1 px-2 border border-slate-700 gap-1 items-center">
+                <div class="text-gray-300">⚔️<span id="ui-atk">5</span>🛡️<span id="ui-def">2</span></div>
+                <div class="text-yellow-300">💰<span id="ui-gold">0</span></div>
+                <div class="text-orange-400 font-bold">🍖<span id="ui-hunger">200</span></div>
+                <div class="text-green-300 w-1/4 bg-slate-900 rounded overflow-hidden relative border border-slate-700 h-4">
+                    <div id="ui-xp-bar" class="absolute top-0 left-0 bottom-0 bg-green-700 opacity-50" style="width: 0%;"></div>
+                    <div class="absolute inset-0 flex items-center justify-center text-[9px] z-10 text-white font-bold text-shadow">EXP: <span id="ui-xp">0</span>/<span id="ui-maxxp">10</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 遊戲畫面 (9x9 視圖) -->
+        <div id="viewport-container" class="flex-none p-2 bg-black flex items-center justify-center relative">
+            <div id="viewport"></div>
+            <div id="damage-overlay" class="absolute inset-0 bg-red-600 opacity-0 pointer-events-none transition-opacity duration-200 z-20"></div>
+        </div>
+
+        <!-- 訊息列 -->
+        <div class="h-24 bg-slate-800 border-t border-slate-700 relative cursor-pointer flex-shrink-0 shadow-[inset_0_4px_6px_rgba(0,0,0,0.3)]" onclick="openModal('modal-log')">
+            <div class="absolute top-1 right-2 text-[10px] text-gray-400 bg-slate-900 px-2 py-0.5 rounded-full border border-slate-700">點擊查看日誌 ▲</div>
+            <div id="msg-container" class="absolute bottom-1 left-2 right-2 text-[11px] sm:text-xs font-mono space-y-1 flex flex-col justify-end pointer-events-none text-gray-200 h-[80px] overflow-hidden">
+                <!-- 訊息動態插入 -->
+            </div>
+        </div>
+
+        <!-- 控制區 (預留 15vh 底部防擋空白) -->
+        <div class="p-2 bg-slate-900 flex gap-2 pb-[15vh] border-t border-slate-700 mt-auto z-20">
+            <button class="btn-control rounded-lg flex-1 font-bold text-sm py-3 shadow-lg flex flex-col items-center justify-center gap-1" onclick="openModal('modal-inventory')">
+                <span class="text-lg leading-none">🎒</span>物品/裝備
+            </button>
+            <button id="btn-skill" class="btn-control rounded-lg flex-1 font-bold text-sm py-3 shadow-lg flex flex-col items-center justify-center gap-1 relative text-purple-300 border-purple-800" onclick="castSkill()">
+                <span class="text-lg leading-none">✨</span><span id="ui-skill-name">技能</span>
+                <div id="ui-skill-cost" class="absolute top-1 right-1 text-[9px] bg-purple-900 px-1 rounded text-white border border-purple-500">5 MP</div>
+            </button>
+            <button class="btn-control rounded-lg flex-1 font-bold text-sm py-3 shadow-lg flex flex-col items-center justify-center gap-1" onclick="waitTurn()">
+                <span class="text-lg leading-none">⏳</span>休息(+HP)
+            </button>
+            <button class="btn-control rounded-lg flex-1 font-bold text-sm py-3 shadow-lg flex flex-col items-center justify-center gap-1 text-gray-400" onclick="openModal('modal-system')">
+                <span class="text-lg leading-none">⚙️</span>選單
+            </button>
+        </div>
+    </div>
+
+    <!-- 彈出視窗：角色創建 -->
+    <div id="modal-creation" class="absolute inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center p-4 pb-[15vh]">
+        <h1 class="text-3xl font-bold text-white mb-2 tracking-widest text-shadow-lg">🧝 EMOJI 地下城 🐉</h1>
+        <p class="text-gray-400 mb-6 text-sm text-center">古老的邪惡在深淵甦醒，選擇你的英雄，<br>潛入無盡的隨機迷宮中吧。</p>
+        
+        <div class="w-full max-w-sm bg-slate-800 p-4 rounded-xl border border-slate-600 shadow-2xl mb-4">
+            <h3 class="text-yellow-400 font-bold mb-2 border-b border-slate-600 pb-1">1. 選擇血統 (種族)</h3>
+            <div id="creation-races" class="grid grid-cols-2 gap-2 mb-4"></div>
+            
+            <h3 class="text-blue-400 font-bold mb-2 border-b border-slate-600 pb-1">2. 選擇職業</h3>
+            <div id="creation-jobs" class="grid grid-cols-2 gap-2 mb-4"></div>
+        </div>
+        
+        <button onclick="startGame()" id="btn-start-game" class="btn-control w-full max-w-sm py-4 rounded-xl text-xl font-bold bg-green-800 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)] transition-all">
+            🚪 進入地下城
+        </button>
+    </div>
+
+    <!-- 其他彈出視窗 -->
+    <div id="modal-log" class="hidden absolute inset-0 modal-bg z-40 flex flex-col pb-[15vh]">
+        <div class="p-3 bg-slate-800 border-b border-slate-600 flex justify-between items-center text-white font-bold">
+            <span>📜 冒險日誌</span>
+            <button onclick="closeModal('modal-log')" class="text-red-400 text-2xl px-2">&times;</button>
+        </div>
+        <div id="history-logs" class="flex-1 overflow-y-auto p-4 text-xs md:text-sm font-mono text-gray-300 space-y-2"></div>
+    </div>
+
+    <div id="modal-inventory" class="hidden absolute inset-0 modal-bg z-40 flex flex-col pb-[15vh]">
+        <div class="p-3 bg-slate-800 border-b border-slate-600 flex justify-between items-center text-white font-bold">
+            <span>🎒 物品與裝備</span>
+            <button onclick="closeModal('modal-inventory')" class="text-red-400 text-2xl px-2">&times;</button>
+        </div>
+        <div class="p-3 bg-slate-900 border-b border-slate-700 grid grid-cols-2 gap-2 text-sm">
+            <div class="bg-slate-800 p-2 rounded border border-slate-600 text-center">
+                <div class="text-gray-400 text-xs mb-1">武器 (Weapon)</div>
+                <div id="equip-weapon" class="font-bold text-yellow-300">無裝備</div>
+                <button onclick="unequip('weapon')" class="text-[10px] mt-1 bg-red-900/50 text-red-300 px-2 rounded hidden" id="btn-unequip-weapon">卸下</button>
+            </div>
+            <div class="bg-slate-800 p-2 rounded border border-slate-600 text-center">
+                <div class="text-gray-400 text-xs mb-1">防具 (Armor)</div>
+                <div id="equip-armor" class="font-bold text-blue-300">無裝備</div>
+                <button onclick="unequip('armor')" class="text-[10px] mt-1 bg-red-900/50 text-red-300 px-2 rounded hidden" id="btn-unequip-armor">卸下</button>
+            </div>
+        </div>
+        <div id="inventory-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2 bg-slate-900/50"></div>
+    </div>
+
+    <div id="modal-system" class="hidden absolute inset-0 modal-bg z-40 flex flex-col pb-[15vh]">
+        <div class="p-3 bg-slate-800 border-b border-slate-600 flex justify-between items-center text-white font-bold">
+            <span>⚙️ 系統選單</span>
+            <button onclick="closeModal('modal-system')" class="text-red-400 text-2xl px-2">&times;</button>
+        </div>
+        <div class="flex-1 p-6 flex flex-col gap-4 justify-center max-w-sm mx-auto w-full">
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center text-sm text-gray-300 mb-4 shadow-inner">
+                <p>💡 操作提示：</p>
+                <p>點擊相鄰格子移動/攻擊</p>
+                <p>滑動螢幕也可以移動</p>
+                <p>遭遇【🔐 上鎖的門】時，攜帶鑰匙即可開啟，<br>若無鑰匙可直接強行撞開（會受傷）。</p>
+            </div>
+            <button onclick="exportSave()" class="btn-control py-4 rounded-xl text-lg font-bold">💾 匯出存檔 (JSON)</button>
+            <button onclick="document.getElementById('import-file').click()" class="btn-control py-4 rounded-xl text-lg font-bold">📂 匯入存檔</button>
+            <input type="file" id="import-file" class="hidden" accept=".json" onchange="importSave(event)">
+            <button onclick="showConfirm('確定要放棄這局並重新開始嗎？', () => location.reload())" class="btn-control py-4 rounded-xl text-lg font-bold text-red-400 border-red-900 bg-red-950 mt-4">☠️ 放棄重來</button>
+        </div>
+    </div>
+
+    <div id="modal-death" class="hidden absolute inset-0 bg-red-950/95 backdrop-blur-md z-50 flex flex-col pb-[15vh]">
+        <div class="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
+            <div class="text-8xl mb-2 drop-shadow-[0_0_15px_rgba(255,0,0,0.8)]">💀</div>
+            <h2 class="text-4xl font-black text-red-500 tracking-widest text-shadow">你倒下了</h2>
+            <div class="bg-black/50 p-4 rounded-lg text-left text-sm text-gray-300 border border-red-900/50">
+                <p>探索樓層： <span id="death-floor" class="text-yellow-400 font-bold"></span></p>
+                <p>最終等級： <span id="death-level" class="text-blue-400 font-bold"></span></p>
+                <p>獲得金幣： <span id="death-gold" class="text-yellow-300 font-bold"></span></p>
+            </div>
+            <p class="text-gray-400 text-xs mt-2">地牢的幽魂正在吞噬你的靈魂...</p>
+            <button onclick="respawnAtB1()" class="btn-control w-full max-w-xs py-4 rounded-xl text-lg font-bold text-white bg-purple-900 border-purple-500 shadow-xl mt-4">
+                ⏪ 在 B1 復活 <br><span class="text-xs font-normal text-purple-300">(保留能力與裝備，失去一半金幣)</span>
+            </button>
+            <button onclick="location.reload()" class="btn-control w-full max-w-xs py-3 rounded-xl text-base font-bold text-red-200 bg-red-900/50 border-red-800 shadow-xl mt-2">
+                🔄 放棄並重新輪迴
+            </button>
+        </div>
+    </div>
+
+    <div id="modal-alert" class="hidden absolute inset-0 bg-black/80 z-[60] flex flex-col items-center justify-center px-4 pb-[15vh]">
+        <div class="bg-slate-800 p-6 rounded-xl border border-slate-500 w-full max-w-sm text-center shadow-2xl">
+            <p id="alert-text" class="text-lg text-white mb-6 font-bold"></p>
+            <button onclick="closeModal('modal-alert')" class="btn-control w-full py-3 rounded-lg text-white font-bold bg-slate-600">確定</button>
+        </div>
+    </div>
+    
+    <div id="modal-confirm" class="hidden absolute inset-0 bg-black/80 z-[60] flex flex-col items-center justify-center px-4 pb-[15vh]">
+        <div class="bg-slate-800 p-6 rounded-xl border border-slate-500 w-full max-w-sm text-center shadow-2xl">
+            <p id="confirm-text" class="text-lg text-white mb-6 font-bold">確定要執行此操作嗎？</p>
+            <div class="flex gap-4">
+                <button onclick="closeModal('modal-confirm')" class="btn-control flex-1 py-3 rounded-lg text-gray-300 font-bold bg-slate-700">取消</button>
+                <button id="confirm-yes" class="btn-control flex-1 py-3 rounded-lg text-green-400 font-bold bg-slate-900 border border-green-700">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 彈出視窗：NPC 對話框 -->
+    <div id="modal-dialog" class="hidden absolute inset-0 bg-black/80 z-[60] flex flex-col items-center justify-center px-4 pb-[15vh]">
+        <div class="bg-slate-800 p-6 rounded-xl border border-slate-500 w-full max-w-sm shadow-2xl">
+            <h3 id="dialog-title" class="text-xl font-bold text-yellow-400 mb-4 border-b border-slate-600 pb-2"></h3>
+            <p id="dialog-text" class="text-sm md:text-base text-gray-200 mb-6 leading-relaxed"></p>
+            <div id="dialog-buttons" class="flex flex-col gap-3"></div>
+        </div>
+    </div>
+
+    <!-- 彈出視窗：商人商店 -->
+    <div id="modal-merchant" class="hidden absolute inset-0 modal-bg z-40 flex flex-col pb-[15vh]">
+        <div class="p-3 bg-slate-800 border-b border-slate-600 flex justify-between items-center text-white font-bold">
+            <span>🧙‍♂️ 神秘商店</span>
+            <button onclick="closeModal('modal-merchant')" class="text-red-400 text-2xl px-2">&times;</button>
+        </div>
+        <div class="bg-slate-900 p-3 border-b border-slate-700 flex justify-between items-center text-sm shadow-md">
+            <div class="flex rounded-lg overflow-hidden w-2/3 border border-slate-600">
+                <button id="merchant-btn-buy" onclick="setMerchantTab('buy')" class="flex-1 py-2 font-bold bg-blue-800 text-white">購買</button>
+                <button id="merchant-btn-sell" onclick="setMerchantTab('sell')" class="flex-1 py-2 font-bold bg-slate-700 text-gray-400">販賣</button>
+            </div>
+            <div class="text-yellow-400 font-bold bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-600 shadow-inner">
+                💰 <span id="merchant-gold">0</span>
+            </div>
+        </div>
+        <div id="merchant-list" class="flex-1 overflow-y-auto p-4 bg-slate-900/50 flex flex-col gap-2"></div>
+    </div>
+
+    <script>
+        const GAME_DB = {
+            terrain: {
+                0: { char: ' ', walkable: true, transparent: true, name: '地板' },
+                1: { char: '⬛', walkable: false, transparent: false, name: '牆壁' },
+                2: { char: '🔐', walkable: false, transparent: false, name: '上鎖的門' }, // 修改：鎖住的門阻擋移動
+                3: { char: '🪜', walkable: true, transparent: true, name: '下層樓梯' },
+                4: { char: '^', walkable: true, transparent: true, name: '隱藏陷阱', isTrap: true },
+                5: { char: '⛲', walkable: true, transparent: true, name: '神祕泉水', isFountain: true },
+                6: { char: '~', walkable: false, transparent: true, name: '深水區' },
+                7: { char: '🚪', walkable: true, transparent: true, name: '敞開的門' }, // 新增：已開啟的門
+                8: { char: '📍', walkable: true, transparent: true, name: '尖刺陷阱' },
+                9: { char: '🌀', walkable: true, transparent: true, name: '傳送陷阱' },
+                10:{ char: '🟢', walkable: true, transparent: true, name: '毒液窪地' }
+            },
+            races: {
+                human: { id: 'human', name: '人類', icon: '👱', hpMod: 1.0, mpMod: 1.0, desc: '平衡型。無弱點。' },
+                elf:   { id: 'elf', name: '精靈', icon: '🧝', hpMod: 0.8, mpMod: 1.5, desc: '貧血，但擁有高魔力。' },
+                dwarf: { id: 'dwarf', name: '矮人', icon: '🧔', hpMod: 1.3, mpMod: 0.7, desc: '血厚，防禦天生+1。', defBonus: 1 },
+                orc:   { id: 'orc', name: '半獸人', icon: '👹', hpMod: 1.1, mpMod: 0.5, desc: '攻擊天生+2，不擅施法。', atkBonus: 2 }
+            },
+            jobs: {
+                warrior: { id: 'warrior', name: '戰士', baseHp: 30, baseMp: 5, baseAtk: 6, baseDef: 3, skill: 'cleave', desc: '近戰大師，能同時攻擊周圍敵人。' },
+                mage:    { id: 'mage', name: '法師', baseHp: 15, baseMp: 20, baseAtk: 3, baseDef: 0, skill: 'fireball', desc: '脆皮法系，能遠距離發射火球。' },
+                rogue:   { id: 'rogue', name: '盜賊', baseHp: 20, baseMp: 10, baseAtk: 5, baseDef: 1, skill: 'dash', desc: '身手敏捷，能瞬間移動兩格並迴避攻擊。' },
+                paladin: { id: 'paladin', name: '聖騎士', baseHp: 25, baseMp: 15, baseAtk: 4, baseDef: 4, skill: 'heal', desc: '聖光護體，消耗魔力治療自身。' }
+            },
+            skills: {
+                cleave: { id: 'cleave', name: '旋風斬', cost: 5, icon: '🌪️', action: (caster, state) => castCleave(caster, state) },
+                fireball: { id: 'fireball', name: '大火球', cost: 8, icon: '🔥', action: (caster, state) => castFireball(caster, state) },
+                dash: { id: 'dash', name: '暗影步', cost: 4, icon: '💨', action: (caster, state) => castDash(caster, state) },
+                heal: { id: 'heal', name: '聖光術', cost: 10, icon: '✨', action: (caster, state) => castHeal(caster, state) }
+            },
+            entities: {
+                // NPCs
+                merchant: { id: 'merchant', char: '🧙‍♂️', name: '神秘商人', isNPC: true, npcType: 'merchant' },
+                adventurer: { id: 'adventurer', char: '🧑‍🎤', name: '落魄冒險者', isNPC: true, npcType: 'adventurer' },
+
+                // Monsters
+                rat:      { id: 'rat', char: '🐀', name: '巨鼠', isEnemy: true, hp: 8, atk: 3, def: 0, exp: 2, chase: true },
+                slime:    { id: 'slime', char: '💧', name: '史萊姆', isEnemy: true, hp: 12, atk: 2, def: 1, exp: 3, chase: false },
+                bat:      { id: 'bat', char: '🦇', name: '吸血蝙蝠', isEnemy: true, hp: 10, atk: 4, def: 0, exp: 3, chase: true },
+                goblin:   { id: 'goblin', char: '👺', name: '哥布林', isEnemy: true, hp: 25, atk: 6, def: 1, exp: 8, chase: true },
+                skeleton: { id: 'skeleton', char: '💀', name: '骷髏兵', isEnemy: true, hp: 20, atk: 7, def: 3, exp: 10, chase: true },
+                spider:   { id: 'spider', char: '🕷️', name: '巨型蜘蛛', isEnemy: true, hp: 18, atk: 8, def: 0, exp: 12, chase: true },
+                orc_w:    { id: 'orc_w', char: '🧌', name: '獸人戰士', isEnemy: true, hp: 45, atk: 12, def: 4, exp: 25, chase: true },
+                ghost:    { id: 'ghost', char: '👻', name: '幽靈', isEnemy: true, hp: 30, atk: 10, def: 0, exp: 20, chase: true, flying: true },
+                mimic:    { id: 'mimic', char: '🎁', name: '寶箱怪', isEnemy: true, hp: 60, atk: 15, def: 5, exp: 40, chase: true, mimic: true },
+                golem:    { id: 'golem', char: '🗿', name: '石魔像', isEnemy: true, hp: 100, atk: 18, def: 15, exp: 60, chase: true },
+                reaper:   { id: 'reaper', char: '👿', name: '死神', isEnemy: true, hp: 80, atk: 25, def: 5, exp: 70, chase: true },
+                // Bosses
+                boss_orc: { id: 'boss_orc', char: '👹', name: '獸人酋長(BOSS)', isEnemy: true, hp: 150, atk: 20, def: 8, exp: 200, chase: true, isBoss: true },
+                boss_drag:{ id: 'boss_drag', char: '🐉', name: '深淵魔龍(BOSS)', isEnemy: true, hp: 300, atk: 35, def: 15, exp: 500, chase: true, isBoss: true },
+                
+                // Items (Added base prices for merchant system)
+                potion:   { id: 'potion', char: '🧪', name: '回復藥水', type: 'consumable', desc: '恢復 30 點 HP', onUse: (s) => heal(30), price: 20 },
+                mana_pot: { id: 'mana_pot', char: '🏺', name: '魔力藥水', type: 'consumable', desc: '恢復 20 點 MP', onUse: (s) => restoreMp(20), price: 25 },
+                elixir:   { id: 'elixir', char: '🍷', name: '萬靈藥', type: 'consumable', desc: 'HP與MP全滿', onUse: (s) => { heal(999); restoreMp(999); }, price: 150 },
+                scroll_map:{ id: 'scroll_map', char: '📜', name: '探知卷軸', type: 'consumable', desc: '揭開整層樓的地圖', onUse: (s) => revealMap(), price: 50 },
+                gold:     { id: 'gold', char: '💰', name: '金幣', type: 'currency', autoPick: true },
+                
+                // New System Items
+                key:      { id: 'key', char: '🗝️', name: '鐵鑰匙', type: 'consumable', desc: '靠近【🔐 上鎖的門】自動消耗開啟', price: 15 },
+                meat:     { id: 'meat', char: '🥩', name: '魔物肉', type: 'consumable', desc: '恢復大量飽食度，可能有副作用', price: 10 },
+
+                // Equipment
+                w_dagger: { id: 'w_dagger', char: '🗡️', name: '匕首', type: 'weapon', atkBonus: 3, price: 30 },
+                w_sword:  { id: 'w_sword', char: '⚔️', name: '長劍', type: 'weapon', atkBonus: 7, price: 70 },
+                w_axe:    { id: 'w_axe', char: '🪓', name: '戰斧', type: 'weapon', atkBonus: 12, price: 150 },
+                w_staff:  { id: 'w_staff', char: '🪄', name: '魔杖', type: 'weapon', atkBonus: 4, mpBonus: 10, price: 80 },
+                w_excal:  { id: 'w_excal', char: '🌟', name: '聖劍', type: 'weapon', atkBonus: 25, isLegendary: true, price: 500 },
+                
+                a_leather:{ id: 'a_leather', char: '🧥', name: '皮甲', type: 'armor', defBonus: 2, price: 30 },
+                a_chain:  { id: 'a_chain', char: '⛓️', name: '鎖子甲', type: 'armor', defBonus: 5, price: 80 },
+                a_plate:  { id: 'a_plate', char: '🛡️', name: '板甲', type: 'armor', defBonus: 10, price: 200 },
+                a_aegis:  { id: 'a_aegis', char: '🔰', name: '神諭之盾', type: 'armor', defBonus: 20, isLegendary: true, price: 600 }
+            },
+            
+            themes: [
+                { maxFloor: 5, bg: '#1e1b4b', wall: '🪨', floorChar: '·', name: '幽暗地窖', pools: ['rat', 'slime', 'bat'], drops: ['w_dagger', 'a_leather'] },
+                { maxFloor: 10, bg: '#064e3b', wall: '🌲', floorChar: ',', name: '腐化森林', pools: ['goblin', 'spider', 'skeleton'], drops: ['w_sword', 'a_chain'], hasWater: true },
+                { maxFloor: 15, bg: '#312e81', wall: '🧊', floorChar: '-', name: '冰封迴廊', pools: ['skeleton', 'ghost', 'orc_w'], drops: ['w_axe', 'w_staff', 'a_plate'], boss: 'boss_orc' },
+                { maxFloor: 20, bg: '#450a0a', wall: '🌋', floorChar: '.', name: '焦熱地獄', pools: ['golem', 'reaper', 'ghost', 'mimic'], drops: ['w_excal', 'a_aegis'], hasLava: true },
+                { maxFloor: 25, bg: '#2e1065', wall: '👁️', floorChar: '*', name: '虛空深淵', pools: ['golem', 'reaper', 'mimic'], boss: 'boss_drag' }
+            ],
+            
+            monsterPrefixes: [
+                { name: '狂暴的', atkMult: 1.5, hpMult: 0.8 },
+                { name: '堅硬的', defAdd: 3, hpMult: 1.3 },
+                { name: '巨大的', hpMult: 2.0, atkMult: 1.2, expMult: 1.5 },
+                { name: '敏捷的', atkMult: 1.2, hpMult: 0.9 },
+                { name: '菁英的', atkMult: 1.5, hpMult: 1.5, defAdd: 2, expMult: 3.0 }
+            ],
+            
+            equipPrefixes: [
+                { name: '破舊的', atkAdd: -1, defAdd: -1 },
+                { name: '鋒利的', atkAdd: 3, type: 'weapon' },
+                { name: '致命的', atkAdd: 6, type: 'weapon' },
+                { name: '堅固的', defAdd: 3, type: 'armor' },
+                { name: '傳說的', atkAdd: 10, defAdd: 5, mpBonus: 10 }
+            ]
+        };
+
+        const VIEW_SIZE = 9;
+        const HALF_VIEW = Math.floor(VIEW_SIZE / 2);
+        const MAP_SIZE = 36;
+        
+        let state = {};
+        let htmlGrid = [];
+        let touchStartX = 0; let touchStartY = 0;
+
+        function getBaseMaxHp() {
+            let base = GAME_DB.jobs[state.job].baseHp + (state.level - 1) * 5;
+            return Math.floor(base * GAME_DB.races[state.race].hpMod);
+        }
+        function getBaseMaxMp() {
+            let base = GAME_DB.jobs[state.job].baseMp + (state.level - 1) * 3;
+            let ext = 0;
+            let eq = state.equipment.weapon;
+            if (eq) ext = (typeof eq === 'string' ? GAME_DB.entities[eq].mpBonus : eq.mpBonus) || 0;
+            return Math.floor(base * GAME_DB.races[state.race].mpMod) + ext;
+        }
+        function getPlayerAtk() {
+            let base = GAME_DB.jobs[state.job].baseAtk + (state.level - 1) * 2;
+            let raceBonus = GAME_DB.races[state.race].atkBonus || 0;
+            let eqBonus = 0;
+            let eq = state.equipment.weapon;
+            if (eq) eqBonus = (typeof eq === 'string' ? GAME_DB.entities[eq].atkBonus : eq.atkBonus) || 0;
+            return base + raceBonus + eqBonus;
+        }
+        function getPlayerDef() {
+            let base = GAME_DB.jobs[state.job].baseDef + Math.floor((state.level - 1) * 1);
+            let raceBonus = GAME_DB.races[state.race].defBonus || 0;
+            let eqBonus = 0;
+            let eq = state.equipment.armor;
+            if (eq) eqBonus = (typeof eq === 'string' ? GAME_DB.entities[eq].defBonus : eq.defBonus) || 0;
+            return base + raceBonus + eqBonus;
+        }
+        function getBaseMaxHunger() { return 200; }
+        
+        // 隨機數種子生成器
+        function getSeededRandom(seed) {
+            let x = Math.sin(seed) * 10000;
+            return x - Math.floor(x);
+        }
+
+        function init() {
+            initDOM();
+            renderCreationUI();
+            
+            document.addEventListener('keydown', (e) => {
+                if(isAnyModalOpen()) return;
+                switch(e.key) {
+                    case 'ArrowUp': case 'w': case 'W': movePlayer(0, -1); break;
+                    case 'ArrowDown': case 's': case 'S': movePlayer(0, 1); break;
+                    case 'ArrowLeft': case 'a': case 'A': movePlayer(-1, 0); break;
+                    case 'ArrowRight': case 'd': case 'D': movePlayer(1, 0); break;
+                    case ' ': waitTurn(); break;
+                    case '1': castSkill(); break;
+                }
+            });
+
+            const vpContainer = document.getElementById('viewport-container');
+            vpContainer.addEventListener('touchstart', e => {
+                touchStartX = e.changedTouches[0].screenX;
+                touchStartY = e.changedTouches[0].screenY;
+            }, {passive: true});
+            
+            vpContainer.addEventListener('touchend', e => {
+                if(isAnyModalOpen()) return;
+                let touchEndX = e.changedTouches[0].screenX;
+                let touchEndY = e.changedTouches[0].screenY;
+                let dx = touchEndX - touchStartX;
+                let dy = touchEndY - touchStartY;
+                if(Math.abs(dx) < 30 && Math.abs(dy) < 30) return; 
+                
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    movePlayer(Math.sign(dx), 0);
+                } else {
+                    movePlayer(0, Math.sign(dy));
+                }
+            }, {passive: true});
+        }
+
+        function initDOM() {
+            const viewport = document.getElementById('viewport');
+            viewport.innerHTML = '';
+            for (let y = 0; y < VIEW_SIZE; y++) {
+                htmlGrid[y] = [];
+                for (let x = 0; x < VIEW_SIZE; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell fov-hidden';
+                    cell.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        handleGridClick(x, y);
+                    });
+                    viewport.appendChild(cell);
+                    htmlGrid[y][x] = cell;
+                }
+            }
+        }
+
+        function renderCreationUI() {
+            let raceHtml = '';
+            for(let key in GAME_DB.races) {
+                const r = GAME_DB.races[key];
+                raceHtml += `<div class="cursor-pointer p-2 rounded border-2 border-slate-700 bg-slate-900 hover:border-yellow-500 transition-colors" id="sel-race-${key}" onclick="selectRace('${key}')">
+                    <div class="text-2xl mb-1">${r.icon}</div><div class="font-bold text-sm">${r.name}</div>
+                    <div class="text-[10px] text-gray-400 mt-1">${r.desc}</div>
+                </div>`;
+            }
+            document.getElementById('creation-races').innerHTML = raceHtml;
+
+            let jobHtml = '';
+            for(let key in GAME_DB.jobs) {
+                const j = GAME_DB.jobs[key];
+                const skill = GAME_DB.skills[j.skill];
+                jobHtml += `<div class="cursor-pointer p-2 rounded border-2 border-slate-700 bg-slate-900 hover:border-blue-500 transition-colors" id="sel-job-${key}" onclick="selectJob('${key}')">
+                    <div class="font-bold text-sm mb-1">${j.name}</div>
+                    <div class="text-[10px] text-blue-300">技能: ${skill.icon}${skill.name}</div>
+                    <div class="text-[10px] text-gray-400 mt-1 leading-tight">${j.desc}</div>
+                </div>`;
+            }
+            document.getElementById('creation-jobs').innerHTML = jobHtml;
+            
+            selectRace('human');
+            selectJob('warrior');
+        }
+
+        let tempRace = 'human'; let tempJob = 'warrior';
+        function selectRace(id) {
+            tempRace = id;
+            document.querySelectorAll('[id^="sel-race-"]').forEach(el => el.classList.remove('border-yellow-500', 'bg-slate-700'));
+            document.getElementById(`sel-race-${id}`).classList.add('border-yellow-500', 'bg-slate-700');
+        }
+        function selectJob(id) {
+            tempJob = id;
+            document.querySelectorAll('[id^="sel-job-"]').forEach(el => el.classList.remove('border-blue-500', 'bg-slate-700'));
+            document.getElementById(`sel-job-${id}`).classList.add('border-blue-500', 'bg-slate-700');
+        }
+
+        function startGame() {
+            document.getElementById('modal-creation').classList.add('hidden');
+            
+            state = {
+                race: tempRace, job: tempJob,
+                level: 1, xp: 0, floor: 0, gold: 0,
+                hunger: getBaseMaxHunger(),
+                equipment: { weapon: null, armor: null },
+                inventory: [], logs: [],
+                playerX: 0, playerY: 0,
+                map: [], fov: [], entities: []
+            };
+            
+            state.hp = getBaseMaxHp();
+            state.mp = getBaseMaxMp();
+            
+            state.inventory.push('potion');
+            state.inventory.push('key'); // 起始送一把鑰匙
+            if(state.job === 'mage' || state.job === 'paladin') state.inventory.push('mana_pot');
+            
+            logMsg(`你以 ${GAME_DB.races[state.race].name} ${GAME_DB.jobs[state.job].name} 的身分進入了地下城。`, "text-yellow-400 font-bold");
+            startNewFloor();
+        }
+
+        function respawnAtB1() {
+            closeModal('modal-death');
+            state.floor = 0;
+            state.hp = getBaseMaxHp();
+            state.mp = getBaseMaxMp();
+            state.hunger = getBaseMaxHunger();
+            state.gold = Math.floor(state.gold / 2);
+            logMsg("藉助殘存的意念，你在 B1 重新甦醒... (失去了一半的金幣)", "text-purple-400 font-bold");
+            startNewFloor();
+        }
+
+        function startNewFloor() {
+            state.floor++;
+            const theme = getCurrentTheme();
+            logMsg(`進入了 B${state.floor} - ${theme.name}`, "text-purple-300");
+            
+            // 提取並保留跟隨的隊友與傭兵跨越樓層
+            const allies = state.entities ? state.entities.filter(e => e.isAlly && e.hp > 0) : [];
+
+            state.map = Array.from({length: MAP_SIZE}, () => Array(MAP_SIZE).fill(1));
+            state.fov = Array.from({length: MAP_SIZE}, () => Array(MAP_SIZE).fill(0));
+            state.entities = []; 
+
+            const rooms = [];
+            const MAX_ROOMS = 8 + Math.floor(state.floor / 3);
+            
+            for(let i=0; i<MAX_ROOMS; i++) {
+                let w = Math.floor(Math.random() * 5) + 3;
+                let h = Math.floor(Math.random() * 5) + 3;
+                let x = Math.floor(Math.random() * (MAP_SIZE - w - 2)) + 1;
+                let y = Math.floor(Math.random() * (MAP_SIZE - h - 2)) + 1;
+                
+                let overlap = false;
+                for(let r of rooms) {
+                    if (x < r.x + r.w + 1 && x + w + 1 > r.x && y < r.y + r.h + 1 && y + h + 1 > r.y) { overlap = true; break; }
+                }
+                
+                if(!overlap) {
+                    rooms.push({x, y, w, h});
+                    for(let ry=y; ry<y+h; ry++) {
+                        for(let rx=x; rx<x+w; rx++) { state.map[ry][rx] = 0; }
+                    }
+                }
+            }
+
+            // 挖掘通道
+            for(let i=1; i<rooms.length; i++) {
+                let p1 = { x: Math.floor(rooms[i-1].x + rooms[i-1].w/2), y: Math.floor(rooms[i-1].y + rooms[i-1].h/2) };
+                let p2 = { x: Math.floor(rooms[i].x + rooms[i].w/2), y: Math.floor(rooms[i].y + rooms[i].h/2) };
+                
+                let cx = p1.x; let cy = p1.y;
+                while(cx !== p2.x) { state.map[cy][cx] = 0; cx += Math.sign(p2.x - cx); }
+                while(cy !== p2.y) { state.map[cy][cx] = 0; cy += Math.sign(p2.y - cy); }
+            }
+
+            // 在通道隨機生成【上鎖的門】
+            for(let y=1; y<MAP_SIZE-1; y++) {
+                for(let x=1; x<MAP_SIZE-1; x++) {
+                    if (state.map[y][x] === 0) {
+                        let top = state.map[y-1][x] === 1; let bot = state.map[y+1][x] === 1;
+                        let left = state.map[y][x-1] === 1; let right = state.map[y][x+1] === 1;
+                        // 若是單行通道
+                        if ((top && bot && !left && !right) || (!top && !bot && left && right)) {
+                            if (Math.random() < 0.08) { state.map[y][x] = 2; } // 2: 上鎖的門
+                        }
+                    }
+                }
+            }
+
+            rooms.forEach(r => {
+                if(theme.hasWater && Math.random() < 0.3) fillRoomSub(r, 6);
+                if(Math.random() < 0.4) {
+                    let tx = r.x + Math.floor(Math.random()*r.w);
+                    let ty = r.y + Math.floor(Math.random()*r.h);
+                    if(state.map[ty][tx] === 0) state.map[ty][tx] = (Math.random() < 0.7) ? 4 : 5; // 4:隱藏陷阱, 5:泉水
+                }
+            });
+
+            state.playerX = rooms[0].x + Math.floor(rooms[0].w/2);
+            state.playerY = rooms[0].y + Math.floor(rooms[0].h/2);
+
+            // 安置隊友在玩家身邊
+            allies.forEach((ally, idx) => {
+                ally.x = state.playerX + (idx % 2 === 0 ? 1 : -1);
+                ally.y = state.playerY + (idx % 3 === 0 ? 1 : 0);
+                state.entities.push(ally);
+            });
+
+            const lastRoom = rooms[rooms.length-1];
+            state.map[lastRoom.y + Math.floor(lastRoom.h/2)][lastRoom.x + Math.floor(lastRoom.w/2)] = 3; // 樓梯
+
+            // 生成實體
+            const pools = theme.pools;
+            for(let i=1; i<rooms.length; i++) {
+                let r = rooms[i];
+                let numMonsters = Math.floor(Math.random() * 3) + (state.floor > 5 ? 1 : 0);
+                for(let m=0; m<numMonsters; m++) { spawnEntity(pools[Math.floor(Math.random() * pools.length)], r); }
+                
+                if(Math.random() < 0.3) spawnEntity('gold', r);
+                if(Math.random() < 0.35) spawnEntity('key', r); // 大量生成鑰匙
+                if(Math.random() < 0.15) spawnEntity('potion', r);
+                if(Math.random() < 0.1) spawnEntity('mana_pot', r);
+                if(Math.random() < 0.1) spawnEntity('scroll_map', r);
+                if(Math.random() < 0.15 && theme.drops) spawnEntity(theme.drops[Math.floor(Math.random() * theme.drops.length)], r);
+            }
+
+            // 隨機生成 NPC (從第 2 層開始)
+            if (state.floor > 1 && Math.random() < 0.20) spawnEntity('merchant', rooms[Math.floor(Math.random() * rooms.length)]);
+            if (state.floor > 1 && Math.random() < 0.25) spawnEntity('adventurer', rooms[Math.floor(Math.random() * rooms.length)]);
+
+            if (theme.boss) spawnEntity(theme.boss, lastRoom);
+
+            calculateFOV();
+            updateUI();
+            render();
+        }
+
+        function fillRoomSub(room, tileId) {
+            for(let y = room.y + 1; y < room.y + room.h - 1; y++) {
+                for(let x = room.x + 1; x < room.x + room.w - 1; x++) {
+                    if(Math.random() < 0.6) state.map[y][x] = tileId;
+                }
+            }
+        }
+
+        function spawnEntity(id, room) {
+            let ex, ey; let tries = 0;
+            do {
+                ex = room.x + Math.floor(Math.random() * room.w);
+                ey = room.y + Math.floor(Math.random() * room.h);
+                tries++;
+            } while (state.map[ey][ex] !== 0 && tries < 10);
+            
+            if(tries >= 10) return;
+            const template = GAME_DB.entities[id];
+            if(template) {
+                let entity = { ...template, x: ex, y: ey, uid: Date.now() + Math.random().toString(36).substring(2) };
+                if (template.isEnemy) {
+                    let scaleHp = Math.pow(1.15, state.floor - 1);
+                    let scaleAtk = Math.pow(1.1, state.floor - 1);
+                    entity.hp = Math.max(1, Math.floor(template.hp * scaleHp));
+                    entity.atk = Math.max(1, Math.floor(template.atk * scaleAtk));
+                    entity.exp = Math.max(1, Math.floor(template.exp * scaleAtk));
+                    
+                    if (!template.isBoss && Math.random() < 0.3) {
+                        let prefix = GAME_DB.monsterPrefixes[Math.floor(Math.random() * GAME_DB.monsterPrefixes.length)];
+                        entity.name = prefix.name + entity.name;
+                        entity.hp = Math.floor(entity.hp * (prefix.hpMult || 1));
+                        entity.atk = Math.floor(entity.atk * (prefix.atkMult || 1)) + (prefix.atkAdd || 0);
+                        entity.def = (entity.def || 0) + (prefix.defAdd || 0);
+                        entity.exp = Math.floor(entity.exp * (prefix.expMult || 1));
+                    }
+                    entity.maxHp = entity.hp;
+                } 
+                else if (template.type === 'weapon' || template.type === 'armor') {
+                    if (Math.random() < 0.4) {
+                        let valid = GAME_DB.equipPrefixes.filter(p => !p.type || p.type === template.type);
+                        if(valid.length > 0) {
+                            let prefix = valid[Math.floor(Math.random() * valid.length)];
+                            entity.name = prefix.name + entity.name;
+                            entity.atkBonus = (entity.atkBonus || 0) + (prefix.atkAdd || 0);
+                            entity.defBonus = (entity.defBonus || 0) + (prefix.defAdd || 0);
+                            entity.mpBonus = (entity.mpBonus || 0) + (prefix.mpBonus || 0);
+                        }
+                    }
+                }
+                state.entities.push(entity);
+            }
+        }
+
+        function getCurrentTheme() {
+            if (state.floor <= 25) { return GAME_DB.themes.find(t => state.floor <= t.maxFloor) || GAME_DB.themes[GAME_DB.themes.length-1]; }
+            let seed = state.floor;
+            let baseIdx = Math.floor(getSeededRandom(seed) * 5); 
+            let baseTheme = GAME_DB.themes[baseIdx];
+            let r = Math.floor(getSeededRandom(seed+1) * 60); let g = Math.floor(getSeededRandom(seed+2) * 60); let b = Math.floor(getSeededRandom(seed+3) * 60);
+            return { ...baseTheme, bg: `rgb(${r},${g},${b})`, name: `異變·${baseTheme.name}`, boss: (state.floor % 5 === 0) ? 'boss_drag' : null };
+        }
+
+        function calculateFOV() {
+            for(let y=0; y<MAP_SIZE; y++) {
+                for(let x=0; x<MAP_SIZE; x++) { if(state.fov[y][x] === 2) state.fov[y][x] = 1; }
+            }
+            const radius = 5;
+            for(let i=0; i<360; i+= 5) {
+                let rad = i * (Math.PI / 180); let dx = Math.cos(rad); let dy = Math.sin(rad);
+                let cx = state.playerX + 0.5; let cy = state.playerY + 0.5;
+                for(let step=0; step<radius; step++) {
+                    let mapX = Math.floor(cx); let mapY = Math.floor(cy);
+                    if(mapX >= 0 && mapX < MAP_SIZE && mapY >= 0 && mapY < MAP_SIZE) {
+                        state.fov[mapY][mapX] = 2;
+                        if(!GAME_DB.terrain[state.map[mapY][mapX]].transparent) break;
+                    } else { break; }
+                    cx += dx; cy += dy;
+                }
+            }
+            state.fov[state.playerY][state.playerX] = 2;
+        }
+
+        function revealMap() {
+            for(let y=0; y<MAP_SIZE; y++) { for(let x=0; x<MAP_SIZE; x++) { if(state.fov[y][x] === 0) state.fov[y][x] = 1; } }
+            logMsg("地圖的全貌浮現在腦海中！", "text-purple-400 font-bold");
+            render();
+        }
+
+        function handleGridClick(vx, vy) {
+            if(isAnyModalOpen()) return;
+            const dx = vx - HALF_VIEW; const dy = vy - HALF_VIEW;
+            if (dx === 0 && dy === 0) { waitTurn(); return; }
+            if (Math.abs(dx) > Math.abs(dy)) movePlayer(Math.sign(dx), 0);
+            else if (Math.abs(dy) > Math.abs(dx)) movePlayer(0, Math.sign(dy));
+            else movePlayer(Math.sign(dx), 0);
+        }
+
+        function randomTeleport() {
+            let tries = 0;
+            while(tries < 100) {
+                let rx = Math.floor(Math.random() * MAP_SIZE);
+                let ry = Math.floor(Math.random() * MAP_SIZE);
+                if (GAME_DB.terrain[state.map[ry][rx]].walkable && !state.entities.find(e => e.x === rx && e.y === ry)) {
+                    state.playerX = rx; state.playerY = ry;
+                    break;
+                }
+                tries++;
+            }
+        }
+
+        function movePlayer(dx, dy) {
+            if (state.hp <= 0) return;
+            const nx = state.playerX + dx; const ny = state.playerY + dy;
+
+            if (nx < 0 || ny < 0 || nx >= MAP_SIZE || ny >= MAP_SIZE) return;
+            
+            // 處理實體碰撞
+            const entity = state.entities.find(e => e.x === nx && e.y === ny);
+            if (entity) {
+                if (entity.isEnemy) {
+                    playerAttack(entity);
+                    return; 
+                }
+                if (entity.isAlly) {
+                    // 與隊友交換位置 (不消耗回合)
+                    entity.x = state.playerX; entity.y = state.playerY;
+                    state.playerX = nx; state.playerY = ny;
+                    logMsg(`與 ${entity.name} 交換了位置。`, "text-gray-400");
+                    calculateFOV(); render();
+                    return;
+                }
+                if (entity.isNPC) {
+                    interactNPC(entity);
+                    return;
+                }
+            }
+
+            const tileInfo = GAME_DB.terrain[state.map[ny][nx]];
+            if (!tileInfo.walkable) {
+                if (state.map[ny][nx] === 2) { // 遭遇上鎖的門
+                    let keyIdx = state.inventory.findIndex(i => i === 'key' || (typeof i === 'object' && i.id === 'key'));
+                    if (keyIdx !== -1) {
+                        state.inventory.splice(keyIdx, 1);
+                        state.map[ny][nx] = 7; // 開啟變敞開的門
+                        logMsg("使用 🗝️鐵鑰匙 打開了門。", "text-yellow-300");
+                    } else {
+                        let dmg = Math.floor(Math.random() * 3) + 1;
+                        state.hp -= dmg;
+                        logMsg(`門上鎖了！你用力撞擊門，受到 ${dmg} 傷害。`, "text-red-400");
+                        showFloatingText(`💥-${dmg}`, nx, ny);
+                        if (Math.random() < 0.25) {
+                            state.map[ny][nx] = 7;
+                            logMsg("碰！門被你強行撞開了！", "text-yellow-400 font-bold");
+                        }
+                    }
+                    endTurn();
+                }
+                return;
+            }
+
+            state.playerX = nx; state.playerY = ny;
+            
+            // 處理地形與陷阱互動
+            if (state.map[ny][nx] === 4) { // 觸發隱藏陷阱並現形
+                let trapTypes = [8, 9, 10];
+                let trap = trapTypes[Math.floor(Math.random() * trapTypes.length)];
+                state.map[ny][nx] = trap; 
+            }
+
+            if (state.map[ny][nx] === 8) { // 尖刺
+                let dmg = Math.max(1, Math.floor(getBaseMaxHp() * 0.15));
+                state.hp -= dmg;
+                logMsg(`踩中📍尖刺陷阱！受到 ${dmg} 傷害。`, "text-red-400");
+                showFloatingText('💥', nx, ny);
+            } else if (state.map[ny][nx] === 9) { // 傳送
+                logMsg(`踩中🌀傳送陷阱！時空發生扭曲...`, "text-purple-400");
+                showFloatingText('🌀', nx, ny);
+                randomTeleport();
+            } else if (state.map[ny][nx] === 10) { // 毒液
+                let dmg = 5; state.hp -= dmg;
+                state.hunger = Math.max(0, state.hunger - 15);
+                logMsg(`踩中🟢毒液窪地！受到傷害並流失飽食度。`, "text-green-400");
+                showFloatingText('☠️', nx, ny);
+            } else if (tileInfo.isFountain) {
+                if(Math.random() < 0.6) {
+                    heal(20); restoreMp(10); state.hunger = Math.min(getBaseMaxHunger(), state.hunger + 15);
+                    logMsg("飲用甘甜的泉水，恢復了身心！", "text-green-300");
+                } else {
+                    let dmg = 5; state.hp -= dmg; logMsg("這泉水有毒！", "text-purple-400");
+                }
+                state.map[ny][nx] = 0; 
+            } else if (state.map[ny][nx] === 3) {
+                startNewFloor(); return;
+            }
+
+            checkPickups();
+            endTurn();
+        }
+
+        function waitTurn() {
+            if(state.hp <= 0) return;
+            heal(Math.max(1, Math.floor(getBaseMaxHp()*0.05))); restoreMp(1);
+            endTurn(); // 也會消耗飽食度
+        }
+
+        function playerAttack(enemy) {
+            if (enemy.mimic) {
+                enemy.mimic = false;
+                logMsg(`寶箱露出了獠牙！是 ${enemy.name}！`, "text-red-400 font-bold");
+            }
+
+            let atk = getPlayerAtk();
+            let isCrit = Math.random() < 0.1;
+            if(isCrit) atk = Math.floor(atk * 1.5);
+            
+            const dmg = Math.max(1, atk - enemy.def);
+            enemy.hp -= dmg;
+            
+            let critText = isCrit ? '爆擊！' : '';
+            logMsg(`你攻擊了 ${enemy.name}，${critText}造成 ${dmg} 傷害。`);
+            showFloatingText(`-${dmg}`, enemy.x, enemy.y, isCrit ? '#f87171' : '#fff');
+
+            if (enemy.hp <= 0) {
+                logMsg(`擊敗了 ${enemy.name}！`, "text-yellow-400");
+                gainXp(enemy.exp);
+                state.entities = state.entities.filter(e => e.uid !== enemy.uid);
+                
+                // 掉落魔物肉
+                if (!enemy.isBoss && Math.random() < 0.35) {
+                    state.entities.push({ ...GAME_DB.entities.meat, x: enemy.x, y: enemy.y, uid: Date.now() + Math.random() });
+                }
+            }
+            endTurn();
+        }
+
+        function castSkill() {
+            if(state.hp <= 0) return;
+            const skillInfo = GAME_DB.skills[GAME_DB.jobs[state.job].skill];
+            if(state.mp < skillInfo.cost) { logMsg("魔力不足！", "text-red-400"); return; }
+            if(skillInfo.action(state.playerX, state)) {
+                state.mp -= skillInfo.cost;
+                logMsg(`施放了 ${skillInfo.name}！`, "text-purple-300 font-bold");
+                endTurn();
+            }
+        }
+
+        function castCleave(cx, state) {
+            let hit = false;
+            state.entities.forEach(e => {
+                if(e.isEnemy && Math.abs(e.x - state.playerX) <= 1 && Math.abs(e.y - state.playerY) <= 1) {
+                    if(e.mimic) { e.mimic = false; logMsg(`寶箱怪現出原形！`, "text-red-400"); }
+                    let dmg = Math.max(1, Math.floor(getPlayerAtk() * 1.5) - e.def);
+                    e.hp -= dmg;
+                    showFloatingText(`-${dmg}`, e.x, e.y, '#f87171');
+                    hit = true;
+                    if(e.hp <= 0) { 
+                        gainXp(e.exp); 
+                        if (!e.isBoss && Math.random() < 0.35) state.entities.push({ ...GAME_DB.entities.meat, x: e.x, y: e.y, uid: Date.now()+Math.random() });
+                    }
+                }
+            });
+            if(hit) { state.entities = state.entities.filter(e => e.hp > 0); return true; }
+            logMsg("周圍沒有敵人可以攻擊。", "text-gray-400"); return false;
+        }
+
+        function castFireball(cx, state) {
+            let target = null; let minDist = 99;
+            state.entities.forEach(e => {
+                if(e.isEnemy && state.fov[e.y][e.x] === 2) {
+                    let dist = Math.abs(e.x - state.playerX) + Math.abs(e.y - state.playerY);
+                    if(dist < minDist) { minDist = dist; target = e; }
+                }
+            });
+            if(target) {
+                if(target.mimic) { target.mimic = false; logMsg(`寶箱怪被燒醒了！`, "text-red-400"); }
+                let dmg = Math.max(1, Math.floor((10 + state.level*3) * (GAME_DB.races[state.race].mpMod)));
+                target.hp -= dmg;
+                showFloatingText(`🔥-${dmg}`, target.x, target.y, '#fb923c');
+                logMsg(`火球命中了 ${target.name}，造成 ${dmg} 傷害。`, "text-orange-400");
+                if(target.hp <= 0) {
+                    gainXp(target.exp);
+                    state.entities = state.entities.filter(e => e.uid !== target.uid);
+                    if (!target.isBoss && Math.random() < 0.35) state.entities.push({ ...GAME_DB.entities.meat, x: target.x, y: target.y, uid: Date.now()+Math.random() });
+                }
+                return true;
+            }
+            logMsg("視線內沒有目標。", "text-gray-400"); return false;
+        }
+
+        function castDash(cx, state) {
+            for(let i=0; i<10; i++) {
+                let nx = state.playerX + Math.floor(Math.random()*7 - 3);
+                let ny = state.playerY + Math.floor(Math.random()*7 - 3);
+                if(nx >=0 && nx < MAP_SIZE && ny >=0 && ny < MAP_SIZE && GAME_DB.terrain[state.map[ny][nx]].walkable) {
+                    if(!state.entities.some(e => e.x === nx && e.y === ny && e.isEnemy)) {
+                        state.playerX = nx; state.playerY = ny;
+                        showFloatingText('💨', nx, ny);
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function castHeal(cx, state) {
+            heal(Math.floor(getBaseMaxHp() * 0.4));
+            showFloatingText('✨', state.playerX, state.playerY, '#86efac');
+            return true;
+        }
+
+        function gainXp(amt) {
+            state.xp += amt; let needed = getXpNeeded();
+            while (state.xp >= needed) {
+                state.xp -= needed; state.level++;
+                state.hp = getBaseMaxHp(); state.mp = getBaseMaxMp();
+                logMsg(`⬆️ 升級了！目前等級 Lv.${state.level}`, "text-yellow-300 font-bold");
+                needed = getXpNeeded();
+            }
+        }
+        function getXpNeeded() { return 10 + Math.floor(Math.pow(state.level, 1.5) * 5); }
+
+        function checkPickups() {
+            const items = state.entities.filter(e => e.x === state.playerX && e.y === state.playerY && !e.isEnemy && !e.isNPC && !e.isAlly);
+            items.forEach(item => {
+                if (item.id === 'gold') {
+                    const amount = Math.floor(Math.random() * (10 + state.floor*2)) + 5;
+                    state.gold += amount;
+                    logMsg(`獲得了 ${amount} 金幣。`, "text-yellow-300");
+                } else if (item.id === 'key' || item.id === 'meat') {
+                    // 基礎物資堆疊儲存ID即可
+                    state.inventory.push(item.id);
+                    logMsg(`撿起了 ${item.char} ${item.name}。`, "text-gray-300");
+                } else {
+                    state.inventory.push({...item});
+                    logMsg(`撿起了 ${item.name}。`, "text-green-300");
+                }
+                state.entities = state.entities.filter(e => e.uid !== item.uid);
+            });
+        }
+
+        function endTurn() {
+            // 飽食度系統消耗
+            state.hunger -= 1;
+            if (state.hunger <= 0) {
+                state.hunger = 0;
+                let starveDmg = Math.max(1, Math.floor(getBaseMaxHp()*0.02));
+                state.hp -= starveDmg;
+                logMsg("極度飢餓... 生命值正在流失！", "text-red-500 font-bold");
+                showFloatingText(`😵-${starveDmg}`, state.playerX, state.playerY);
+            }
+
+            calculateFOV();
+            processAITurn();
+            updateUI();
+            render();
+            
+            if (state.hp <= 0) {
+                document.getElementById('death-floor').innerText = `B${state.floor}`;
+                document.getElementById('death-level').innerText = state.level;
+                document.getElementById('death-gold').innerText = state.gold;
+                openModal('modal-death');
+            }
+        }
+
+        function processAITurn() {
+            state.entities.forEach(entity => {
+                if (entity.hp <= 0 && !entity.isNPC) return;
+                
+                const distToPlayer = Math.abs(entity.x - state.playerX) + Math.abs(entity.y - state.playerY);
+
+                if (entity.isAlly) {
+                    // 隊友 AI：尋找視線內最近的敵人
+                    let target = null; let minDist = 99;
+                    state.entities.forEach(e => {
+                        if (e.isEnemy && state.fov[e.y][e.x] === 2) {
+                            let dist = Math.abs(e.x - entity.x) + Math.abs(e.y - entity.y);
+                            if(dist < minDist) { minDist = dist; target = e; }
+                        }
+                    });
+
+                    if (target && minDist === 1) {
+                        // 護主攻擊
+                        const dmg = Math.max(1, entity.atk - (target.def || 0));
+                        target.hp -= dmg;
+                        logMsg(`[連攜] ${entity.name} 攻擊 ${target.name}，造成 ${dmg} 傷害！`, "text-blue-300");
+                        showFloatingText(`-${dmg}`, target.x, target.y, '#60a5fa');
+                        if (target.hp <= 0) {
+                            logMsg(`${target.name} 被 ${entity.name} 擊殺了！`);
+                            gainXp(Math.floor(target.exp / 2)); // 隊友擊殺，玩家分得一半經驗
+                            state.entities = state.entities.filter(e => e.uid !== target.uid);
+                            if (!target.isBoss && Math.random() < 0.35) state.entities.push({ ...GAME_DB.entities.meat, x: target.x, y: target.y, uid: Date.now()+Math.random() });
+                        }
+                    } else if (target) {
+                        aiMoveTowards(entity, target.x, target.y);
+                    } else if (distToPlayer > 2) {
+                        aiMoveTowards(entity, state.playerX, state.playerY); // 跟隨玩家
+                    }
+                    return;
+                }
+
+                if (!entity.isEnemy) return;
+
+                if (entity.mimic) {
+                    if (distToPlayer === 1) {
+                        entity.mimic = false;
+                        logMsg(`身旁的寶箱活了過來！是 ${entity.name}！`, "text-red-400 font-bold");
+                    } else { return; }
+                }
+
+                if (distToPlayer === 1) {
+                    const dmg = Math.max(1, entity.atk - getPlayerDef());
+                    state.hp -= dmg;
+                    logMsg(`${entity.name} 攻擊，造成 ${dmg} 傷害！`, "text-red-400");
+                    
+                    const overlay = document.getElementById('damage-overlay');
+                    overlay.style.opacity = '0.4'; setTimeout(() => overlay.style.opacity = '0', 200);
+                } else if (entity.chase && state.fov[entity.y][entity.x] === 2) {
+                    aiMoveTowards(entity, state.playerX, state.playerY);
+                }
+            });
+        }
+
+        // 共用 AI 尋路系統
+        function aiMoveTowards(entity, tx, ty) {
+            let dx = tx - entity.x; let dy = ty - entity.y;
+            let stepX = dx !== 0 ? Math.sign(dx) : 0; let stepY = dy !== 0 ? Math.sign(dy) : 0;
+
+            const tryMove = (mx, my) => {
+                const nx = entity.x + mx; const ny = entity.y + my;
+                if(GAME_DB.terrain[state.map[ny][nx]].walkable && 
+                   !state.entities.find(e => e.x === nx && e.y === ny && (e.isEnemy || e.isAlly || e.isNPC)) &&
+                   !(nx === state.playerX && ny === state.playerY)) {
+                    entity.x = nx; entity.y = ny; return true;
+                }
+                return false;
+            };
+
+            if (Math.abs(dx) > Math.abs(dy)) {
+                if(!tryMove(stepX, 0)) tryMove(0, stepY);
+            } else {
+                if(!tryMove(0, stepY)) tryMove(stepX, 0);
+            }
+        }
+
+        function heal(amount) { state.hp = Math.min(getBaseMaxHp(), state.hp + amount); }
+        function restoreMp(amount) { state.mp = Math.min(getBaseMaxMp(), state.mp + amount); }
+
+        function render() {
+            if(!state.map || state.map.length === 0) return;
+            const theme = getCurrentTheme();
+            document.getElementById('viewport-container').style.backgroundColor = theme.bg;
+
+            for (let y = 0; y < VIEW_SIZE; y++) {
+                for (let x = 0; x < VIEW_SIZE; x++) {
+                    const mapX = state.playerX + x - HALF_VIEW; const mapY = state.playerY + y - HALF_VIEW;
+                    const cell = htmlGrid[y][x];
+                    
+                    cell.innerHTML = ''; cell.className = 'grid-cell';
+
+                    if (mapX < 0 || mapY < 0 || mapX >= MAP_SIZE || mapY >= MAP_SIZE) {
+                        cell.innerHTML = '⬛'; cell.classList.add('fov-hidden'); continue;
+                    }
+
+                    const vis = state.fov[mapY][mapX];
+                    if (vis === 0) { cell.classList.add('fov-hidden'); continue; }
+                    else if (vis === 1) { cell.classList.add('fov-dim'); }
+                    else { cell.classList.add('fov-visible'); }
+
+                    let tileId = state.map[mapY][mapX];
+                    let tileChar = GAME_DB.terrain[tileId].char;
+                    if (tileId === 1) tileChar = theme.wall;
+                    if (tileId === 0) tileChar = `<span style="color: rgba(255,255,255,0.1)">${theme.floorChar || '.'}</span>`;
+                    
+                    let content = tileChar;
+
+                    if (vis === 2) {
+                        const entitiesOnTile = state.entities.filter(e => e.x === mapX && e.y === mapY);
+                        if (entitiesOnTile.length > 0) { content = entitiesOnTile[entitiesOnTile.length - 1].char; }
+                        if (mapX === state.playerX && mapY === state.playerY) {
+                            content = state.hp > 0 ? GAME_DB.races[state.race].icon : '💀';
+                            cell.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                        } else { cell.style.backgroundColor = 'transparent'; }
+                    } else {
+                        if (tileId === 3 || tileId === 5 || tileId === 8 || tileId === 9 || tileId === 10) { /* keeps tileChar */ } 
+                        else if (mapX === state.playerX && mapY === state.playerY) { content = GAME_DB.races[state.race].icon; }
+                    }
+                    cell.innerHTML = content;
+                }
+            }
+        }
+
+        function updateUI() {
+            if(!state.race) return;
+            document.getElementById('ui-hero-icon').innerText = GAME_DB.races[state.race].icon;
+            document.getElementById('ui-race-job').innerText = `${GAME_DB.races[state.race].name} ${GAME_DB.jobs[state.job].name}`;
+            
+            document.getElementById('ui-hp').innerText = state.hp;
+            document.getElementById('ui-maxhp').innerText = getBaseMaxHp();
+            document.getElementById('ui-mp').innerText = state.mp;
+            document.getElementById('ui-maxmp').innerText = getBaseMaxMp();
+            
+            document.getElementById('ui-hunger').innerText = state.hunger;
+            if(state.hunger < 50) document.getElementById('ui-hunger').parentElement.className = "text-red-500 font-bold animate-pulse";
+            else document.getElementById('ui-hunger').parentElement.className = "text-orange-400 font-bold";
+            
+            document.getElementById('ui-floor').innerText = state.floor;
+            document.getElementById('ui-level').innerText = state.level;
+            
+            document.getElementById('ui-atk').innerText = getPlayerAtk();
+            document.getElementById('ui-def').innerText = getPlayerDef();
+            document.getElementById('ui-gold').innerText = state.gold;
+            
+            document.getElementById('ui-xp').innerText = state.xp;
+            document.getElementById('ui-maxxp').innerText = getXpNeeded();
+            document.getElementById('ui-xp-bar').style.width = `${(state.xp / getXpNeeded()) * 100}%`;
+            
+            const skill = GAME_DB.skills[GAME_DB.jobs[state.job].skill];
+            document.getElementById('ui-skill-name').innerText = skill.name;
+            document.getElementById('ui-skill-cost').innerText = `${skill.cost}MP`;
+            const btnSkill = document.getElementById('btn-skill');
+            if(state.mp < skill.cost) btnSkill.classList.add('opacity-50', 'grayscale');
+            else btnSkill.classList.remove('opacity-50', 'grayscale');
+        }
+
+        function logMsg(msg, colorClass = "text-gray-200") {
+            const timeMsg = `[B${state.floor}] ${msg}`;
+            state.logs.push({ text: timeMsg, color: colorClass });
+            if (state.logs.length > 50) state.logs.shift(); 
+            
+            const container = document.getElementById('msg-container');
+            const newLog = document.createElement('div');
+            newLog.className = `${colorClass} truncate transition-all duration-300 translate-y-2 opacity-0`;
+            newLog.innerText = msg;
+            container.appendChild(newLog);
+            
+            setTimeout(() => newLog.classList.remove('translate-y-2', 'opacity-0'), 10);
+            while (container.children.length > 4) { container.removeChild(container.firstChild); }
+            if(!document.getElementById('modal-log').classList.contains('hidden')) renderLogs();
+        }
+
+        function showFloatingText(text, mapX, mapY, color = '#fff') {
+            const vx = mapX - state.playerX + HALF_VIEW; const vy = mapY - state.playerY + HALF_VIEW;
+            if(vx >= 0 && vx < VIEW_SIZE && vy >= 0 && vy < VIEW_SIZE) {
+                const cell = htmlGrid[vy][vx];
+                const span = document.createElement('span');
+                span.className = 'dmg-text'; span.style.color = color; span.innerText = text;
+                cell.appendChild(span);
+                setTimeout(() => { if(cell.contains(span)) cell.removeChild(span); }, 800);
+            }
+        }
+
+        function renderLogs() {
+            const history = document.getElementById('history-logs');
+            history.innerHTML = '';
+            state.logs.forEach(log => {
+                const div = document.createElement('div');
+                div.className = `${log.color} border-b border-slate-700/50 pb-1`;
+                div.innerText = log.text; history.appendChild(div);
+            });
+            history.scrollTop = history.scrollHeight;
+        }
+
+        function isAnyModalOpen() {
+            const modals = ['modal-creation', 'modal-log', 'modal-inventory', 'modal-system', 'modal-death', 'modal-alert', 'modal-confirm', 'modal-dialog', 'modal-merchant'];
+            return modals.some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); });
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+            if(id === 'modal-inventory') renderInventory();
+            if(id === 'modal-log') renderLogs();
+        }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function showConfirm(msg, onConfirmCallback) {
+            document.getElementById('confirm-text').innerText = msg;
+            const yesBtn = document.getElementById('confirm-yes');
+            yesBtn.onclick = () => { closeModal('modal-confirm'); onConfirmCallback(); };
+            openModal('modal-confirm');
+        }
+        function showAlert(msg) { document.getElementById('alert-text').innerText = msg; openModal('modal-alert'); }
+
+        function showDialog(title, text, options) {
+            document.getElementById('dialog-title').innerText = title;
+            document.getElementById('dialog-text').innerHTML = text;
+            const btnContainer = document.getElementById('dialog-buttons');
+            btnContainer.innerHTML = '';
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = `btn-control py-3 rounded-lg font-bold flex-1 text-sm md:text-base ${opt.colorClass || 'bg-slate-700'}`;
+                btn.innerText = opt.label;
+                btn.onclick = () => { closeModal('modal-dialog'); opt.action(); };
+                btnContainer.appendChild(btn);
+            });
+            openModal('modal-dialog');
+        }
+
+        let currentMerchantStock = [];
+        let merchantTab = 'buy';
+
+        function interactNPC(npc) {
+            if (npc.npcType === 'merchant') {
+                if (!npc.stock) {
+                    npc.stock = ['potion', 'mana_pot', 'scroll_map', 'key'];
+                    if (Math.random() > 0.4) npc.stock.push('elixir');
+                    if (Math.random() > 0.5) npc.stock.push('w_sword');
+                    if (Math.random() > 0.5) npc.stock.push('a_leather');
+                    if (Math.random() > 0.2) npc.stock.push('meat');
+                }
+                currentMerchantStock = npc.stock;
+                merchantTab = 'buy';
+                openModal('modal-merchant');
+                renderMerchant();
+            } else if (npc.npcType === 'adventurer') {
+                if (!npc.advState) {
+                    npc.advState = Math.random() > 0.5 ? 'mercenary' : 'hungry';
+                    npc.price = 50 + Math.floor(Math.random() * 80); // 隨機傭兵價
+                }
+                
+                if (npc.advState === 'mercenary') {
+                    showDialog(`🧑‍🎤 ${npc.name}`, `你好，冒險者！地牢深處充滿危機，只要給我 <span class="text-yellow-400 font-bold">${npc.price} 金幣</span> 作為安家費，我的劍就為你所用！`, [
+                        { label: '雇傭他 (金幣)', colorClass: 'bg-green-800 border-green-600', action: () => {
+                            if (state.gold >= npc.price) {
+                                state.gold -= npc.price;
+                                npc.isAlly = true; npc.isNPC = false;
+                                npc.atk = 8 + Math.floor(state.floor * 1.5);
+                                npc.def = 2 + Math.floor(state.floor * 0.5);
+                                npc.maxHp = npc.hp = 30 + state.floor * 10;
+                                logMsg(`你花費 ${npc.price} 金幣雇傭了 ${npc.name}！`, "text-green-300 font-bold");
+                                updateUI(); render();
+                            } else {
+                                logMsg(`金幣不足以雇傭。`, "text-red-400");
+                            }
+                        }},
+                        { label: '拒絕並離開', action: () => {} }
+                    ]);
+                } else if (npc.advState === 'hungry') {
+                    showDialog(`🧑‍🎤 飢餓的${npc.name}`, `咳咳... 我迷路好幾天了... 快餓死了... <br><br>如果你有 🥩<span class="text-orange-400">魔物肉</span>，可以分給我一塊嗎？我會用身上最後的寶物跟你交換...`, [
+                        { label: '給他一塊魔物肉', colorClass: 'bg-orange-800 border-orange-600', action: () => {
+                            let meatIdx = state.inventory.findIndex(i => i === 'meat' || (typeof i === 'object' && i.id === 'meat'));
+                            if (meatIdx !== -1) {
+                                state.inventory.splice(meatIdx, 1);
+                                logMsg(`你將魔物肉遞給了 ${npc.name}。`, "text-orange-300");
+                                
+                                let rewards = ['potion', 'elixir', 'key', 'gold', 'scroll_map', 'w_staff', 'a_chain'];
+                                let rewardId = rewards[Math.floor(Math.random()*rewards.length)];
+                                if (rewardId === 'gold') {
+                                    let amt = 80 + Math.floor(Math.random()*150);
+                                    state.gold += amt;
+                                    logMsg(`${npc.name} 狼吞虎嚥後，留下了 ${amt} 金幣作為答謝並離開了！`, "text-yellow-400 font-bold");
+                                } else {
+                                    state.inventory.push(rewardId);
+                                    let temp = GAME_DB.entities[rewardId];
+                                    logMsg(`${npc.name} 留下了 ${temp.char}${temp.name} 作為答謝並離開了！`, "text-green-300 font-bold");
+                                }
+                                state.entities = state.entities.filter(e => e.uid !== npc.uid);
+                                updateUI(); render();
+                            } else {
+                                logMsg(`翻找了一下背包，你並沒有魔物肉。`, "text-gray-400");
+                            }
+                        }},
+                        { label: '我幫不了你', action: () => {} }
+                    ]);
+                }
+            }
+        }
+
+        function setMerchantTab(tab) {
+            merchantTab = tab;
+            renderMerchant();
+        }
+
+        function renderMerchant() {
+            document.getElementById('merchant-btn-buy').className = `flex-1 py-2 font-bold ${merchantTab === 'buy' ? 'bg-blue-800 text-white' : 'bg-slate-700 text-gray-400'}`;
+            document.getElementById('merchant-btn-sell').className = `flex-1 py-2 font-bold ${merchantTab === 'sell' ? 'bg-blue-800 text-white' : 'bg-slate-700 text-gray-400'}`;
+            document.getElementById('merchant-gold').innerText = state.gold;
+
+            const list = document.getElementById('merchant-list');
+            list.innerHTML = '';
+
+            if (merchantTab === 'buy') {
+                if (currentMerchantStock.length === 0) { list.innerHTML = '<div class="text-gray-500 text-center mt-4">商品已售罄</div>'; return; }
+                currentMerchantStock.forEach((itemId, idx) => {
+                    let itemDef = GAME_DB.entities[itemId];
+                    if(!itemDef) return;
+                    let price = itemDef.price || 15;
+                    
+                    const btn = document.createElement('div');
+                    btn.className = 'bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-600 shadow';
+                    btn.innerHTML = `
+                        <div class="text-gray-200">
+                            <span class="text-base">${itemDef.char} ${itemDef.name}</span>
+                            <div class="text-[10px] text-gray-400 mt-1">${itemDef.desc || (itemDef.atkBonus ? `攻擊+${itemDef.atkBonus}` : '') || (itemDef.defBonus ? `防禦+${itemDef.defBonus}` : '')}</div>
+                        </div>
+                        <button onclick="merchantTrade('buy', ${idx})" class="bg-yellow-700 hover:bg-yellow-600 text-white text-xs font-bold px-3 py-2 rounded shadow flex-shrink-0 transition-transform active:scale-95">
+                            💰 ${price}
+                        </button>
+                    `;
+                    list.appendChild(btn);
+                });
+            } else { // 販賣邏輯
+                if (state.inventory.length === 0) { list.innerHTML = '<div class="text-gray-500 text-center mt-4">背包空空如也</div>'; return; }
+                
+                state.inventory.forEach((item, index) => {
+                    let isObj = typeof item === 'object';
+                    let id = isObj ? item.id : item;
+                    let itemDef = isObj ? item : GAME_DB.entities[id];
+                    let basePrice = itemDef.price || 10;
+                    let sellPrice = Math.max(1, Math.floor(basePrice / 2));
+                    // 根據附魔屬性提升售價
+                    if (itemDef.atkBonus) sellPrice += (itemDef.atkBonus)*3; 
+                    if (itemDef.defBonus) sellPrice += (itemDef.defBonus)*3;
+                    
+                    const btn = document.createElement('div');
+                    btn.className = 'bg-slate-800 p-3 rounded flex justify-between items-center border border-slate-600 shadow';
+                    btn.innerHTML = `
+                        <div class="text-gray-300 text-sm truncate pr-2">${itemDef.char} ${itemDef.name}</div>
+                        <button onclick="merchantTrade('sell', ${index})" class="bg-slate-700 hover:bg-slate-600 text-blue-300 border border-slate-500 text-xs font-bold px-3 py-2 rounded shadow flex-shrink-0 transition-transform active:scale-95">
+                            售 💰 ${sellPrice}
+                        </button>
+                    `;
+                    list.appendChild(btn);
+                });
+            }
+        }
+
+        function merchantTrade(action, idx) {
+            if (action === 'buy') {
+                let itemId = currentMerchantStock[idx];
+                let itemDef = GAME_DB.entities[itemId];
+                let price = itemDef.price || 15;
+                
+                if (state.gold >= price) {
+                    state.gold -= price;
+                    state.inventory.push(itemId);
+                    currentMerchantStock.splice(idx, 1);
+                    logMsg(`購買了 ${itemDef.name}。`, "text-yellow-300");
+                } else {
+                    logMsg(`商人：你的金幣不夠呢！`, "text-red-400");
+                }
+            } else if (action === 'sell') {
+                let item = state.inventory[idx];
+                let isObj = typeof item === 'object';
+                let id = isObj ? item.id : item;
+                let itemDef = isObj ? item : GAME_DB.entities[id];
+                let basePrice = itemDef.price || 10;
+                let sellPrice = Math.max(1, Math.floor(basePrice / 2));
+                if (itemDef.atkBonus) sellPrice += (itemDef.atkBonus)*3; 
+                if (itemDef.defBonus) sellPrice += (itemDef.defBonus)*3;
+
+                state.gold += sellPrice;
+                state.inventory.splice(idx, 1);
+                logMsg(`賣出了 ${itemDef.name}，獲得 ${sellPrice} 金幣。`, "text-yellow-300");
+            }
+            updateUI();
+            renderMerchant();
+        }
+
+        function renderInventory() {
+            const wItem = state.equipment.weapon; const aItem = state.equipment.armor;
+            const getEqName = (eq) => {
+                if (!eq) return '無裝備';
+                let obj = typeof eq === 'string' ? GAME_DB.entities[eq] : eq;
+                return `${obj.char} ${obj.name}`;
+            };
+            
+            document.getElementById('equip-weapon').innerText = getEqName(wItem);
+            document.getElementById('equip-armor').innerText = getEqName(aItem);
+            document.getElementById('btn-unequip-weapon').style.display = wItem ? 'inline-block' : 'none';
+            document.getElementById('btn-unequip-armor').style.display = aItem ? 'inline-block' : 'none';
+
+            const list = document.getElementById('inventory-list');
+            list.innerHTML = '';
+            if (state.inventory.length === 0) { list.innerHTML = '<div class="text-gray-500 text-center mt-4">空空如也</div>'; return; }
+
+            let displayItems = []; let consumables = {};
+            
+            state.inventory.forEach((item, index) => {
+                let isObj = typeof item === 'object';
+                let id = isObj ? item.id : item;
+                let template = GAME_DB.entities[id];
+                if(!template) return;
+                
+                let type = isObj ? item.type : template.type;
+                if (type === 'consumable' || type === 'currency') {
+                    if (!consumables[id]) consumables[id] = { id: id, template: template, indices: [], count: 0 };
+                    consumables[id].count++;
+                    consumables[id].indices.push(index);
+                } else {
+                    displayItems.push({ item: isObj ? item : template, index: index, count: 1 });
+                }
+            });
+            
+            for(let key in consumables) {
+                displayItems.push({ item: consumables[key].template, index: consumables[key].indices[0], allIndices: consumables[key].indices, count: consumables[key].count, isConsumable: true });
+            }
+            
+            displayItems.forEach(disp => {
+                let itemDef = disp.item;
+                const btn = document.createElement('button');
+                btn.className = 'bg-slate-800 p-3 rounded flex justify-between items-center w-full border border-slate-600 hover:bg-slate-700 transition-colors text-left';
+                
+                let actText = itemDef.type === 'weapon' || itemDef.type === 'armor' ? '裝備' : '使用';
+                let isKey = itemDef.id === 'key';
+                let actBtnStyle = isKey ? 'bg-slate-600 text-gray-400' : 'bg-blue-600 text-white';
+                if(isKey) actText = '自動';
+
+                let statsStr = '';
+                if(itemDef.atkBonus) statsStr += `⚔️+${itemDef.atkBonus} `;
+                if(itemDef.defBonus) statsStr += `🛡️+${itemDef.defBonus} `;
+                if(itemDef.mpBonus) statsStr += `💧+${itemDef.mpBonus} `;
+                
+                let countStr = disp.count > 1 ? `<span class="text-gray-400 text-xs ml-1">x${disp.count}</span>` : '';
+                
+                btn.innerHTML = `
+                    <div>
+                        <div class="text-base text-gray-200">${itemDef.char} ${itemDef.name}${countStr}</div>
+                        <div class="text-[10px] text-gray-400">${itemDef.desc || statsStr}</div>
+                    </div>
+                    <span class="${actBtnStyle} text-xs px-3 py-1 rounded shadow-md flex-shrink-0 ml-2">${actText}</span>
+                `;
+                
+                btn.onclick = () => useItem(disp.index, disp.isConsumable ? disp.allIndices : null);
+                list.appendChild(btn);
+            });
+        }
+
+        function useItem(index, allIndices) {
+            let item = state.inventory[index];
+            let isObj = typeof item === 'object';
+            let id = isObj ? item.id : item;
+            let itemDef = isObj ? item : GAME_DB.entities[id];
+            
+            if (id === 'key') {
+                logMsg("請直接朝向【🔐 上鎖的門】移動即可自動使用鑰匙。", "text-gray-400");
+                return;
+            }
+
+            if (id === 'meat') {
+                let healHunger = 30 + Math.floor(Math.random()*20);
+                state.hunger = Math.min(getBaseMaxHunger(), state.hunger + healHunger);
+                logMsg(`吃下了 🥩 魔物肉，恢復了 ${healHunger} 飽食度。`, "text-orange-300");
+                
+                let effect = Math.random();
+                if(effect < 0.2) {
+                    let dmg = Math.floor(getBaseMaxHp() * 0.1) + 1;
+                    state.hp -= dmg;
+                    logMsg(`呃...這肉好像壞了。中毒受到 ${dmg} 傷害！`, "text-red-400");
+                } else if (effect < 0.3) {
+                    heal(Math.floor(getBaseMaxHp() * 0.2));
+                    logMsg(`這肉異常美味，你感覺生命力湧現！`, "text-green-300");
+                }
+                
+                let removeIdx = allIndices ? allIndices[allIndices.length - 1] : index;
+                state.inventory.splice(removeIdx, 1);
+                renderInventory();
+                endTurn();
+                return;
+            }
+
+            if (itemDef.type === 'weapon' || itemDef.type === 'armor') {
+                if (state.equipment[itemDef.type]) { state.inventory.push(state.equipment[itemDef.type]); }
+                state.equipment[itemDef.type] = itemDef;
+                state.inventory.splice(index, 1);
+                logMsg(`裝備了 ${itemDef.name}。`, "text-green-300");
+                updateUI(); renderInventory(); return;
+            }
+            
+            if (itemDef.onUse) {
+                GAME_DB.entities[id].onUse(state);
+                let removeIdx = allIndices ? allIndices[allIndices.length - 1] : index;
+                state.inventory.splice(removeIdx, 1);
+                renderInventory();
+                endTurn();
+            }
+        }
+        
+        function unequip(slot) {
+            if(state.equipment[slot]) {
+                state.inventory.push(state.equipment[slot]);
+                logMsg(`卸下了裝備。`);
+                state.equipment[slot] = null;
+                updateUI(); renderInventory();
+            }
+        }
+
+        function exportSave() {
+            const data = JSON.stringify(state);
+            const blob = new Blob([data], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `emoji_dungeon_save_b${state.floor}.json`;
+            a.click(); URL.revokeObjectURL(url);
+            closeModal('modal-system');
+            logMsg("存檔已成功匯出！", "text-green-300");
+        }
+
+        function importSave(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    state = JSON.parse(e.target.result);
+                    closeModal('modal-system');
+                    document.getElementById('modal-creation').classList.add('hidden');
+                    logMsg("存檔匯入成功！", "text-green-300");
+                    updateUI(); render();
+                } catch (err) { showAlert("讀取失敗：存檔格式錯誤！"); }
+                event.target.value = ''; 
+            };
+            reader.readAsText(file);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
