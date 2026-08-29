@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>方塊勇者：深淵商人 v8</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a; 
+            color: white;
+            overflow: hidden; 
+            touch-action: none;
+        }
+
+        .board-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background-color: #1e293b;
+            border-radius: 0.75rem;
+            padding: 2%;
+            box-sizing: border-box;
+            box-shadow: inset 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-card {
+            position: absolute;
+            width: 23%;
+            height: 23%;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border-radius: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            border: 2px solid transparent;
+        }
+
+        /* 動畫特效庫 */
+        .card-enter { animation: popIn 0.3s ease-out; }
+        .card-leave { animation: shrinkOut 0.2s ease-in forwards; }
+        .card-shake { animation: shake 0.3s ease-in-out; }
+        .explode-anim { animation: explodeFlash 0.4s ease-out forwards; }
+        .heal-anim { animation: healFlash 0.4s ease-out; }
+        .eat-anim { animation: eatFlash 0.4s ease-out; }
+        .mimic-anim { animation: mimicReveal 0.5s ease-out; }
+        .magic-flash { animation: screenFlash 0.6s ease-out forwards; pointer-events: none; }
+        .swap-anim { animation: swapSpin 0.5s ease-in-out; }
+        
+        /* 主角專屬強化特效 */
+        .player-glow {
+            animation: heroGlow 2s infinite alternate, heroFloat 3s infinite ease-in-out;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.8), inset 0 0 10px rgba(96, 165, 250, 0.5);
+            border: 2px solid #60a5fa !important;
+            z-index: 35 !important;
+        }
+
+        @keyframes heroGlow {
+            0% { box-shadow: 0 0 10px rgba(59, 130, 246, 0.5), inset 0 0 5px rgba(96, 165, 250, 0.3); }
+            100% { box-shadow: 0 0 25px rgba(59, 130, 246, 1), inset 0 0 15px rgba(96, 165, 250, 0.8); }
+        }
+
+        @keyframes heroFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        @keyframes popIn { 0% { transform: scale(0.3); opacity: 0; } 80% { transform: scale(1.05); } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes shrinkOut { to { transform: scale(0); opacity: 0; } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px) rotate(-8deg); } 75% { transform: translateX(6px) rotate(8deg); } }
+        @keyframes explodeFlash { 0% { background-color: #ef4444; transform: scale(1); opacity: 1; } 50% { background-color: #fca5a5; transform: scale(1.2); z-index: 50; } 100% { background-color: #ef4444; transform: scale(0); opacity: 0; } }
+        @keyframes healFlash { 0% { transform: scale(1); } 50% { background-color: #22c55e; transform: scale(1.1); } 100% { transform: scale(1); } }
+        @keyframes eatFlash { 0% { transform: scale(1); } 50% { background-color: #ca8a04; transform: scale(1.15) rotate(10deg); } 100% { transform: scale(1); } }
+        @keyframes mimicReveal { 0% { transform: scale(1) rotate(0); } 20% { transform: scale(1.2) rotate(-15deg); background-color: #ef4444; } 40% { transform: scale(1.2) rotate(15deg); } 60% { transform: scale(1.2) rotate(-15deg); } 100% { transform: scale(1) rotate(0); } }
+        @keyframes screenFlash { 0% { opacity: 0; background-color: #d946ef; } 20% { opacity: 0.8; background-color: #ffffff; } 100% { opacity: 0; background-color: #d946ef; } }
+        @keyframes swapSpin { 0% { transform: scale(1) rotate(0); opacity: 1; } 50% { transform: scale(0.5) rotate(180deg); opacity: 0.5; } 100% { transform: scale(1) rotate(360deg); opacity: 1; } }
+
+        .trait-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            font-size: 10px;
+            font-weight: 900;
+            padding: 2px 5px;
+            border-radius: 9999px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        ::-webkit-scrollbar { display: none; }
+        
+        .leaderboard-scroll::-webkit-scrollbar { display: block; width: 4px; }
+        .leaderboard-scroll::-webkit-scrollbar-track { background: transparent; }
+        .leaderboard-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    </style>
+</head>
+<body class="flex flex-col h-screen max-w-md mx-auto relative select-none pb-[15vh]">
+
+    <!-- 頂部資訊列與狀態區 -->
+    <header class="flex justify-between items-center p-3 bg-slate-800 shadow-md z-10 border-b border-slate-700 shrink-0">
+        <div>
+            <h1 class="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500 flex items-center gap-2">
+                深淵 <span id="floor-display" class="text-white">B1</span> 層
+                <span id="boss-warning" class="hidden text-[10px] bg-red-600 text-white px-1.5 rounded animate-pulse">BOSS戰</span>
+            </h1>
+            <div class="text-xs text-slate-400" id="turn-display">行動步數：0</div>
+        </div>
+        <div class="text-right">
+            <div class="text-sm font-bold text-red-400 flex items-center gap-1 justify-end">
+                <span>剩餘魔物：</span>
+                <span id="monster-quota" class="text-xl">10</span>
+            </div>
+            <div class="text-[10px] text-slate-400">清空盤面前往下層</div>
+        </div>
+    </header>
+
+    <!-- 玩家狀態區塊 -->
+    <div class="px-4 py-3 flex gap-2 bg-slate-900 border-b border-slate-800 z-10 relative shrink-0">
+        <div class="flex-1 flex flex-col justify-center gap-2">
+            <div>
+                <div class="flex justify-between text-[11px] mb-0.5 font-bold">
+                    <div class="flex gap-1 items-center">
+                        <span class="text-red-400">❤️ 生命 (<span id="hp-text">20/20</span>)</span>
+                        <span id="status-block" class="hidden bg-blue-500 text-white text-[9px] px-1 rounded border border-blue-300">🛡️庇護</span>
+                        <span id="status-poison" class="hidden bg-green-600 text-white text-[9px] px-1 rounded border border-green-300 animate-pulse">🕷️中毒</span>
+                    </div>
+                    <span class="text-cyan-400">🛡️ 護盾 (<span id="armor-text">0</span>)</span>
+                </div>
+                <div class="h-2 bg-slate-700 rounded-full overflow-hidden flex relative">
+                    <div id="hp-bar" class="h-full bg-red-500 transition-all duration-300" style="width: 50%;"></div>
+                    <div id="armor-bar" class="h-full bg-cyan-400 transition-all duration-300" style="width: 0%;"></div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-[11px] font-bold text-blue-400 w-8" id="level-display">Lv.1</span>
+                <div class="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div id="exp-bar" class="h-full bg-blue-500 w-0 transition-all duration-300"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex gap-1.5 shrink-0">
+            <button id="btn-ult" onclick="GameEngine.castUltimate()" class="flex flex-col justify-center items-center w-12 bg-fuchsia-950 rounded-lg border border-fuchsia-700 shadow-[0_0_8px_rgba(192,38,211,0.5)] active:scale-90 transition-all">
+                <div class="text-[10px] font-bold text-fuchsia-300 mb-0.5">⚡禁忌</div>
+                <div id="ult-status" class="text-[10px] font-black text-white">可用</div>
+            </button>
+            <div class="flex flex-col justify-center items-center w-10 bg-slate-800 rounded-lg border border-slate-700">
+                <div class="text-[10px] font-bold text-yellow-500 mb-0.5">🗝️</div>
+                <div id="key-text" class="text-base font-black text-white">0</div>
+            </div>
+            <div class="flex flex-col justify-center items-center w-10 bg-slate-800 rounded-lg border border-slate-700">
+                <div class="text-[10px] font-bold text-yellow-500 mb-0.5">⚔️</div>
+                <div id="atk-text" class="text-base font-black text-white">3</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 遊戲主盤面 -->
+    <main class="flex-1 flex flex-col justify-center px-4 z-10 relative">
+        <div id="board" class="board-container"></div>
+        <div id="magic-overlay" class="fixed inset-0 z-50 mix-blend-overlay hidden pointer-events-none"></div>
+    </main>
+
+    <div class="h-24 bg-slate-800 p-3 text-sm overflow-hidden border-t border-slate-700 z-10 relative shrink-0">
+        <div class="absolute top-0 left-0 w-full h-4 bg-gradient-to-b from-slate-800 to-transparent z-10"></div>
+        <div id="log-container" class="flex flex-col gap-1 text-slate-300 text-xs"></div>
+    </div>
+
+    <!-- 遊戲彈窗與對話框 -->
+    <div id="load-save-modal" class="fixed inset-0 bg-slate-900 bg-opacity-95 flex flex-col items-center justify-center z-50 hidden backdrop-blur-md">
+        <h2 class="text-3xl font-black text-cyan-400 mb-6 drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">發現深淵殘響</h2>
+        <p class="text-slate-300 mb-8 text-center text-sm">偵測到你上次的冒險進度<br>要繼續未完的旅程嗎？</p>
+        <div class="flex gap-4">
+            <button onclick="GameEngine.resumeGame()" class="bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg active:scale-95 transition-all border border-cyan-400">繼續冒險</button>
+            <button onclick="GameEngine.initGame(true)" class="bg-slate-700 text-slate-300 font-bold py-3 px-8 rounded-full shadow-lg active:scale-95 transition-all border border-slate-600">重新開始</button>
+        </div>
+    </div>
+
+    <div id="stage-clear-modal" class="fixed inset-0 bg-blue-900 bg-opacity-90 flex flex-col items-center justify-center z-50 hidden backdrop-blur-md transition-opacity">
+        <h2 class="text-5xl font-black text-cyan-400 mb-4 drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">突破層數！</h2>
+        <div class="text-slate-200 mb-8 text-center text-lg">
+            <p>你消滅了本層所有的魔物</p>
+            <p class="text-green-400 font-bold mt-2">❤️ 恢復 50% 生命</p>
+            <p class="text-fuchsia-400 font-bold">⚡ 禁忌魔法已重置</p>
+        </div>
+        <button onclick="GameEngine.startNextFloor()" class="bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold py-3 px-10 rounded-full shadow-lg transform active:scale-95 text-xl">前往下一層 👇</button>
+    </div>
+
+    <div id="game-over-modal" class="fixed inset-0 bg-black bg-opacity-95 flex flex-col items-center justify-center z-50 hidden backdrop-blur-md">
+        <h2 class="text-5xl font-black text-red-500 mb-2 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]">英雄倒下</h2>
+        <div class="bg-slate-800 border border-slate-600 rounded-xl p-4 text-center shadow-2xl mb-4 w-5/6 max-w-sm">
+            <p class="text-slate-300 mb-1 text-sm">抵達層數：<span id="final-floor" class="text-cyan-400 font-bold text-xl"></span></p>
+            <p class="text-slate-300 text-sm">生存步數：<span id="final-turns" class="text-yellow-400 font-bold text-xl"></span></p>
+        </div>
+        <div class="mb-4 w-5/6 max-w-sm flex flex-col gap-2">
+            <input type="text" id="player-name-input" placeholder="輸入尊姓大名留存青史..." class="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-center text-white text-sm focus:outline-none focus:border-cyan-500" maxlength="10">
+            <button onclick="GameEngine.saveScore()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm py-2 rounded border border-slate-500 transition-colors">銘刻紀錄</button>
+        </div>
+        <div class="bg-slate-900 border border-slate-700 rounded-lg p-3 w-5/6 max-w-sm mb-6 flex flex-col h-32">
+            <h3 class="text-center text-cyan-400 font-bold text-xs mb-2 border-b border-slate-700 pb-1">🏆 英雄殿堂 (Top 5)</h3>
+            <div id="leaderboard-list" class="flex-1 overflow-y-auto leaderboard-scroll text-xs flex flex-col gap-1.5 px-1 text-slate-300"></div>
+        </div>
+        <button onclick="GameEngine.initGame(true)" class="bg-gradient-to-r from-fuchsia-600 to-red-600 text-white font-bold py-3 px-12 rounded-full shadow-[0_0_15px_rgba(225,29,72,0.5)] transform active:scale-95 transition-all text-lg shrink-0">重新挑戰</button>
+    </div>
+
+    <script>
+        // 定義核心設定與存檔管理
+        const CONFIG = { BOARD_SIZE: 4, EXP_BASE: 15, BASE_MONSTER_QUOTA: 10 };
+        const SAVE_KEY = 'BlockHero_SaveData_v8';
+        const SCORE_KEY = 'BlockHero_Leaderboard_v8';
+
+        const SaveManager = {
+            save: function() {
+                if (GameState.isGameOver) { this.clear(); return; }
+                const saveData = {
+                    floor: GameState.floor, monsterQuota: GameState.monsterQuota, pendingBoss: GameState.pendingBoss, cardIdCount: GameState.cardIdCount,
+                    cards: GameState.cards.map(c => ({
+                        id: c.id, type: c.type, trait: c.trait, x: c.x, y: c.y, hp: c.hp, maxHp: c.maxHp,
+                        atk: c.atk, val: c.val, icon: c.icon, name: c.name, ghostShield: c.ghostShield, active: c.active
+                    })),
+                    player: {
+                        hp: PlayerState.hp, maxHp: PlayerState.maxHp, armor: PlayerState.armor, atk: PlayerState.atk,
+                        exp: PlayerState.exp, level: PlayerState.level, turns: PlayerState.turns, keys: PlayerState.keys,
+                        ultUsed: PlayerState.ultUsed, blockNextDamage: PlayerState.blockNextDamage, poisonTurns: PlayerState.poisonTurns
+                    }
+                };
+                try { localStorage.setItem(SAVE_KEY, JSON.stringify(saveData)); } catch(e) {}
+            },
+            load: function() { try { const data = localStorage.getItem(SAVE_KEY); if (data) return JSON.parse(data); } catch(e) {} return null; },
+            clear: function() { try { localStorage.removeItem(SAVE_KEY); } catch(e) {} }
+        };
+
+        const ScoreManager = {
+            getScores: function() { try { const d = localStorage.getItem(SCORE_KEY); return d ? JSON.parse(d) : []; } catch(e) { return []; } },
+            addScore: function(name, floor, turns) {
+                let scores = this.getScores();
+                scores.push({ name: name || '無名英雄', floor, turns, date: new Date().toLocaleDateString() });
+                scores.sort((a, b) => b.floor !== a.floor ? b.floor - a.floor : b.turns - a.turns);
+                scores = scores.slice(0, 10);
+                try { localStorage.setItem(SCORE_KEY, JSON.stringify(scores)); } catch(e) {}
+            }
+        };
+
+        const PlayerState = {
+            id: 'player_card', type: 'player',
+            x: 1, y: 2, hp: 20, maxHp: 20, armor: 0,
+            atk: 3, exp: 0, level: 1, turns: 0, keys: 0, ultUsed: false,
+            blockNextDamage: false, poisonTurns: 0,
+            
+            reset: function() {
+                this.hp = 20; this.maxHp = 20; this.armor = 0;
+                this.atk = 3; this.exp = 0; this.level = 1; 
+                this.turns = 0; this.keys = 0; this.ultUsed = false;
+                this.blockNextDamage = false; this.poisonTurns = 0;
+            },
+            takeDamage: function(amount, isTrueDamage = false) {
+                if (amount <= 0) return 0;
+                if (this.blockNextDamage) {
+                    Logger.add(`🛡️ 聖騎士的庇護完全抵禦了傷害！`, "text-yellow-300 font-bold");
+                    this.blockNextDamage = false; return 0;
+                }
+                let dmg = 0;
+                if (isTrueDamage) { dmg = amount; this.hp -= dmg; } 
+                else {
+                    if (this.armor >= amount) { this.armor -= amount; } 
+                    else { dmg = amount - this.armor; this.armor = 0; this.hp -= dmg; }
+                }
+                if (this.hp <= 0) this.hp = 0;
+                return dmg;
+            },
+            gainExp: function(amount) {
+                this.exp += amount;
+                let reqExp = this.level * CONFIG.EXP_BASE;
+                while (this.exp >= reqExp) {
+                    this.exp -= reqExp; this.level++; 
+                    this.maxHp += 3; this.hp = this.maxHp;
+                    this.atk += 1; this.armor += 5; 
+                    Logger.add(`🌟 升級 Lv.${this.level}！狀態滿血加護盾！`, "text-yellow-300 font-bold");
+                    reqExp = this.level * CONFIG.EXP_BASE;
+                }
+            }
+        };
+
+        // 定義實體資料庫 (包含新物件)
+        const ENTITY_DB = {
+            // 基礎物資
+            rock: { weight: 8, icon: '🪨', name: '巨石', calc: (f, p) => ({ maxHp: p.atk*2 + Math.floor(Math.random()*5), hp: p.atk*2 + Math.floor(Math.random()*5) }) },
+            chest: { weight: 4.9, icon: '🎁', name: '黃金寶箱', calc: (f, p) => ({ maxHp: p.atk*3 + Math.floor(Math.random()*8), hp: p.atk*3 + Math.floor(Math.random()*8) }) },
+            chest_mimic: { weight: 2.1, icon: '🎁', name: '神秘寶箱', calc: (f, p) => ({ maxHp: p.atk*3 + Math.floor(Math.random()*8), hp: p.atk*3 + Math.floor(Math.random()*8) }) },
+            key: { weight: 8, icon: '🗝️', name: '黃金鑰匙', calc: () => ({}) },
+            potion: { weight: 10, icon: '🧪', name: '生命藥水', calc: (f) => ({ val: 10 + f * 5 }) },
+            shield_item: { weight: 6, icon: '🛡️', name: '裝甲碎片', calc: (f) => ({ val: 5 + f * 3 }) },
+            sword: { weight: 6, icon: '⚔️', name: '精鋼劍', calc: (f) => ({ val: 1 + Math.floor(f / 3) }) },
+            cursed_sword: { weight: 2, icon: '🩸', name: '嗜血劍', calc: (f) => ({ val: 3 + Math.floor(f / 2) }) },
+            cursed_shield: { weight: 2, icon: '👁️', name: '惡魔甲', calc: (f) => ({ val: 20 + f * 5 }) },
+            coin: { weight: 6, icon: '🪙', name: '古代金幣', calc: (f) => ({ val: 10 + f * 5 }) },
+            
+            // 冒險夥伴 (稀有掉落)
+            ally_knight: { weight: 1.5, icon: '🛡️', name: '聖騎士', calc: () => ({}) },
+            ally_mage: { weight: 1.5, icon: '🧙‍♂️', name: '大法師', calc: () => ({}) },
+            ally_archer: { weight: 1.5, icon: '🏹', name: '神射手', calc: () => ({}) },
+            ally_priest: { weight: 1.5, icon: '👼', name: '大祭司', calc: () => ({}) },
+            ally_rogue: { weight: 1.5, icon: '🥷', name: '幻影盜賊', calc: () => ({}) },
+
+            // v8 新增：環境與特殊物件
+            merchant: { weight: 1.8, icon: '🧙', name: '神秘商人', calc: (f, p) => ({ hp: 50 + f * 10, maxHp: 50 + f * 10, atk: 5 + f }) },
+            spike_trap: { weight: 3.5, icon: '🪤', name: '地刺陷阱', calc: () => ({ active: Math.random() > 0.5 }) },
+            swap_scroll: { weight: 1.2, icon: '📜', name: '換位卷軸', calc: () => ({}) }
+        };
+
+        // 定義怪物特性資料庫
+        const TRAIT_DB = [
+            { id: 'spiky', icon: '🌵', name: '尖刺怪', minFloor: 2, prob: 0.08, calc: (c) => { c.hp = Math.max(2, Math.floor(c.hp * 0.8)); } },
+            { id: 'explosive', icon: '💣', name: '炸彈魔', minFloor: 3, prob: 0.08, calc: (c) => { c.hp = Math.max(1, Math.floor(c.hp * 0.6)); c.atk = Math.max(1, Math.floor(c.atk * 0.5)); } },
+            { id: 'ethereal', icon: '👻', name: '幽靈', minFloor: 4, prob: 0.08, calc: (c) => { c.hp = Math.floor(c.hp * 0.7); c.ghostShield = true; } },
+            { id: 'healer', icon: '🌿', name: '薩滿', minFloor: 2, prob: 0.08, calc: (c) => { c.hp = Math.floor(c.hp * 1.2); c.atk = Math.max(1, Math.floor(c.atk * 0.3)); } },
+            { id: 'splitter', icon: '🦠', name: '分裂史萊姆', minFloor: 3, prob: 0.08, calc: (c) => { c.hp = Math.floor(c.hp * 0.9); } },
+            { id: 'greedy', icon: '🎒', name: '貪婪哥布林', minFloor: 2, prob: 0.08, calc: (c) => { c.atk = Math.max(1, Math.floor(c.atk * 0.8)); } },
+            { id: 'sniper', icon: '🏹', name: '骷髏射手', minFloor: 3, prob: 0.08, calc: (c) => { c.hp = Math.floor(c.hp * 0.7); c.atk = Math.max(1, Math.floor(c.atk * 0.5)); } },
+            { id: 'vampire', icon: '🧛', name: '吸血鬼', minFloor: 3, prob: 0.08, calc: (c) => { c.hp = Math.floor(c.hp * 0.9); c.atk += 1; } },
+            { id: 'piercer', icon: '🗡️', name: '影魔', minFloor: 4, prob: 0.08, calc: (c) => { c.hp = Math.floor(c.hp * 0.8); c.atk += 2; } },
+            { id: 'poisonous', icon: '🕷️', name: '劇毒蜘蛛', minFloor: 2, prob: 0.08, calc: (c) => { c.hp = Math.floor(c.hp * 0.9); } },
+            { id: 'cursed', icon: '👁️‍🗨️', name: '厄運巫妖', minFloor: 5, prob: 0.08, calc: (c) => { c.hp = Math.floor(c.hp * 1.2); } }
+        ];
+
+        
+        // 互動行為映射 (ACTION_MAP)
+        const ACTION_MAP = {
+            monster: (target, cardEl) => {
+                let dmgToDeal = PlayerState.atk;
+                if (target.trait === 'ethereal' && target.ghostShield) {
+                    dmgToDeal = 0; target.ghostShield = false;
+                    Logger.add(`👻 【虛無】吸收了傷害！`, "text-purple-400");
+                }
+                
+                target.hp -= dmgToDeal;
+                
+                if (target.trait === 'spiky' && dmgToDeal > 0) {
+                    const thornDmg = 2 + Math.floor(GameState.floor / 2);
+                    PlayerState.takeDamage(thornDmg);
+                    Logger.add(`🌵 反傷受到 <span class="text-red-400">${thornDmg}</span> 點！`, "text-orange-400");
+                }
+                if (target.trait === 'poisonous' && dmgToDeal > 0) {
+                    PlayerState.poisonTurns = (PlayerState.poisonTurns || 0) + 3;
+                    Logger.add(`🕷️ 沾染劇毒！(持續 3 回合)`, "text-green-400");
+                }
+
+                if (target.hp <= 0) {
+                    GameEngine.killMonster(target); return true;
+                } else {
+                    if (target.atk > 0) {
+                        let isTrueDmg = (target.trait === 'piercer');
+                        const actualDmg = PlayerState.takeDamage(target.atk, isTrueDmg);
+                        
+                        if (target.trait === 'vampire' && actualDmg > 0) {
+                            target.hp = Math.min(target.maxHp, target.hp + actualDmg);
+                            Logger.add(`🧛 吸血鬼竊取了 <span class="text-red-400">${actualDmg}</span> 生命！`, "text-red-400");
+                        }
+                        if (target.trait === 'cursed' && actualDmg > 0) {
+                            PlayerState.maxHp = Math.max(1, PlayerState.maxHp - 1);
+                            if(PlayerState.hp > PlayerState.maxHp) PlayerState.hp = PlayerState.maxHp;
+                            Logger.add(`👁️‍🗨️ 巫妖的詛咒！最大生命永久 -1！`, "text-purple-400");
+                        }
+
+                        if (isTrueDmg && actualDmg > 0) Logger.add(`🗡️ 影魔無視護盾！造成 <span class="text-red-400">${actualDmg}</span> 穿透傷害！`, "text-red-400");
+                        else if (actualDmg > 0) Logger.add(`⚔️ 被反擊受到 <span class="text-red-400">${actualDmg}</span> 傷害`, "text-red-300");
+                        else Logger.add(`🛡️ 護盾抵擋了傷害！`, "text-cyan-300");
+                    }
+                    if (cardEl) { cardEl.classList.remove('card-shake'); void cardEl.offsetWidth; cardEl.classList.add('card-shake'); }
+                    return false;
+                }
+            },
+            rock: (target, cardEl) => { target.hp -= PlayerState.atk; if (target.hp <= 0) { Logger.add(`🪨 擊碎巨石。`, "text-slate-500"); GameEngine.removeCard(target.id); return true; } else { Logger.add(`⛏️ 敲擊巨石...`, "text-slate-500"); if (cardEl) { cardEl.classList.remove('card-shake'); void cardEl.offsetWidth; cardEl.classList.add('card-shake'); } return false; } },
+            chest_mimic: (target, cardEl) => { Logger.add(`👅 遭到寶箱怪突襲！`, "text-red-500 font-black"); target.type = 'monster'; target.trait = 'none'; target.icon = '👅'; target.hp = target.maxHp = 10 + GameState.floor * 5; target.atk = 2 + GameState.floor; PlayerState.takeDamage(target.atk); if (cardEl) { cardEl.classList.remove('card-enter', 'card-shake'); void cardEl.offsetWidth; cardEl.classList.add('mimic-anim'); } return false; },
+            chest: (target, cardEl) => { if (PlayerState.keys > 0) { PlayerState.keys--; PlayerState.gainExp(20 * GameState.floor); PlayerState.armor += 15; PlayerState.atk += 2; Logger.add(`🎁 開啟寶箱！大豐收！`, "text-yellow-400 font-black"); GameEngine.removeCard(target.id); return true; } else { target.hp -= PlayerState.atk; if (target.hp <= 0) { PlayerState.gainExp(10); Logger.add(`💥 強行破壞寶箱，獲得少許經驗。`, "text-slate-400"); GameEngine.removeCard(target.id); return true; } else { Logger.add(`⛏️ 強行破壞寶箱中...`, "text-slate-500"); if (cardEl) { cardEl.classList.remove('card-shake'); void cardEl.offsetWidth; cardEl.classList.add('card-shake'); } return false; } } },
+            key: (target) => { PlayerState.keys++; Logger.add(`🗝️ 獲得鑰匙！`, "text-yellow-300 font-bold"); GameEngine.removeCard(target.id); return true; },
+            potion: (target) => { PlayerState.hp = Math.min(PlayerState.maxHp, PlayerState.hp + target.val); Logger.add(`🧪 恢復 <span class="text-green-400">${target.val}</span> 生命`, "text-green-300"); GameEngine.removeCard(target.id); return true; },
+            shield_item: (target) => { PlayerState.armor += target.val; Logger.add(`🛡️ 護盾 +${target.val}`, "text-cyan-300"); GameEngine.removeCard(target.id); return true; },
+            sword: (target) => { PlayerState.atk += target.val; Logger.add(`✨ 攻擊力 +${target.val}`, "text-yellow-300"); GameEngine.removeCard(target.id); return true; },
+            coin: (target) => { PlayerState.gainExp(target.val); Logger.add(`💰 獲得 <span class="text-blue-400">${target.val}</span> EXP`, "text-yellow-100"); GameEngine.removeCard(target.id); return true; },
+            cursed_sword: (target) => { PlayerState.atk += target.val; PlayerState.takeDamage(5, true); Logger.add(`🩸 撿起【嗜血劍】！受 <span class="text-red-500">5</span> 點穿透反噬！`, "text-rose-400 font-bold"); GameEngine.removeCard(target.id); return true; },
+            cursed_shield: (target) => { PlayerState.armor += target.val; PlayerState.maxHp = Math.max(1, PlayerState.maxHp - 5); if (PlayerState.hp > PlayerState.maxHp) PlayerState.hp = PlayerState.maxHp; Logger.add(`👁️ 穿上【惡魔甲】！最大生命 <span class="text-red-500">-5</span>！`, "text-fuchsia-400 font-bold"); GameEngine.removeCard(target.id); return true; },
+            
+            ally_knight: (target) => { PlayerState.blockNextDamage = true; if(GameEngine.allyDealDamage(2)) Logger.add(`🛡️ 聖騎士發起衝鋒並為你抵擋下次攻擊！`, "text-blue-300"); else Logger.add(`🛡️ 聖騎士為你施加了絕對庇護！`, "text-blue-300"); GameEngine.removeCard(target.id); return true; },
+            ally_mage: (target) => { PlayerState.armor += 15 + GameState.floor * 2; if(GameEngine.allyDealDamage(1.5)) Logger.add(`🧙‍♂️ 大法師釋放奧術並賦予你護盾！`, "text-purple-300"); else Logger.add(`🧙‍♂️ 大法師為你凝聚了奧術護盾！`, "text-purple-300"); GameEngine.removeCard(target.id); return true; },
+            ally_archer: (target) => { GameEngine.allyDealDamage(1); GameEngine.allyDealDamage(1); Logger.add(`🏹 神射手雙箭齊發！協助你攻擊了敵人！`, "text-green-300"); GameEngine.removeCard(target.id); return true; },
+            ally_priest: (target) => { PlayerState.hp = Math.min(PlayerState.maxHp, PlayerState.hp + 20 + GameState.floor*2); if(GameEngine.allyDealDamage(1)) Logger.add(`👼 大祭司降下神罰並治癒了你的傷口！`, "text-yellow-300"); else Logger.add(`👼 大祭司治癒了你的傷口！`, "text-yellow-300"); GameEngine.removeCard(target.id); return true; },
+            ally_rogue: (target) => {
+                GameEngine.allyDealDamage(1);
+                let chests = GameState.cards.filter(c => (c.type === 'chest' || c.type === 'chest_mimic') && !c.toBeRemoved);
+                if(chests.length > 0) {
+                    let c = chests[0];
+                    if(c.type === 'chest') { PlayerState.gainExp(20 * GameState.floor); PlayerState.armor += 15; PlayerState.atk += 2; Logger.add(`🥷 幻影盜賊幫你秒開了一個寶箱！`, "text-gray-300"); GameEngine.removeCard(c.id); } 
+                    else { c.hp -= PlayerState.atk * 5; Logger.add(`🥷 幻影盜賊重擊了偽裝的寶箱怪！`, "text-gray-300"); if(c.hp <= 0) GameEngine.killMonster(c); }
+                } else { Logger.add(`🥷 幻影盜賊留下一把鑰匙後消失了！`, "text-gray-300"); PlayerState.keys++; }
+                GameEngine.removeCard(target.id); return true;
+            },
+
+            // v8 新增互動
+            merchant: (target, cardEl) => {
+                if (PlayerState.exp >= 50) {
+                    PlayerState.exp -= 50;
+                    const r = Math.random();
+                    if (r < 0.33) { PlayerState.atk += 5; Logger.add(`🤝 交易成功！獲得【神劍】攻擊力 +5`, "text-yellow-300"); }
+                    else if (r < 0.66) { PlayerState.hp = PlayerState.maxHp; PlayerState.armor += 30; Logger.add(`🤝 交易成功！獲得【聖水】滿血並獲得大量護盾`, "text-cyan-300"); }
+                    else { PlayerState.ultUsed = false; Logger.add(`🤝 交易成功！商人幫你重置了【禁忌魔法】！`, "text-fuchsia-300"); }
+                    GameEngine.removeCard(target.id); return true;
+                } else {
+                    target.hp -= PlayerState.atk;
+                    if (target.hp <= 0) {
+                        Logger.add(`💀 殺死了商人，但他什麼也沒留下。`, "text-slate-500");
+                        GameEngine.removeCard(target.id); return true;
+                    } else {
+                        target.type = 'monster'; target.trait = 'none'; target.icon = '🧙‍♂️';
+                        Logger.add(`😡 惹怒了商人！他決定給你點顏色瞧瞧！(缺50經驗)`, "text-red-500 font-bold");
+                        PlayerState.takeDamage(target.atk);
+                        if (cardEl) { cardEl.classList.remove('card-shake'); void cardEl.offsetWidth; cardEl.classList.add('card-shake'); }
+                        return false;
+                    }
+                }
+            },
+            spike_trap: (target) => {
+                if (target.active) {
+                    PlayerState.takeDamage(5 + GameState.floor, true);
+                    Logger.add(`🪤 踩中地刺！受到真實傷害！`, "text-red-400 font-bold");
+                } else {
+                    Logger.add(`🪤 安全走過未啟動的陷阱。`, "text-slate-400");
+                }
+                GameEngine.removeCard(target.id); return true;
+            },
+            swap_scroll: (target) => {
+                let monsters = GameState.cards.filter(c => c.type === 'monster' && !c.toBeRemoved);
+                if (monsters.length > 0) {
+                    monsters.sort((a, b) => b.hp - a.hp);
+                    let strongest = monsters[0];
+                    // 執行換位
+                    let tempX = PlayerState.x; let tempY = PlayerState.y;
+                    PlayerState.x = strongest.x; PlayerState.y = strongest.y;
+                    strongest.x = tempX; strongest.y = tempY;
+                    Logger.add(`📜 使用卷軸！與【${strongest.name}】交換了位置！`, "text-fuchsia-300 font-bold");
+                    
+                    const playerEl = document.getElementById(PlayerState.id);
+                    const strongEl = document.getElementById(strongest.id);
+                    if(playerEl) { playerEl.classList.remove('swap-anim'); void playerEl.offsetWidth; playerEl.classList.add('swap-anim'); }
+                    if(strongEl) { strongEl.classList.remove('swap-anim'); void strongEl.offsetWidth; strongEl.classList.add('swap-anim'); }
+                } else {
+                    Logger.add(`📜 使用卷軸！但場上沒有怪物可以換位。`, "text-slate-400");
+                }
+                GameEngine.removeCard(target.id); return true; // 算移動，觸發重力
+            }
+        };
+
+        // 定義 UI 渲染模板映射
+        const RENDER_MAP = {
+            monster: (c) => {
+                let r = { bg: c.hp / c.maxHp > 0.5 ? 'bg-red-900' : 'bg-red-950', border: 'border-red-500', badge: '' };
+                const traitStyles = {
+                    spiky: { bg: 'bg-orange-900', border: 'border-orange-500', badge: `<div class="trait-badge bg-orange-500 text-white border border-orange-700">反傷</div>` },
+                    explosive: { bg: 'bg-stone-800', border: 'border-red-600', badge: `<div class="trait-badge bg-red-600 text-white border border-red-800 animate-pulse">💥爆</div>` },
+                    ethereal: { bg: 'bg-purple-900', border: 'border-purple-500', badge: c.ghostShield ? `<div class="trait-badge bg-purple-500 text-white border border-purple-700">🛡️無敵</div>` : '' },
+                    healer: { bg: 'bg-green-900', border: 'border-green-500', badge: `<div class="trait-badge bg-green-500 text-white border border-green-700">🌿治癒</div>` },
+                    splitter: { bg: 'bg-pink-900', border: 'border-pink-500', badge: `<div class="trait-badge bg-pink-500 text-white border border-pink-700">🦠分裂</div>` },
+                    greedy: { bg: 'bg-yellow-900', border: 'border-yellow-500', badge: `<div class="trait-badge bg-yellow-600 text-white border border-yellow-800">🎒貪婪</div>` },
+                    sniper: { bg: 'bg-indigo-900', border: 'border-indigo-500', badge: `<div class="trait-badge bg-indigo-500 text-white border border-indigo-700">🏹射手</div>` },
+                    vampire: { bg: 'bg-red-950', border: 'border-red-600', badge: `<div class="trait-badge bg-red-800 text-white border border-red-950">🧛吸血</div>` },
+                    piercer: { bg: 'bg-stone-900', border: 'border-stone-500', badge: `<div class="trait-badge bg-gray-700 text-white border border-gray-900">🗡️穿透</div>` },
+                    poisonous: { bg: 'bg-green-950', border: 'border-green-600', badge: `<div class="trait-badge bg-green-700 text-white border border-green-900">🕷️劇毒</div>` },
+                    cursed: { bg: 'bg-purple-950', border: 'border-purple-600', badge: `<div class="trait-badge bg-purple-800 text-white border border-purple-950">👁️‍🗨️詛咒</div>` },
+                    boss: { bg: 'bg-fuchsia-950', border: 'border-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.6)]', badge: `<div class="trait-badge bg-fuchsia-600 text-white border border-fuchsia-800 animate-bounce">👑首領</div>` },
+                    none: c.icon === '💧' ? { bg: 'bg-pink-950 opacity-80', border: 'border-pink-800' } : {} 
+                };
+                Object.assign(r, traitStyles[c.trait] || {});
+                
+                return {
+                    class: `${r.border} ${r.bg}`,
+                    html: `
+                        ${r.badge}
+                        <div class="text-4xl drop-shadow-md transition-all ${c.ghostShield ? 'opacity-50' : 'opacity-100'} ${c.trait==='boss' ? 'text-5xl' : ''}">${c.icon}</div>
+                        <div class="absolute -top-2 -left-2 bg-red-600 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md border border-red-800 shadow flex items-center">❤️${c.hp}</div>
+                        <div class="absolute -bottom-2 -right-2 bg-slate-700 text-yellow-400 text-[11px] font-bold px-1.5 py-0.5 rounded-md border border-slate-900 shadow flex items-center">⚔️${c.atk}</div>`
+                };
+            },
+            rock: (c) => ({ class: `border-slate-600 bg-slate-700`, html: `<div class="text-4xl drop-shadow-md grayscale">${c.icon}</div><div class="absolute -top-2 -left-2 bg-slate-500 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md border border-slate-800 shadow">❤️${c.hp}</div>` }),
+            chest: (c) => ({ class: `border-yellow-600 bg-yellow-900`, html: `${c.hp < c.maxHp ? `<div class="absolute -top-2 -left-2 bg-slate-600 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md border border-slate-800 shadow flex items-center">❤️${c.hp}</div>` : ''}<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-yellow-600 text-white text-[10px] font-bold px-2 py-0 rounded-md border border-yellow-800">${PlayerState.keys > 0 ? '可開啟' : '需鑰匙'}</div>` }),
+            chest_mimic: (c) => RENDER_MAP.chest(c),
+            key: (c) => ({ class: `border-yellow-400 bg-slate-800`, html: `<div class="text-4xl drop-shadow-[0_0_8px_rgba(250,204,21,0.8)] animate-bounce">${c.icon}</div>` }),
+            cursed_sword: (c) => ({ class: `border-rose-600 bg-rose-950`, html: `<div class="absolute -top-2 right-[-5px] bg-rose-600 text-white text-[9px] font-bold px-1 py-0.5 rounded shadow">詛咒</div><div class="text-4xl drop-shadow-[0_0_10px_rgba(225,29,72,0.8)]">${c.icon}</div><div class="absolute -bottom-2 bg-rose-700 text-white text-[11px] font-bold px-2 py-0.5 rounded-md border border-rose-900 shadow">⚔️+${c.val} / ❤️-5</div>` }),
+            cursed_shield: (c) => ({ class: `border-fuchsia-600 bg-fuchsia-950`, html: `<div class="absolute -top-2 right-[-5px] bg-fuchsia-600 text-white text-[9px] font-bold px-1 py-0.5 rounded shadow">詛咒</div><div class="text-4xl drop-shadow-[0_0_10px_rgba(192,38,211,0.8)]">${c.icon}</div><div class="absolute -bottom-2 bg-fuchsia-700 text-white text-[11px] font-bold px-2 py-0.5 rounded-md border border-fuchsia-900 shadow">🛡️+${c.val} / 血上限-5</div>` }),
+            potion: (c) => ({ class: `border-green-500 bg-green-900`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-green-600 text-white text-[11px] font-bold px-2 py-0.5 rounded-md border border-green-800 shadow">❤️+${c.val}</div>` }),
+            shield_item: (c) => ({ class: `border-cyan-500 bg-cyan-900`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-cyan-600 text-white text-[11px] font-bold px-2 py-0.5 rounded-md border border-cyan-800 shadow">🛡️+${c.val}</div>` }),
+            sword: (c) => ({ class: `border-yellow-500 bg-yellow-800`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-yellow-600 text-white text-[11px] font-bold px-2 py-0.5 rounded-md border border-yellow-800 shadow">⚔️+${c.val}</div>` }),
+            coin: (c) => ({ class: `border-yellow-300 bg-yellow-700`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-blue-600 text-white text-[11px] font-bold px-2 py-0.5 rounded-md border border-blue-800 shadow">EXP+${c.val}</div>` }),
+            
+            ally_knight: (c) => ({ class: `border-blue-400 bg-blue-800`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">聖騎士</div>` }),
+            ally_mage: (c) => ({ class: `border-purple-400 bg-purple-800`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">大法師</div>` }),
+            ally_archer: (c) => ({ class: `border-green-400 bg-green-800`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">神射手</div>` }),
+            ally_priest: (c) => ({ class: `border-yellow-400 bg-yellow-600`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-yellow-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">大祭司</div>` }),
+            ally_rogue: (c) => ({ class: `border-gray-400 bg-gray-800`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-gray-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">盜賊</div>` }),
+            
+            // v8 新增渲染
+            merchant: (c) => ({ class: `border-yellow-200 bg-yellow-900`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-yellow-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">付50 EXP</div>` }),
+            spike_trap: (c) => ({ class: `border-slate-500 bg-slate-800`, html: `<div class="text-4xl transition-all ${c.active ? 'opacity-100' : 'opacity-20 grayscale'}">${c.icon}</div>` }),
+            swap_scroll: (c) => ({ class: `border-fuchsia-400 bg-fuchsia-900`, html: `<div class="text-4xl drop-shadow-[0_0_8px_rgba(217,70,239,0.8)] animate-pulse">${c.icon}</div>` })
+        };
+
+        
+        // 系統日誌與主引擎設定
+        const Logger = {
+            logs: [],
+            add: function(msg, colorClass = "text-slate-300") {
+                this.logs.unshift(`<div class="${colorClass}">${msg}</div>`);
+                if (this.logs.length > 4) this.logs.pop();
+            },
+            clear: function() { this.logs = []; }
+        };
+
+        const GameState = { cards: [], cardIdCount: 0, floor: 1, monsterQuota: 10, isGameOver: false, spawnQueue: [], pendingBoss: false };
+
+        const GameEngine = {
+            boot: function() {
+                const savedData = SaveManager.load();
+                if (savedData) {
+                    document.getElementById('load-save-modal').classList.remove('hidden');
+                } else {
+                    this.initGame(true);
+                }
+            },
+
+            resumeGame: function() {
+                document.getElementById('load-save-modal').classList.add('hidden');
+                const sd = SaveManager.load();
+                if (!sd) { this.initGame(true); return; }
+
+                document.getElementById('game-over-modal').classList.add('hidden');
+                document.getElementById('stage-clear-modal').classList.add('hidden');
+                document.getElementById('board').innerHTML = '';
+                
+                GameState.floor = sd.floor;
+                GameState.monsterQuota = sd.monsterQuota;
+                GameState.pendingBoss = sd.pendingBoss;
+                GameState.cardIdCount = sd.cardIdCount;
+                GameState.isGameOver = false;
+                GameState.spawnQueue = [];
+                Logger.clear();
+
+                PlayerState.hp = sd.player.hp; PlayerState.maxHp = sd.player.maxHp;
+                PlayerState.armor = sd.player.armor; PlayerState.atk = sd.player.atk;
+                PlayerState.exp = sd.player.exp; PlayerState.level = sd.player.level;
+                PlayerState.turns = sd.player.turns; PlayerState.keys = sd.player.keys;
+                PlayerState.ultUsed = sd.player.ultUsed;
+                PlayerState.blockNextDamage = sd.player.blockNextDamage || false;
+                PlayerState.poisonTurns = sd.player.poisonTurns || 0;
+
+                GameState.cards = [];
+                sd.cards.forEach(cData => {
+                    if (cData.type === 'player') {
+                        PlayerState.x = cData.x; PlayerState.y = cData.y;
+                        GameState.cards.push(PlayerState);
+                    } else {
+                        GameState.cards.push({...cData});
+                    }
+                });
+
+                Logger.add(`🔮 已喚醒深淵的殘響，回到第 ${GameState.floor} 層。`, "text-fuchsia-300 font-bold");
+                this.render();
+                this.checkClear(); 
+            },
+
+            initGame: function(forceNew = false) {
+                document.getElementById('load-save-modal').classList.add('hidden');
+                document.getElementById('game-over-modal').classList.add('hidden');
+                document.getElementById('stage-clear-modal').classList.add('hidden');
+                document.getElementById('board').innerHTML = '';
+                
+                if (forceNew) SaveManager.clear();
+
+                GameState.floor = 1;
+                GameState.monsterQuota = CONFIG.BASE_MONSTER_QUOTA;
+                GameState.cards = [];
+                GameState.spawnQueue = [];
+                GameState.isGameOver = false;
+                GameState.cardIdCount = 0;
+                GameState.pendingBoss = false;
+                
+                PlayerState.reset();
+                Logger.clear();
+
+                GameState.cards.push(PlayerState);
+                this.generateInitialBoard();
+                Logger.add("🌟 進入深淵第 1 層，小心新的威脅！", "text-cyan-400 font-bold");
+                this.render();
+                SaveManager.save(); 
+            },
+            
+            startNextFloor: function() {
+                GameState.floor++;
+                GameState.monsterQuota = 8 + GameState.floor * 3; 
+                PlayerState.hp = Math.min(PlayerState.maxHp, PlayerState.hp + Math.floor(PlayerState.maxHp * 0.5));
+                PlayerState.atk += 1; PlayerState.armor += 5;
+                PlayerState.ultUsed = false; 
+
+                document.getElementById('stage-clear-modal').classList.add('hidden');
+                document.getElementById('board').innerHTML = '';
+
+                GameState.cards = [PlayerState];
+                PlayerState.x = 1; PlayerState.y = 2; 
+                
+                GameState.pendingBoss = (GameState.floor % 3 === 0);
+
+                this.generateInitialBoard();
+                
+                if (GameState.pendingBoss) Logger.add(`🔥 抵達第 ${GameState.floor} 層！深淵魔龍甦醒了！`, "text-fuchsia-400 font-black");
+                else Logger.add(`🌀 抵達第 ${GameState.floor} 層！所有狀態獲得提升！`, "text-cyan-400 font-bold");
+                this.render();
+                SaveManager.save();
+            },
+            
+            generateInitialBoard: function() {
+                for (let y = 0; y < CONFIG.BOARD_SIZE; y++) {
+                    for (let x = 0; x < CONFIG.BOARD_SIZE; x++) {
+                        if (x === PlayerState.x && y === PlayerState.y) continue;
+                        GameState.cards.push(this.createCard(x, y)); 
+                    }
+                }
+            },
+            
+            createCard: function(x, y) {
+                let c = { id: 'card_' + (GameState.cardIdCount++), x, y, trait: 'none', ghostShield: false, hp: 0, maxHp: 0, atk: 0, val: 0 };
+                
+                if (GameState.pendingBoss) {
+                    GameState.pendingBoss = false;
+                    c.type = 'monster'; c.trait = 'boss'; c.icon = '🐉'; c.name = '深淵魔龍';
+                    c.maxHp = c.hp = 30 + GameState.floor * 15; c.atk = 4 + GameState.floor;
+                    GameState.monsterQuota--; 
+                    return c;
+                }
+
+                let r = Math.random();
+                if (GameState.monsterQuota <= 0 && r < 0.45) r = 0.5 + Math.random() * 0.5; 
+                
+                if (r < 0.45) {
+                    c.type = 'monster'; GameState.monsterQuota--;
+                    c.maxHp = c.hp = 4 + Math.floor(GameState.floor * 2) + Math.floor(Math.random() * 3);
+                    c.atk = 1 + Math.floor(GameState.floor / 1.5) + (Math.random() > 0.5 ? 1 : 0);
+                    
+                    let traitRoll = Math.random();
+                    let currentProb = 0;
+                    for (let t of TRAIT_DB) {
+                        if (GameState.floor >= t.minFloor && traitRoll >= currentProb && traitRoll < currentProb + t.prob) {
+                            c.trait = t.id; c.icon = t.icon; c.name = t.name;
+                            t.calc(c); break;
+                        }
+                        currentProb += t.prob;
+                    }
+                    if (c.trait === 'none') {
+                        const monsters = ['🦇', '👾', '💀', '👹', '🐺'];
+                        c.icon = monsters[Math.min(Math.floor(GameState.floor/3), 4)]; c.name = '深淵魔物';
+                    }
+                } else {
+                    let poolTotal = Object.keys(ENTITY_DB).reduce((sum, key) => sum + ENTITY_DB[key].weight, 0);
+                    let itemRoll = Math.random() * poolTotal;
+                    let currentWeight = 0;
+                    for (let key in ENTITY_DB) {
+                        currentWeight += ENTITY_DB[key].weight;
+                        if (itemRoll < currentWeight) {
+                            c.type = key; c.icon = ENTITY_DB[key].icon; c.name = ENTITY_DB[key].name;
+                            Object.assign(c, ENTITY_DB[key].calc(GameState.floor, PlayerState));
+                            break;
+                        }
+                    }
+                }
+                return c;
+            },
+
+            removeCard: function(id) {
+                const index = GameState.cards.findIndex(c => c.id === id);
+                if (index > -1) GameState.cards[index].toBeRemoved = true;
+            },
+            
+            killMonster: function(target) {
+                if (target.trait === 'boss') {
+                    Logger.add(`👑 斬殺深淵魔龍！掉落終極寶藏！`, "text-yellow-300 font-black text-base");
+                    PlayerState.keys += 3; PlayerState.gainExp(100 * GameState.floor);
+                } else {
+                    Logger.add(`🗡️ 擊敗 ${target.icon}，+${target.maxHp} EXP`, "text-slate-300");
+                    PlayerState.gainExp(target.maxHp);
+                }
+                
+                if (target.trait === 'explosive') {
+                    this.triggerExplosion(target.x, target.y); target.preventMove = true;
+                } else if (target.trait === 'splitter') {
+                    GameState.spawnQueue.push({ type: 'monster', trait: 'none', x: target.x || PlayerState.x, y: target.y || PlayerState.y, hp: GameState.floor*2, maxHp: GameState.floor*2, atk: 1, val: 0, icon: '💧', name: '黏液', ghostShield: false });
+                    Logger.add(`🦠 史萊姆在原地留下了分裂體！`, "text-pink-400");
+                }
+                this.removeCard(target.id);
+            },
+            
+            allyDealDamage: function(mult) {
+                let monsters = GameState.cards.filter(c => c.type === 'monster' && !c.toBeRemoved);
+                if(monsters.length > 0) {
+                    let m = monsters[Math.floor(Math.random()*monsters.length)];
+                    m.hp -= PlayerState.atk * mult;
+                    if(m.hp <= 0) this.killMonster(m);
+                    else { const el = document.getElementById(m.id); if(el) { el.classList.remove('card-shake'); void el.offsetWidth; el.classList.add('card-shake'); } }
+                    return true;
+                }
+                return false;
+            },
+
+            castUltimate: function() {
+                if (PlayerState.ultUsed || GameState.isGameOver) return;
+                PlayerState.ultUsed = true;
+                
+                PlayerState.maxHp = Math.max(5, Math.floor(PlayerState.maxHp / 2));
+                PlayerState.hp = 1; PlayerState.armor = 0;
+                
+                Logger.add(`⚡ 發動【終焉禁忌】！最大生命減半，物資全毀！`, "text-fuchsia-400 font-black");
+                
+                const overlay = document.getElementById('magic-overlay');
+                overlay.className = "fixed inset-0 z-50 pointer-events-none magic-flash";
+                setTimeout(() => { overlay.className = "fixed inset-0 z-50 mix-blend-overlay hidden pointer-events-none"; }, 600);
+
+                GameState.cards.forEach(c => {
+                    if (c.type === 'player' || c.toBeRemoved) return;
+                    if (c.type === 'monster') {
+                        if (c.trait === 'boss') {
+                            c.hp = Math.floor(c.hp / 2); 
+                            Logger.add(`🐉 首領受到禁忌魔法重創！`, "text-fuchsia-300");
+                            const el = document.getElementById(c.id);
+                            if(el) { el.classList.remove('card-shake'); void el.offsetWidth; el.classList.add('card-shake'); }
+                        } else {
+                            PlayerState.gainExp(Math.floor(c.maxHp / 2)); 
+                            this.removeCard(c.id); c.exploded = true;
+                        }
+                    } else if (['potion', 'sword', 'shield_item', 'coin', 'key', 'chest', 'chest_mimic', 'merchant', 'swap_scroll'].includes(c.type)) {
+                        this.removeCard(c.id); c.exploded = true; 
+                    }
+                });
+
+                PlayerState.turns++; 
+                this.runGravity();
+                this.executeSystemHooks(); 
+                this.render();
+                this.checkClear();
+                SaveManager.save();
+            },
+
+            triggerExplosion: function(ex, ey) {
+                const expDmg = 5 + Math.floor(GameState.floor * 2);
+                Logger.add(`💥 炸彈爆炸！十字範圍受 <span class="text-red-500">${expDmg}</span> 傷害！`, "text-red-400 font-bold");
+                const adjs = [{x: ex, y: ey-1}, {x: ex, y: ey+1}, {x: ex-1, y: ey}, {x: ex+1, y: ey}];
+                GameState.cards.forEach(c => {
+                    if (c.type === 'player') return;
+                    if (adjs.some(coord => coord.x === c.x && coord.y === c.y) && !c.toBeRemoved) {
+                        this.removeCard(c.id); c.exploded = true;
+                    }
+                });
+                if (Math.abs(PlayerState.x - ex) + Math.abs(PlayerState.y - ey) === 1) PlayerState.takeDamage(expDmg);
+            },
+
+            handleTap: function(target) {
+                if (GameState.isGameOver || !document.getElementById('stage-clear-modal').classList.contains('hidden')) return;
+                if (target.type === 'player') return;
+                
+                // 檢查是否相鄰，如果使用了換位卷軸，則放寬限制 (在 ACTION 裡處理)
+                const isAdjacent = Math.abs(PlayerState.x - target.x) + Math.abs(PlayerState.y - target.y) === 1;
+                
+                // 只有相鄰才能點擊 (換位卷軸除外)
+                if (!isAdjacent && target.type !== 'swap_scroll') return;
+                if (target.type === 'swap_scroll' && !isAdjacent) return; // 卷軸也必須相鄰才能撿
+
+                PlayerState.turns++;
+                const cardEl = document.getElementById(target.id);
+                
+                const action = ACTION_MAP[target.type] || ACTION_MAP[target.type.startsWith('ally_') ? target.type : 'none'];
+                let playerMoved = action ? action(target, cardEl) : false;
+
+                if (PlayerState.hp <= 0) { PlayerState.hp = 0; this.gameOver(); return; }
+
+                if (playerMoved && !GameState.isGameOver) {
+                    if (!target.preventMove && target.type !== 'swap_scroll') { PlayerState.x = target.x; PlayerState.y = target.y; }
+                    
+                    while (GameState.spawnQueue.length > 0) {
+                        let sc = GameState.spawnQueue.shift(); sc.id = 'card_' + (GameState.cardIdCount++);
+                        GameState.cards.push(sc);
+                    }
+
+                    this.runGravity();
+                    this.executeSystemHooks(); 
+                }
+
+                this.render();
+                this.checkClear();
+                if (!GameState.isGameOver) SaveManager.save();
+            },
+
+            executeSystemHooks: function() {
+                let gravityNeeded = false;
+
+                // 0. 地刺判定 (對掉落下來的怪物)
+                GameState.cards.filter(c => c.type === 'spike_trap' && c.active && !c.toBeRemoved).forEach(trap => {
+                    let overlappingMonster = GameState.cards.find(m => m.type === 'monster' && !m.toBeRemoved && m.x === trap.x && m.y === trap.y);
+                    if (overlappingMonster) {
+                        const trapDmg = 10 + GameState.floor * 2;
+                        overlappingMonster.hp -= trapDmg;
+                        Logger.add(`🪤 怪物掉入地刺陷阱！受 <span class="text-red-400">${trapDmg}</span> 點傷害！`, "text-orange-400 font-bold");
+                        this.removeCard(trap.id); // 陷阱耗損
+                        gravityNeeded = true;
+                        if (overlappingMonster.hp <= 0) this.killMonster(overlappingMonster);
+                    }
+                });
+                
+                // 地刺狀態切換
+                GameState.cards.forEach(c => {
+                    if (c.type === 'spike_trap' && !c.toBeRemoved) {
+                        c.active = !c.active;
+                    }
+                });
+
+                // 1. 中毒扣血
+                if (PlayerState.poisonTurns > 0) {
+                    PlayerState.poisonTurns--;
+                    PlayerState.takeDamage(1, true);
+                    Logger.add(`☠️ 毒發！受到 1 點真實傷害 (剩餘 ${PlayerState.poisonTurns} 步)`, "text-green-400");
+                    if (PlayerState.hp <= 0) { PlayerState.hp = 0; this.gameOver(); return; }
+                }
+
+                // 2. 貪婪哥布林
+                const lootTypes = ['potion', 'sword', 'shield_item', 'coin', 'key', 'chest', 'cursed_sword', 'cursed_shield', 'swap_scroll'];
+                GameState.cards.filter(c => c.type === 'monster' && c.trait === 'greedy' && !c.toBeRemoved).forEach(goblin => {
+                    const adjs = [{x: goblin.x, y: goblin.y-1}, {x: goblin.x, y: goblin.y+1}, {x: goblin.x-1, y: goblin.y}, {x: goblin.x+1, y: goblin.y}];
+                    for (let c of GameState.cards) {
+                        if (!c.toBeRemoved && lootTypes.includes(c.type) && adjs.some(coord => coord.x === c.x && coord.y === c.y)) {
+                            this.removeCard(c.id); goblin.hp += 5 + GameState.floor; goblin.maxHp += 5 + GameState.floor; goblin.atk += 1;
+                            goblin.justAte = true; gravityNeeded = true;
+                            Logger.add(`🎒 哥布林吞噬了寶物！能力提升！`, "text-yellow-500 font-black"); break;
+                        }
+                    }
+                });
+                if (gravityNeeded) this.runGravity();
+
+                // 3. 骷髏射手
+                let sniperFired = false;
+                GameState.cards.filter(c => c.type === 'monster' && c.trait === 'sniper' && !c.toBeRemoved).forEach(sniper => {
+                    const dmg = Math.max(1, Math.floor(GameState.floor / 3) + 1);
+                    const actualDmg = PlayerState.takeDamage(dmg);
+                    sniper.justAte = true; 
+                    sniperFired = true;
+                    if(actualDmg > 0) Logger.add(`🏹 骷髏放冷箭！受到 <span class="text-red-400">${actualDmg}</span> 傷害！`, "text-orange-400 font-bold");
+                });
+                if (sniperFired && PlayerState.hp <= 0) { PlayerState.hp = 0; this.gameOver(); return; }
+
+                // 4. 薩滿治癒
+                if (GameState.cards.some(c => c.type === 'monster' && c.trait === 'healer' && !c.toBeRemoved)) {
+                    let healedAnyone = false;
+                    GameState.cards.forEach(c => {
+                        if (c.type === 'monster' && c.hp > 0 && c.hp < c.maxHp && !c.toBeRemoved) {
+                            c.hp = Math.min(c.maxHp, c.hp + 3); c.justHealed = true; healedAnyone = true;
+                        }
+                    });
+                    if (healedAnyone) Logger.add("🌿 薩滿發動治癒，所有受傷魔物恢復生命！", "text-green-400 font-bold");
+                }
+            },
+
+            runGravity: function() {
+                for (let x = 0; x < CONFIG.BOARD_SIZE; x++) {
+                    let colCards = GameState.cards.filter(c => c.x === x && !c.toBeRemoved);
+                    // 將該欄位的卡片分為「地刺」、「玩家」、「其他會掉落的實體」
+                    let traps = colCards.filter(c => c.type === 'spike_trap');
+                    let pCard = colCards.find(c => c.type === 'player');
+                    let others = colCards.filter(c => c.type !== 'player' && c.type !== 'spike_trap').sort((a, b) => b.y - a.y);
+                    
+                    let cy = CONFIG.BOARD_SIZE - 1; 
+                    for (let card of others) {
+                        while (cy >= 0) {
+                            // 遇到玩家跳過，遇到地刺「不跳過」，直接重疊！
+                            if (pCard && pCard.y === cy) { cy--; continue; } 
+                            card.y = cy; cy--; break; 
+                        }
+                    }
+                    while (cy >= 0) { 
+                        if (pCard && pCard.y === cy) { cy--; continue; } 
+                        // 如果這個位置已經有地刺了，依然要生成新卡片疊上去！
+                        GameState.cards.push(this.createCard(x, cy)); cy--; 
+                    }
+                }
+            },
+
+            checkClear: function() {
+                if (!GameState.isGameOver && Math.max(0, GameState.monsterQuota) + GameState.cards.filter(c => c.type === 'monster' && !c.toBeRemoved).length === 0) {
+                    SaveManager.clear();
+                    setTimeout(() => { document.getElementById('stage-clear-modal').classList.remove('hidden'); }, 400);
+                }
+            },
+
+            gameOver: function() {
+                GameState.isGameOver = true; 
+                this.render();
+                SaveManager.clear(); 
+                this.renderLeaderboard();
+                
+                setTimeout(() => {
+                    document.getElementById('final-floor').innerText = `B${GameState.floor}`;
+                    document.getElementById('final-turns').innerText = PlayerState.turns;
+                    document.getElementById('game-over-modal').classList.remove('hidden');
+                    document.getElementById('player-name-input').focus();
+                }, 600);
+            },
+            
+            saveScore: function() {
+                const nameInput = document.getElementById('player-name-input');
+                const name = nameInput.value.trim() || '無名英雄';
+                ScoreManager.addScore(name, GameState.floor, PlayerState.turns);
+                nameInput.value = ''; 
+                nameInput.placeholder = "已銘刻！";
+                nameInput.disabled = true;
+                this.renderLeaderboard();
+            },
+            
+            renderLeaderboard: function() {
+                const scores = ScoreManager.getScores();
+                const listEl = document.getElementById('leaderboard-list');
+                listEl.innerHTML = '';
+                
+                if (scores.length === 0) {
+                    listEl.innerHTML = '<div class="text-center text-slate-500 mt-4">尚無英雄留名</div>';
+                    return;
+                }
+                
+                scores.slice(0, 5).forEach((s, idx) => {
+                    const rankMedal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx+1}.`;
+                    const color = idx === 0 ? 'text-yellow-400 font-bold' : idx === 1 ? 'text-slate-300 font-bold' : idx === 2 ? 'text-orange-400 font-bold' : 'text-slate-400';
+                    
+                    listEl.innerHTML += `
+                        <div class="flex justify-between items-center bg-slate-800 p-1.5 rounded border border-slate-700">
+                            <div class="flex items-center gap-2 overflow-hidden">
+                                <span class="w-5 text-center">${rankMedal}</span>
+                                <span class="truncate max-w-[90px] ${color}">${s.name}</span>
+                            </div>
+                            <div class="flex gap-3 text-right">
+                                <span class="text-cyan-300 w-10">B${s.floor}</span>
+                                <span class="text-yellow-500 w-12">${s.turns}步</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            },
+
+            render: function() {
+                // UI 狀態更新
+                document.getElementById('hp-text').innerText = `${PlayerState.hp}/${PlayerState.maxHp}`;
+                document.getElementById('hp-bar').style.width = `${Math.max(0, (PlayerState.hp / PlayerState.maxHp) * 100)}%`;
+                document.getElementById('armor-text').innerText = PlayerState.armor;
+                document.getElementById('armor-bar').style.width = `${Math.min(100, (PlayerState.armor / (50 + GameState.floor * 10)) * 100)}%`;
+                document.getElementById('level-display').innerText = `Lv.${PlayerState.level}`;
+                document.getElementById('exp-bar').style.width = `${Math.min(100, (PlayerState.exp / (PlayerState.level * CONFIG.EXP_BASE)) * 100)}%`;
+                document.getElementById('atk-text').innerText = PlayerState.atk;
+                document.getElementById('key-text').innerText = PlayerState.keys;
+                document.getElementById('turn-display').innerText = `步數：${PlayerState.turns}`;
+                document.getElementById('floor-display').innerText = `B${GameState.floor}`;
+                
+                document.getElementById('status-block').className = PlayerState.blockNextDamage ? "bg-blue-500 text-white text-[9px] px-1 rounded border border-blue-300" : "hidden";
+                document.getElementById('status-poison').className = PlayerState.poisonTurns > 0 ? "bg-green-600 text-white text-[9px] px-1 rounded border border-green-300 animate-pulse" : "hidden";
+
+                const ultBtn = document.getElementById('btn-ult');
+                const ultStatus = document.getElementById('ult-status');
+                if (PlayerState.ultUsed) {
+                    ultBtn.className = "flex flex-col justify-center items-center w-12 bg-slate-800 rounded-lg border border-slate-700 opacity-50 cursor-not-allowed";
+                    ultStatus.innerText = "耗盡";
+                    ultStatus.className = "text-[10px] font-black text-slate-500";
+                } else {
+                    ultBtn.className = "flex flex-col justify-center items-center w-12 bg-fuchsia-950 rounded-lg border border-fuchsia-700 shadow-[0_0_8px_rgba(192,38,211,0.5)] active:scale-90 transition-all";
+                    ultStatus.innerText = "可用";
+                    ultStatus.className = "text-[10px] font-black text-white";
+                }
+
+                const isBossFloor = (GameState.floor % 3 === 0);
+                const hasBossLive = GameState.cards.some(c => c.trait === 'boss' && !c.toBeRemoved);
+                const bossWarning = document.getElementById('boss-warning');
+                if (isBossFloor && (GameState.pendingBoss || hasBossLive)) bossWarning.classList.remove('hidden');
+                else bossWarning.classList.add('hidden');
+                
+                const activeMonsters = GameState.cards.filter(c => c.type === 'monster' && !c.toBeRemoved && c.icon !== '💧').length;
+                const trueTotalRemaining = Math.max(0, GameState.monsterQuota) + activeMonsters;
+                document.getElementById('monster-quota').innerText = trueTotalRemaining;
+                document.getElementById('monster-quota').className = trueTotalRemaining === 0 ? 'text-xl text-green-400' : 'text-xl text-red-400';
+                document.getElementById('log-container').innerHTML = Logger.logs.join('');
+
+                const board = document.getElementById('board');
+                
+                GameState.cards.forEach(c => {
+                    if (c.toBeRemoved) {
+                        const el = document.getElementById(c.id);
+                        if (el) {
+                            el.classList.remove('card-enter', 'card-shake', 'mimic-anim', 'eat-anim', 'swap-anim');
+                            if (c.exploded) { el.classList.add('explode-anim'); el.innerHTML = '<div class="text-4xl">💥</div>'; } 
+                            else { el.classList.add('card-leave'); }
+                            setTimeout(() => el.remove(), 300);
+                        }
+                    }
+                });
+                GameState.cards = GameState.cards.filter(c => !c.toBeRemoved);
+
+                // 排序確保地刺在底層
+                GameState.cards.sort((a, b) => (a.type === 'spike_trap' ? -1 : 1) - (b.type === 'spike_trap' ? -1 : 1));
+
+                GameState.cards.forEach(c => {
+                    let el = document.getElementById(c.id);
+                    if (!el) {
+                        el = document.createElement('div'); el.id = c.id; 
+                        el.onclick = () => this.handleTap(c);
+                        board.appendChild(el); el.classList.add('game-card', 'card-enter');
+                        setTimeout(() => el.classList.remove('card-enter'), 300);
+                    }
+                    el.style.left = `${(c.x * 25) + 1}%`; el.style.top = `${(c.y * 25) + 1}%`;
+
+                    if (c.justHealed) { el.classList.remove('heal-anim'); void el.offsetWidth; el.classList.add('heal-anim'); c.justHealed = false; }
+                    if (c.justAte) { el.classList.remove('eat-anim'); void el.offsetWidth; el.classList.add('eat-anim'); c.justAte = false; }
+
+                    if (c.type === 'player') {
+                        el.className = `game-card border-blue-400 bg-blue-900 player-glow ${el.className.includes('card-enter') ? 'card-enter' : ''} ${el.className.includes('swap-anim') ? 'swap-anim' : ''}`;
+                        el.innerHTML = `<div class="text-5xl ${GameState.isGameOver ? 'grayscale opacity-50' : ''}">🧑</div>`;
+                    } else {
+                        let rConfig = RENDER_MAP[c.type] ? RENDER_MAP[c.type](c) : { class: 'border-white bg-black', html: '?' };
+                        const currentAnimClasses = Array.from(el.classList).filter(cls => ['card-enter', 'card-shake', 'mimic-anim', 'heal-anim', 'eat-anim', 'swap-anim'].includes(cls)).join(' ');
+                        el.className = `game-card ${c.type === 'spike_trap' ? 'z-0' : 'z-10'} ${rConfig.class} ${currentAnimClasses}`;
+                        el.innerHTML = rConfig.html;
+                    }
+                });
+            }
+        };
+
+        window.onload = () => GameEngine.boot();
+    </script>
+</body>
+</html>
