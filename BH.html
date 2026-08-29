@@ -52,6 +52,7 @@
         .mimic-anim { animation: mimicReveal 0.5s ease-out; }
         .magic-flash { animation: screenFlash 0.6s ease-out forwards; pointer-events: none; }
         .swap-anim { animation: swapSpin 0.5s ease-in-out; }
+        .player-damaged { animation: playerHurt 0.4s ease-in-out; }
         
         /* 主角專屬強化特效 */
         .player-glow {
@@ -80,6 +81,13 @@
         @keyframes mimicReveal { 0% { transform: scale(1) rotate(0); } 20% { transform: scale(1.2) rotate(-15deg); background-color: #ef4444; } 40% { transform: scale(1.2) rotate(15deg); } 60% { transform: scale(1.2) rotate(-15deg); } 100% { transform: scale(1) rotate(0); } }
         @keyframes screenFlash { 0% { opacity: 0; background-color: #d946ef; } 20% { opacity: 0.8; background-color: #ffffff; } 100% { opacity: 0; background-color: #d946ef; } }
         @keyframes swapSpin { 0% { transform: scale(1) rotate(0); opacity: 1; } 50% { transform: scale(0.5) rotate(180deg); opacity: 0.5; } 100% { transform: scale(1) rotate(360deg); opacity: 1; } }
+        @keyframes playerHurt {
+            0% { transform: scale(1); background-color: #ef4444; }
+            25% { transform: translateX(-5px) rotate(-5deg); background-color: #dc2626; }
+            50% { transform: translateX(5px) rotate(5deg); background-color: #ef4444; }
+            75% { transform: translateX(-5px) rotate(-5deg); background-color: #dc2626; }
+            100% { transform: scale(1); background-color: #1e3a8a; } /* 回復原本的藍色背景 */
+        }
 
         .trait-badge {
             position: absolute;
@@ -251,13 +259,14 @@
             id: 'player_card', type: 'player',
             x: 1, y: 2, hp: 20, maxHp: 20, armor: 0,
             atk: 3, exp: 0, level: 1, turns: 0, keys: 0, ultUsed: false,
-            blockNextDamage: false, poisonTurns: 0,
+            blockNextDamage: false, poisonTurns: 0, justDamaged: false,
             
             reset: function() {
                 this.hp = 20; this.maxHp = 20; this.armor = 0;
                 this.atk = 3; this.exp = 0; this.level = 1; 
                 this.turns = 0; this.keys = 0; this.ultUsed = false;
                 this.blockNextDamage = false; this.poisonTurns = 0;
+                this.justDamaged = false;
             },
             takeDamage: function(amount, isTrueDamage = false) {
                 if (amount <= 0) return 0;
@@ -272,6 +281,7 @@
                     else { dmg = amount - this.armor; this.armor = 0; this.hp -= dmg; }
                 }
                 if (this.hp <= 0) this.hp = 0;
+                if (dmg > 0 || this.armor >= amount) this.justDamaged = true; // 標記受到傷害以觸發動畫
                 return dmg;
             },
             gainExp: function(amount) {
@@ -280,9 +290,20 @@
                 while (this.exp >= reqExp) {
                     this.exp -= reqExp; this.level++; 
                     this.maxHp += 3; this.hp = this.maxHp;
-                    this.atk += 1; this.armor += 5; 
+                    this.atk += 1; this.armor += 5;
+                    this.capArmor();
                     Logger.add(`🌟 升級 Lv.${this.level}！狀態滿血加護盾！`, "text-yellow-300 font-bold");
                     reqExp = this.level * CONFIG.EXP_BASE;
+                }
+            },
+            addArmor: function(amount) {
+                this.armor += amount;
+                this.capArmor();
+            },
+            capArmor: function() {
+                const maxArmor = this.maxHp * 2;
+                if (this.armor > maxArmor) {
+                    this.armor = maxArmor;
                 }
             }
         };
@@ -378,17 +399,17 @@
             },
             rock: (target, cardEl) => { target.hp -= PlayerState.atk; if (target.hp <= 0) { Logger.add(`🪨 擊碎巨石。`, "text-slate-500"); GameEngine.removeCard(target.id); return true; } else { Logger.add(`⛏️ 敲擊巨石...`, "text-slate-500"); if (cardEl) { cardEl.classList.remove('card-shake'); void cardEl.offsetWidth; cardEl.classList.add('card-shake'); } return false; } },
             chest_mimic: (target, cardEl) => { Logger.add(`👅 遭到寶箱怪突襲！`, "text-red-500 font-black"); target.type = 'monster'; target.trait = 'none'; target.icon = '👅'; target.hp = target.maxHp = 10 + GameState.floor * 5; target.atk = 2 + GameState.floor; PlayerState.takeDamage(target.atk); if (cardEl) { cardEl.classList.remove('card-enter', 'card-shake'); void cardEl.offsetWidth; cardEl.classList.add('mimic-anim'); } return false; },
-            chest: (target, cardEl) => { if (PlayerState.keys > 0) { PlayerState.keys--; PlayerState.gainExp(20 * GameState.floor); PlayerState.armor += 15; PlayerState.atk += 2; Logger.add(`🎁 開啟寶箱！大豐收！`, "text-yellow-400 font-black"); GameEngine.removeCard(target.id); return true; } else { target.hp -= PlayerState.atk; if (target.hp <= 0) { PlayerState.gainExp(10); Logger.add(`💥 強行破壞寶箱，獲得少許經驗。`, "text-slate-400"); GameEngine.removeCard(target.id); return true; } else { Logger.add(`⛏️ 強行破壞寶箱中...`, "text-slate-500"); if (cardEl) { cardEl.classList.remove('card-shake'); void cardEl.offsetWidth; cardEl.classList.add('card-shake'); } return false; } } },
+            chest: (target, cardEl) => { if (PlayerState.keys > 0) { PlayerState.keys--; PlayerState.gainExp(20 * GameState.floor); PlayerState.addArmor(15); PlayerState.atk += 2; Logger.add(`🎁 開啟寶箱！大豐收！`, "text-yellow-400 font-black"); GameEngine.removeCard(target.id); return true; } else { target.hp -= PlayerState.atk; if (target.hp <= 0) { PlayerState.gainExp(10); Logger.add(`💥 強行破壞寶箱，獲得少許經驗。`, "text-slate-400"); GameEngine.removeCard(target.id); return true; } else { Logger.add(`⛏️ 強行破壞寶箱中...`, "text-slate-500"); if (cardEl) { cardEl.classList.remove('card-shake'); void cardEl.offsetWidth; cardEl.classList.add('card-shake'); } return false; } } },
             key: (target) => { PlayerState.keys++; Logger.add(`🗝️ 獲得鑰匙！`, "text-yellow-300 font-bold"); GameEngine.removeCard(target.id); return true; },
             potion: (target) => { PlayerState.hp = Math.min(PlayerState.maxHp, PlayerState.hp + target.val); Logger.add(`🧪 恢復 <span class="text-green-400">${target.val}</span> 生命`, "text-green-300"); GameEngine.removeCard(target.id); return true; },
-            shield_item: (target) => { PlayerState.armor += target.val; Logger.add(`🛡️ 護盾 +${target.val}`, "text-cyan-300"); GameEngine.removeCard(target.id); return true; },
+            shield_item: (target) => { PlayerState.addArmor(target.val); Logger.add(`🛡️ 護盾 +${target.val}`, "text-cyan-300"); GameEngine.removeCard(target.id); return true; },
             sword: (target) => { PlayerState.atk += target.val; Logger.add(`✨ 攻擊力 +${target.val}`, "text-yellow-300"); GameEngine.removeCard(target.id); return true; },
             coin: (target) => { PlayerState.gainExp(target.val); Logger.add(`💰 獲得 <span class="text-blue-400">${target.val}</span> EXP`, "text-yellow-100"); GameEngine.removeCard(target.id); return true; },
             cursed_sword: (target) => { PlayerState.atk += target.val; PlayerState.takeDamage(5, true); Logger.add(`🩸 撿起【嗜血劍】！受 <span class="text-red-500">5</span> 點穿透反噬！`, "text-rose-400 font-bold"); GameEngine.removeCard(target.id); return true; },
-            cursed_shield: (target) => { PlayerState.armor += target.val; PlayerState.maxHp = Math.max(1, PlayerState.maxHp - 5); if (PlayerState.hp > PlayerState.maxHp) PlayerState.hp = PlayerState.maxHp; Logger.add(`👁️ 穿上【惡魔甲】！最大生命 <span class="text-red-500">-5</span>！`, "text-fuchsia-400 font-bold"); GameEngine.removeCard(target.id); return true; },
+            cursed_shield: (target) => { PlayerState.addArmor(target.val); PlayerState.maxHp = Math.max(1, PlayerState.maxHp - 5); if (PlayerState.hp > PlayerState.maxHp) PlayerState.hp = PlayerState.maxHp; Logger.add(`👁️ 穿上【惡魔甲】！最大生命 <span class="text-red-500">-5</span>！`, "text-fuchsia-400 font-bold"); GameEngine.removeCard(target.id); return true; },
             
             ally_knight: (target) => { PlayerState.blockNextDamage = true; if(GameEngine.allyDealDamage(2)) Logger.add(`🛡️ 聖騎士發起衝鋒並為你抵擋下次攻擊！`, "text-blue-300"); else Logger.add(`🛡️ 聖騎士為你施加了絕對庇護！`, "text-blue-300"); GameEngine.removeCard(target.id); return true; },
-            ally_mage: (target) => { PlayerState.armor += 15 + GameState.floor * 2; if(GameEngine.allyDealDamage(1.5)) Logger.add(`🧙‍♂️ 大法師釋放奧術並賦予你護盾！`, "text-purple-300"); else Logger.add(`🧙‍♂️ 大法師為你凝聚了奧術護盾！`, "text-purple-300"); GameEngine.removeCard(target.id); return true; },
+            ally_mage: (target) => { PlayerState.addArmor(15 + GameState.floor * 2); if(GameEngine.allyDealDamage(1.5)) Logger.add(`🧙‍♂️ 大法師釋放奧術並賦予你護盾！`, "text-purple-300"); else Logger.add(`🧙‍♂️ 大法師為你凝聚了奧術護盾！`, "text-purple-300"); GameEngine.removeCard(target.id); return true; },
             ally_archer: (target) => { GameEngine.allyDealDamage(1); GameEngine.allyDealDamage(1); Logger.add(`🏹 神射手雙箭齊發！協助你攻擊了敵人！`, "text-green-300"); GameEngine.removeCard(target.id); return true; },
             ally_priest: (target) => { PlayerState.hp = Math.min(PlayerState.maxHp, PlayerState.hp + 20 + GameState.floor*2); if(GameEngine.allyDealDamage(1)) Logger.add(`👼 大祭司降下神罰並治癒了你的傷口！`, "text-yellow-300"); else Logger.add(`👼 大祭司治癒了你的傷口！`, "text-yellow-300"); GameEngine.removeCard(target.id); return true; },
             ally_rogue: (target) => {
@@ -396,7 +417,7 @@
                 let chests = GameState.cards.filter(c => (c.type === 'chest' || c.type === 'chest_mimic') && !c.toBeRemoved);
                 if(chests.length > 0) {
                     let c = chests[0];
-                    if(c.type === 'chest') { PlayerState.gainExp(20 * GameState.floor); PlayerState.armor += 15; PlayerState.atk += 2; Logger.add(`🥷 幻影盜賊幫你秒開了一個寶箱！`, "text-gray-300"); GameEngine.removeCard(c.id); } 
+                    if(c.type === 'chest') { PlayerState.gainExp(20 * GameState.floor); PlayerState.addArmor(15); PlayerState.atk += 2; Logger.add(`🥷 幻影盜賊幫你秒開了一個寶箱！`, "text-gray-300"); GameEngine.removeCard(c.id); } 
                     else { c.hp -= PlayerState.atk * 5; Logger.add(`🥷 幻影盜賊重擊了偽裝的寶箱怪！`, "text-gray-300"); if(c.hp <= 0) GameEngine.killMonster(c); }
                 } else { Logger.add(`🥷 幻影盜賊留下一把鑰匙後消失了！`, "text-gray-300"); PlayerState.keys++; }
                 GameEngine.removeCard(target.id); return true;
@@ -408,7 +429,7 @@
                     PlayerState.exp -= 50;
                     const r = Math.random();
                     if (r < 0.33) { PlayerState.atk += 5; Logger.add(`🤝 交易成功！獲得【神劍】攻擊力 +5`, "text-yellow-300"); }
-                    else if (r < 0.66) { PlayerState.hp = PlayerState.maxHp; PlayerState.armor += 30; Logger.add(`🤝 交易成功！獲得【聖水】滿血並獲得大量護盾`, "text-cyan-300"); }
+                    else if (r < 0.66) { PlayerState.hp = PlayerState.maxHp; PlayerState.addArmor(30); Logger.add(`🤝 交易成功！獲得【聖水】滿血並獲得大量護盾`, "text-cyan-300"); }
                     else { PlayerState.ultUsed = false; Logger.add(`🤝 交易成功！商人幫你重置了【禁忌魔法】！`, "text-fuchsia-300"); }
                     GameEngine.removeCard(target.id); return true;
                 } else {
@@ -602,7 +623,9 @@
                 GameState.floor++;
                 GameState.monsterQuota = 8 + GameState.floor * 3; 
                 PlayerState.hp = Math.min(PlayerState.maxHp, PlayerState.hp + Math.floor(PlayerState.maxHp * 0.5));
-                PlayerState.atk += 1; PlayerState.armor += 5;
+                PlayerState.atk += 1;
+                PlayerState.armor = 0; // 新樓層護盾歸零
+                PlayerState.addArmor(5); // 給予基礎護盾
                 PlayerState.ultUsed = false; 
 
                 document.getElementById('stage-clear-modal').classList.add('hidden');
@@ -793,6 +816,9 @@
 
                     this.runGravity();
                     this.executeSystemHooks(); 
+                } else if (!playerMoved && !GameState.isGameOver) {
+                    // 即使沒有移動（例如攻擊怪物沒死），也觸發環境判定
+                    this.executeSystemHooks();
                 }
 
                 this.render();
@@ -866,6 +892,39 @@
                     });
                     if (healedAnyone) Logger.add("🌿 薩滿發動治癒，所有受傷魔物恢復生命！", "text-green-400 font-bold");
                 }
+
+                // 5. 鄰近怪物攻擊 (新機制)
+                let adjacentAttack = false;
+                const adjs = [
+                    {x: PlayerState.x, y: PlayerState.y-1}, {x: PlayerState.x, y: PlayerState.y+1},
+                    {x: PlayerState.x-1, y: PlayerState.y}, {x: PlayerState.x+1, y: PlayerState.y}
+                ];
+                
+                GameState.cards.filter(c => c.type === 'monster' && !c.toBeRemoved && adjs.some(coord => coord.x === c.x && coord.y === c.y)).forEach(m => {
+                     if (m.atk > 0) {
+                        let isTrueDmg = (m.trait === 'piercer');
+                        const actualDmg = PlayerState.takeDamage(m.atk, isTrueDmg);
+                        
+                        if (m.trait === 'vampire' && actualDmg > 0) {
+                            m.hp = Math.min(m.maxHp, m.hp + actualDmg);
+                            Logger.add(`🧛 吸血鬼竊取了 <span class="text-red-400">${actualDmg}</span> 生命！`, "text-red-400");
+                        }
+                        if (m.trait === 'cursed' && actualDmg > 0) {
+                            PlayerState.maxHp = Math.max(1, PlayerState.maxHp - 1);
+                            if(PlayerState.hp > PlayerState.maxHp) PlayerState.hp = PlayerState.maxHp;
+                            Logger.add(`👁️‍🗨️ 巫妖的詛咒！最大生命永久 -1！`, "text-purple-400");
+                        }
+
+                        if (isTrueDmg && actualDmg > 0) Logger.add(`🗡️ 影魔無視護盾！造成 <span class="text-red-400">${actualDmg}</span> 穿透傷害！`, "text-red-400");
+                        else if (actualDmg > 0) Logger.add(`⚔️ 受到鄰近怪物攻擊 <span class="text-red-400">${actualDmg}</span> 傷害`, "text-red-300");
+                        
+                        const el = document.getElementById(m.id);
+                        if(el) { el.classList.remove('card-shake'); void el.offsetWidth; el.classList.add('card-shake'); }
+                        adjacentAttack = true;
+                     }
+                });
+                
+                if (adjacentAttack && PlayerState.hp <= 0) { PlayerState.hp = 0; this.gameOver(); return; }
             },
 
             runGravity: function() {
@@ -956,8 +1015,11 @@
                 // UI 狀態更新
                 document.getElementById('hp-text').innerText = `${PlayerState.hp}/${PlayerState.maxHp}`;
                 document.getElementById('hp-bar').style.width = `${Math.max(0, (PlayerState.hp / PlayerState.maxHp) * 100)}%`;
-                document.getElementById('armor-text').innerText = PlayerState.armor;
-                document.getElementById('armor-bar').style.width = `${Math.min(100, (PlayerState.armor / (50 + GameState.floor * 10)) * 100)}%`;
+                
+                const armorDisplayMax = PlayerState.maxHp * 2;
+                document.getElementById('armor-text').innerText = `${PlayerState.armor}/${armorDisplayMax}`;
+                document.getElementById('armor-bar').style.width = `${Math.min(100, (PlayerState.armor / armorDisplayMax) * 100)}%`;
+                
                 document.getElementById('level-display').innerText = `Lv.${PlayerState.level}`;
                 document.getElementById('exp-bar').style.width = `${Math.min(100, (PlayerState.exp / (PlayerState.level * CONFIG.EXP_BASE)) * 100)}%`;
                 document.getElementById('atk-text').innerText = PlayerState.atk;
@@ -1024,7 +1086,14 @@
                     if (c.justAte) { el.classList.remove('eat-anim'); void el.offsetWidth; el.classList.add('eat-anim'); c.justAte = false; }
 
                     if (c.type === 'player') {
-                        el.className = `game-card border-blue-400 bg-blue-900 player-glow ${el.className.includes('card-enter') ? 'card-enter' : ''} ${el.className.includes('swap-anim') ? 'swap-anim' : ''}`;
+                        let playerAnimClasses = 'player-glow';
+                        if (el.className.includes('card-enter')) playerAnimClasses += ' card-enter';
+                        if (el.className.includes('swap-anim')) playerAnimClasses += ' swap-anim';
+                        if (PlayerState.justDamaged) {
+                            playerAnimClasses += ' player-damaged';
+                            PlayerState.justDamaged = false; // Reset the flag
+                        }
+                        el.className = `game-card border-blue-400 bg-blue-900 ${playerAnimClasses}`;
                         el.innerHTML = `<div class="text-5xl ${GameState.isGameOver ? 'grayscale opacity-50' : ''}">🧑</div>`;
                     } else {
                         let rConfig = RENDER_MAP[c.type] ? RENDER_MAP[c.type](c) : { class: 'border-white bg-black', html: '?' };
