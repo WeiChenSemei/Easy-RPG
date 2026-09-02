@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>地城大冒險</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -13,6 +13,14 @@
             color: #e2e8f0; /* tailwind gray-200 */
             font-family: 'Inter', sans-serif;
             touch-action: none; /* Prevent browser handling of gestures */
+            -webkit-user-select: none; /* 鎖定文字圈選 */
+            user-select: none; 
+            -webkit-touch-callout: none; /* 禁用長按彈出選單 */
+        }
+        button {
+            touch-action: manipulation; /* 禁用按鈕的雙擊放大 */
+            outline: none;
+            -webkit-tap-highlight-color: transparent; /* 移除點擊時的藍色半透明底色 */
         }
         #game-container {
             position: relative;
@@ -128,18 +136,18 @@
     </div>
 
     <!-- UI Overlay (Bottom Controls) -->
-    <div id="bottom-ui" class="absolute bottom-0 left-0 w-full p-4 pb-[15vh] pointer-events-none z-10 flex flex-col gap-2">
+    <div id="bottom-ui" class="absolute bottom-0 left-0 w-full px-4 pt-0 pb-[15vh] pointer-events-none z-10 flex flex-col justify-end gap-2">
         
         <!-- Log Window -->
-        <div id="log-window" class="bg-black/60 border border-gray-700 rounded p-2 h-24 overflow-y-auto text-xs font-mono mb-2 custom-scrollbar pointer-events-auto flex flex-col-reverse">
+        <div id="log-window" class="bg-black/60 border border-gray-700 rounded p-2 h-20 overflow-y-auto text-xs font-mono custom-scrollbar pointer-events-auto flex flex-col-reverse shadow-lg">
             <!-- Logs will appear here -->
         </div>
 
         <!-- Controls -->
-        <div class="flex justify-center items-end h-16 w-full">
+        <div class="flex justify-center w-full">
             <button id="btn-roll" class="pointer-events-auto bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.5)] active:scale-95 transition-all border-2 border-blue-400 flex items-center justify-center gap-2 w-full max-w-xs mx-auto">
                 <span id="dice-icon" class="text-xl">🎲</span>
-                <span id="dice-result" class="text-xl">擲骰移動</span>
+                <span id="dice-result" class="text-xl font-black drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">擲骰移動</span>
             </button>
         </div>
     </div>
@@ -244,6 +252,24 @@
 </div>
 
 <script>
+// --- 行動裝置防止縮放防呆 ---
+document.addEventListener('gesturestart', function(e) {
+    e.preventDefault(); // 阻止 iOS Safari 雙指縮放
+});
+
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function(event) {
+    const now = (new Date()).getTime();
+    // 偵測雙擊 (300毫秒內)，並阻止雙擊放大
+    if (now - lastTouchEnd <= 300) {
+        // 為了避免阻擋到正常 UI 按鈕的連點，排除 BUTTON 標籤
+        if (event.target.tagName !== 'BUTTON') {
+            event.preventDefault();
+        }
+    }
+    lastTouchEnd = now;
+}, { passive: false });
+
 // --- Configuration & Constants ---
 const CONFIG = {
     TILE_SIZE: 40,
@@ -1277,9 +1303,9 @@ const Game = {
         const p = State.player;
         const maze = State.mazes[p.mazeIndex];
         
-        // Camera follows visual position
+        // Camera follows visual position (將攝影機焦點向下偏移，讓主角在畫面上的顯示位置相對偏上，遠離底部的操控UI)
         State.camera.x = p.visualX * CONFIG.TILE_SIZE - w/2 + CONFIG.TILE_SIZE/2;
-        State.camera.y = p.visualY * CONFIG.TILE_SIZE - h/2 + CONFIG.TILE_SIZE/2;
+        State.camera.y = p.visualY * CONFIG.TILE_SIZE - h/2 + CONFIG.TILE_SIZE/2 + (h * 0.15);
 
         this.ctx.save();
         this.ctx.translate(-State.camera.x, -State.camera.y);
