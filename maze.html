@@ -219,6 +219,18 @@
         </div>
     </div>
 
+    <!-- Teleport Confirm Modal -->
+    <div id="teleport-modal" class="absolute inset-0 modal-overlay hidden flex items-center justify-center pb-[15vh] pointer-events-auto z-[54]">
+        <div class="bg-gray-800 border-2 border-purple-500 rounded-xl p-6 w-5/6 max-w-sm flex flex-col items-center shadow-2xl">
+            <h2 class="text-xl font-bold text-purple-400 mb-4">發現傳送陣</h2>
+            <p class="text-gray-300 text-sm mb-6 text-center">要進入傳送陣，前往下一層迷宮嗎？</p>
+            <div class="grid grid-cols-2 gap-3 w-full">
+                <button id="btn-tp-yes" class="bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold shadow text-white">進入</button>
+                <button id="btn-tp-no" class="bg-gray-600 hover:bg-gray-500 py-2 rounded font-bold shadow text-white">留在這層</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Game Over / Victory Modal -->
     <div id="endgame-modal" class="absolute inset-0 modal-overlay hidden flex items-center justify-center pb-[15vh] pointer-events-auto z-[70]">
         <div class="bg-gray-800 border-4 rounded-xl p-6 w-5/6 max-w-sm flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.8)]">
@@ -282,7 +294,7 @@ const EVENTS = {
         { name: "生鏽的鎧甲", desc: "防禦力 -1", effect: (p) => p.def = Math.max(0, p.def - 1) },
         { name: "落石陷阱", desc: "被砸中，失去 25 HP", effect: (p) => p.takeDamage(25, null, true) },
         { name: "疲勞詛咒", desc: "最大生命 -5", effect: (p) => { p.maxHp = Math.max(1, p.maxHp - 5); if(p.hp>p.maxHp) p.hp=p.maxHp; } },
-        { name: "強盜", desc: "失去一半金幣", effect: (p) => p.gold = Math.floor(p.gold / 2) }
+        { name: "小偷", desc: "失去一些金幣", effect: (p) => p.gold -= Math.floor(p.gold / 10) }
     ]
 };
 
@@ -452,16 +464,16 @@ function generateMaze(width, height) {
             maze[ty][tx] = TILE_TYPES.TELEPORT; placedTeleport = true;
         }
     }
-    for(let y=1; y<height-1; y++) {
+    /*for(let y=1; y<height-1; y++) {
         for(let x=1; x<width-1; x++) {
             if (maze[y][x] === TILE_TYPES.PATH) {
                 let r = Math.random();
-                if (r < 0.08) maze[y][x] = TILE_TYPES.EVENT_GOOD;
-                else if (r < 0.16) maze[y][x] = TILE_TYPES.EVENT_BAD;
-                else if (r < 0.24) maze[y][x] = TILE_TYPES.EVENT_ITEM;
+                if (r < 0.15) maze[y][x] = TILE_TYPES.EVENT_GOOD;
+                else if (r < 0.23) maze[y][x] = TILE_TYPES.EVENT_BAD;
+                else if (r < 0.31) maze[y][x] = TILE_TYPES.EVENT_ITEM;
             }
         }
-    }
+    }*/
     return maze;
 }
 
@@ -624,6 +636,17 @@ const Game = {
             State.loop = document.getElementById('btn-restart').innerText.includes('下一輪迴') ? State.loop + 1 : 1;
             this.startLoop(State.loop > 1);
         });
+
+        document.getElementById('btn-tp-yes').addEventListener('click', () => {
+            document.getElementById('teleport-modal').classList.add('hidden');
+            this.executeTeleport();
+        });
+
+        document.getElementById('btn-tp-no').addEventListener('click', () => {
+            document.getElementById('teleport-modal').classList.add('hidden');
+            logMsg("決定留在這層迷宮繼續探索。");
+            this.processTileEvent(); this.processWorldTurn();
+        });
     },
 
     getValidMoves() {
@@ -662,14 +685,10 @@ const Game = {
         
         const maze = State.mazes[p.mazeIndex];
         if (maze[p.y][p.x] === TILE_TYPES.TELEPORT) {
-            const nextMaze = (p.mazeIndex + 1) % CONFIG.NUM_MAZES; p.mazeIndex = nextMaze;
-            const startPos = findTile(nextMaze, TILE_TYPES.START);
-            if(startPos) {
-                p.x = startPos.x; p.y = startPos.y; p.visualX = p.x; p.visualY = p.y;
-                this.lastMove = { dx: 0, dy: 0 }; // 傳送後解除方向限制
-                this.showMessage("傳送陣", `傳送到迷宮層級 ${nextMaze + 1}!`);
-                logMsg(`進入傳送陣，來到第 ${nextMaze + 1} 層！`);
-            }
+            this.stepsRemaining = 0; 
+            this.setMovementPhase(false);
+            this.promptTeleport(); 
+            return;
         }
         
         let encounter = this.checkEntityCollision();
@@ -679,16 +698,18 @@ const Game = {
     },
 
     processTileEvent() {
-        const p = State.player, maze = State.mazes[p.mazeIndex], tile = maze[p.y][p.x];
-        if (tile === TILE_TYPES.EVENT_ITEM) {
-            this.openMerchant(); maze[p.y][p.x] = TILE_TYPES.PATH; return;
-        }
-        let category = tile === TILE_TYPES.EVENT_GOOD ? EVENTS.GOOD : (tile === TILE_TYPES.EVENT_BAD ? EVENTS.BAD : null);
-        if (category) {
-            const ev = category[Math.floor(Math.random() * category.length)];
-            ev.effect(p); maze[p.y][p.x] = TILE_TYPES.PATH;
-            this.showMessage(ev.name, ev.desc); logMsg(`遭遇事件: ${ev.name}`);
-        }
+        const p = State.player;
+        let r = Math.random();
+        
+        if (r < 0.15) { 
+            const ev = EVENTS.GOOD[Math.floor(Math.random() * EVENTS.GOOD.length)];ev.effect(p);this.showMessage(ev.name, ev.desc); 
+            logMsg(`遭遇事件: ${ev.name}`);
+        } else if (r < 0.23) { 
+            const ev = EVENTS.BAD[Math.floor(Math.random() * EVENTS.BAD.length)];ev.effect(p);this.showMessage(ev.name, ev.desc); 
+            logMsg(`遭遇事件: ${ev.name}`);
+        } else if (r < 0.31) { 
+            this.openMerchant();return; 
+        } else {}
         this.updateUI(); this.processWorldTurn();
     },
     
@@ -745,6 +766,25 @@ const Game = {
         if (encounter && document.getElementById('encounter-modal').classList.contains('hidden')) this.triggerEncounter(encounter);
         else this.saveGameState(); 
         this.updateUI(); this.checkWinCondition();
+    },
+
+    executeTeleport() {
+        const p = State.player;
+        const nextMaze = (p.mazeIndex + 1) % CONFIG.NUM_MAZES;
+        p.mazeIndex = nextMaze;
+        const startPos = findTile(nextMaze, TILE_TYPES.START);
+        
+        if (startPos) {
+            p.x = startPos.x; 
+            p.y = startPos.y;
+            p.visualX = p.x; 
+            p.visualY = p.y;
+            this.movementHistory = [{x: p.x, y: p.y}];
+            this.showMessage("傳送陣", `傳送到迷宮層級 ${nextMaze + 1}!`);
+            logMsg(`進入傳送陣，來到第 ${nextMaze + 1} 層！`);
+            this.updateUI();
+            this.processWorldTurn(); 
+        }
     },
 
     checkEntityCollision() {
@@ -954,7 +994,9 @@ const Game = {
                     if (tile !== TILE_TYPES.WALL) { this.ctx.fillStyle = TILE_COLORS[TILE_TYPES.PATH]; this.ctx.fillRect(x * CONFIG.TILE_SIZE, y * CONFIG.TILE_SIZE, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE); }
                     if (tile === TILE_TYPES.WALL) { this.ctx.fillStyle = TILE_COLORS[TILE_TYPES.WALL]; this.ctx.fillRect(x * CONFIG.TILE_SIZE, y * CONFIG.TILE_SIZE, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE); this.ctx.fillStyle = 'rgba(0,0,0,0.2)'; this.ctx.fillRect(x * CONFIG.TILE_SIZE, y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE - 5, CONFIG.TILE_SIZE, 5); }
                     else if (tile === TILE_TYPES.TELEPORT) { this.ctx.fillStyle = TILE_COLORS[TILE_TYPES.TELEPORT]; this.ctx.beginPath(); this.ctx.arc(x * CONFIG.TILE_SIZE + 20, y * CONFIG.TILE_SIZE + 20, 15, 0, Math.PI*2); this.ctx.fill(); }
-                    else if ([TILE_TYPES.EVENT_GOOD, TILE_TYPES.EVENT_BAD, TILE_TYPES.EVENT_ITEM].includes(tile)) { this.ctx.fillStyle = TILE_COLORS[tile]; this.ctx.beginPath(); this.ctx.moveTo(x*CONFIG.TILE_SIZE+20, y*CONFIG.TILE_SIZE+10); this.ctx.lineTo(x*CONFIG.TILE_SIZE+30, y*CONFIG.TILE_SIZE+20); this.ctx.lineTo(x*CONFIG.TILE_SIZE+20, y*CONFIG.TILE_SIZE+30); this.ctx.lineTo(x*CONFIG.TILE_SIZE+10, y*CONFIG.TILE_SIZE+20); this.ctx.fill(); }
+                    else if ([TILE_TYPES.EVENT_GOOD, TILE_TYPES.EVENT_BAD, TILE_TYPES.EVENT_ITEM].includes(tile)) { 
+                        this.ctx.fillStyle = '#94a3b8';/*this.ctx.fillStyle = TILE_COLORS[tile];*/ 
+                        this.ctx.beginPath(); this.ctx.moveTo(x*CONFIG.TILE_SIZE+20, y*CONFIG.TILE_SIZE+10); this.ctx.lineTo(x*CONFIG.TILE_SIZE+30, y*CONFIG.TILE_SIZE+20); this.ctx.lineTo(x*CONFIG.TILE_SIZE+20, y*CONFIG.TILE_SIZE+30); this.ctx.lineTo(x*CONFIG.TILE_SIZE+10, y*CONFIG.TILE_SIZE+20); this.ctx.fill(); }
                 }
             }
         }
@@ -1019,7 +1061,9 @@ const Game = {
             document.getElementById('end-turns').innerText = State.turn; document.getElementById('end-kills').innerText = State.player.kills; document.getElementById('end-level').innerText = `滿載而歸 (輪迴 ${State.loop})`;
             btn.innerText = "開啟下一輪迴 (保留屬性, 敵人變強)"; btn.className = "w-full py-3 rounded font-bold text-sm shadow-lg transition-transform hover:scale-105 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white mt-4";
         }
-    }
+    },
+
+    promptTeleport() {document.getElementById('teleport-modal').classList.remove('hidden');}
 };
 
 function logMsg(msg) {
