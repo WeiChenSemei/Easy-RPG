@@ -5,17 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>地城大冒險</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #1a202c;
-            color: #e2e8f0;
-            font-family: 'Inter', sans-serif;
+            background-color: #020617; /* tailwind slate-950 */
+            color: #f8fafc; /* tailwind slate-50 */
+            font-family: 'Noto Sans TC', sans-serif;
             touch-action: none;
             -webkit-user-select: none;
             user-select: none; 
             -webkit-touch-callout: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
         }
         button {
             touch-action: manipulation;
@@ -40,25 +44,31 @@
             height: 100%;
         }
         
-        .ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+        .modal-overlay { 
+            background: rgba(2, 6, 23, 0.85); 
+            backdrop-filter: blur(8px); 
+            z-index: 50; 
         }
-        .pointer-events-auto { pointer-events: auto; }
-        .modal-overlay { background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px); z-index: 50; }
+        .modal-content {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .modal-enter {
+            animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
         
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
 
+        .fade-top {
+            mask-image: linear-gradient(to bottom, transparent 0%, black 20%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%);
+        }
+
+        @keyframes modalPop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes rollDice {
             0% { transform: rotate(0deg) scale(1); }
             25% { transform: rotate(90deg) scale(1.2); }
@@ -66,8 +76,8 @@
             75% { transform: rotate(270deg) scale(1.1); }
             100% { transform: rotate(360deg) scale(1); }
         }
-        .rolling { animation: rollDice 0.5s ease-in-out; }
-
+        .rolling #dice-icon { animation: rollDice 0.5s ease-in-out; }
+        
         @keyframes attack-player {
             0%, 100% { transform: translateX(0) translateY(0); }
             50% { transform: translateX(20px) translateY(-20px); scale: 1.1; }
@@ -77,13 +87,16 @@
             50% { transform: translateX(-20px) translateY(20px); scale: 1.1; }
         }
         @keyframes damage-shake {
-            0%, 100% { transform: translateX(0); border-color: inherit; }
-            25% { transform: translateX(-8px); border-color: #ef4444; }
-            75% { transform: translateX(8px); border-color: #ef4444; }
+            0%, 100% { transform: translateX(0); filter: brightness(1); }
+            25% { transform: translateX(-8px); filter: brightness(2) invert(0.2) sepia(1) hue-rotate(-50deg) saturate(5); }
+            75% { transform: translateX(8px); filter: brightness(2) invert(0.2) sepia(1) hue-rotate(-50deg) saturate(5); }
         }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
         .anim-atk-p { animation: attack-player 0.3s ease-in-out; z-index: 10; }
         .anim-atk-m { animation: attack-monster 0.3s ease-in-out; z-index: 10; }
         .anim-dmg { animation: damage-shake 0.4s ease-in-out; }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
     </style>
 </head>
 <body>
@@ -95,155 +108,185 @@
     </div>
 
     <!-- UI Overlay (Top Stats) -->
-    <div id="top-ui" class="absolute top-0 left-0 w-full p-2 flex justify-between items-start pointer-events-none z-10">
-        <div class="bg-gray-800/80 p-2 rounded border border-gray-700 shadow-lg flex flex-col gap-1 w-1/3">
-            <div class="text-xs font-bold text-yellow-400">玩家狀態 <span id="loop-count" class="text-purple-400 text-[10px] ml-1"></span></div>
-            <div class="text-xs flex justify-between"><span>HP:</span> <span id="player-hp" class="text-red-400">100/100</span></div>
-            <div class="text-xs flex justify-between"><span>ATK:</span> <span id="player-atk" class="text-blue-400">10</span></div>
-            <div class="text-xs flex justify-between"><span>DEF:</span> <span id="player-def" class="text-green-400">5</span></div>
-            <div class="text-xs flex justify-between"><span>GOLD:</span> <span id="player-gold" class="text-yellow-300">0</span></div>
-            <div class="text-[10px] text-gray-400 mt-1">回合: <span id="turn-count">0</span></div>
+    <div id="top-ui" class="absolute top-0 left-0 w-full p-3 flex justify-between items-start pointer-events-none z-10 gap-2">
+        <div class="bg-slate-900/90 backdrop-blur-sm p-3 rounded-xl border border-slate-700/50 shadow-2xl flex-1 max-w-[220px] transition-all">
+            <div class="flex justify-between items-end mb-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl filter drop-shadow">🧑‍🌾</span>
+                    <div class="text-sm font-bold text-slate-200 tracking-wide">勇者 <span id="loop-count" class="text-indigo-400 text-[10px] ml-1"></span></div>
+                </div>
+                <div class="text-[10px] text-slate-400"><span id="player-hp" class="font-bold text-slate-300 font-mono">100/100</span> HP</div>
+            </div>
+            <div class="w-full bg-slate-950 rounded-full h-2 mb-2 border border-slate-700 shadow-inner">
+                <div id="ui-hp-bar" class="bg-gradient-to-r from-emerald-500 to-emerald-400 h-full rounded-full transition-all duration-300" style="width: 100%"></div>
+            </div>
+            <div class="grid grid-cols-3 gap-1 text-xs">
+                <div class="flex flex-col items-center bg-slate-800/50 rounded py-1 border border-slate-700/30"><span class="text-red-400 text-[10px]">⚔️</span><span id="player-atk" class="font-mono font-bold">10</span></div>
+                <div class="flex flex-col items-center bg-slate-800/50 rounded py-1 border border-slate-700/30"><span class="text-blue-400 text-[10px]">🛡️</span><span id="player-def" class="font-mono font-bold">5</span></div>
+                <div class="flex flex-col items-center bg-slate-800/50 rounded py-1 border border-slate-700/30"><span class="text-yellow-400 text-[10px]">💰</span><span id="player-gold" class="font-mono font-bold text-yellow-300">0</span></div>
+            </div>
         </div>
         
-        <div class="bg-gray-800/80 p-2 rounded border border-gray-700 shadow-lg text-right w-1/3">
-            <div class="text-xs font-bold text-red-500 mb-1">存活魔物</div>
-            <div id="alive-count" class="text-xl font-bold">12</div>
-            <div class="text-[10px] text-gray-400">當前迷宮: <span id="current-maze">1</span></div>
+        <div class="bg-slate-900/90 backdrop-blur-sm p-3 rounded-xl border border-slate-700/50 shadow-2xl flex-1 max-w-[140px] text-right flex flex-col justify-between">
+            <div class="flex justify-between items-center">
+                <div class="text-[10px] text-slate-400 uppercase tracking-wider">Maze</div>
+                <div id="current-maze" class="text-lg font-black text-indigo-400 font-mono">1</div>
+            </div>
+            <div class="flex justify-between items-center mt-2">
+                <div class="text-[10px] text-slate-400 uppercase tracking-wider">Monsters</div>
+                <div id="alive-count" class="text-lg font-bold text-red-400 font-mono">12</div>
+            </div>
+            <div class="text-[10px] text-slate-500 mt-2">Turn: <span id="turn-count" class="font-mono">0</span></div>
         </div>
     </div>
 
     <!-- UI Overlay (Bottom Controls) -->
-    <div id="bottom-ui" class="absolute bottom-0 left-0 w-full px-4 pt-0 pb-[15vh] pointer-events-none z-10 flex flex-col justify-end gap-2">
-        <div id="log-window" class="bg-black/60 border border-gray-700 rounded p-2 h-16 overflow-y-auto text-xs font-mono custom-scrollbar pointer-events-auto flex flex-col-reverse shadow-lg"></div>
+    <div id="bottom-ui" class="absolute bottom-0 left-0 w-full px-4 pb-[8vh] pointer-events-none z-10 flex flex-col justify-end gap-3">
         <div class="flex justify-center w-full">
-            <button id="btn-roll" class="pointer-events-auto bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white font-bold py-2 px-8 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.5)] active:scale-95 transition-all border-2 border-blue-400 flex items-center justify-center gap-2 w-full max-w-xs mx-auto">
-                <span id="dice-icon" class="text-xl">🎲</span>
-                <span id="dice-result" class="text-lg font-bold">擲骰移動</span>
+            <div id="log-window" class="w-full max-w-sm bg-slate-950/80 backdrop-blur-md border border-slate-700/50 rounded-xl p-3 h-20 overflow-y-auto text-[11px] font-mono custom-scrollbar pointer-events-auto flex flex-col-reverse shadow-[0_0_20px_rgba(0,0,0,0.5)] fade-top"></div>
+        </div>
+        <div class="flex justify-center w-full">
+            <button id="btn-roll" class="pointer-events-auto bg-gradient-to-t from-indigo-600 to-blue-500 hover:from-indigo-500 hover:to-blue-400 text-white font-bold py-3 px-8 rounded-full shadow-[0_4px_20px_rgba(59,130,246,0.5)] active:scale-95 transition-all border border-blue-400/50 flex items-center justify-center gap-3 w-full max-w-sm mx-auto group">
+                <span id="dice-icon" class="text-2xl group-hover:rotate-12 transition-transform">🎲</span>
+                <span id="dice-result" class="text-lg tracking-wide">擲骰移動</span>
             </button>
         </div>
     </div>
 
     <!-- Encounter Modal -->
-    <div id="encounter-modal" class="absolute inset-0 modal-overlay hidden flex items-center justify-center pb-[15vh] pointer-events-auto z-[51]">
-        <div class="bg-gray-800 border-2 border-red-500 rounded-xl p-6 w-5/6 max-w-sm flex flex-col items-center shadow-2xl">
-            <h2 class="text-2xl font-bold text-red-500 mb-2">遭遇魔物！</h2>
-            <div id="encounter-name" class="text-xl font-bold mb-4 text-purple-400">魔物名稱</div>
+    <div id="encounter-modal" class="absolute inset-0 modal-overlay hidden flex items-center justify-center z-[51] pointer-events-auto">
+        <div class="modal-content rounded-2xl p-6 w-5/6 max-w-sm flex flex-col items-center modal-enter text-center border-red-500/50 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-600 to-orange-500"></div>
+            <h2 class="text-[10px] font-black text-red-500 mb-1 tracking-widest uppercase">Encounter</h2>
+            <div id="encounter-name" class="text-2xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">🐉 魔物名稱</div>
             
-            <div class="flex gap-4 mb-4 w-full text-sm">
-                <div class="flex-1 bg-gray-900 p-2 rounded text-center">
-                    <div class="text-gray-400 text-xs">HP</div>
-                    <div id="encounter-hp" class="text-red-400">0</div>
+            <div class="flex gap-2 mb-4 w-full text-sm">
+                <div class="flex-1 bg-slate-900/80 p-2 rounded-lg text-center border border-slate-700/50 shadow-inner">
+                    <div class="text-slate-400 text-[10px] tracking-wider uppercase mb-1">HP</div>
+                    <div id="encounter-hp" class="text-red-400 font-bold font-mono">0</div>
                 </div>
-                <div class="flex-1 bg-gray-900 p-2 rounded text-center">
-                    <div class="text-gray-400 text-xs">ATK</div>
-                    <div id="encounter-atk" class="text-blue-400">0</div>
+                <div class="flex-1 bg-slate-900/80 p-2 rounded-lg text-center border border-slate-700/50 shadow-inner">
+                    <div class="text-slate-400 text-[10px] tracking-wider uppercase mb-1">ATK</div>
+                    <div id="encounter-atk" class="text-blue-400 font-bold font-mono">0</div>
                 </div>
-                <div class="flex-1 bg-gray-900 p-2 rounded text-center">
-                    <div class="text-gray-400 text-xs">DEF</div>
-                    <div id="encounter-def" class="text-green-400">0</div>
+                <div class="flex-1 bg-slate-900/80 p-2 rounded-lg text-center border border-slate-700/50 shadow-inner">
+                    <div class="text-slate-400 text-[10px] tracking-wider uppercase mb-1">DEF</div>
+                    <div id="encounter-def" class="text-green-400 font-bold font-mono">0</div>
                 </div>
             </div>
             
-            <div id="encounter-desc" class="text-xs text-gray-300 mb-6 text-center"></div>
+            <div id="encounter-desc" class="text-xs text-slate-300 mb-6 px-2 italic bg-slate-800/50 p-3 rounded-lg border border-slate-700/30 w-full"></div>
 
             <div class="grid grid-cols-2 gap-3 w-full">
-                <button id="btn-fight" class="bg-red-600 hover:bg-red-500 py-2 rounded font-bold shadow">⚔️ 戰鬥</button>
-                <button id="btn-flee-encounter" class="bg-gray-600 hover:bg-gray-500 py-2 rounded font-bold shadow">🏃 逃跑 (70%)</button>
+                <button id="btn-fight" class="bg-gradient-to-t from-red-700 to-red-500 hover:from-red-600 hover:to-red-400 py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(220,38,38,0.4)] text-white active:scale-95 transition-all border border-red-400/50 flex items-center justify-center gap-1">⚔️ 戰鬥</button>
+                <button id="btn-flee-encounter" class="bg-gradient-to-t from-slate-700 to-slate-500 hover:from-slate-600 hover:to-slate-400 py-3 rounded-xl font-bold shadow-lg text-white active:scale-95 transition-all border border-slate-400/50 flex items-center justify-center gap-1">🏃 逃跑 <span class="text-[10px] text-slate-300 opacity-70">(70%)</span></button>
             </div>
         </div>
     </div>
     
     <!-- Merchant Modal -->
-    <div id="merchant-modal" class="absolute inset-0 modal-overlay hidden flex items-center justify-center pb-[15vh] pointer-events-auto z-[52]">
-        <div class="bg-gray-800 border-2 border-yellow-500 rounded-xl p-6 w-5/6 max-w-sm flex flex-col items-center shadow-2xl">
-            <h2 class="text-2xl font-bold text-yellow-400 mb-2">流浪商人</h2>
-            <p class="text-gray-300 text-sm mb-4 text-center">「要來點好東西嗎？」<br>你的金幣: <span id="merchant-gold" class="text-yellow-300 font-bold">0</span> G</p>
-            <div id="merchant-items" class="w-full flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto custom-scrollbar">
+    <div id="merchant-modal" class="absolute inset-0 modal-overlay hidden flex items-center justify-center z-[52] pointer-events-auto">
+        <div class="modal-content rounded-2xl p-6 w-5/6 max-w-sm flex flex-col items-center modal-enter text-center border-yellow-500/50 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-amber-500"></div>
+            <div class="text-4xl mb-2 filter drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]">🐫</div>
+            <h2 class="text-2xl font-black text-yellow-400 mb-1">流浪商人</h2>
+            <p class="text-slate-300 text-sm mb-4">「要來點好東西嗎？」<br>你的金幣: <span id="merchant-gold" class="text-yellow-300 font-bold font-mono text-lg ml-1 filter drop-shadow">0</span> G</p>
+            <div id="merchant-items" class="w-full flex flex-col gap-3 mb-5 max-h-[45vh] overflow-y-auto custom-scrollbar px-1">
                 <!-- Items injected here -->
             </div>
-            <button id="btn-merchant-leave" class="bg-gray-600 hover:bg-gray-500 py-2 px-8 rounded font-bold shadow w-full">離開</button>
+            <button id="btn-merchant-leave" class="bg-gradient-to-t from-slate-700 to-slate-600 hover:from-slate-600 hover:to-slate-500 py-3 rounded-xl font-bold shadow-lg text-white w-full active:scale-95 transition-all border border-slate-500/30">離開</button>
         </div>
     </div>
 
     <!-- General Message Modal -->
-    <div id="message-modal" class="absolute inset-0 modal-overlay hidden flex items-center justify-center pb-[15vh] pointer-events-auto z-[53]">
-        <div class="bg-gray-800 border-2 border-gray-500 rounded-xl p-6 w-5/6 max-w-sm flex flex-col items-center shadow-2xl transition-transform transform scale-95 duration-200">
-            <h2 id="message-title" class="text-xl font-bold text-white mb-4 text-center">提示</h2>
-            <p id="message-desc" class="text-gray-300 text-sm mb-6 text-center leading-relaxed">內容</p>
-            <button id="btn-msg-close" class="bg-blue-600 hover:bg-blue-500 py-2 px-8 rounded font-bold shadow">確定</button>
-        </div>
-    </div>
-    
-    <!-- Skill Selection Modal -->
-    <div id="skill-modal" class="absolute inset-0 bg-black/80 hidden flex items-center justify-center pb-[15vh] pointer-events-auto z-[60]">
-        <div class="bg-gray-800 border-2 border-blue-500 rounded-xl p-6 w-5/6 max-w-sm flex flex-col items-center shadow-2xl">
-            <h2 class="text-xl font-bold text-blue-400 mb-4">選擇特技</h2>
-            <div id="skill-list" class="w-full flex flex-col gap-2 mb-4 max-h-64 overflow-y-auto custom-scrollbar"></div>
-            <button id="btn-skill-cancel" class="bg-gray-600 hover:bg-gray-500 py-2 px-8 rounded font-bold shadow w-full">取消</button>
-        </div>
-    </div>
-
-    <!-- Combat Screen Overlay -->
-    <div id="combat-screen" class="absolute inset-0 bg-gray-900 hidden flex-col z-[55] pointer-events-auto">
-        <div class="p-2 bg-gray-800 text-center font-bold text-lg text-red-500 border-b border-gray-700 shadow-md shrink-0">戰鬥階段</div>
-        
-        <div class="shrink-0 flex flex-col justify-center gap-2 p-3">
-            <div id="combat-monster" class="flex flex-col items-center bg-gray-800/80 p-3 rounded-xl border-2 border-gray-700 shadow-lg relative transition-transform">
-                <div id="cb-m-name" class="text-base text-purple-400 font-bold mb-1">魔物</div>
-                <div id="cb-m-sym" class="text-5xl mb-2 filter drop-shadow-[0_0_10px_rgba(168,85,247,0.5)]">🐉</div>
-                <div class="w-full bg-gray-900 rounded-full h-3 relative overflow-hidden border border-gray-700">
-                    <div id="cb-m-hpbar" class="absolute top-0 left-0 h-full bg-gradient-to-r from-red-600 to-red-400 transition-all duration-300 w-full"></div>
-                </div>
-                <div id="cb-m-hp" class="text-[10px] mt-1 text-gray-300 font-mono">HP: 100/100</div>
-            </div>
-            <div class="text-center text-lg font-black text-gray-600 italic">VS</div>
-            <div id="combat-player" class="flex flex-col items-center bg-gray-800/80 p-3 rounded-xl border-2 border-blue-800 shadow-lg relative transition-transform">
-                <div class="text-base text-blue-400 font-bold mb-1">勇者</div>
-                <div class="text-5xl mb-2 filter drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]">🧑‍🌾</div>
-                <div class="w-full bg-gray-900 rounded-full h-3 relative overflow-hidden border border-gray-700">
-                    <div id="cb-p-hpbar" class="absolute top-0 left-0 h-full bg-gradient-to-r from-green-600 to-green-400 transition-all duration-300 w-full"></div>
-                </div>
-                <div id="cb-p-hp" class="text-[10px] mt-1 text-gray-300 font-mono">HP: 100/100</div>
-            </div>
-        </div>
-
-        <div id="combat-log" class="flex-1 bg-black/90 border-t-2 border-b-2 border-gray-700 p-3 overflow-y-auto text-xs font-mono custom-scrollbar flex flex-col shadow-inner min-h-0"></div>
-
-        <div class="p-2 grid grid-cols-3 gap-2 bg-gray-800 pb-[15vh] shrink-0">
-            <button id="btn-cb-attack" class="bg-red-600 hover:bg-red-500 py-3 rounded-lg font-bold text-sm shadow text-white active:scale-95 transition-transform">⚔️攻擊</button>
-            <button id="btn-cb-skill" class="bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-bold text-sm shadow text-white active:scale-95 transition-transform">✨特技</button>
-            <button id="btn-cb-defend" class="bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold text-sm shadow text-white active:scale-95 transition-transform">🛡️防禦</button>
-            <button id="btn-cb-dodge" class="bg-yellow-600 hover:bg-yellow-500 py-3 rounded-lg font-bold text-sm shadow text-white active:scale-95 transition-transform">💨閃避</button>
-            <button id="btn-cb-counter" class="bg-purple-600 hover:bg-purple-500 py-3 rounded-lg font-bold text-sm shadow text-white active:scale-95 transition-transform">🔄反擊</button>
-            <button id="btn-cb-flee" class="bg-gray-600 hover:bg-gray-500 py-3 rounded-lg font-bold text-sm shadow text-white active:scale-95 transition-transform">🏃撤退</button>
+    <div id="message-modal" class="absolute inset-0 modal-overlay hidden flex items-center justify-center z-[53] pointer-events-auto">
+        <div class="modal-content rounded-2xl p-6 w-5/6 max-w-sm flex flex-col items-center modal-enter border-blue-500/30">
+            <h2 id="message-title" class="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-indigo-300 mb-4 text-center">提示</h2>
+            <p id="message-desc" class="text-slate-300 text-sm mb-6 text-center leading-relaxed">內容</p>
+            <button id="btn-msg-close" class="bg-gradient-to-t from-blue-700 to-blue-500 hover:from-blue-600 hover:to-blue-400 py-2 px-8 rounded-xl font-bold shadow-lg text-white active:scale-95 transition-all w-full">確定</button>
         </div>
     </div>
 
     <!-- Teleport Confirm Modal -->
-    <div id="teleport-modal" class="absolute inset-0 modal-overlay hidden flex items-center justify-center pb-[15vh] pointer-events-auto z-[54]">
-        <div class="bg-gray-800 border-2 border-purple-500 rounded-xl p-6 w-5/6 max-w-sm flex flex-col items-center shadow-2xl">
-            <h2 class="text-xl font-bold text-purple-400 mb-4">發現傳送陣</h2>
-            <p class="text-gray-300 text-sm mb-6 text-center">要進入傳送陣，前往下一層迷宮嗎？</p>
+    <div id="teleport-modal" class="absolute inset-0 modal-overlay hidden flex items-center justify-center z-[54] pointer-events-auto">
+        <div class="modal-content rounded-2xl p-6 w-5/6 max-w-sm flex flex-col items-center modal-enter text-center border-purple-500/50">
+            <div class="text-5xl mb-4 filter drop-shadow-[0_0_15px_rgba(168,85,247,0.8)] animate-pulse">🌀</div>
+            <h2 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400 mb-2">發現傳送陣</h2>
+            <p class="text-slate-300 text-sm mb-6 leading-relaxed">這座古老的法陣散發著魔力。<br>要進入傳送陣，前往更深的迷宮嗎？</p>
             <div class="grid grid-cols-2 gap-3 w-full">
-                <button id="btn-tp-yes" class="bg-purple-600 hover:bg-purple-500 py-2 rounded font-bold shadow text-white">進入</button>
-                <button id="btn-tp-no" class="bg-gray-600 hover:bg-gray-500 py-2 rounded font-bold shadow text-white">留在這層</button>
+                <button id="btn-tp-yes" class="bg-gradient-to-t from-purple-700 to-purple-500 hover:from-purple-600 hover:to-purple-400 py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(168,85,247,0.4)] text-white active:scale-95 transition-transform border border-purple-400/30">進入</button>
+                <button id="btn-tp-no" class="bg-slate-700 hover:bg-slate-600 py-3 rounded-xl font-bold shadow-lg text-slate-200 active:scale-95 transition-transform border border-slate-500/30">留在這層</button>
             </div>
+        </div>
+    </div>
+    
+    <!-- Skill Selection Modal -->
+    <div id="skill-modal" class="absolute inset-0 modal-overlay hidden flex items-center justify-center z-[60] pointer-events-auto">
+        <div class="modal-content rounded-2xl p-6 w-5/6 max-w-sm flex flex-col items-center modal-enter border-blue-500/50">
+            <h2 class="text-xl font-black text-blue-400 mb-4">選擇特技</h2>
+            <div id="skill-list" class="w-full flex flex-col gap-2 mb-5 max-h-[50vh] overflow-y-auto custom-scrollbar px-1"></div>
+            <button id="btn-skill-cancel" class="bg-slate-700 hover:bg-slate-600 py-3 rounded-xl font-bold shadow-lg text-white w-full active:scale-95 transition-all">取消</button>
+        </div>
+    </div>
+
+    <!-- Combat Screen Overlay -->
+    <div id="combat-screen" class="absolute inset-0 bg-slate-950/95 backdrop-blur-lg hidden flex-col z-[55] pointer-events-auto transition-opacity duration-300">
+        <div class="p-3 bg-gradient-to-b from-slate-900 to-transparent text-center font-black text-xl tracking-widest text-red-500 shadow-md shrink-0 border-b border-red-900/30 relative">
+            戰鬥階段
+            <div class="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+        </div>
+        
+        <div class="flex-1 flex flex-col justify-center gap-3 p-3 max-w-md mx-auto w-full min-h-0 overflow-y-auto custom-scrollbar">
+            <div id="combat-monster" class="flex flex-col items-center bg-slate-900/80 border border-red-900/50 p-4 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.15)] relative backdrop-blur-sm transition-transform shrink-0">
+                <div id="cb-m-name" class="text-lg text-red-400 font-bold mb-1 tracking-wide">魔物</div>
+                <div id="cb-m-sym" class="text-5xl mb-3 filter drop-shadow-[0_0_15px_rgba(220,38,38,0.4)]">🐉</div>
+                <div class="w-full bg-slate-950 rounded-full h-2.5 relative overflow-hidden border border-slate-700 shadow-inner">
+                    <div id="cb-m-hpbar" class="absolute top-0 left-0 h-full bg-gradient-to-r from-red-600 to-orange-400 transition-all duration-300 w-full"></div>
+                </div>
+                <div id="cb-m-hp" class="text-[10px] mt-1.5 text-slate-400 font-mono font-bold tracking-wider">HP: 100/100</div>
+            </div>
+            
+            <div class="text-center shrink-0 my-1">
+                <span class="inline-block text-xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-300 to-slate-600 italic px-4 py-0.5 rounded-full border border-slate-700/50 bg-slate-900/50 shadow-inner">VS</span>
+            </div>
+            
+            <div id="combat-player" class="flex flex-col items-center bg-slate-900/80 border border-blue-900/50 p-4 rounded-xl shadow-[0_0_20px_rgba(59,130,246,0.15)] relative backdrop-blur-sm transition-transform shrink-0">
+                <div class="text-lg text-blue-400 font-bold mb-1 tracking-wide">勇者</div>
+                <div class="text-5xl mb-3 filter drop-shadow-[0_0_15px_rgba(59,130,246,0.4)]">🧑‍🌾</div>
+                <div class="w-full bg-slate-950 rounded-full h-2.5 relative overflow-hidden border border-slate-700 shadow-inner">
+                    <div id="cb-p-hpbar" class="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-600 to-cyan-400 transition-all duration-300 w-full"></div>
+                </div>
+                <div id="cb-p-hp" class="text-[10px] mt-1.5 text-slate-400 font-mono font-bold tracking-wider">HP: 100/100</div>
+            </div>
+        </div>
+
+        <div id="combat-log" class="h-28 bg-slate-950/80 border-t border-slate-800 p-2 overflow-y-auto text-[11px] font-mono custom-scrollbar flex flex-col shadow-inner shrink-0 text-center max-w-md mx-auto w-full relative">
+            <div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-slate-500 to-transparent opacity-30"></div>
+        </div>
+
+        <div class="p-3 grid grid-cols-3 gap-2 bg-slate-900/90 border-t border-slate-800 pb-[max(1rem,env(safe-area-inset-bottom))] shrink-0 max-w-md mx-auto w-full backdrop-blur-md">
+            <button id="btn-cb-attack" class="bg-gradient-to-b from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 py-2.5 rounded-xl font-bold text-[13px] shadow-[0_4px_10px_rgba(220,38,38,0.3)] text-white active:scale-95 transition-all border border-red-500/50">⚔️ 攻擊</button>
+            <button id="btn-cb-skill" class="bg-gradient-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 py-2.5 rounded-xl font-bold text-[13px] shadow-[0_4px_10px_rgba(59,130,246,0.3)] text-white active:scale-95 transition-all border border-blue-500/50">✨ 特技</button>
+            <button id="btn-cb-defend" class="bg-gradient-to-b from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 py-2.5 rounded-xl font-bold text-[13px] shadow-[0_4px_10px_rgba(34,197,94,0.3)] text-white active:scale-95 transition-all border border-green-500/50">🛡️ 防禦</button>
+            <button id="btn-cb-dodge" class="bg-gradient-to-b from-yellow-600 to-yellow-700 hover:from-yellow-500 hover:to-yellow-600 py-2.5 rounded-xl font-bold text-[13px] shadow-[0_4px_10px_rgba(234,179,8,0.3)] text-white active:scale-95 transition-all border border-yellow-500/50">💨 閃避</button>
+            <button id="btn-cb-counter" class="bg-gradient-to-b from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 py-2.5 rounded-xl font-bold text-[13px] shadow-[0_4px_10px_rgba(168,85,247,0.3)] text-white active:scale-95 transition-all border border-purple-500/50">🔄 反擊</button>
+            <button id="btn-cb-flee" class="bg-gradient-to-b from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 py-2.5 rounded-xl font-bold text-[13px] shadow-[0_4px_10px_rgba(100,116,139,0.3)] text-white active:scale-95 transition-all border border-slate-500/50">🏃 撤退</button>
         </div>
     </div>
 
     <!-- Game Over / Victory Modal -->
-    <div id="endgame-modal" class="absolute inset-0 modal-overlay hidden flex items-center justify-center pb-[15vh] pointer-events-auto z-[70]">
-        <div class="bg-gray-800 border-4 rounded-xl p-6 w-5/6 max-w-sm flex flex-col items-center shadow-[0_0_30px_rgba(0,0,0,0.8)]">
-            <h1 id="end-title" class="text-4xl font-black mb-2 text-center text-transparent bg-clip-text"></h1>
-            <div id="end-rank" class="text-xl text-gray-300 mb-6"></div>
+    <div id="endgame-modal" class="absolute inset-0 bg-slate-950/95 backdrop-blur-lg hidden flex items-center justify-center z-[70] pointer-events-auto">
+        <div class="modal-content border border-slate-600 rounded-3xl p-8 w-11/12 max-w-sm flex flex-col items-center shadow-[0_0_50px_rgba(0,0,0,0.8)] modal-enter relative overflow-hidden" id="endgame-card">
+            <h1 id="end-title" class="text-5xl font-black mb-4 text-center text-transparent bg-clip-text filter drop-shadow-lg"></h1>
+            <div id="end-rank" class="text-lg text-slate-300 mb-6 font-bold tracking-widest bg-slate-800/80 px-5 py-2 rounded-full border border-slate-600/50 shadow-inner"></div>
             
-            <div class="bg-gray-900 w-full p-4 rounded mb-6 text-sm">
-                <div class="flex justify-between mb-1"><span>存活回合:</span> <span id="end-turns" class="text-yellow-400">0</span></div>
-                <div class="flex justify-between mb-1"><span>擊敗魔物:</span> <span id="end-kills" class="text-red-400">0</span></div>
-                <div class="flex justify-between"><span>最終等級:</span> <span id="end-level" class="text-purple-400">1</span></div>
+            <div class="bg-slate-900/80 w-full p-5 rounded-2xl border border-slate-700/50 shadow-inner mb-8 text-sm flex flex-col gap-3 relative z-10">
+                <div class="flex justify-between items-center border-b border-slate-800/80 pb-2"><span class="text-slate-400 font-bold">存活回合</span> <span id="end-turns" class="text-yellow-400 font-mono font-bold text-lg filter drop-shadow">0</span></div>
+                <div class="flex justify-between items-center border-b border-slate-800/80 pb-2"><span class="text-slate-400 font-bold">擊敗魔物</span> <span id="end-kills" class="text-red-400 font-mono font-bold text-lg filter drop-shadow">0</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400 font-bold">最終狀態</span> <span id="end-level" class="text-purple-400 font-bold tracking-wide">1</span></div>
             </div>
 
-            <button id="btn-restart" class="w-full py-3 rounded font-bold text-lg shadow-lg transition-transform hover:scale-105"></button>
+            <button id="btn-restart" class="w-full py-4 rounded-xl font-black text-lg shadow-2xl transition-all hover:scale-105 active:scale-95 border relative z-10 tracking-widest"></button>
         </div>
     </div>
 </div>
@@ -260,45 +303,35 @@ document.addEventListener('touchend', function(event) {
     lastTouchEnd = now;
 }, { passive: false });
 
-// --- Configuration & Constants ---
 const CONFIG = {
-    TILE_SIZE: 40,
+    TILE_SIZE: 45, // Slightly larger tiles for better tap targets
     MAZE_WIDTH: 21,
     MAZE_HEIGHT: 21,
     NUM_MAZES: 5,
     ANIMATION_SPEED: 0.15,
 };
 
-const TILE_TYPES = {
-    WALL: 0, PATH: 1, START: 2, TELEPORT: 3, EVENT_GOOD: 4, EVENT_BAD: 5, EVENT_ITEM: 6, EVENT_EMPTY: 7
-};
-
-const TILE_COLORS = {
-    [TILE_TYPES.WALL]: '#2d3748', [TILE_TYPES.PATH]: '#cbd5e1', [TILE_TYPES.START]: '#3b82f6',
-    [TILE_TYPES.TELEPORT]: '#a855f7', [TILE_TYPES.EVENT_GOOD]: '#4ade80', [TILE_TYPES.EVENT_BAD]: '#f87171',
-    [TILE_TYPES.EVENT_ITEM]: '#fbbf24', [TILE_TYPES.EVENT_EMPTY]: '#94a3b8'
-};
+const TILE_TYPES = { WALL: 0, PATH: 1, START: 2, TELEPORT: 3, EVENT_GOOD: 4, EVENT_BAD: 5, EVENT_ITEM: 6, EVENT_EMPTY: 7 };
 
 const EVENTS = {
     GOOD: [
-        { name: "神秘泉水", desc: "恢復 30 HP", effect: (p) => p.heal(30) },
-        { name: "戰神雕像", desc: "攻擊力永久 +2", effect: (p) => p.atk += 2 },
-        { name: "守護者祝福", desc: "防禦力永久 +2", effect: (p) => p.def += 2 },
-        { name: "隱藏的金庫", desc: "獲得 50 金幣", effect: (p) => p.gold += 50 },
-        { name: "精靈之吻", desc: "生命值完全恢復！", effect: (p) => p.heal(p.maxHp) },
-        { name: "英雄祭壇", desc: "最大生命 +10，攻擊 +1", effect: (p) => { p.maxHp += 10; p.atk += 1; p.heal(10); } }
+        { name: "神秘泉水", desc: "飲用清涼泉水，恢復 30 HP", effect: (p) => p.heal(30) },
+        { name: "戰神雕像", desc: "感受武神的意志，攻擊力永久 +2", effect: (p) => { p.atk += 2; Game.addFloatingText(p.visualX*CONFIG.TILE_SIZE+CONFIG.TILE_SIZE/2, p.visualY*CONFIG.TILE_SIZE, "ATK+2", "#60a5fa"); } },
+        { name: "守護者祝福", desc: "一道聖光閃過，防禦力永久 +2", effect: (p) => { p.def += 2; Game.addFloatingText(p.visualX*CONFIG.TILE_SIZE+CONFIG.TILE_SIZE/2, p.visualY*CONFIG.TILE_SIZE, "DEF+2", "#4ade80"); } },
+        { name: "隱藏的金庫", desc: "在牆角發現錢袋，獲得 50 金幣", effect: (p) => { p.gold += 50; Game.addFloatingText(p.visualX*CONFIG.TILE_SIZE+CONFIG.TILE_SIZE/2, p.visualY*CONFIG.TILE_SIZE, "+50G", "#facc15"); } },
+        { name: "精靈之吻", desc: "森林精靈的治癒，生命值完全恢復！", effect: (p) => p.heal(p.maxHp) },
+        { name: "英雄祭壇", desc: "向祭壇獻祭，最大生命 +10，攻擊 +1", effect: (p) => { p.maxHp += 10; p.atk += 1; p.heal(10); Game.addFloatingText(p.visualX*CONFIG.TILE_SIZE+CONFIG.TILE_SIZE/2, p.visualY*CONFIG.TILE_SIZE, "LEVEL UP", "#c084fc"); } }
     ],
     BAD: [
-        { name: "毒氣陷阱", desc: "失去 15 HP", effect: (p) => p.takeDamage(15, null, true) },
-        { name: "詛咒之刃", desc: "攻擊力 -1", effect: (p) => p.atk = Math.max(1, p.atk - 1) },
-        { name: "生鏽的鎧甲", desc: "防禦力 -1", effect: (p) => p.def = Math.max(0, p.def - 1) },
-        { name: "落石陷阱", desc: "被砸中，失去 25 HP", effect: (p) => p.takeDamage(25, null, true) },
-        { name: "疲勞詛咒", desc: "最大生命 -5", effect: (p) => { p.maxHp = Math.max(1, p.maxHp - 5); if(p.hp>p.maxHp) p.hp=p.maxHp; } },
-        { name: "小偷", desc: "失去一些金幣", effect: (p) => p.gold -= Math.floor(p.gold / 10) }
+        { name: "毒氣陷阱", desc: "踩中機關噴出毒氣，失去 15 HP", effect: (p) => p.takeDamage(15, null, true) },
+        { name: "詛咒之刃", desc: "被邪氣侵蝕，攻擊力 -1", effect: (p) => { p.atk = Math.max(1, p.atk - 1); Game.addFloatingText(p.visualX*CONFIG.TILE_SIZE+CONFIG.TILE_SIZE/2, p.visualY*CONFIG.TILE_SIZE, "ATK-1", "#f87171"); } },
+        { name: "生鏽的鎧甲", desc: "防具被酸液腐蝕，防禦力 -1", effect: (p) => { p.def = Math.max(0, p.def - 1); Game.addFloatingText(p.visualX*CONFIG.TILE_SIZE+CONFIG.TILE_SIZE/2, p.visualY*CONFIG.TILE_SIZE, "DEF-1", "#f87171"); } },
+        { name: "落石陷阱", desc: "天花板崩塌砸中，失去 25 HP", effect: (p) => p.takeDamage(25, null, true) },
+        { name: "疲勞詛咒", desc: "感到一陣虛弱，最大生命 -5", effect: (p) => { p.maxHp = Math.max(1, p.maxHp - 5); if(p.hp>p.maxHp) p.hp=p.maxHp; Game.addFloatingText(p.visualX*CONFIG.TILE_SIZE+CONFIG.TILE_SIZE/2, p.visualY*CONFIG.TILE_SIZE, "MAX HP-5", "#94a3b8"); } },
+        { name: "小偷", desc: "一陣風吹過，失去了一些金幣", effect: (p) => { let loss = Math.floor(p.gold / 10); p.gold -= loss; Game.addFloatingText(p.visualX*CONFIG.TILE_SIZE+CONFIG.TILE_SIZE/2, p.visualY*CONFIG.TILE_SIZE, `-${loss}G`, "#facc15"); } }
     ]
 };
 
-// --- Data Dictionaries (Skills & Monsters) ---
 const SKILLS = {
     s1: { id: 's1', name: '狂暴連擊', cd: 3, mult: 1.5, ignoreDef: false, healRate: 0 },
     s2: { id: 's2', name: '貪婪掠奪', cd: 2, mult: 1.2, ignoreDef: false, healRate: 0.3 },
@@ -315,24 +348,23 @@ const SKILLS = {
 };
 
 const MONSTER_TEMPLATES = [
-    { id: 1, name: "狂暴哥布林", symbol: "👺", hpRatio: 0.8, atkRatio: 1.2, defRatio: 0.5, behavior: "aggressive", skill: "s1", weakness: "s12", desc: "脾氣暴躁" },
-    { id: 2, name: "貪婪史萊姆", symbol: "💧", hpRatio: 1.2, atkRatio: 0.8, defRatio: 0.8, behavior: "greedy", skill: "s2", weakness: "s1", desc: "喜歡收集閃亮物" },
-    { id: 3, name: "骷髏劍士", symbol: "💀", hpRatio: 0.9, atkRatio: 1.1, defRatio: 0.6, behavior: "patrol", skill: "s3", weakness: "s2", desc: "死板巡邏" },
-    { id: 4, name: "幽靈刺客", symbol: "👻", hpRatio: 0.6, atkRatio: 1.5, defRatio: 0.2, behavior: "hunter", skill: "s4", weakness: "s3", desc: "暗殺者" },
-    { id: 5, name: "石像鬼", symbol: "🗿", hpRatio: 1.5, atkRatio: 0.7, defRatio: 1.5, behavior: "defensive", skill: "s5", weakness: "s4", desc: "防禦極高" },
-    { id: 6, name: "魅魔", symbol: "🧛‍♀️", hpRatio: 0.8, atkRatio: 1.0, defRatio: 0.8, behavior: "charming", skill: "s6", weakness: "s5", desc: "擅長誘惑" },
-    { id: 7, name: "牛頭人", symbol: "🐂", hpRatio: 1.3, atkRatio: 1.3, defRatio: 1.0, behavior: "aggressive", skill: "s7", weakness: "s6", desc: "力大無窮" },
-    { id: 8, name: "毒蜘蛛", symbol: "🕷️", hpRatio: 0.7, atkRatio: 1.1, defRatio: 0.5, behavior: "coward", skill: "s8", weakness: "s7", desc: "打帶跑" },
-    { id: 9, name: "寶箱怪", symbol: "🎁", hpRatio: 1.1, atkRatio: 1.0, defRatio: 1.2, behavior: "mimic", skill: "s9", weakness: "s8", desc: "偽裝成寶物" },
-    { id: 10, name: "巫妖", symbol: "🧙‍♂️", hpRatio: 0.9, atkRatio: 1.4, defRatio: 0.8, behavior: "smart", skill: "s10", weakness: "s9", desc: "高智商法師" },
-    { id: 11, name: "地獄犬", symbol: "🐕‍🦺", hpRatio: 1.0, atkRatio: 1.2, defRatio: 0.9, behavior: "hunter", skill: "s11", weakness: "s10", desc: "窮追不捨" },
-    { id: 12, name: "深淵魔龍", symbol: "🐉", hpRatio: 2.0, atkRatio: 1.8, defRatio: 1.5, behavior: "boss", skill: "s12", weakness: "s11", desc: "迷宮霸主" }
+    { id: 1, name: "狂暴哥布林", symbol: "👺", hpRatio: 0.8, atkRatio: 1.2, defRatio: 0.5, behavior: "aggressive", skill: "s1", weakness: "s12", desc: "脾氣暴躁，擅長連續攻擊。" },
+    { id: 2, name: "貪婪史萊姆", symbol: "💧", hpRatio: 1.2, atkRatio: 0.8, defRatio: 0.8, behavior: "greedy", skill: "s2", weakness: "s1", desc: "會吞噬一切的軟體生物，能吸收生命。" },
+    { id: 3, name: "骷髏劍士", symbol: "💀", hpRatio: 0.9, atkRatio: 1.1, defRatio: 0.6, behavior: "patrol", skill: "s3", weakness: "s2", desc: "死板巡邏的亡靈，攻擊無視部分防禦。" },
+    { id: 4, name: "幽靈刺客", symbol: "👻", hpRatio: 0.6, atkRatio: 1.4, defRatio: 0.2, behavior: "hunter", skill: "s4", weakness: "s3", desc: "潛伏在暗處的暗殺者，致命一擊極痛。" },
+    { id: 5, name: "石像鬼", symbol: "🗿", hpRatio: 1.5, atkRatio: 0.7, defRatio: 1.3, behavior: "defensive", skill: "s5", weakness: "s4", desc: "防禦極高的魔法守衛，難以撼動。" },
+    { id: 6, name: "魅魔", symbol: "🧛‍♀️", hpRatio: 0.8, atkRatio: 1.0, defRatio: 0.8, behavior: "charming", skill: "s6", weakness: "s5", desc: "擅長誘惑吸取生命，打帶跑戰術專家。" },
+    { id: 7, name: "牛頭人", symbol: "🐂", hpRatio: 1.3, atkRatio: 1.3, defRatio: 1.0, behavior: "aggressive", skill: "s7", weakness: "s6", desc: "力大無窮的迷宮守衛，衝撞威力驚人。" },
+    { id: 8, name: "毒蜘蛛", symbol: "🕷️", hpRatio: 0.7, atkRatio: 1.1, defRatio: 0.5, behavior: "coward", skill: "s8", weakness: "s7", desc: "釋放劇毒且極其膽小，經常試圖逃跑。" },
+    { id: 9, name: "寶箱怪", symbol: "🎁", hpRatio: 1.1, atkRatio: 1.0, defRatio: 1.2, behavior: "mimic", skill: "s9", weakness: "s8", desc: "偽裝成寶物的狡猾怪物，靜待獵物上門。" },
+    { id: 10, name: "巫妖", symbol: "🧙‍♂️", hpRatio: 0.9, atkRatio: 1.3, defRatio: 0.8, behavior: "smart", skill: "s10", weakness: "s9", desc: "高智商的不死法師，魔法具有毀滅性。" },
+    { id: 11, name: "地獄犬", symbol: "🐕‍🦺", hpRatio: 1.0, atkRatio: 1.2, defRatio: 0.9, behavior: "hunter", skill: "s11", weakness: "s10", desc: "窮追不捨的冥界獵犬，會噴吐烈焰。" },
+    { id: 12, name: "深淵魔龍", symbol: "🐉", hpRatio: 1.8, atkRatio: 1.4, defRatio: 1.3, behavior: "boss", skill: "s12", weakness: "s11", desc: "統治迷宮的霸主，全方位無死角的強大。" }
 ];
 
-// --- Game State & Classes ---
 const State = {
     loop: 1, turn: 0, mazes: [], entities: [], player: null, currentEncounter: null,
-    animating: false, camera: { x: 0, y: 0 }, logs: []
+    camera: { x: 0, y: 0 }, logs: [], floatingTexts: []
 };
 
 class Entity {
@@ -346,10 +378,17 @@ class Entity {
     takeDamage(amount, source, ignoreDef = false) {
         let dmg = ignoreDef ? amount : Math.max(1, amount - this.def);
         this.hp -= dmg;
+        Game.addFloatingText(this.visualX * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2, this.visualY * CONFIG.TILE_SIZE, `-${dmg}`, '#ef4444');
         if (this.hp <= 0) { this.hp = 0; this.die(source); }
         return dmg;
     }
-    heal(amount) { this.hp = Math.min(this.maxHp, this.hp + amount); }
+    heal(amount) { 
+        let actualHeal = Math.min(this.maxHp - this.hp, amount);
+        if(actualHeal > 0) {
+            this.hp += actualHeal;
+            Game.addFloatingText(this.visualX * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2, this.visualY * CONFIG.TILE_SIZE, `+${actualHeal}`, '#22c55e');
+        }
+    }
     die(killer) {
         this.alive = false;
         if (this.isPlayer) Game.handlePlayerDeath();
@@ -361,13 +400,16 @@ class Entity {
             logMsg(`擊敗了 ${this.name}! 能力提升！獲得金幣。`);
         }
     }
-    updateAnimation() {
+    updateAnimation(dt) {
         if (!this.alive) return;
         const dx = this.x - this.visualX, dy = this.y - this.visualY;
+        const speed = (dt / 16.66) * CONFIG.ANIMATION_SPEED;
         if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
-            this.visualX += dx * CONFIG.ANIMATION_SPEED;
-            this.visualY += dy * CONFIG.ANIMATION_SPEED;
-            State.animating = true;
+            this.visualX += dx * speed;
+            this.visualY += dy * speed;
+            // Prevent overshoot
+            if(Math.abs(this.x - this.visualX) < speed) this.visualX = this.x;
+            if(Math.abs(this.y - this.visualY) < speed) this.visualY = this.y;
         } else {
             this.visualX = this.x; this.visualY = this.y;
         }
@@ -418,6 +460,7 @@ class Monster extends Entity {
                 }
             }
             this.x = chosenMove.nx; this.y = chosenMove.ny;
+            // Monster hitting teleporter logic
             if (maze[this.y][this.x] === TILE_TYPES.TELEPORT) {
                 const nextMaze = (this.mazeIndex + 1) % CONFIG.NUM_MAZES;
                 this.mazeIndex = nextMaze;
@@ -428,13 +471,13 @@ class Monster extends Entity {
     }
 }
 
-// --- Maze Generation ---
 function generateMaze(width, height) {
     let maze = Array.from({length: height}, () => Array(width).fill(TILE_TYPES.WALL));
     let startX = 1, startY = 1; maze[startY][startX] = TILE_TYPES.START;
     let stack = [{x: startX, y: startY}];
     const dirs = [[0, -2], [0, 2], [-2, 0], [2, 0]];
     
+    // Recursive Backtracking
     while(stack.length > 0) {
         let curr = stack[stack.length - 1];
         let unvisited = dirs.map(d => ({x: curr.x + d[0], y: curr.y + d[1], dx: d[0], dy: d[1]}))
@@ -447,6 +490,8 @@ function generateMaze(width, height) {
             stack.push({x: next.x, y: next.y});
         } else stack.pop();
     }
+    
+    // Add some loops
     for(let y=1; y<height-1; y+=2) {
         for(let x=1; x<width-1; x+=2) {
             if (Math.random() < 0.2 && maze[y][x] === TILE_TYPES.PATH) {
@@ -456,6 +501,8 @@ function generateMaze(width, height) {
             }
         }
     }
+    
+    // Place Teleport
     let placedTeleport = false;
     while(!placedTeleport) {
         let tx = Math.floor(Math.random() * Math.floor(width / 2)) * 2 + 1;
@@ -464,16 +511,6 @@ function generateMaze(width, height) {
             maze[ty][tx] = TILE_TYPES.TELEPORT; placedTeleport = true;
         }
     }
-    /*for(let y=1; y<height-1; y++) {
-        for(let x=1; x<width-1; x++) {
-            if (maze[y][x] === TILE_TYPES.PATH) {
-                let r = Math.random();
-                if (r < 0.15) maze[y][x] = TILE_TYPES.EVENT_GOOD;
-                else if (r < 0.23) maze[y][x] = TILE_TYPES.EVENT_BAD;
-                else if (r < 0.31) maze[y][x] = TILE_TYPES.EVENT_ITEM;
-            }
-        }
-    }*/
     return maze;
 }
 
@@ -487,9 +524,9 @@ function findTile(mazeIndex, type) {
     return null;
 }
 
-// --- Core System ---
 const Game = {
     canvas: null, ctx: null, lastTime: 0, stepsRemaining: 0, lastMove: { dx: 0, dy: 0 },
+    canvasW: 0, canvasH: 0,
     
     saveGameState() {
         try {
@@ -500,6 +537,7 @@ const Game = {
             localStorage.setItem('dungeon_save', JSON.stringify(saveData));
         } catch(e) { console.error("Save failed", e); }
     },
+    
     loadGameState() {
         try {
             const data = localStorage.getItem('dungeon_save');
@@ -533,8 +571,15 @@ const Game = {
     },
 
     resize() {
-        this.canvas.width = document.getElementById('canvas-container').clientWidth;
-        this.canvas.height = document.getElementById('canvas-container').clientHeight;
+        const container = document.getElementById('canvas-container');
+        const dpr = window.devicePixelRatio || 1;
+        this.canvasW = container.clientWidth;
+        this.canvasH = container.clientHeight;
+        this.canvas.width = this.canvasW * dpr;
+        this.canvas.height = this.canvasH * dpr;
+        this.ctx.scale(dpr, dpr);
+        this.canvas.style.width = `${this.canvasW}px`;
+        this.canvas.style.height = `${this.canvasH}px`;
     },
 
     startLoop(keepStats = false) {
@@ -549,7 +594,7 @@ const Game = {
             oldStats = { maxHp: State.player.maxHp, hp: State.player.maxHp, atk: State.player.atk, def: State.player.def, gold: State.player.gold, kills: State.player.kills, skills: State.player.skills, cooldowns: {} };
         }
         
-        State.turn = 0; State.mazes = []; State.entities = []; State.logs = []; this.stepsRemaining = 0; this.lastMove = { dx: 0, dy: 0 };
+        State.turn = 0; State.mazes = []; State.entities = []; State.logs = []; State.floatingTexts = []; this.stepsRemaining = 0; this.lastMove = { dx: 0, dy: 0 };
         logMsg(`--- 第 ${State.loop} 輪迴開始 ---`);
         
         for(let i=0; i<CONFIG.NUM_MAZES; i++) State.mazes.push(generateMaze(CONFIG.MAZE_WIDTH, CONFIG.MAZE_HEIGHT));
@@ -572,15 +617,17 @@ const Game = {
             }
         }
         this.updateUI(); this.saveGameState();
+        this.lastTime = 0; // reset for smooth animation start
         requestAnimationFrame(this.render.bind(this));
     },
 
     setupUI() {
-        const checkModalOpen = () => !document.getElementById('encounter-modal').classList.contains('hidden') || !document.getElementById('message-modal').classList.contains('hidden') || !document.getElementById('combat-screen').classList.contains('hidden') || !document.getElementById('endgame-modal').classList.contains('hidden') || !document.getElementById('merchant-modal').classList.contains('hidden') || !document.getElementById('skill-modal').classList.contains('hidden');
+        const checkModalOpen = () => !document.getElementById('encounter-modal').classList.contains('hidden') || !document.getElementById('message-modal').classList.contains('hidden') || !document.getElementById('combat-screen').classList.contains('hidden') || !document.getElementById('endgame-modal').classList.contains('hidden') || !document.getElementById('merchant-modal').classList.contains('hidden') || !document.getElementById('skill-modal').classList.contains('hidden') || !document.getElementById('teleport-modal').classList.contains('hidden');
 
         this.canvas.addEventListener('pointerdown', (e) => {
             if (this.stepsRemaining <= 0 || checkModalOpen()) return;
             const rect = this.canvas.getBoundingClientRect();
+            // Map click to logic coordinates
             const worldX = e.clientX - rect.left + State.camera.x;
             const worldY = e.clientY - rect.top + State.camera.y;
             const gridX = Math.floor(worldX / CONFIG.TILE_SIZE), gridY = Math.floor(worldY / CONFIG.TILE_SIZE);
@@ -612,6 +659,7 @@ const Game = {
             if (move) this.movePlayer(dx, dy);
         });
 
+        // Event Listeners for UI Modals
         document.getElementById('btn-fight').addEventListener('click', () => this.resolveEncounter('fight'));
         document.getElementById('btn-flee-encounter').addEventListener('click', () => this.resolveEncounter('flee'));
         
@@ -628,9 +676,7 @@ const Game = {
             this.processWorldTurn();
         });
         document.getElementById('btn-msg-close').addEventListener('click', () => document.getElementById('message-modal').classList.add('hidden'));
-        document.getElementById('message-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'message-modal') document.getElementById('message-modal').classList.add('hidden');
-        });
+        
         document.getElementById('btn-restart').addEventListener('click', () => {
             document.getElementById('endgame-modal').classList.add('hidden');
             State.loop = document.getElementById('btn-restart').innerText.includes('下一輪迴') ? State.loop + 1 : 1;
@@ -669,11 +715,11 @@ const Game = {
     setMovementPhase(isMoving) {
         const btn = document.getElementById('btn-roll'), icon = document.getElementById('dice-icon'), text = document.getElementById('dice-result');
         if (isMoving) {
-            btn.className = "pointer-events-auto bg-gradient-to-r from-yellow-600 to-yellow-800 text-white font-bold py-2 px-8 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.5)] border-2 border-yellow-400 flex items-center justify-center gap-2 w-full max-w-xs mx-auto";
+            btn.className = "pointer-events-auto bg-gradient-to-t from-yellow-600 to-yellow-500 text-white font-bold py-3 px-8 rounded-full shadow-[0_4px_15px_rgba(234,179,8,0.5)] border border-yellow-400/50 flex items-center justify-center gap-3 w-full max-w-sm mx-auto animate-pulse";
             icon.innerText = '👣'; text.innerText = `點擊發亮處 (剩 ${this.stepsRemaining} 步)`;
         } else {
-            btn.className = "pointer-events-auto bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 active:scale-95 text-white font-bold py-2 px-8 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.5)] border-2 border-blue-400 flex items-center justify-center gap-2 w-full max-w-xs mx-auto transition-all";
-            icon.innerText = '🎲'; text.innerText = '擲骰移動';
+            btn.className = "pointer-events-auto bg-gradient-to-t from-indigo-600 to-blue-500 hover:from-indigo-500 hover:to-blue-400 active:scale-95 text-white font-bold py-3 px-8 rounded-full shadow-[0_4px_20px_rgba(59,130,246,0.5)] border border-blue-400/50 flex items-center justify-center gap-3 w-full max-w-sm mx-auto transition-all group";
+            icon.innerText = '🎲'; icon.className = "text-2xl group-hover:rotate-12 transition-transform"; text.innerText = '擲骰移動';
             this.lastMove = { dx: 0, dy: 0 };
         }
     },
@@ -701,15 +747,17 @@ const Game = {
         const p = State.player;
         let r = Math.random();
         
-        if (r < 0.15) { 
-            const ev = EVENTS.GOOD[Math.floor(Math.random() * EVENTS.GOOD.length)];ev.effect(p);this.showMessage(ev.name, ev.desc); 
+        if (r < 0.25) { 
+            const ev = EVENTS.GOOD[Math.floor(Math.random() * EVENTS.GOOD.length)];
+            ev.effect(p); this.showMessage(ev.name, ev.desc); 
             logMsg(`遭遇事件: ${ev.name}`);
-        } else if (r < 0.23) { 
-            const ev = EVENTS.BAD[Math.floor(Math.random() * EVENTS.BAD.length)];ev.effect(p);this.showMessage(ev.name, ev.desc); 
+        } else if (r < 0.33) { 
+            const ev = EVENTS.BAD[Math.floor(Math.random() * EVENTS.BAD.length)];
+            ev.effect(p); this.showMessage(ev.name, ev.desc); 
             logMsg(`遭遇事件: ${ev.name}`);
-        } else if (r < 0.31) { 
-            this.openMerchant();return; 
-        } else {}
+        } else if (r < 0.41) { 
+            this.openMerchant(); return; 
+        }
         this.updateUI(); this.processWorldTurn();
     },
     
@@ -726,15 +774,15 @@ const Game = {
         let available = [...SHOP_ITEMS].sort(() => Math.random() - 0.5).slice(0, 3);
         
         available.forEach(baseItem => {
-            let item = { ...baseItem }, rand = Math.random(), tag = "", nameColor = "text-white";
-            if (rand < 0.05) { item.cost = 0; item.val = Math.max(1, Math.floor(item.val * 0.3)); item.name = `破舊的 ${item.name}`; tag = "<span class='bg-green-600 text-[10px] py-0.5 px-1.5 rounded ml-2 shadow'>免費</span>"; nameColor = "text-gray-400"; }
-            else if (rand < 0.35) { item.cost = Math.max(1, Math.floor(item.cost * 0.5)); item.val = Math.max(1, Math.floor(item.val * 0.6)); item.name = `中古的 ${item.name}`; tag = "<span class='bg-red-600 text-[10px] py-0.5 px-1.5 rounded ml-2 shadow'>半價</span>"; nameColor = "text-yellow-200"; }
+            let item = { ...baseItem }, rand = Math.random(), tag = "", nameColor = "text-slate-200";
+            if (rand < 0.05) { item.cost = 0; item.val = Math.max(1, Math.floor(item.val * 0.3)); item.name = `破舊的 ${item.name}`; tag = "<span class='bg-green-600 text-[9px] py-0.5 px-1.5 rounded ml-2 shadow uppercase tracking-widest'>FREE</span>"; nameColor = "text-slate-400"; }
+            else if (rand < 0.35) { item.cost = Math.max(1, Math.floor(item.cost * 0.5)); item.val = Math.max(1, Math.floor(item.val * 0.6)); item.name = `中古的 ${item.name}`; tag = "<span class='bg-red-600 text-[9px] py-0.5 px-1.5 rounded ml-2 shadow uppercase tracking-widest'>SALE</span>"; nameColor = "text-yellow-200"; }
 
             let desc = item.type === 'atk' ? `攻擊力 +${item.val}` : (item.type === 'def' ? `防禦力 +${item.val}` : (item.type === 'maxHp' ? `最大生命 +${item.val}` : `恢復生命 ${item.val}`));
             const btn = document.createElement('button');
-            let borderColor = item.cost === 0 ? 'border-green-600' : (item.cost < baseItem.cost ? 'border-red-500' : 'border-gray-600');
-            btn.className = `w-full bg-gray-900 border-2 ${borderColor} p-3 rounded-lg flex justify-between items-center hover:bg-gray-700 mb-2 shadow-md`;
-            btn.innerHTML = `<div class="text-left"><div class="font-bold text-sm ${nameColor}">${item.name} ${tag}</div><div class="text-xs text-gray-400 mt-1">${desc}</div></div><div class="font-black flex items-center gap-1 ${item.cost === 0 ? 'text-green-400' : 'text-yellow-400'}">${item.cost} <span class="text-xs">G</span></div>`;
+            let borderColor = item.cost === 0 ? 'border-green-500/50' : (item.cost < baseItem.cost ? 'border-red-500/50' : 'border-slate-600/50');
+            btn.className = `w-full bg-slate-900/80 border ${borderColor} p-4 rounded-xl flex justify-between items-center hover:bg-slate-800 transition-colors shadow-md active:scale-95`;
+            btn.innerHTML = `<div class="text-left"><div class="font-bold text-sm ${nameColor}">${item.name} ${tag}</div><div class="text-[11px] text-slate-400 mt-1">${desc}</div></div><div class="font-black font-mono text-lg flex items-center gap-1 ${item.cost === 0 ? 'text-green-400' : 'text-yellow-400'} filter drop-shadow">${item.cost} <span class="text-xs">G</span></div>`;
             btn.onclick = () => {
                 if (p.gold >= item.cost) {
                     p.gold -= item.cost;
@@ -779,8 +827,7 @@ const Game = {
             p.y = startPos.y;
             p.visualX = p.x; 
             p.visualY = p.y;
-            this.movementHistory = [{x: p.x, y: p.y}];
-            this.showMessage("傳送陣", `傳送到迷宮層級 ${nextMaze + 1}!`);
+            this.showMessage("傳送陣", `穿越古老魔法陣，來到了迷宮第 ${nextMaze + 1} 層！`);
             logMsg(`進入傳送陣，來到第 ${nextMaze + 1} 層！`);
             this.updateUI();
             this.processWorldTurn(); 
@@ -805,7 +852,7 @@ const Game = {
         document.getElementById('encounter-hp').innerText = Math.floor(monster.hp);
         document.getElementById('encounter-atk').innerText = monster.atk;
         document.getElementById('encounter-def').innerText = monster.def;
-        document.getElementById('encounter-desc').innerText = `${monster.template.desc} (特技: ${SKILLS[monster.skill].name} | 弱點: ${SKILLS[monster.template.weakness].name})`;
+        document.getElementById('encounter-desc').innerHTML = `${monster.template.desc}<br><br><span class="text-blue-300">特技: ${SKILLS[monster.skill].name}</span> | <span class="text-yellow-400">弱點: ${SKILLS[monster.template.weakness].name}</span>`;
         document.getElementById('encounter-modal').classList.remove('hidden');
     },
 
@@ -825,8 +872,8 @@ const Game = {
         const screen = document.getElementById('combat-screen'), m = State.currentEncounter;
         screen.classList.remove('hidden'); screen.classList.add('flex');
         document.getElementById('cb-m-name').innerText = m.name; document.getElementById('cb-m-sym').innerText = m.symbol;
-        this.updateCombatUI(); document.getElementById('combat-log').innerHTML = '';
-        this.logCombat(`遭遇了 ${m.name}！戰鬥開始！`, 'text-yellow-400');
+        this.updateCombatUI(); document.getElementById('combat-log').innerHTML = '<div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-slate-500 to-transparent opacity-30"></div>';
+        this.logCombat(`遭遇了 ${m.name}！戰鬥開始！`, 'text-yellow-400 font-bold');
     },
 
     updateCombatUI() {
@@ -839,24 +886,47 @@ const Game = {
         }
     },
 
-    logCombat(msg, colorClass = 'text-gray-300') {
+    logCombat(msg, colorClass = 'text-slate-300') {
         const logWindow = document.getElementById('combat-log'), entry = document.createElement('div');
-        entry.className = `mb-1 ${colorClass}`; entry.innerText = msg;
+        entry.className = `mb-1 ${colorClass} animate-fade-in relative z-10`; entry.innerText = msg;
         logWindow.appendChild(entry); logWindow.scrollTop = logWindow.scrollHeight;
+    },
+    
+    spawnCombatFloatingText(elementId, text, colorClass) {
+        const el = document.getElementById(elementId);
+        if(!el) return;
+        const floatEl = document.createElement('div');
+        floatEl.className = `absolute text-2xl font-black ${colorClass} pointer-events-none drop-shadow-lg z-20 whitespace-nowrap`;
+        floatEl.innerText = text;
+        const offsetX = (Math.random() - 0.5) * 60;
+        const offsetY = -20 + (Math.random() - 0.5) * 30;
+        floatEl.style.left = `calc(50% + ${offsetX}px)`;
+        floatEl.style.top = `calc(50% + ${offsetY}px)`;
+        floatEl.style.transform = 'translate(-50%, -50%)';
+        floatEl.style.transition = 'all 1s ease-out';
+        floatEl.style.opacity = '1';
+        el.appendChild(floatEl);
+        
+        setTimeout(() => { floatEl.style.top = `calc(50% + ${offsetY - 60}px)`; floatEl.style.opacity = '0'; }, 50);
+        setTimeout(() => { if(el.contains(floatEl)) el.removeChild(floatEl); }, 1050);
     },
 
     toggleCombatButtons(enabled) {
-        ['btn-cb-attack', 'btn-cb-skill', 'btn-cb-defend', 'btn-cb-dodge', 'btn-cb-counter', 'btn-cb-flee'].forEach(id => document.getElementById(id).disabled = !enabled);
+        ['btn-cb-attack', 'btn-cb-skill', 'btn-cb-defend', 'btn-cb-dodge', 'btn-cb-counter', 'btn-cb-flee'].forEach(id => {
+            const btn = document.getElementById(id);
+            btn.disabled = !enabled;
+            if(!enabled) btn.classList.add('opacity-50'); else btn.classList.remove('opacity-50');
+        });
     },
 
     openSkillModal() {
         const p = State.player, container = document.getElementById('skill-list'); container.innerHTML = '';
-        if (p.skills.length === 0) container.innerHTML = '<div class="text-gray-400 text-center py-4">尚未學會任何特技<br><span class="text-xs">擊敗魔物以學習特技</span></div>';
+        if (p.skills.length === 0) container.innerHTML = '<div class="text-slate-400 text-center py-6">尚未學會任何特技<br><span class="text-[10px] mt-2 block opacity-70">擊敗魔物以學習特技</span></div>';
         else {
             p.skills.forEach(skillId => {
                 const sk = SKILLS[skillId], cd = p.cooldowns[skillId] || 0, btn = document.createElement('button');
-                btn.className = `w-full p-3 rounded-lg flex justify-between items-center mb-2 shadow-md ${cd > 0 ? 'bg-gray-700 opacity-50 cursor-not-allowed' : 'bg-gray-900 border border-blue-500 hover:bg-gray-700 active:scale-95'}`;
-                btn.innerHTML = `<div class="text-left"><div class="font-bold text-blue-300">${sk.name}</div><div class="text-[10px] text-gray-400">倍率:${sk.mult} | ${sk.ignoreDef?'無視防禦':''}</div></div><div class="text-xs ${cd>0?'text-red-400':'text-green-400'}">${cd > 0 ? `CD: ${cd}` : '可使用'}</div>`;
+                btn.className = `w-full p-4 rounded-xl flex justify-between items-center mb-3 shadow-md border ${cd > 0 ? 'bg-slate-800 border-slate-700 opacity-50 cursor-not-allowed' : 'bg-slate-900 border-blue-500/50 hover:bg-slate-800 active:scale-95 transition-colors'}`;
+                btn.innerHTML = `<div class="text-left"><div class="font-bold text-blue-300 text-sm mb-1">${sk.name}</div><div class="text-[10px] text-slate-400">倍率: ${sk.mult} ${sk.ignoreDef?'<span class="ml-1 text-purple-400">無視防禦</span>':''} ${sk.healRate>0?'<span class="ml-1 text-green-400">吸血</span>':''}</div></div><div class="text-xs font-mono font-bold ${cd>0?'text-red-400':'text-green-400'}">${cd > 0 ? `CD: ${cd}` : '可使用'}</div>`;
                 if (cd <= 0) btn.onclick = () => { document.getElementById('skill-modal').classList.add('hidden'); this.executeCombatTurn('skill', skillId); };
                 container.appendChild(btn);
             });
@@ -893,11 +963,11 @@ const Game = {
         if (action === 'flee') { if (Math.random() < 0.4) { this.logCombat("成功撤退！", "text-yellow-400 font-bold"); playerFled = true; } else { msgP = "撤退失敗，破綻百出！"; pDefMult = 1.2; } }
         if (mAction === 'flee' && !playerFled) { if (Math.random() < 0.6) { this.logCombat(`${m.name} 夾著尾巴逃跑了！`, "text-yellow-400 font-bold"); monsterFled = true; } else { msgM = `${m.name} 逃跑被攔截！`; mDefMult = 1.3; } }
 
-        if (msgP) this.logCombat(msgP, 'text-gray-400');
-        if (msgM) this.logCombat(msgM, 'text-gray-500');
+        if (msgP) this.logCombat(msgP, 'text-slate-400');
+        if (msgM) this.logCombat(msgM, 'text-slate-500');
 
-        if (playerFled) { setTimeout(() => this.endCombat(false, true), 900); return; }
-        if (monsterFled) { setTimeout(() => this.endCombat(false, false, true), 900); return; }
+        if (playerFled) { setTimeout(() => this.endCombat(false, true), 1000); return; }
+        if (monsterFled) { setTimeout(() => this.endCombat(false, false, true), 1000); return; }
 
         const processAttack = (attacker, defender, act, sDef, defM, isEvading, callback) => {
             if (!attacker.alive || !defender.alive) { callback(); return; }
@@ -909,6 +979,7 @@ const Game = {
             setTimeout(() => {
                 aDiv.classList.remove(attacker.isPlayer ? 'anim-atk-p' : 'anim-atk-m');
                 if (isEvading) { this.logCombat(`${defender.name} 成功閃避了攻擊！`, 'text-green-400 font-bold'); callback(); return; }
+                
                 dDiv.classList.add('anim-dmg');
                 let rawDmg = 0, isSkill = false;
                 
@@ -923,9 +994,16 @@ const Game = {
                 let actualDmg = isSkill && sDef.ignoreDef ? rawDmg : Math.max(1, rawDmg - defender.def);
                 actualDmg = Math.floor(actualDmg * defM);
                 defender.hp -= actualDmg;
+                
+                this.spawnCombatFloatingText(attacker.isPlayer ? 'combat-monster' : 'combat-player', `-${actualDmg}`, 'text-red-500');
                 this.logCombat(`${attacker.name} 對 ${defender.name} 造成 ${actualDmg} 傷害！`, attacker.isPlayer ? 'text-blue-300' : 'text-red-400');
                 
-                if (isSkill && sDef.healRate > 0) { let heal = Math.floor(actualDmg * sDef.healRate); attacker.heal(heal); this.logCombat(`吸收了 ${heal} 生命！`, 'text-green-400'); }
+                if (isSkill && sDef.healRate > 0) { 
+                    let heal = Math.floor(actualDmg * sDef.healRate); 
+                    attacker.heal(heal); 
+                    this.spawnCombatFloatingText(attacker.isPlayer ? 'combat-player' : 'combat-monster', `+${heal}`, 'text-green-400');
+                    this.logCombat(`吸收了 ${heal} 生命！`, 'text-green-400'); 
+                }
                 
                 this.updateCombatUI(); this.updateUI();
                 setTimeout(() => { dDiv.classList.remove('anim-dmg'); if (defender.hp <= 0) defender.hp = 0; callback(); }, 400);
@@ -971,13 +1049,25 @@ const Game = {
         for(let d of dirs) { let nx = entity.x + d[0], ny = entity.y + d[1]; if (nx>=0 && nx<CONFIG.MAZE_WIDTH && ny>=0 && ny<CONFIG.MAZE_HEIGHT && maze[ny][nx] !== TILE_TYPES.WALL) { entity.x = nx; entity.y = ny; break; } }
     },
 
+    addFloatingText(x, y, text, color) {
+        State.floatingTexts.push({
+            x: x, y: y, text: text, color: color,
+            life: 1.0, maxLife: 1.0,
+            vy: -15 - Math.random() * 10
+        });
+    },
+
     render(time) {
         requestAnimationFrame(this.render.bind(this));
+        if(!this.lastTime) this.lastTime = time;
         let dt = time - this.lastTime; this.lastTime = time;
-        State.animating = false; State.entities.forEach(e => e.updateAnimation());
+        if(dt > 100) dt = 16.66; // Prevent huge jumps
+        
+        State.entities.forEach(e => e.updateAnimation(dt));
 
-        const w = this.canvas.width, h = this.canvas.height;
-        this.ctx.fillStyle = '#1a202c'; this.ctx.fillRect(0, 0, w, h);
+        const w = this.canvasW, h = this.canvasH;
+        this.ctx.fillStyle = '#020617'; // bg-slate-950
+        this.ctx.fillRect(0, 0, w, h);
         if (!State.player) return;
 
         const p = State.player, maze = State.mazes[p.mazeIndex];
@@ -991,40 +1081,97 @@ const Game = {
                 let scrX = x * CONFIG.TILE_SIZE - State.camera.x, scrY = y * CONFIG.TILE_SIZE - State.camera.y;
                 if (scrX > -CONFIG.TILE_SIZE && scrX < w && scrY > -CONFIG.TILE_SIZE && scrY < h) {
                     let tile = maze[y][x];
-                    if (tile !== TILE_TYPES.WALL) { this.ctx.fillStyle = TILE_COLORS[TILE_TYPES.PATH]; this.ctx.fillRect(x * CONFIG.TILE_SIZE, y * CONFIG.TILE_SIZE, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE); }
-                    if (tile === TILE_TYPES.WALL) { this.ctx.fillStyle = TILE_COLORS[TILE_TYPES.WALL]; this.ctx.fillRect(x * CONFIG.TILE_SIZE, y * CONFIG.TILE_SIZE, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE); this.ctx.fillStyle = 'rgba(0,0,0,0.2)'; this.ctx.fillRect(x * CONFIG.TILE_SIZE, y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE - 5, CONFIG.TILE_SIZE, 5); }
-                    else if (tile === TILE_TYPES.TELEPORT) { this.ctx.fillStyle = TILE_COLORS[TILE_TYPES.TELEPORT]; this.ctx.beginPath(); this.ctx.arc(x * CONFIG.TILE_SIZE + 20, y * CONFIG.TILE_SIZE + 20, 15, 0, Math.PI*2); this.ctx.fill(); }
+                    let drawX = x * CONFIG.TILE_SIZE, drawY = y * CONFIG.TILE_SIZE;
+                    
+                    if (tile !== TILE_TYPES.WALL) { 
+                        // Path base
+                        this.ctx.fillStyle = '#334155'; // slate-700
+                        this.ctx.fillRect(drawX, drawY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE); 
+                        // Texture detail
+                        this.ctx.strokeStyle = '#1e293b'; // slate-800
+                        this.ctx.lineWidth = 1;
+                        this.ctx.strokeRect(drawX, drawY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
+                        if ((x * 7 + y * 13) % 5 === 0) {
+                            this.ctx.fillStyle = '#1e293b';
+                            this.ctx.fillRect(drawX + 4, drawY + 4, 8, 8);
+                        }
+                    }
+                    if (tile === TILE_TYPES.WALL) { 
+                        this.ctx.fillStyle = '#1e293b'; // Top of wall
+                        this.ctx.fillRect(drawX, drawY, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE); 
+                        this.ctx.fillStyle = '#0f172a'; // Front face for 3D
+                        this.ctx.fillRect(drawX, drawY + CONFIG.TILE_SIZE - 6, CONFIG.TILE_SIZE, 6); 
+                    }
+                    else if (tile === TILE_TYPES.TELEPORT) { 
+                        let timeOsc = (Date.now() % 2000) / 2000;
+                        this.ctx.fillStyle = `rgba(168, 85, 247, ${0.4 + 0.4 * Math.sin(timeOsc * Math.PI * 2)})`;
+                        this.ctx.beginPath(); this.ctx.arc(drawX + CONFIG.TILE_SIZE/2, drawY + CONFIG.TILE_SIZE/2, CONFIG.TILE_SIZE*0.4, 0, Math.PI*2); this.ctx.fill(); 
+                        this.ctx.strokeStyle = '#d8b4fe'; this.ctx.lineWidth = 2; this.ctx.stroke();
+                    }
                     else if ([TILE_TYPES.EVENT_GOOD, TILE_TYPES.EVENT_BAD, TILE_TYPES.EVENT_ITEM].includes(tile)) { 
-                        this.ctx.fillStyle = '#94a3b8';/*this.ctx.fillStyle = TILE_COLORS[tile];*/ 
-                        this.ctx.beginPath(); this.ctx.moveTo(x*CONFIG.TILE_SIZE+20, y*CONFIG.TILE_SIZE+10); this.ctx.lineTo(x*CONFIG.TILE_SIZE+30, y*CONFIG.TILE_SIZE+20); this.ctx.lineTo(x*CONFIG.TILE_SIZE+20, y*CONFIG.TILE_SIZE+30); this.ctx.lineTo(x*CONFIG.TILE_SIZE+10, y*CONFIG.TILE_SIZE+20); this.ctx.fill(); }
+                        this.ctx.fillStyle = '#64748b'; // slate-500 indicator
+                        this.ctx.beginPath(); this.ctx.moveTo(drawX+CONFIG.TILE_SIZE/2, drawY+10); this.ctx.lineTo(drawX+CONFIG.TILE_SIZE-10, drawY+CONFIG.TILE_SIZE/2); this.ctx.lineTo(drawX+CONFIG.TILE_SIZE/2, drawY+CONFIG.TILE_SIZE-10); this.ctx.lineTo(drawX+10, drawY+CONFIG.TILE_SIZE/2); this.ctx.fill(); 
+                    }
                 }
             }
         }
 
         if (this.stepsRemaining > 0) {
             this.getValidMoves().forEach(m => {
-                this.ctx.fillStyle = 'rgba(255, 255, 0, 0.3)'; this.ctx.fillRect(m.x * CONFIG.TILE_SIZE, m.y * CONFIG.TILE_SIZE, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
-                this.ctx.fillStyle = '#ffffff'; this.ctx.font = '20px sans-serif'; this.ctx.globalAlpha = 1.0; this.ctx.fillText("👣", m.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2, m.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2);
+                this.ctx.fillStyle = 'rgba(250, 204, 21, 0.2)'; // yellow-400
+                this.ctx.fillRect(m.x * CONFIG.TILE_SIZE, m.y * CONFIG.TILE_SIZE, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
+                this.ctx.fillStyle = '#fef08a'; this.ctx.font = '20px sans-serif'; this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+                this.ctx.fillText("👣", m.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2, m.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2);
             });
         }
 
         let renderQueue = State.entities.filter(e => e.alive && e.mazeIndex === p.mazeIndex).sort((a, b) => a.visualY - b.visualY);
         renderQueue.forEach(e => {
             let px = e.visualX * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2, py = e.visualY * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2;
-            this.ctx.font = '24px sans-serif'; this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
-            if (e.isPlayer) {
-                this.ctx.fillStyle = 'rgba(0,0,0,0.5)'; this.ctx.beginPath(); this.ctx.ellipse(px, py + 12, 12, 6, 0, 0, Math.PI*2); this.ctx.fill();
-                this.ctx.fillStyle = '#ffffff'; this.ctx.globalAlpha = 1.0; this.ctx.fillText("🧑‍🌾", px, py);
-                let hpPct = Math.max(0, e.hp / e.maxHp); this.ctx.fillStyle = 'red'; this.ctx.fillRect(px - 15, py - 20, 30, 4); this.ctx.fillStyle = 'green'; this.ctx.fillRect(px - 15, py - 20, 30 * hpPct, 4);
-            } else {
-                this.ctx.fillStyle = '#ffffff'; this.ctx.globalAlpha = 1.0; this.ctx.fillText(e.symbol, px, py);
-                let hpPct = Math.max(0, e.hp / e.maxHp); this.ctx.fillStyle = 'rgba(255,0,0,0.5)'; this.ctx.fillRect(px - 10, py - 15, 20, 3); this.ctx.fillStyle = 'red'; this.ctx.fillRect(px - 10, py - 15, 20 * hpPct, 3);
-            }
+            this.ctx.font = '26px sans-serif'; this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+            
+            // Entity shadow
+            this.ctx.fillStyle = 'rgba(0,0,0,0.6)'; this.ctx.beginPath(); this.ctx.ellipse(px, py + 15, 14, 7, 0, 0, Math.PI*2); this.ctx.fill();
+            
+            this.ctx.fillStyle = '#ffffff'; 
+            this.ctx.shadowColor = e.isPlayer ? 'rgba(59, 130, 246, 0.8)' : 'rgba(239, 68, 68, 0.8)';
+            this.ctx.shadowBlur = 15;
+            this.ctx.fillText(e.isPlayer ? "🧑‍🌾" : e.symbol, px, py);
+            this.ctx.shadowBlur = 0; // reset
+            
+            let hpPct = Math.max(0, e.hp / e.maxHp); 
+            this.ctx.fillStyle = 'rgba(15, 23, 42, 0.8)'; this.ctx.fillRect(px - 16, py - 24, 32, 6); 
+            this.ctx.fillStyle = e.isPlayer ? '#10b981' : '#ef4444'; // emerald-500 / red-500
+            this.ctx.fillRect(px - 15, py - 23, 30 * hpPct, 4);
         });
+        
+        // Render Floating Texts
+        for (let i = State.floatingTexts.length - 1; i >= 0; i--) {
+            let ft = State.floatingTexts[i];
+            ft.life -= dt / 1000;
+            ft.y += ft.vy * (dt / 1000);
+            if (ft.life <= 0) {
+                State.floatingTexts.splice(i, 1);
+            } else {
+                this.ctx.globalAlpha = Math.max(0, ft.life / ft.maxLife);
+                this.ctx.fillStyle = ft.color;
+                this.ctx.font = '900 22px "Noto Sans TC", sans-serif';
+                this.ctx.textAlign = 'center';
+                this.ctx.strokeStyle = '#020617';
+                this.ctx.lineWidth = 4;
+                this.ctx.strokeText(ft.text, ft.x, ft.y);
+                this.ctx.fillText(ft.text, ft.x, ft.y);
+                this.ctx.globalAlpha = 1.0;
+            }
+        }
 
         this.ctx.restore();
-        let gradient = this.ctx.createRadialGradient(w/2, h/2, Math.min(w,h)*0.2, w/2, h/2, Math.min(w,h)*0.8);
-        gradient.addColorStop(0, 'rgba(0,0,0,0)'); gradient.addColorStop(1, 'rgba(0,0,0,0.8)');
+        
+        // Improved Fog of War (Gradient centered precisely on player in screen space)
+        let gradient = this.ctx.createRadialGradient(w/2, h/2 - (h*0.15), Math.min(w,h)*0.15, w/2, h/2 - (h*0.15), Math.min(w,h)*0.7);
+        gradient.addColorStop(0, 'rgba(2, 6, 23, 0)');
+        gradient.addColorStop(0.6, 'rgba(2, 6, 23, 0.7)');
+        gradient.addColorStop(1, 'rgba(2, 6, 23, 1)');
         this.ctx.fillStyle = gradient; this.ctx.fillRect(0,0,w,h);
     },
 
@@ -1032,6 +1179,9 @@ const Game = {
         if (!State.player) return;
         const p = State.player;
         document.getElementById('player-hp').innerText = `${Math.floor(p.hp)}/${p.maxHp}`;
+        const hpPct = Math.max(0, p.hp / p.maxHp) * 100;
+        document.getElementById('ui-hp-bar').style.width = `${hpPct}%`;
+        
         document.getElementById('player-atk').innerText = p.atk; document.getElementById('player-def').innerText = p.def; document.getElementById('player-gold').innerText = p.gold;
         document.getElementById('loop-count').innerText = State.loop > 1 ? `(第${State.loop}輪)` : '';
         document.getElementById('turn-count').innerText = State.turn; document.getElementById('current-maze').innerText = p.mazeIndex + 1;
@@ -1047,19 +1197,23 @@ const Game = {
         document.getElementById('combat-screen').classList.add('hidden'); document.getElementById('combat-screen').classList.remove('flex');
         localStorage.removeItem('dungeon_save');
         const modal = document.getElementById('endgame-modal'), title = document.getElementById('end-title'), btn = document.getElementById('btn-restart');
-        modal.classList.remove('hidden'); title.innerText = "YOU DIED"; title.className = "text-5xl font-black mb-2 text-center text-red-600";
+        modal.classList.remove('hidden'); 
+        title.innerText = "YOU DIED"; title.className = "text-5xl font-black mb-4 text-center text-red-600 filter drop-shadow-lg";
+        document.getElementById('endgame-card').classList.add('border-red-600');
         document.getElementById('end-rank').innerText = `名次: 第 ${State.entities.filter(e => !e.isPlayer && e.alive).length + 1} 名`;
         document.getElementById('end-turns').innerText = State.turn; document.getElementById('end-kills').innerText = State.player.kills; document.getElementById('end-level').innerText = "死亡";
-        btn.innerText = "重新開始"; btn.className = "w-full py-3 rounded font-bold text-lg shadow-lg transition-transform hover:scale-105 bg-gray-600 hover:bg-gray-500 text-white";
+        btn.innerText = "重新開始"; btn.className = "w-full py-4 rounded-xl font-black text-lg shadow-2xl transition-all hover:scale-105 active:scale-95 border-red-500/50 bg-slate-800 hover:bg-slate-700 text-white relative z-10 tracking-widest";
     },
 
     checkWinCondition() {
         if (State.entities.filter(e => !e.isPlayer && e.alive).length === 0 && State.player.alive) {
             const modal = document.getElementById('endgame-modal'), title = document.getElementById('end-title'), btn = document.getElementById('btn-restart');
-            modal.classList.remove('hidden'); title.innerText = "VICTORY!"; title.className = "text-5xl font-black mb-2 text-center text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-yellow-600";
+            modal.classList.remove('hidden'); 
+            title.innerText = "VICTORY!"; title.className = "text-5xl font-black mb-4 text-center text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600 filter drop-shadow-lg";
+            document.getElementById('endgame-card').classList.add('border-yellow-500');
             document.getElementById('end-rank').innerText = "唯一的倖存者";
             document.getElementById('end-turns').innerText = State.turn; document.getElementById('end-kills').innerText = State.player.kills; document.getElementById('end-level').innerText = `滿載而歸 (輪迴 ${State.loop})`;
-            btn.innerText = "開啟下一輪迴 (保留屬性, 敵人變強)"; btn.className = "w-full py-3 rounded font-bold text-sm shadow-lg transition-transform hover:scale-105 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white mt-4";
+            btn.innerText = "開啟下一輪迴 (繼承屬性)"; btn.className = "w-full py-4 rounded-xl font-black text-lg shadow-[0_10px_30px_rgba(168,85,247,0.4)] transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white mt-2 border border-purple-400/50 relative z-10 tracking-widest";
         }
     },
 
@@ -1068,7 +1222,7 @@ const Game = {
 
 function logMsg(msg) {
     State.logs.unshift(msg); if(State.logs.length > 20) State.logs.pop();
-    document.getElementById('log-window').innerHTML = State.logs.map((l, i) => `<div class="${i===0 ? 'text-white' : 'text-gray-400'} mb-1">${l}</div>`).join('');
+    document.getElementById('log-window').innerHTML = State.logs.map((l, i) => `<div class="${i===0 ? 'text-slate-100 font-bold' : 'text-slate-400 opacity-80'} mb-1 break-words">${l}</div>`).join('');
 }
 
 window.onload = () => Game.init();
