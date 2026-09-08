@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Medieval Magic Idle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background-color: #0b0b13;
+            color: white;
+            font-family: 'MedievalSharp', cursive;
+            overflow: hidden;
+            touch-action: none; /* Prevent scroll on touch devices */
+        }
+        #game-container {
+            width: 100%; height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            background-color: #050510;
+            box-shadow: 0 0 30px rgba(100, 0, 255, 0.2);
+            /* Constrain width on desktop to maintain portrait ratio */
+            max-width: 600px;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Resize canvas logic
+        function resizeCanvas() {
+            let w = Math.min(window.innerWidth, 600);
+            let h = window.innerHeight;
+            canvas.width = w;
+            canvas.height = h;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const GAME_DATA = {
+            enemies: {
+                weak: { hp: 10, speed: 80, radius: 15, score: 10, color: '#ff4444', type: 'minion', rate: 0.5 },
+                fast: { hp: 5, speed: 180, radius: 12, score: 15, color: '#4444ff', type: 'fast', rate: 0.3 },
+                tank: { hp: 50, speed: 40, radius: 25, score: 25, color: '#44ff44', type: 'tank', rate: 0.2 },
+                boss: { hp: 600, speed: 20, radius: 45, score: 500, color: '#ff00ff', type: 'boss', rate: 0 }
+            },
+            wandPaths: ['straight', 'curve', 'laser', 'homing'],
+            wandColors: ['#FF5733', '#33FF57', '#3357FF', '#F333FF', '#33FFF3', '#FFFF33', '#FFFFFF'],
+            emojis: {
+                monsters: ['🦇', '🕷️', '🧟', '🧛', '🐺', '🐉', '🐲', '👹', '👺', '👻', '💀', '👽', '👾', '🐍', '🪲', '🦂'],
+                bosses: ['😈', '👿', '🧌', '👁️', '🌋', '🌑', '🧿', '🦑']
+            },
+            allies: {
+                warrior: { emoji: '🤺', type: 'warrior', speed: 120, life: 15 },
+                cleric:  { emoji: '🧙‍♀️', type: 'cleric', speed: 80, life: 15 },
+                rogue:   { emoji: '🥷', type: 'rogue', speed: 200, life: 10 },
+                bard:    { emoji: '🧚', type: 'bard', speed: 100, life: 20 }
+            },
+            bulletShapes: ['circle', 'diamond', 'triangle', 'square', 'hollow']
+        };
+
+        class ObjectPool {
+            constructor(createFn) {
+                this.pool = [];
+                this.createFn = createFn;
+            }
+            get() {
+                return this.pool.length > 0 ? this.pool.pop() : this.createFn();
+            }
+            release(obj) {
+                this.pool.push(obj);
+            }
+        }
+
+        class Bullet {
+            constructor() { 
+                this.active = false; 
+                this.hitEnemies = new Set(); // 移至建構子，避免反覆創建 Set 導致記憶體洩漏與卡頓
+            }
+            init(x, y, dx, dy, props, isPlayer) {
+                this.active = true;
+                this.x = x; this.y = y;
+                this.dx = dx; this.dy = dy;
+                this.isPlayer = isPlayer;
+                this.lifeTime = 0;
+                this.hitEnemies.clear(); // 清空舊資料
+                
+                // 【重要修復】重置所有預設屬性，避免物件池回收時殘留舊屬性 (解決奇怪的子彈行為與殘留)
+                this.shape = 'circle';
+                this.isPierce = false;
+                this.isSplit = false;
+                this.isLifesteal = false;
+                this.isFreeze = false;
+                this.isExplosion = false;
+                this.chainCount = 0;
+                this.hasSplit = false;
+                this.laserTick = 0; // 雷射傷害冷卻器
+
+                Object.assign(this, props);
+            }
+            update(dt, game) {
+                this.lifeTime += dt;
+                
+                if (this.path === 'laser') {
+                    // 降低雷射判定頻率，解決每秒觸發60次傷害導致效能崩潰(發燙)與特效殘留的問題
+                    this.laserTick += dt;
+                    if (this.laserTick > 0.15) {
+                        this.hitEnemies.clear();
+                        this.laserTick = 0;
+                    }
+                }
+                
+                // Path logic
+                if (this.path === 'curve') {
+                    // 正確的波動速度算法，避免位置偏移殘留
+                    let wobbleSpeed = Math.sin(this.lifeTime * 15) * 150; 
+                    let baseAngle = Math.atan2(this.dy, this.dx);
+                    let perpX = Math.cos(baseAngle + Math.PI/2) * wobbleSpeed;
+                    let perpY = Math.sin(baseAngle + Math.PI/2) * wobbleSpeed;
+                    this.x += (this.dx + perpX) * dt;
+                    this.y += (this.dy + perpY) * dt;
+                } else if (this.path === 'laser') {
+                    // Accelerating fast straight line
+                    this.dx *= 1.02;
+                    this.dy *= 1.02;
+                    this.x += this.dx * dt;
+                    this.y += this.dy * dt;
+                } else if (this.path === 'homing') {
+                    let target = game.getNearestEnemy(this.x, this.y);
+                    if (target) {
+                        let speed = Math.hypot(this.dx, this.dy) || 400; // 確保有基礎速度，防止原地停頓殘留
+                        let desiredAngle = Math.atan2(target.y - this.y, target.x - this.x);
+                        let desiredDx = Math.cos(desiredAngle) * speed;
+                        let desiredDy = Math.sin(desiredAngle) * speed;
+                        // Smoothly steer towards the target
+                        this.dx += (desiredDx - this.dx) * 10 * dt;
+                        this.dy += (desiredDy - this.dy) * 10 * dt;
+                    }
+                    this.x += this.dx * dt;
+                    this.y += this.dy * dt;
+                } else {
+                    // Straight
+                    this.x += this.dx * dt;
+                    this.y += this.dy * dt;
+                }
+
+                // Offscreen check
+                if (this.y < -100 || this.y > canvas.height + 100 || this.x < -100 || this.x > canvas.width + 100) {
+                    this.active = false;
+                }
+            }
+            draw(ctx) {
+                ctx.save(); // 儲存畫筆狀態，防止陰影與線條粗細污染其他繪圖
+                ctx.fillStyle = this.color;
+                
+                // 【效能優化】完全移除 shadowBlur，解決手機發燙與 Canvas 在部分裝置的渲染殘影問題
+                
+                if (this.path === 'laser') {
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = this.size * 1.5;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    // Trail based on velocity
+                    ctx.lineTo(this.x - this.dx * 0.05, this.y - this.dy * 0.05);
+                    ctx.stroke();
+                } else {
+                    let shape = this.shape || 'circle';
+                    ctx.translate(this.x, this.y);
+                    if (shape === 'square') ctx.rotate(this.lifeTime * 5); // 旋轉方塊特效
+                    
+                    ctx.beginPath();
+                    if (shape === 'diamond') {
+                        ctx.moveTo(0, -this.size); ctx.lineTo(this.size, 0); ctx.lineTo(0, this.size); ctx.lineTo(-this.size, 0);
+                    } else if (shape === 'triangle') {
+                        ctx.moveTo(0, -this.size); ctx.lineTo(this.size, this.size); ctx.lineTo(-this.size, this.size);
+                    } else if (shape === 'square') {
+                        ctx.rect(-this.size, -this.size, this.size * 1.5, this.size * 1.5);
+                    } else {
+                        ctx.arc(0, 0, this.size, 0, Math.PI*2);
+                    }
+                    ctx.closePath();
+                    
+                    if (shape === 'hollow') {
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = this.color;
+                        ctx.stroke();
+                    } else {
+                        ctx.fill();
+                    }
+                }
+                ctx.restore(); // 恢復預設狀態
+            }
+        }
+
+        class Enemy {
+            constructor() { this.active = false; }
+            init(template, x, y, emoji, stageMultiplier) {
+                this.active = true;
+                this.spawnId = Math.random(); // 給予唯一ID判定多重打擊
+                this.x = x; this.y = y;
+                this.emoji = emoji;
+                this.template = template;
+                this.isBoss = template.type === 'boss';
+                
+                // Scale stats with stage
+                let mult = Math.pow(1.2, stageMultiplier - 1);
+                this.maxHp = template.hp * mult;
+                this.hp = this.maxHp;
+                this.speed = template.speed * (1 + (stageMultiplier * 0.05));
+                this.radius = template.radius;
+                
+                this.lifeTime = 0;
+                this.lastFire = 0;
+                this.freezeTimer = 0;
+            }
+            update(dt, game) {
+                this.lifeTime += dt;
+                
+                if (this.freezeTimer > 0 && !this.isBoss) {
+                    this.freezeTimer -= dt; // 冰凍期間不移動
+                } else {
+                    if (this.isBoss) {
+                        // Boss moves to top area and sweeps left/right
+                        let targetY = 120;
+                        this.y += (targetY - this.y) * 2 * dt;
+                        this.x += Math.sin(this.lifeTime) * 60 * dt;
+                        
+                        // Boss shooting pattern
+                        this.lastFire += dt;
+                        if (this.lastFire > 1.2) {
+                            this.lastFire = 0;
+                            let count = Math.min(24, 8 + game.stageManager.stage * 2);
+                            for(let i=0; i<count; i++) {
+                                let angle = (Math.PI * 2 / count) * i + this.lifeTime;
+                                let speed = 150 + game.stageManager.stage * 10;
+                                game.spawnBullet(this.x, this.y, Math.cos(angle)*speed, Math.sin(angle)*speed, {
+                                    color: '#ff2222', size: 6, path: 'straight', damage: 10 + game.stageManager.stage*2
+                                }, false);
+                            }
+                        }
+                    } else {
+                        this.y += this.speed * dt;
+                        if (this.template.type === 'fast') {
+                            this.x += Math.sin(this.lifeTime * 5) * 80 * dt;
+                        }
+                    }
+                }
+
+                if (this.y > canvas.height + 50) this.active = false;
+            }
+            takeDamage(amt, game) {
+                this.hp -= amt;
+                game.spawnFloatingText(Math.floor(amt), this.x, this.y, '#fff', 14);
+                if (this.hp <= 0 && this.active) {
+                    this.active = false;
+                    game.noKillTimer = 0; // 成功擊殺，重置「10秒未擊殺」計時器
+                    game.spawnParticles(this.x, this.y, this.template.color, this.isBoss ? 50 : 10);
+                    game.player.addExp(this.template.score * game.stageManager.stage, game);
+                    game.stageManager.onEnemyKilled(this.isBoss, game);
+                    
+                    if (Math.random() < 0.15) { // 15% 機率掉落 Buff
+                        game.triggerRandomBuff(this.x, this.y - 20);
+                    }
+                }
+            }
+            draw(ctx) {
+                ctx.font = `${this.radius * 2}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.emoji, this.x, this.y);
+                
+                if (this.freezeTimer > 0 && !this.isBoss) {
+                    ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+                    ctx.fill();
+                }
+
+                if (this.isBoss) {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(255,0,0,0.5)';
+                    ctx.fillRect(this.x - 40, this.y - this.radius - 20, 80, 6);
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fillRect(this.x - 40, this.y - this.radius - 20, 80 * (this.hp / this.maxHp), 6);
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 1; // 防禦性重置線條寬度
+                    ctx.strokeRect(this.x - 40, this.y - this.radius - 20, 80, 6);
+                    ctx.restore();
+                }
+            }
+        }
+
+        class Particle {
+            constructor() { this.active = false; }
+            init(x, y, color, speedScale) {
+                this.active = true;
+                this.x = x; this.y = y; this.color = color;
+                let angle = Math.random() * Math.PI * 2;
+                let v = Math.random() * 150 * speedScale;
+                this.dx = Math.cos(angle) * v;
+                this.dy = Math.sin(angle) * v;
+                this.lifeTime = 0;
+                this.maxLife = Math.random() * 0.4 + 0.2;
+                this.size = Math.random() * 4 + 1;
+            }
+            update(dt) {
+                this.lifeTime += dt;
+                this.x += this.dx * dt;
+                this.y += this.dy * dt;
+                if (this.lifeTime > this.maxLife) this.active = false;
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.fillStyle = this.color;
+                let alpha = 1 - (this.lifeTime / this.maxLife);
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha)); // 確保透明度不為負值，避免渲染失效
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor() { this.active = false; }
+            init(text, x, y, color, size) {
+                this.active = true;
+                this.text = text; this.x = x; this.y = y; 
+                this.color = color; this.size = size;
+                this.lifeTime = 0;
+                this.maxLife = 1.0;
+            }
+            update(dt) {
+                this.lifeTime += dt;
+                this.y -= 40 * dt;
+                if (this.lifeTime > this.maxLife) this.active = false;
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.fillStyle = this.color;
+                let alpha = 1 - (this.lifeTime / this.maxLife);
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha)); // 確保透明度正確
+                ctx.font = `bold ${this.size}px 'Inter', sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        class Ally {
+            constructor() { this.active = false; }
+            init(template, x, y) {
+                this.active = true;
+                this.x = x; this.y = y;
+                this.template = template;
+                this.emoji = template.emoji;
+                this.lifeTime = template.life;
+                this.timer = 0;
+            }
+            update(dt, game) {
+                this.lifeTime -= dt;
+                if (this.lifeTime <= 0) {
+                    this.active = false;
+                    game.spawnParticles(this.x, this.y, '#ffffff', 15);
+                    return;
+                }
+                this.timer += dt;
+                
+                if (this.template.type === 'warrior') {
+                    let target = game.getNearestEnemy(this.x, this.y);
+                    if (target) {
+                        let angle = Math.atan2(target.y - this.y, target.x - this.x);
+                        this.x += Math.cos(angle) * this.template.speed * dt;
+                        this.y += Math.sin(angle) * this.template.speed * dt;
+                        if (Math.hypot(target.x - this.x, target.y - this.y) < target.radius + 15) {
+                            if (this.timer > 0.5) {
+                                target.takeDamage(20 + game.stageManager.stage * 5, game);
+                                this.timer = 0;
+                                game.spawnParticles(target.x, target.y, '#ff4444', 5);
+                            }
+                        }
+                    }
+                } else if (this.template.type === 'cleric') {
+                    let angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+                    let dist = Math.hypot(game.player.x - this.x, game.player.y - this.y);
+                    if (dist > 50) {
+                        this.x += Math.cos(angle) * this.template.speed * dt;
+                        this.y += Math.sin(angle) * this.template.speed * dt;
+                    }
+                    if (this.timer > 2) {
+                        game.player.hp = Math.min(game.player.maxHp, game.player.hp + 10);
+                        game.spawnFloatingText("+10 HP", game.player.x, game.player.y - 20, '#00ff00', 16);
+                        this.timer = 0;
+                    }
+                } else if (this.template.type === 'rogue') {
+                    let target = game.getNearestEnemy(this.x, this.y);
+                    if (target) {
+                        let angle = Math.atan2(target.y - this.y, target.x - this.x);
+                        this.x += Math.cos(angle) * this.template.speed * dt;
+                        this.y += Math.sin(angle) * this.template.speed * dt;
+                        if (this.timer > 0.4) {
+                            game.spawnBullet(this.x, this.y, Math.cos(angle)*300, Math.sin(angle)*300, {
+                                color: '#cccccc', size: 4, path: 'straight', damage: 10 + game.stageManager.stage*2, shape: 'diamond'
+                            }, true);
+                            this.timer = 0;
+                        }
+                    }
+                } else if (this.template.type === 'bard') {
+                    let angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+                    let dist = Math.hypot(game.player.x - this.x, game.player.y - this.y);
+                    if (dist > 40) {
+                        this.x += Math.cos(angle) * this.template.speed * dt;
+                        this.y += Math.sin(angle) * this.template.speed * dt;
+                    }
+                    if (this.timer > 1.5) {
+                        game.player.buffs.frenzy = Math.max(game.player.buffs.frenzy, 2.0); // 賦予玩家狂暴
+                        game.spawnFloatingText("🎵", this.x, this.y - 20, '#ff00ff', 16);
+                        this.timer = 0;
+                    }
+                }
+            }
+            draw(ctx) {
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.emoji, this.x, this.y);
+                
+                // 夥伴的存活壽命條
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.fillRect(this.x - 15, this.y + 15, 30, 4);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(this.x - 15, this.y + 15, 30 * (this.lifeTime / this.template.life), 4);
+            }
+        }
+
+        class Player {
+            constructor() {
+                this.x = canvas.width / 2;
+                this.y = canvas.height - 100;
+                this.targetX = this.x;
+                this.targetY = this.y;
+                this.radius = 20;
+                
+                this.maxHp = 100;
+                this.hp = this.maxHp;
+                this.level = 1;
+                this.exp = 0;
+                this.maxExp = 100;
+
+                this.wand = {
+                    color: '#33FFFF',
+                    size: 6,
+                    speed: 400,
+                    count: 1,
+                    path: 'straight',
+                    damage: 15,
+                    fireDelay: 400, // ms
+                    fireTimer: 0,
+                    chain: 0
+                };
+                
+                this.buffs = {
+                    multi: 0,
+                    giant: 0,
+                    homing: 0,
+                    frenzy: 0,
+                    shapeTimer: 0,
+                    pierce: 0,
+                    split: 0,
+                    lifesteal: 0,
+                    freeze: 0,
+                    explosion: 0
+                };
+                this.currentShape = 'circle';
+            }
+            update(dt, game) {
+                // Smooth follow target
+                this.x += (this.targetX - this.x) * 10 * dt;
+                this.y += (this.targetY - this.y) * 10 * dt;
+                
+                // Clamp bounds
+                this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
+                this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
+
+                for (let k in this.buffs) {
+                    if (this.buffs[k] > 0) this.buffs[k] -= dt;
+                }
+                // 形狀 Buff 結束就切回圓形
+                if (this.buffs.shapeTimer <= 0) this.currentShape = 'circle';
+
+                // Shooting
+                let currentDelay = this.buffs.frenzy > 0 ? Math.max(this.wand.fireDelay * 0.3, 50) : this.wand.fireDelay;
+                this.wand.fireTimer -= dt * 1000;
+                if (this.wand.fireTimer <= 0) {
+                    this.wand.fireTimer = currentDelay;
+                    this.fire(game);
+                }
+            }
+            fire(game) {
+                let spread = 0.25;
+                let currentCount = this.wand.count + (this.buffs.multi > 0 ? 4 : 0);
+                let currentSize = this.wand.size * (this.buffs.giant > 0 ? 3.5 : 1);
+                let currentPath = this.buffs.homing > 0 ? 'homing' : this.wand.path;
+                let isRainbow = this.buffs.giant > 0 || this.buffs.frenzy > 0 || this.buffs.multi > 0 || this.buffs.homing > 0;
+                
+                for(let i=0; i<currentCount; i++) {
+                    let angle = -Math.PI/2;
+                    if (currentCount > 1) {
+                        angle = -Math.PI/2 - (spread * (currentCount-1))/2 + spread * i;
+                    }
+                    let dx = Math.cos(angle) * this.wand.speed;
+                    let dy = Math.sin(angle) * this.wand.speed;
+                    
+                    let color = isRainbow ? GAME_DATA.wandColors[Math.floor(Math.random() * GAME_DATA.wandColors.length)] : this.wand.color;
+                    
+                    game.spawnBullet(this.x, this.y - 20, dx, dy, {
+                        color: color,
+                        size: currentSize,
+                        path: currentPath,
+                        damage: this.wand.damage,
+                        shape: this.currentShape,
+                        isPierce: this.buffs.pierce > 0,
+                        isSplit: this.buffs.split > 0,
+                        isLifesteal: this.buffs.lifesteal > 0,
+                        isFreeze: this.buffs.freeze > 0,
+                        isExplosion: this.buffs.explosion > 0,
+                        chainCount: this.wand.chain
+                    }, true);
+                }
+            }
+            addExp(amt, game) {
+                this.exp += amt;
+                if (this.exp >= this.maxExp) {
+                    this.level++;
+                    this.exp -= this.maxExp;
+                    this.maxExp = Math.floor(this.maxExp * 1.5);
+                    this.hp = this.maxHp; // Heal on level up
+                    
+                    let mutation = this.evolveWand();
+                    game.spawnFloatingText(`LVL UP! ${mutation}`, this.x, this.y - 50, '#FFD700', 20);
+                    game.spawnParticles(this.x, this.y, '#FFD700', 3);
+                }
+            }
+            evolveWand() {
+                const choices = [
+                    { desc: "Density +1", fn: () => this.wand.count = Math.min(this.wand.count + 1, 9) },
+                    { desc: "Fire Rate UP", fn: () => this.wand.fireDelay = Math.max(this.wand.fireDelay * 0.85, 50) },
+                    { desc: "Size UP", fn: () => this.wand.size = Math.min(this.wand.size * 1.2, 30) },
+                    { desc: "Speed UP", fn: () => this.wand.speed = Math.min(this.wand.speed * 1.2, 1200) },
+                    { desc: "Path Mutated", fn: () => this.wand.path = GAME_DATA.wandPaths[Math.floor(Math.random() * GAME_DATA.wandPaths.length)] },
+                    { desc: "Chain +1", fn: () => this.wand.chain++ },
+                    { desc: "Damage UP", fn: () => this.wand.damage *= 1.4 }
+                ];
+                let choice = choices[Math.floor(Math.random() * choices.length)];
+                choice.fn();
+                return choice.desc;
+            }
+            takeDamage(amt, game) {
+                this.hp -= amt;
+                if (this.hp <= 0) {
+                    this.hp = this.maxHp;
+                    this.exp = 0; // Penalty
+                    game.stageManager.stage = Math.max(1, game.stageManager.stage - 1);
+                    game.spawnFloatingText("DEATH PENALTY!", this.x, this.y - 30, '#ff0000', 22);
+                    game.spawnParticles(this.x, this.y, '#ff0000', 5);
+                }
+            }
+            draw(ctx) {
+                ctx.font = `${this.radius * 2}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🧙‍♂️', this.x, this.y);
+
+                // Draw Wand
+                ctx.save();
+                ctx.translate(this.x + 15, this.y - 5);
+                if (this.wand.fireTimer > this.wand.fireDelay - 100) {
+                    ctx.rotate(-Math.PI/4); // Recoil animation
+                }
+                ctx.font = '18px Arial';
+                ctx.fillText('🪄', 0, 0);
+                ctx.restore();
+            }
+        }
+
+        class StageManager {
+            constructor() {
+                this.stage = 1;
+                this.enemySpawnTimer = 0;
+                this.allySpawnTimer = 10;
+                this.bossActive = false;
+                this.enemiesKilled = 0;
+            }
+            update(dt, game) {
+                this.allySpawnTimer -= dt;
+                if (this.allySpawnTimer <= 0) {
+                    this.spawnAlly(game);
+                    this.allySpawnTimer = 15 + Math.random() * 15; // 隨機15~30秒生成夥伴
+                }
+
+                if (this.bossActive) return;
+                
+                this.enemySpawnTimer -= dt;
+                if (this.enemySpawnTimer <= 0) {
+                    this.spawnEnemy(game);
+                    this.enemySpawnTimer = Math.max(0.3, 1.5 - this.stage * 0.08); 
+                }
+                
+                if (this.enemiesKilled >= 10 + this.stage * 5) {
+                    this.spawnBoss(game);
+                }
+            }
+            spawnEnemy(game) {
+                let rand = Math.random();
+                let template;
+                if (rand < GAME_DATA.enemies.tank.rate) template = GAME_DATA.enemies.tank;
+                else if (rand < GAME_DATA.enemies.tank.rate + GAME_DATA.enemies.fast.rate) template = GAME_DATA.enemies.fast;
+                else template = GAME_DATA.enemies.weak;
+                
+                let enemy = game.enemyPool.get();
+                let x = Math.random() * (canvas.width - 40) + 20;
+                let emoji = GAME_DATA.emojis.monsters[Math.floor(Math.random() * GAME_DATA.emojis.monsters.length)];
+                enemy.init(template, x, -30, emoji, this.stage);
+                game.enemies.push(enemy);
+            }
+            spawnAlly(game) {
+                let keys = Object.keys(GAME_DATA.allies);
+                let template = GAME_DATA.allies[keys[Math.floor(Math.random() * keys.length)]];
+                let ally = game.allyPool.get();
+                ally.init(template, Math.random() * canvas.width, -20);
+                game.allies.push(ally);
+                game.spawnFloatingText("ALLY APPEARED!", ally.x, 50, '#ffff00', 20);
+            }
+            spawnBoss(game) {
+                this.bossActive = true;
+                game.changeEnvironment('boss');
+                let enemy = game.enemyPool.get();
+                let x = canvas.width / 2;
+                let emoji = GAME_DATA.emojis.bosses[Math.floor(Math.random() * GAME_DATA.emojis.bosses.length)];
+                enemy.init(GAME_DATA.enemies.boss, x, -50, emoji, this.stage);
+                game.enemies.push(enemy);
+            }
+            onEnemyKilled(isBoss, game) {
+                if (isBoss) {
+                    this.bossActive = false;
+                    this.stage++;
+                    this.enemiesKilled = 0;
+                    game.changeEnvironment('normal');
+                    game.player.hp = game.player.maxHp;
+                    game.spawnFloatingText("STAGE CLEARED!", canvas.width/2, canvas.height/2, '#00ff00', 30);
+                } else {
+                    this.enemiesKilled++;
+                }
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.player = new Player();
+                this.stageManager = new StageManager();
+                
+                // Pools
+                this.bulletPool = new ObjectPool(() => new Bullet());
+                this.enemyPool = new ObjectPool(() => new Enemy());
+                this.particlePool = new ObjectPool(() => new Particle());
+                this.textPool = new ObjectPool(() => new FloatingText());
+                this.allyPool = new ObjectPool(() => new Ally());
+                
+                // Active Entities
+                this.bullets = [];
+                this.enemies = [];
+                this.particles = [];
+                this.texts = [];
+                this.allies = [];
+                
+                this.bgColors = ['#050510', '#1a1a2e'];
+
+                // Stars for background
+                this.stars = Array.from({length: 100}, () => ({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    s: Math.random() * 2 + 0.5,
+                    v: Math.random() * 50 + 20,
+                    c: ['#fff', '#a8d8ff', '#ffb3ff', '#fffeb3'][Math.floor(Math.random()*4)]
+                }));
+
+                // Idle state
+                this.lastInteractionTime = Date.now();
+                this.isIdle = false;
+
+                this.noKillTimer = 0; // 初始化未擊殺計時器
+
+                this.keys = {
+                    w: false, a: false, s: false, d: false,
+                    ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false
+                };
+
+                this.setupInput();
+            }
+
+            setupInput() {
+                const updatePos = (e) => {
+                    let rect = canvas.getBoundingClientRect();
+                    let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    this.player.targetX = (clientX - rect.left) * (canvas.width / rect.width);
+                    this.player.targetY = (clientY - rect.top) * (canvas.height / rect.height);
+                    this.lastInteractionTime = Date.now();
+                };
+                window.addEventListener('mousemove', updatePos);
+                window.addEventListener('touchmove', updatePos);
+                window.addEventListener('touchstart', updatePos);
+                
+                window.addEventListener('keydown', (e) => {
+                    if (this.keys.hasOwnProperty(e.key)) {
+                        this.keys[e.key] = true;
+                        this.lastInteractionTime = Date.now();
+                    }
+                });
+                window.addEventListener('keyup', (e) => {
+                    if (this.keys.hasOwnProperty(e.key)) {
+                        this.keys[e.key] = false;
+                        this.lastInteractionTime = Date.now();
+                    }
+                });
+            }
+
+            triggerRandomBuff(x, y) {
+                // 統整隨機發放 Buff 的邏輯，加入 color_shift (改變基礎顏色)
+                const buffs = ['multi', 'giant', 'homing', 'frenzy', 'shape_diamond', 'shape_triangle', 'shape_square', 'shape_hollow', 'pierce', 'split', 'lifesteal', 'freeze', 'explosion', 'color_shift'];
+                const buff = buffs[Math.floor(Math.random() * buffs.length)];
+                
+                if (buff === 'color_shift') {
+                    // 永久改變目前魔杖顏色，直到下次抽到此 Buff
+                    this.player.wand.color = GAME_DATA.wandColors[Math.floor(Math.random() * GAME_DATA.wandColors.length)];
+                    this.spawnFloatingText('COLOR SHIFT!', x, y, this.player.wand.color, 20);
+                } else if (buff.startsWith('shape_')) {
+                    this.player.buffs.shapeTimer = 6.0;
+                    this.player.currentShape = buff.split('_')[1];
+                    this.spawnFloatingText('SHAPE SHIFT!', x, y, '#00ffff', 20);
+                } else {
+                    this.player.buffs[buff] = 4.0;
+                    let text = buff === 'multi' ? 'MULTI-SHOT!' : buff === 'giant' ? 'GIANT MAGIC!' : buff === 'homing' ? 'HOMING!' : buff === 'frenzy' ? 'FRENZY!' : buff === 'pierce' ? 'PIERCE!' : buff === 'split' ? 'SPLIT!' : buff === 'lifesteal' ? 'VAMPIRISM!' : buff === 'freeze' ? 'FREEZE!' : 'EXPLOSION!';
+                    let color = buff === 'multi' ? '#ff00ff' : buff === 'giant' ? '#ffff00' : buff === 'homing' ? '#00ff00' : buff === 'frenzy' ? '#ff0000' : buff === 'pierce' ? '#00ffff' : buff === 'split' ? '#ffaa00' : buff === 'lifesteal' ? '#ff0044' : buff === 'freeze' ? '#8888ff' : '#ff5500';
+                    this.spawnFloatingText(text, x, y, color, 20);
+                }
+            }
+
+            changeEnvironment(type) {
+                if (type === 'boss') {
+                    this.bgColors = ['#2b0000', '#1a0000'];
+                    this.spawnFloatingText("WARNING! BOSS INCOMING!", canvas.width/2, canvas.height/2, '#ff0000', 28);
+                } else {
+                    const themes = [
+                        ['#050510', '#1a1a2e'], // Night
+                        ['#001a1a', '#003333'], // Deep Sea
+                        ['#1a1a00', '#333300'], // Desert
+                        ['#1a001a', '#330033']  // Void
+                    ];
+                    this.bgColors = themes[Math.floor(Math.random() * themes.length)];
+                }
+                
+                // Clear all bullets on screen with effect
+                this.bullets.forEach(b => {
+                    if (b.active) this.spawnParticles(b.x, b.y, b.color, 2);
+                    b.active = false;
+                });
+            }
+
+            spawnBullet(x, y, dx, dy, props, isPlayer) {
+                let b = this.bulletPool.get();
+                b.init(x, y, dx, dy, props, isPlayer);
+                this.bullets.push(b);
+            }
+
+            spawnParticles(x, y, color, count) {
+                for(let i=0; i<count; i++) {
+                    let p = this.particlePool.get();
+                    p.init(x, y, color, 1);
+                    this.particles.push(p);
+                }
+            }
+
+            spawnFloatingText(text, x, y, color, size = 16) {
+                let t = this.textPool.get();
+                t.init(text, x, y, color, size);
+                this.texts.push(t);
+            }
+
+            getNearestEnemy(x, y) {
+                let nearest = null;
+                let minDist = Infinity;
+                for (let e of this.enemies) {
+                    let d = Math.hypot(e.x - x, e.y - y);
+                    if (d < minDist) {
+                        minDist = d;
+                        nearest = e;
+                    }
+                }
+                return nearest;
+            }
+
+            getNearestEnemyExclude(x, y, excludeSet) {
+                let nearest = null;
+                let minDist = Infinity;
+                for (let e of this.enemies) {
+                    if (excludeSet.has(e.spawnId)) continue;
+                    let d = Math.hypot(e.x - x, e.y - y);
+                    if (d < minDist) {
+                        minDist = d;
+                        nearest = e;
+                    }
+                }
+                return nearest;
+            }
+
+            update(dt) {
+                // Check Idle Status (5 seconds no input)
+                this.isIdle = (Date.now() - this.lastInteractionTime) > 5000;
+                
+                if (this.isIdle) {
+                    // Auto-Play AI
+                    let target = this.getNearestEnemy(this.player.x, this.player.y);
+                    if (target) {
+                        this.player.targetX = target.x;
+                    } else {
+                        this.player.targetX = canvas.width / 2;
+                    }
+                    this.player.targetY = canvas.height - 150; // Keep safe distance at bottom
+                } else {
+                    let speed = 600 * dt;
+                    let moved = false;
+                    if (this.keys.w || this.keys.ArrowUp) { this.player.targetY -= speed; moved = true; }
+                    if (this.keys.s || this.keys.ArrowDown) { this.player.targetY += speed; moved = true; }
+                    if (this.keys.a || this.keys.ArrowLeft) { this.player.targetX -= speed; moved = true; }
+                    if (this.keys.d || this.keys.ArrowRight) { this.player.targetX += speed; moved = true; }
+                    
+                    if (moved) {
+                        // Clamp keyboard target within bounds
+                        this.player.targetX = Math.max(this.player.radius, Math.min(canvas.width - this.player.radius, this.player.targetX));
+                        this.player.targetY = Math.max(this.player.radius, Math.min(canvas.height - this.player.radius, this.player.targetY));
+                    }
+                }
+
+                this.player.update(dt, this);
+                this.stageManager.update(dt, this);
+
+                // 10秒未擊殺怪物自動獲得保底增益，防止卡關
+                this.noKillTimer += dt;
+                if (this.noKillTimer >= 10.0) {
+                    this.noKillTimer = 0;
+                    this.triggerRandomBuff(this.player.x, this.player.y - 30);
+                }
+
+                // Update Background Stars
+                for (let s of this.stars) {
+                    s.y += s.v * dt;
+                    if (s.y > canvas.height) {
+                        s.y = 0;
+                        s.x = Math.random() * canvas.width;
+                    }
+                }
+
+                // Update Enemies
+                for (let i = this.enemies.length - 1; i >= 0; i--) {
+                    let e = this.enemies[i];
+                    e.update(dt, this);
+                    if (!e.active) {
+                        this.enemyPool.release(e);
+                        this.enemies.splice(i, 1);
+                    }
+                }
+
+                // Update Allies
+                for (let i = this.allies.length - 1; i >= 0; i--) {
+                    let a = this.allies[i];
+                    a.update(dt, this);
+                    if (!a.active) {
+                        this.allyPool.release(a);
+                        this.allies.splice(i, 1);
+                    }
+                }
+
+                // Update Bullets & Collisions
+                for (let i = this.bullets.length - 1; i >= 0; i--) {
+                    let b = this.bullets[i];
+                    b.update(dt, this);
+                    
+                    if (b.active) {
+                        if (b.isPlayer) {
+                            // Check hit enemy
+                            for (let e of this.enemies) {
+                                if (b.hitEnemies.has(e.spawnId)) continue; // 避免同一幀重複判定穿透
+
+                                let hit = false;
+                                if (b.path === 'laser') {
+                                    if (Math.abs(b.x - e.x) < (b.size + e.radius) && b.y > e.y - e.radius - b.size*4 && b.y < e.y + e.radius + b.size*4) hit = true;
+                                } else {
+                                    if (Math.hypot(b.x - e.x, b.y - e.y) < b.size + e.radius) hit = true;
+                                }
+
+                                if (hit) {
+                                    b.hitEnemies.add(e.spawnId);
+                                    e.takeDamage(b.damage, this);
+
+                                    // 觸發吸血
+                                    if (b.isLifesteal) {
+                                        let heal = b.damage / 10;
+                                        this.player.hp = Math.min(this.player.maxHp, this.player.hp + heal);
+                                        this.spawnFloatingText("+" + Math.floor(heal), this.player.x, this.player.y - 20, '#00ff00', 14);
+                                    }
+
+                                    // 觸發冰凍
+                                    if (b.isFreeze && !e.isBoss && Math.random() < 0.3) {
+                                        e.freezeTimer = 2.0;
+                                    }
+
+                                    // 觸發範圍爆炸
+                                    if (b.isExplosion) {
+                                        this.spawnParticles(e.x, e.y, '#ff8800', 6); // 減少爆炸粒子數量，保護手機效能
+                                        for (let other of this.enemies) {
+                                            if (other !== e && Math.hypot(other.x - e.x, other.y - e.y) < 70) {
+                                                other.takeDamage(b.damage * 0.5, this);
+                                            }
+                                        }
+                                    }
+
+                                    // 觸發分裂 (彈出兩顆較小的子彈)
+                                    if (b.isSplit && !b.hasSplit) {
+                                        b.hasSplit = true;
+                                        let angle = Math.atan2(b.dy, b.dx);
+                                        let speed = Math.hypot(b.dx, b.dy);
+                                        let spreadAngle = 0.5;
+                                        
+                                        this.spawnBullet(b.x, b.y, Math.cos(angle - spreadAngle)*speed, Math.sin(angle - spreadAngle)*speed, {
+                                            color: b.color, size: b.size*0.8, path: b.path, damage: b.damage*0.5, shape: b.shape, 
+                                            chainCount: b.chainCount, isPierce: b.isPierce, isLifesteal: b.isLifesteal, isFreeze: b.isFreeze, isExplosion: b.isExplosion
+                                        }, true);
+                                        this.spawnBullet(b.x, b.y, Math.cos(angle + spreadAngle)*speed, Math.sin(angle + spreadAngle)*speed, {
+                                            color: b.color, size: b.size*0.8, path: b.path, damage: b.damage*0.5, shape: b.shape, 
+                                            chainCount: b.chainCount, isPierce: b.isPierce, isLifesteal: b.isLifesteal, isFreeze: b.isFreeze, isExplosion: b.isExplosion
+                                        }, true);
+                                    }
+
+                                    // 觸發連鎖反彈
+                                    if (b.chainCount > 0) {
+                                        b.chainCount--;
+                                        let nextTarget = this.getNearestEnemyExclude(b.x, b.y, b.hitEnemies);
+                                        if (nextTarget) {
+                                            let angle = Math.atan2(nextTarget.y - b.y, nextTarget.x - b.x);
+                                            let speed = Math.hypot(b.dx, b.dy) || 400;
+                                            b.dx = Math.cos(angle) * speed;
+                                            b.dy = Math.sin(angle) * speed;
+                                        } else if (!b.isPierce && b.path !== 'laser') {
+                                            b.active = false;
+                                        }
+                                    } else if (!b.isPierce && b.path !== 'laser') {
+                                        b.active = false; // 普通子彈命中即消失
+                                    }
+                                    
+                                    if (!b.active) break;
+                                }
+                            }
+                        } else {
+                            // Check hit player
+                            if (Math.hypot(b.x - this.player.x, b.y - this.player.y) < b.size + this.player.radius - 5) {
+                                this.player.takeDamage(b.damage, this);
+                                b.active = false;
+                            }
+                        }
+                    }
+
+                    if (!b.active) {
+                        this.bulletPool.release(b);
+                        this.bullets.splice(i, 1);
+                    }
+                }
+
+                // Update Particles
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    let p = this.particles[i];
+                    p.update(dt);
+                    if (!p.active) {
+                        this.particlePool.release(p);
+                        this.particles.splice(i, 1);
+                    }
+                }
+
+                // Update Texts
+                for (let i = this.texts.length - 1; i >= 0; i--) {
+                    let t = this.texts[i];
+                    t.update(dt);
+                    if (!t.active) {
+                        this.textPool.release(t);
+                        this.texts.splice(i, 1);
+                    }
+                }
+            }
+
+            draw(ctx) {
+                // Background Gradient (Dynamic)
+                let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                grad.addColorStop(0, this.bgColors[0]);
+                grad.addColorStop(1, this.bgColors[1]);
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw Stars
+                for (let s of this.stars) {
+                    ctx.fillStyle = s.c;
+                    ctx.globalAlpha = 0.5;
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, s.s, 0, Math.PI*2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+
+                // Draw Entities
+                for (let p of this.particles) p.draw(ctx);
+                for (let b of this.bullets) b.draw(ctx);
+                for (let e of this.enemies) e.draw(ctx);
+                for (let a of this.allies) a.draw(ctx);
+                this.player.draw(ctx);
+                for (let t of this.texts) t.draw(ctx);
+
+                // Draw Top UI
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(0, 0, canvas.width, 65);
+                
+                // HP Bar
+                ctx.fillStyle = 'rgba(255,0,0,0.3)';
+                ctx.fillRect(15, 15, canvas.width - 30, 12);
+                ctx.fillStyle = '#ff3333';
+                ctx.fillRect(15, 15, (this.player.hp / this.player.maxHp) * (canvas.width - 30), 12);
+                ctx.strokeStyle = '#fff';
+                ctx.strokeRect(15, 15, canvas.width - 30, 12);
+
+                // EXP Bar
+                ctx.fillStyle = 'rgba(0,255,255,0.3)';
+                ctx.fillRect(15, 32, canvas.width - 30, 6);
+                ctx.fillStyle = '#00ffff';
+                ctx.fillRect(15, 32, (this.player.exp / this.player.maxExp) * (canvas.width - 30), 6);
+
+                // Stats Text
+                ctx.fillStyle = '#fff';
+                ctx.font = '16px "MedievalSharp", cursive';
+                ctx.textAlign = 'left';
+                ctx.fillText(`Lv. ${this.player.level}`, 15, 55);
+                ctx.textAlign = 'right';
+                ctx.fillText(`Stage ${this.stageManager.stage}`, canvas.width - 15, 55);
+
+                if (this.isIdle) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'center';
+                    
+                    let timeStr = new Date().toLocaleTimeString('en-US', {hour: 'numeric', minute:'2-digit', hour12: true});
+                    ctx.font = 'bold 70px "MedievalSharp", cursive';
+                    ctx.fillText(timeStr, canvas.width/2, canvas.height/2 - 40);
+                    
+                    ctx.font = '22px "MedievalSharp", cursive';
+                    ctx.fillStyle = '#aaaaaa';
+                    ctx.fillText("Auto-Battling Mode", canvas.width/2, canvas.height/2 + 10);
+                    
+                    ctx.font = '16px "Inter", sans-serif';
+                    ctx.fillStyle = '#FFD700';
+                    ctx.fillText(`Level ${this.player.level} • Stage ${this.stageManager.stage}`, canvas.width/2, canvas.height/2 + 50);
+                    
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText("Touch to resume control", canvas.width/2, canvas.height - 50);
+                }
+            }
+        }
+
+        let game;
+        let lastTime = performance.now();
+
+        function gameLoop(timestamp) {
+            let dt = (timestamp - lastTime) / 1000;
+            if (dt > 0.1) dt = 0.1; // Cap delta time to prevent physics explosions on lag/backgrounding
+            lastTime = timestamp;
+
+            game.update(dt);
+            game.draw(ctx);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = () => {
+            game = new Game();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
