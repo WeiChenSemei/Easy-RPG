@@ -88,7 +88,7 @@
         class Bullet {
             constructor() { 
                 this.active = false; 
-                this.hitEnemies = new Set(); // 移至建構子，避免反覆創建 Set 導致記憶體洩漏與卡頓
+                this.hitEnemies = new Set();
             }
             init(x, y, dx, dy, props, isPlayer) {
                 this.active = true;
@@ -96,9 +96,8 @@
                 this.dx = dx; this.dy = dy;
                 this.isPlayer = isPlayer;
                 this.lifeTime = 0;
-                this.hitEnemies.clear(); // 清空舊資料
+                this.hitEnemies.clear();
                 
-                // 【重要修復】重置所有預設屬性，避免物件池回收時殘留舊屬性 (解決奇怪的子彈行為與殘留)
                 this.shape = 'circle';
                 this.isPierce = false;
                 this.isSplit = false;
@@ -107,7 +106,7 @@
                 this.isExplosion = false;
                 this.chainCount = 0;
                 this.hasSplit = false;
-                this.laserTick = 0; // 雷射傷害冷卻器
+                this.laserTick = 0;
 
                 Object.assign(this, props);
             }
@@ -115,7 +114,6 @@
                 this.lifeTime += dt;
                 
                 if (this.path === 'laser') {
-                    // 降低雷射判定頻率，解決每秒觸發60次傷害導致效能崩潰(發燙)與特效殘留的問題
                     this.laserTick += dt;
                     if (this.laserTick > 0.15) {
                         this.hitEnemies.clear();
@@ -123,9 +121,7 @@
                     }
                 }
                 
-                // Path logic
                 if (this.path === 'curve') {
-                    // 正確的波動速度算法，避免位置偏移殘留
                     let wobbleSpeed = Math.sin(this.lifeTime * 15) * 150; 
                     let baseAngle = Math.atan2(this.dy, this.dx);
                     let perpX = Math.cos(baseAngle + Math.PI/2) * wobbleSpeed;
@@ -133,7 +129,6 @@
                     this.x += (this.dx + perpX) * dt;
                     this.y += (this.dy + perpY) * dt;
                 } else if (this.path === 'laser') {
-                    // Accelerating fast straight line
                     this.dx *= 1.02;
                     this.dy *= 1.02;
                     this.x += this.dx * dt;
@@ -141,28 +136,24 @@
                 } else if (this.path === 'homing') {
                     let target = game.getNearestEnemy(this.x, this.y);
                     if (target) {
-                        let speed = Math.hypot(this.dx, this.dy) || 400; // 確保有基礎速度，防止原地停頓殘留
+                        let speed = Math.hypot(this.dx, this.dy) || 400;
                         let desiredAngle = Math.atan2(target.y - this.y, target.x - this.x);
                         let desiredDx = Math.cos(desiredAngle) * speed;
                         let desiredDy = Math.sin(desiredAngle) * speed;
-                        // Smoothly steer towards the target
                         this.dx += (desiredDx - this.dx) * 10 * dt;
                         this.dy += (desiredDy - this.dy) * 10 * dt;
                     }
                     this.x += this.dx * dt;
                     this.y += this.dy * dt;
                 } else {
-                    // Straight
                     this.x += this.dx * dt;
                     this.y += this.dy * dt;
                 }
 
-                // Offscreen check
                 if (this.y < -100 || this.y > canvas.height + 100 || this.x < -100 || this.x > canvas.width + 100) {
                     this.active = false;
                 }
                 
-                // Lifespan check (子彈最多存活 2 秒)
                 if (this.lifeTime > 2.0) {
                     this.active = false;
                 }
@@ -186,7 +177,7 @@
                     ctx.lineTo(this.x - this.size, this.y + this.size);
                     ctx.fill();
                 } else if (this.shape === 'square') {
-                    let angle = this.lifeTime * 5; // 旋轉的方形
+                    let angle = this.lifeTime * 5; 
                     ctx.translate(this.x, this.y);
                     ctx.rotate(angle);
                     ctx.fillRect(-this.size, -this.size, this.size * 2, this.size * 2);
@@ -226,7 +217,7 @@
                 ctx.save();
                 ctx.fillStyle = this.color;
                 let alpha = 1 - (this.lifeTime / this.maxLife);
-                ctx.globalAlpha = Math.max(0, Math.min(1, alpha)); // 確保透明度不為負值，避免渲染失效
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
                 ctx.fill();
@@ -252,7 +243,7 @@
                 ctx.save();
                 ctx.fillStyle = this.color;
                 let alpha = 1 - (this.lifeTime / this.maxLife);
-                ctx.globalAlpha = Math.max(0, Math.min(1, alpha)); // 確保透明度正確
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
                 ctx.font = `bold ${this.size}px 'Inter', sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.fillText(this.text, this.x, this.y);
@@ -271,7 +262,6 @@
                 this.color = template.color;
                 this.isBoss = template.type === 'boss';
                 
-                // 隨著關卡提升屬性
                 let multiplier = this.isBoss ? Math.pow(1.5, stage - 1) : Math.pow(1.2, stage - 1);
                 this.maxHp = template.hp * multiplier;
                 this.hp = this.maxHp;
@@ -279,17 +269,55 @@
                 this.score = template.score * stage;
                 
                 this.freezeTimer = 0;
-                this.spawnId = Math.random().toString(36).substring(2, 10); // 穿透與碰撞用的獨立ID
+                // 新增：Boss彈幕射擊冷卻器，稍微隨機化初始時間
+                this.fireTimer = 2.0 + Math.random(); 
+                this.spawnId = Math.random().toString(36).substring(2, 10);
             }
             update(dt, game) {
                 if (this.freezeTimer > 0) {
                     this.freezeTimer -= dt;
-                    return; // 冰凍時暫停移動
+                    return; 
                 }
 
                 let angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
                 this.x += Math.cos(angle) * this.speed * dt;
                 this.y += Math.sin(angle) * this.speed * dt;
+
+                // 新增：Boss 射擊邏輯
+                if (this.isBoss) {
+                    this.fireTimer -= dt;
+                    if (this.fireTimer <= 0) {
+                        this.fireTimer = 2.5; // 每 2.5 秒發射一次彈幕
+                        this.bossShoot(game);
+                    }
+                }
+            }
+            bossShoot(game) {
+                // 產生扇形彈幕
+                let bulletCount = 5 + Math.floor(Math.random() * 4); // 5~8顆隨機數量子彈
+                let spread = 0.35;
+                let baseAngle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+
+                // 完全隨機化外觀與物理屬性
+                let shapes = GAME_DATA.bulletShapes;
+                let randomShape = shapes[Math.floor(Math.random() * shapes.length)];
+                let randomSize = 8 * (0.8 + Math.random() * 1.5);
+                let randomSpeed = 220 * (0.8 + Math.random() * 0.6);
+                let randomColor = GAME_DATA.wandColors[Math.floor(Math.random() * GAME_DATA.wandColors.length)];
+
+                for (let i = 0; i < bulletCount; i++) {
+                    let angle = baseAngle - (spread * (bulletCount - 1)) / 2 + spread * i;
+                    let dx = Math.cos(angle) * randomSpeed;
+                    let dy = Math.sin(angle) * randomSpeed;
+
+                    game.spawnBullet(this.x, this.y, dx, dy, {
+                        color: randomColor, 
+                        size: randomSize,
+                        path: 'straight',
+                        damage: 20 + game.stageManager.stage * 5, // 傷害隨關卡提升
+                        shape: randomShape
+                    }, false); // isPlayer = false 表示這是敵方的子彈
+                }
             }
             takeDamage(amt, game) {
                 this.hp -= amt;
@@ -301,11 +329,9 @@
                     game.stageManager.onEnemyKilled(this.isBoss, game);
                     game.spawnParticles(this.x, this.y, this.color, this.isBoss ? 50 : 15);
                     
-                    // 12% 機率觸發隨機 Buff
                     if (Math.random() < 0.12) {
                         game.triggerRandomBuff(this.x, this.y);
                     }
-                    // 重置保底未擊殺計時器
                     game.noKillTimer = 0;
                 }
             }
@@ -315,7 +341,6 @@
                 ctx.textBaseline = 'middle';
                 ctx.fillText(this.emoji, this.x, this.y);
                 
-                // 冰凍特效
                 if (this.freezeTimer > 0 && !this.isBoss) {
                     ctx.save();
                     ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
@@ -325,7 +350,6 @@
                     ctx.restore();
                 }
 
-                // Boss血條
                 if (this.isBoss) {
                     ctx.save();
                     ctx.fillStyle = 'rgba(255,0,0,0.5)';
@@ -406,7 +430,7 @@
                         this.y += Math.sin(angle) * this.template.speed * dt;
                     }
                     if (this.timer > 1.5) {
-                        game.player.buffs.frenzy = Math.max(game.player.buffs.frenzy, 2.0); // 賦予玩家狂暴
+                        game.player.buffs.frenzy = Math.max(game.player.buffs.frenzy, 2.0);
                         game.spawnFloatingText("🎵", this.x, this.y - 20, '#ff00ff', 16);
                         this.timer = 0;
                     }
@@ -418,7 +442,6 @@
                 ctx.textBaseline = 'middle';
                 ctx.fillText(this.emoji, this.x, this.y);
                 
-                // 夥伴的存活壽命條
                 ctx.fillStyle = 'rgba(255,255,255,0.3)';
                 ctx.fillRect(this.x - 15, this.y + 15, 30, 4);
                 ctx.fillStyle = '#ffffff';
@@ -433,6 +456,7 @@
                 this.targetX = this.x;
                 this.targetY = this.y;
                 this.radius = 20;
+                this.iFrame = 0; // 新增：無敵時間，防止連續受傷
                 
                 this.maxHp = 100;
                 this.hp = this.maxHp;
@@ -447,42 +471,33 @@
                     count: 1,
                     path: 'straight',
                     damage: 15,
-                    fireDelay: 400, // ms
+                    fireDelay: 400, 
                     fireTimer: 0,
                     chain: 0
                 };
                 
                 this.buffs = {
-                    multi: 0,
-                    giant: 0,
-                    homing: 0,
-                    frenzy: 0,
-                    shapeTimer: 0,
-                    pierce: 0,
-                    split: 0,
-                    lifesteal: 0,
-                    freeze: 0,
-                    explosion: 0,
-                    chaos: 0
+                    multi: 0, giant: 0, homing: 0, frenzy: 0,
+                    shapeTimer: 0, pierce: 0, split: 0, lifesteal: 0,
+                    freeze: 0, explosion: 0, chaos: 0
                 };
                 this.currentShape = 'circle';
             }
             update(dt, game) {
-                // Smooth follow target
                 this.x += (this.targetX - this.x) * 10 * dt;
                 this.y += (this.targetY - this.y) * 10 * dt;
                 
-                // Clamp bounds
                 this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
                 this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
+
+                // 更新受傷無敵時間
+                if (this.iFrame > 0) this.iFrame -= dt;
 
                 for (let k in this.buffs) {
                     if (this.buffs[k] > 0) this.buffs[k] -= dt;
                 }
-                // 形狀 Buff 結束就切回圓形
                 if (this.buffs.shapeTimer <= 0) this.currentShape = 'circle';
 
-                // Shooting
                 let currentDelay = this.buffs.frenzy > 0 ? Math.max(this.wand.fireDelay * 0.3, 50) : this.wand.fireDelay;
                 this.wand.fireTimer -= dt * 1000;
                 if (this.wand.fireTimer <= 0) {
@@ -508,9 +523,9 @@
                     let finalShape = this.currentShape;
                     
                     if (this.buffs.chaos > 0) {
-                        finalSpeed = this.wand.speed * (0.4 + Math.random() * 1.2); // 0.4x ~ 1.6x 隨機速度
-                        finalSize = currentSize * (0.5 + Math.random() * 1.5);      // 0.5x ~ 2.0x 隨機大小
-                        finalShape = GAME_DATA.bulletShapes[Math.floor(Math.random() * GAME_DATA.bulletShapes.length)]; // 隨機形狀
+                        finalSpeed = this.wand.speed * (0.4 + Math.random() * 1.2); 
+                        finalSize = currentSize * (0.5 + Math.random() * 1.5);      
+                        finalShape = GAME_DATA.bulletShapes[Math.floor(Math.random() * GAME_DATA.bulletShapes.length)]; 
                     }
                     
                     let dx = Math.cos(angle) * finalSpeed;
@@ -539,7 +554,7 @@
                     this.level++;
                     this.exp -= this.maxExp;
                     this.maxExp = Math.floor(this.maxExp * 1.5);
-                    this.hp = this.maxHp; // Heal on level up
+                    this.hp = this.maxHp; 
                     
                     let mutation = this.evolveWand();
                     game.spawnFloatingText(`LVL UP! ${mutation}`, this.x, this.y - 50, '#FFD700', 20);
@@ -564,26 +579,33 @@
                 this.hp -= amt;
                 if (this.hp <= 0) {
                     this.hp = this.maxHp;
-                    this.exp = 0; // Penalty
+                    this.exp = 0;
                     game.stageManager.stage = Math.max(1, game.stageManager.stage - 1);
                     game.spawnFloatingText("DEATH PENALTY!", this.x, this.y - 30, '#ff0000', 22);
                     game.spawnParticles(this.x, this.y, '#ff0000', 5);
                 }
             }
             draw(ctx) {
+                ctx.save();
+                // 如果在無敵時間內，產生閃爍效果
+                if (this.iFrame > 0 && Math.floor(this.iFrame * 15) % 2 === 0) {
+                    ctx.globalAlpha = 0.5;
+                }
+
                 ctx.font = `${this.radius * 2}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('🧙‍♂️', this.x, this.y);
 
-                // Draw Wand
                 ctx.save();
                 ctx.translate(this.x + 15, this.y - 5);
                 if (this.wand.fireTimer > this.wand.fireDelay - 100) {
-                    ctx.rotate(-Math.PI/4); // Recoil animation
+                    ctx.rotate(-Math.PI/4);
                 }
                 ctx.font = '18px Arial';
                 ctx.fillText('🪄', 0, 0);
+                ctx.restore();
+                
                 ctx.restore();
             }
         }
@@ -600,7 +622,7 @@
                 this.allySpawnTimer -= dt;
                 if (this.allySpawnTimer <= 0) {
                     this.spawnAlly(game);
-                    this.allySpawnTimer = 15 + Math.random() * 15; // 隨機15~30秒生成夥伴
+                    this.allySpawnTimer = 15 + Math.random() * 15; 
                 }
 
                 if (this.bossActive) return;
@@ -664,14 +686,12 @@
                 this.player = new Player();
                 this.stageManager = new StageManager();
                 
-                // Pools
                 this.bulletPool = new ObjectPool(() => new Bullet());
                 this.enemyPool = new ObjectPool(() => new Enemy());
                 this.particlePool = new ObjectPool(() => new Particle());
                 this.textPool = new ObjectPool(() => new FloatingText());
                 this.allyPool = new ObjectPool(() => new Ally());
                 
-                // Active Entities
                 this.bullets = [];
                 this.enemies = [];
                 this.particles = [];
@@ -680,7 +700,6 @@
                 
                 this.bgColors = ['#050510', '#1a1a2e'];
 
-                // Stars for background
                 this.stars = Array.from({length: 100}, () => ({
                     x: Math.random() * canvas.width,
                     y: Math.random() * canvas.height,
@@ -689,11 +708,9 @@
                     c: ['#fff', '#a8d8ff', '#ffb3ff', '#fffeb3'][Math.floor(Math.random()*4)]
                 }));
 
-                // Idle state
                 this.lastInteractionTime = Date.now();
                 this.isIdle = false;
-
-                this.noKillTimer = 0; // 初始化未擊殺計時器
+                this.noKillTimer = 0; 
 
                 this.keys = {
                     w: false, a: false, s: false, d: false,
@@ -755,15 +772,14 @@
                     this.spawnFloatingText("WARNING! BOSS INCOMING!", canvas.width/2, canvas.height/2, '#ff0000', 28);
                 } else {
                     const themes = [
-                        ['#050510', '#1a1a2e'], // Night
-                        ['#001a1a', '#003333'], // Deep Sea
-                        ['#1a1a00', '#333300'], // Desert
-                        ['#1a001a', '#330033']  // Void
+                        ['#050510', '#1a1a2e'], 
+                        ['#001a1a', '#003333'], 
+                        ['#1a1a00', '#333300'], 
+                        ['#1a001a', '#330033']  
                     ];
                     this.bgColors = themes[Math.floor(Math.random() * themes.length)];
                 }
                 
-                // Clear all bullets on screen with effect
                 this.bullets.forEach(b => {
                     if (b.active) this.spawnParticles(b.x, b.y, b.color, 2);
                     b.active = false;
@@ -818,18 +834,16 @@
             }
 
             update(dt) {
-                // Check Idle Status (5 seconds no input)
                 this.isIdle = (Date.now() - this.lastInteractionTime) > 5000;
                 
                 if (this.isIdle) {
-                    // Auto-Play AI
                     let target = this.getNearestEnemy(this.player.x, this.player.y);
                     if (target) {
                         this.player.targetX = target.x;
                     } else {
                         this.player.targetX = canvas.width / 2;
                     }
-                    this.player.targetY = canvas.height - 150; // Keep safe distance at bottom
+                    this.player.targetY = canvas.height - 150; 
                 } else {
                     let speed = 600 * dt;
                     let moved = false;
@@ -839,7 +853,6 @@
                     if (this.keys.d || this.keys.ArrowRight) { this.player.targetX += speed; moved = true; }
                     
                     if (moved) {
-                        // Clamp keyboard target within bounds
                         this.player.targetX = Math.max(this.player.radius, Math.min(canvas.width - this.player.radius, this.player.targetX));
                         this.player.targetY = Math.max(this.player.radius, Math.min(canvas.height - this.player.radius, this.player.targetY));
                     }
@@ -848,14 +861,12 @@
                 this.player.update(dt, this);
                 this.stageManager.update(dt, this);
 
-                // 10秒未擊殺怪物自動獲得保底增益，防止卡關
                 this.noKillTimer += dt;
                 if (this.noKillTimer >= 10.0) {
                     this.noKillTimer = 0;
                     this.triggerRandomBuff(this.player.x, this.player.y - 30);
                 }
 
-                // Update Background Stars
                 for (let s of this.stars) {
                     s.y += s.v * dt;
                     if (s.y > canvas.height) {
@@ -864,17 +875,31 @@
                     }
                 }
 
-                // Update Enemies
+                // Enemies Update & Player Collision
                 for (let i = this.enemies.length - 1; i >= 0; i--) {
                     let e = this.enemies[i];
                     e.update(dt, this);
+                    
+                    // 處理玩家與怪物本體的碰撞傷害
+                    let dx = this.player.x - e.x;
+                    let dy = this.player.y - e.y;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist < this.player.radius + e.radius) {
+                        if (this.player.iFrame <= 0) {
+                            this.player.takeDamage(e.isBoss ? 40 : 15, this);
+                            this.player.iFrame = 0.5; // 給予 0.5 秒無敵時間，避免瞬間暴斃
+                        }
+                        // 稍微推開怪物，避免模型重疊黏死
+                        e.x -= dx * 0.05;
+                        e.y -= dy * 0.05;
+                    }
+
                     if (!e.active) {
                         this.enemyPool.release(e);
                         this.enemies.splice(i, 1);
                     }
                 }
 
-                // Update Allies
                 for (let i = this.allies.length - 1; i >= 0; i--) {
                     let a = this.allies[i];
                     a.update(dt, this);
@@ -884,16 +909,15 @@
                     }
                 }
 
-                // Update Bullets & Collisions
+                // Bullets Update & Collisions
                 for (let i = this.bullets.length - 1; i >= 0; i--) {
                     let b = this.bullets[i];
                     b.update(dt, this);
                     
                     if (b.active) {
                         if (b.isPlayer) {
-                            // Check hit enemy
                             for (let e of this.enemies) {
-                                if (b.hitEnemies.has(e.spawnId)) continue; // 避免同一幀重複判定穿透
+                                if (b.hitEnemies.has(e.spawnId)) continue; 
 
                                 let hit = false;
                                 if (b.path === 'laser') {
@@ -906,21 +930,18 @@
                                     b.hitEnemies.add(e.spawnId);
                                     e.takeDamage(b.damage, this);
 
-                                    // 觸發吸血
                                     if (b.isLifesteal) {
                                         let heal = b.damage / 10;
                                         this.player.hp = Math.min(this.player.maxHp, this.player.hp + heal);
                                         this.spawnFloatingText("+" + Math.floor(heal), this.player.x, this.player.y - 20, '#00ff00', 14);
                                     }
 
-                                    // 觸發冰凍
                                     if (b.isFreeze && !e.isBoss && Math.random() < 0.3) {
                                         e.freezeTimer = 2.0;
                                     }
 
-                                    // 觸發範圍爆炸
                                     if (b.isExplosion) {
-                                        this.spawnParticles(e.x, e.y, '#ff8800', 6); // 減少爆炸粒子數量，保護手機效能
+                                        this.spawnParticles(e.x, e.y, '#ff8800', 6);
                                         for (let other of this.enemies) {
                                             if (other !== e && Math.hypot(other.x - e.x, other.y - e.y) < 70) {
                                                 other.takeDamage(b.damage * 0.5, this);
@@ -928,7 +949,6 @@
                                         }
                                     }
 
-                                    // 觸發分裂 (彈出兩顆較小的子彈)
                                     if (b.isSplit && !b.hasSplit) {
                                         b.hasSplit = true;
                                         let angle = Math.atan2(b.dy, b.dx);
@@ -945,7 +965,6 @@
                                         }, true);
                                     }
 
-                                    // 觸發連鎖反彈
                                     if (b.chainCount > 0) {
                                         b.chainCount--;
                                         let nextTarget = this.getNearestEnemyExclude(b.x, b.y, b.hitEnemies);
@@ -958,16 +977,20 @@
                                             b.active = false;
                                         }
                                     } else if (!b.isPierce && b.path !== 'laser') {
-                                        b.active = false; // 普通子彈命中即消失
+                                        b.active = false;
                                     }
                                     
                                     if (!b.active) break;
                                 }
                             }
                         } else {
-                            // Check hit player
+                            // 處理敵方子彈擊中玩家
                             if (Math.hypot(b.x - this.player.x, b.y - this.player.y) < b.size + this.player.radius - 5) {
-                                this.player.takeDamage(b.damage, this);
+                                // 加入無敵時間判斷，讓受到子彈攻擊也一致
+                                if (this.player.iFrame <= 0) {
+                                    this.player.takeDamage(b.damage, this);
+                                    this.player.iFrame = 0.5;
+                                }
                                 b.active = false;
                             }
                         }
@@ -979,7 +1002,6 @@
                     }
                 }
 
-                // Update Particles
                 for (let i = this.particles.length - 1; i >= 0; i--) {
                     let p = this.particles[i];
                     p.update(dt);
@@ -989,7 +1011,6 @@
                     }
                 }
 
-                // Update Texts
                 for (let i = this.texts.length - 1; i >= 0; i--) {
                     let t = this.texts[i];
                     t.update(dt);
@@ -1001,14 +1022,12 @@
             }
 
             draw(ctx) {
-                // Background Gradient (Dynamic)
                 let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
                 grad.addColorStop(0, this.bgColors[0]);
                 grad.addColorStop(1, this.bgColors[1]);
                 ctx.fillStyle = grad;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
-                // Draw Stars
                 for (let s of this.stars) {
                     ctx.fillStyle = s.c;
                     ctx.globalAlpha = 0.5;
@@ -1018,7 +1037,6 @@
                 }
                 ctx.globalAlpha = 1;
 
-                // Draw Entities
                 for (let p of this.particles) p.draw(ctx);
                 for (let b of this.bullets) b.draw(ctx);
                 for (let e of this.enemies) e.draw(ctx);
@@ -1026,11 +1044,9 @@
                 this.player.draw(ctx);
                 for (let t of this.texts) t.draw(ctx);
 
-                // Draw Top UI
                 ctx.fillStyle = 'rgba(0,0,0,0.6)';
                 ctx.fillRect(0, 0, canvas.width, 65);
                 
-                // HP Bar
                 ctx.fillStyle = 'rgba(255,0,0,0.3)';
                 ctx.fillRect(15, 15, canvas.width - 30, 12);
                 ctx.fillStyle = '#ff3333';
@@ -1038,13 +1054,11 @@
                 ctx.strokeStyle = '#fff';
                 ctx.strokeRect(15, 15, canvas.width - 30, 12);
 
-                // EXP Bar
                 ctx.fillStyle = 'rgba(0,255,255,0.3)';
                 ctx.fillRect(15, 32, canvas.width - 30, 6);
                 ctx.fillStyle = '#00ffff';
                 ctx.fillRect(15, 32, (this.player.exp / this.player.maxExp) * (canvas.width - 30), 6);
 
-                // Stats Text
                 ctx.fillStyle = '#fff';
                 ctx.font = '16px "MedievalSharp", cursive';
                 ctx.textAlign = 'left';
@@ -1082,7 +1096,7 @@
 
         function gameLoop(timestamp) {
             let dt = (timestamp - lastTime) / 1000;
-            if (dt > 0.1) dt = 0.1; // Cap delta time to prevent physics explosions on lag/backgrounding
+            if (dt > 0.1) dt = 0.1;
             lastTime = timestamp;
 
             game.update(dt);
