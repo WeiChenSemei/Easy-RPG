@@ -56,13 +56,12 @@
                 weak: { hp: 10, speed: 80, radius: 15, score: 10, color: '#ff4444', type: 'minion', rate: 0.5 },
                 fast: { hp: 5, speed: 180, radius: 12, score: 15, color: '#4444ff', type: 'fast', rate: 0.3 },
                 tank: { hp: 50, speed: 40, radius: 25, score: 25, color: '#44ff44', type: 'tank', rate: 0.2 },
-                boss: { hp: 600, speed: 20, radius: 45, score: 500, color: '#ff00ff', type: 'boss', rate: 0 }
+                boss: { hp: 600, speed: 20, radius: 65, score: 500, color: '#ff00ff', type: 'boss', rate: 0 }
             },
             wandPaths: ['straight', 'curve', 'laser', 'homing'],
             wandColors: ['#FF5733', '#33FF57', '#3357FF', '#F333FF', '#33FFF3', '#FFFF33', '#FFFFFF'],
             emojis: {
-                monsters: ['🦇', '🕷️', '🧟', '🧛', '🐺', '🐉', '🐲', '👹', '👺', '👻', '💀', '👽', '👾', '🐍', '🪲', '🦂'],
-                bosses: ['😈', '👿', '🧌', '👁️', '🌋', '🌑', '🧿', '🦑']
+                entities: ['🦇', '🕷️', '🧟', '🧛', '🐺', '🐉', '🐲', '👹', '👺', '👻', '💀', '👽', '👾', '🐍', '🪲', '🦂', '😈', '👿', '🧌', '👁️', '🌋', '🌑', '🧿', '🦑']
             },
             allies: {
                 warrior: { emoji: '🤺', type: 'warrior', speed: 120, life: 15 },
@@ -162,146 +161,45 @@
                 if (this.y < -100 || this.y > canvas.height + 100 || this.x < -100 || this.x > canvas.width + 100) {
                     this.active = false;
                 }
+                
+                // Lifespan check (子彈最多存活 2 秒)
+                if (this.lifeTime > 2.0) {
+                    this.active = false;
+                }
             }
             draw(ctx) {
-                ctx.save(); // 儲存畫筆狀態，防止陰影與線條粗細污染其他繪圖
+                ctx.save();
                 ctx.fillStyle = this.color;
-                
-                // 【效能優化】完全移除 shadowBlur，解決手機發燙與 Canvas 在部分裝置的渲染殘影問題
-                
-                if (this.path === 'laser') {
+                ctx.beginPath();
+                if (this.shape === 'circle') {
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+                    ctx.fill();
+                } else if (this.shape === 'diamond') {
+                    ctx.moveTo(this.x, this.y - this.size);
+                    ctx.lineTo(this.x + this.size, this.y);
+                    ctx.lineTo(this.x, this.y + this.size);
+                    ctx.lineTo(this.x - this.size, this.y);
+                    ctx.fill();
+                } else if (this.shape === 'triangle') {
+                    ctx.moveTo(this.x, this.y - this.size);
+                    ctx.lineTo(this.x + this.size, this.y + this.size);
+                    ctx.lineTo(this.x - this.size, this.y + this.size);
+                    ctx.fill();
+                } else if (this.shape === 'square') {
+                    let angle = this.lifeTime * 5; // 旋轉的方形
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(angle);
+                    ctx.fillRect(-this.size, -this.size, this.size * 2, this.size * 2);
+                } else if (this.shape === 'hollow') {
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
                     ctx.strokeStyle = this.color;
-                    ctx.lineWidth = this.size * 1.5;
-                    ctx.lineCap = 'round';
-                    ctx.beginPath();
-                    ctx.moveTo(this.x, this.y);
-                    // Trail based on velocity
-                    ctx.lineTo(this.x - this.dx * 0.05, this.y - this.dy * 0.05);
+                    ctx.lineWidth = 2;
                     ctx.stroke();
                 } else {
-                    let shape = this.shape || 'circle';
-                    ctx.translate(this.x, this.y);
-                    if (shape === 'square') ctx.rotate(this.lifeTime * 5); // 旋轉方塊特效
-                    
-                    ctx.beginPath();
-                    if (shape === 'diamond') {
-                        ctx.moveTo(0, -this.size); ctx.lineTo(this.size, 0); ctx.lineTo(0, this.size); ctx.lineTo(-this.size, 0);
-                    } else if (shape === 'triangle') {
-                        ctx.moveTo(0, -this.size); ctx.lineTo(this.size, this.size); ctx.lineTo(-this.size, this.size);
-                    } else if (shape === 'square') {
-                        ctx.rect(-this.size, -this.size, this.size * 1.5, this.size * 1.5);
-                    } else {
-                        ctx.arc(0, 0, this.size, 0, Math.PI*2);
-                    }
-                    ctx.closePath();
-                    
-                    if (shape === 'hollow') {
-                        ctx.lineWidth = 2;
-                        ctx.strokeStyle = this.color;
-                        ctx.stroke();
-                    } else {
-                        ctx.fill();
-                    }
-                }
-                ctx.restore(); // 恢復預設狀態
-            }
-        }
-
-        class Enemy {
-            constructor() { this.active = false; }
-            init(template, x, y, emoji, stageMultiplier) {
-                this.active = true;
-                this.spawnId = Math.random(); // 給予唯一ID判定多重打擊
-                this.x = x; this.y = y;
-                this.emoji = emoji;
-                this.template = template;
-                this.isBoss = template.type === 'boss';
-                
-                // Scale stats with stage
-                let mult = Math.pow(1.2, stageMultiplier - 1);
-                this.maxHp = template.hp * mult;
-                this.hp = this.maxHp;
-                this.speed = template.speed * (1 + (stageMultiplier * 0.05));
-                this.radius = template.radius;
-                
-                this.lifeTime = 0;
-                this.lastFire = 0;
-                this.freezeTimer = 0;
-            }
-            update(dt, game) {
-                this.lifeTime += dt;
-                
-                if (this.freezeTimer > 0 && !this.isBoss) {
-                    this.freezeTimer -= dt; // 冰凍期間不移動
-                } else {
-                    if (this.isBoss) {
-                        // Boss moves to top area and sweeps left/right
-                        let targetY = 120;
-                        this.y += (targetY - this.y) * 2 * dt;
-                        this.x += Math.sin(this.lifeTime) * 60 * dt;
-                        
-                        // Boss shooting pattern
-                        this.lastFire += dt;
-                        if (this.lastFire > 1.2) {
-                            this.lastFire = 0;
-                            let count = Math.min(24, 8 + game.stageManager.stage * 2);
-                            for(let i=0; i<count; i++) {
-                                let angle = (Math.PI * 2 / count) * i + this.lifeTime;
-                                let speed = 150 + game.stageManager.stage * 10;
-                                game.spawnBullet(this.x, this.y, Math.cos(angle)*speed, Math.sin(angle)*speed, {
-                                    color: '#ff2222', size: 6, path: 'straight', damage: 10 + game.stageManager.stage*2
-                                }, false);
-                            }
-                        }
-                    } else {
-                        this.y += this.speed * dt;
-                        if (this.template.type === 'fast') {
-                            this.x += Math.sin(this.lifeTime * 5) * 80 * dt;
-                        }
-                    }
-                }
-
-                if (this.y > canvas.height + 50) this.active = false;
-            }
-            takeDamage(amt, game) {
-                this.hp -= amt;
-                game.spawnFloatingText(Math.floor(amt), this.x, this.y, '#fff', 14);
-                if (this.hp <= 0 && this.active) {
-                    this.active = false;
-                    game.noKillTimer = 0; // 成功擊殺，重置「10秒未擊殺」計時器
-                    game.spawnParticles(this.x, this.y, this.template.color, this.isBoss ? 50 : 10);
-                    game.player.addExp(this.template.score * game.stageManager.stage, game);
-                    game.stageManager.onEnemyKilled(this.isBoss, game);
-                    
-                    if (Math.random() < 0.15) { // 15% 機率掉落 Buff
-                        game.triggerRandomBuff(this.x, this.y - 20);
-                    }
-                }
-            }
-            draw(ctx) {
-                ctx.font = `${this.radius * 2}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(this.emoji, this.x, this.y);
-                
-                if (this.freezeTimer > 0 && !this.isBoss) {
-                    ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
                     ctx.fill();
                 }
-
-                if (this.isBoss) {
-                    ctx.save();
-                    ctx.fillStyle = 'rgba(255,0,0,0.5)';
-                    ctx.fillRect(this.x - 40, this.y - this.radius - 20, 80, 6);
-                    ctx.fillStyle = '#ff0000';
-                    ctx.fillRect(this.x - 40, this.y - this.radius - 20, 80 * (this.hp / this.maxHp), 6);
-                    ctx.strokeStyle = '#fff';
-                    ctx.lineWidth = 1; // 防禦性重置線條寬度
-                    ctx.strokeRect(this.x - 40, this.y - this.radius - 20, 80, 6);
-                    ctx.restore();
-                }
+                ctx.restore();
             }
         }
 
@@ -359,6 +257,86 @@
                 ctx.textAlign = 'center';
                 ctx.fillText(this.text, this.x, this.y);
                 ctx.restore();
+            }
+        }
+
+        class Enemy {
+            constructor() { this.active = false; }
+            init(template, x, y, emoji, stage) {
+                this.active = true;
+                this.x = x; this.y = y;
+                this.template = template;
+                this.emoji = emoji;
+                this.radius = template.radius;
+                this.color = template.color;
+                this.isBoss = template.type === 'boss';
+                
+                // 隨著關卡提升屬性
+                let multiplier = this.isBoss ? Math.pow(1.5, stage - 1) : Math.pow(1.2, stage - 1);
+                this.maxHp = template.hp * multiplier;
+                this.hp = this.maxHp;
+                this.speed = template.speed * (1 + (stage * 0.05));
+                this.score = template.score * stage;
+                
+                this.freezeTimer = 0;
+                this.spawnId = Math.random().toString(36).substring(2, 10); // 穿透與碰撞用的獨立ID
+            }
+            update(dt, game) {
+                if (this.freezeTimer > 0) {
+                    this.freezeTimer -= dt;
+                    return; // 冰凍時暫停移動
+                }
+
+                let angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+                this.x += Math.cos(angle) * this.speed * dt;
+                this.y += Math.sin(angle) * this.speed * dt;
+            }
+            takeDamage(amt, game) {
+                this.hp -= amt;
+                game.spawnFloatingText(Math.floor(amt).toString(), this.x, this.y - this.radius, '#ffffff', 14);
+                
+                if (this.hp <= 0 && this.active) {
+                    this.active = false;
+                    game.player.addExp(this.score, game);
+                    game.stageManager.onEnemyKilled(this.isBoss, game);
+                    game.spawnParticles(this.x, this.y, this.color, this.isBoss ? 50 : 15);
+                    
+                    // 12% 機率觸發隨機 Buff
+                    if (Math.random() < 0.12) {
+                        game.triggerRandomBuff(this.x, this.y);
+                    }
+                    // 重置保底未擊殺計時器
+                    game.noKillTimer = 0;
+                }
+            }
+            draw(ctx) {
+                ctx.font = `${this.radius * 2}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.emoji, this.x, this.y);
+                
+                // 冰凍特效
+                if (this.freezeTimer > 0 && !this.isBoss) {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // Boss血條
+                if (this.isBoss) {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(255,0,0,0.5)';
+                    ctx.fillRect(this.x - 40, this.y - this.radius - 20, 80, 6);
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fillRect(this.x - 40, this.y - this.radius - 20, 80 * (this.hp / this.maxHp), 6);
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 1; 
+                    ctx.strokeRect(this.x - 40, this.y - this.radius - 20, 80, 6);
+                    ctx.restore();
+                }
             }
         }
 
@@ -484,7 +462,8 @@
                     split: 0,
                     lifesteal: 0,
                     freeze: 0,
-                    explosion: 0
+                    explosion: 0,
+                    chaos: 0
                 };
                 this.currentShape = 'circle';
             }
@@ -516,24 +495,35 @@
                 let currentCount = this.wand.count + (this.buffs.multi > 0 ? 4 : 0);
                 let currentSize = this.wand.size * (this.buffs.giant > 0 ? 3.5 : 1);
                 let currentPath = this.buffs.homing > 0 ? 'homing' : this.wand.path;
-                let isRainbow = this.buffs.giant > 0 || this.buffs.frenzy > 0 || this.buffs.multi > 0 || this.buffs.homing > 0;
+                let isRainbow = this.buffs.giant > 0 || this.buffs.frenzy > 0 || this.buffs.multi > 0 || this.buffs.homing > 0 || this.buffs.chaos > 0;
                 
                 for(let i=0; i<currentCount; i++) {
                     let angle = -Math.PI/2;
                     if (currentCount > 1) {
                         angle = -Math.PI/2 - (spread * (currentCount-1))/2 + spread * i;
                     }
-                    let dx = Math.cos(angle) * this.wand.speed;
-                    let dy = Math.sin(angle) * this.wand.speed;
+                    
+                    let finalSpeed = this.wand.speed;
+                    let finalSize = currentSize;
+                    let finalShape = this.currentShape;
+                    
+                    if (this.buffs.chaos > 0) {
+                        finalSpeed = this.wand.speed * (0.4 + Math.random() * 1.2); // 0.4x ~ 1.6x 隨機速度
+                        finalSize = currentSize * (0.5 + Math.random() * 1.5);      // 0.5x ~ 2.0x 隨機大小
+                        finalShape = GAME_DATA.bulletShapes[Math.floor(Math.random() * GAME_DATA.bulletShapes.length)]; // 隨機形狀
+                    }
+                    
+                    let dx = Math.cos(angle) * finalSpeed;
+                    let dy = Math.sin(angle) * finalSpeed;
                     
                     let color = isRainbow ? GAME_DATA.wandColors[Math.floor(Math.random() * GAME_DATA.wandColors.length)] : this.wand.color;
                     
                     game.spawnBullet(this.x, this.y - 20, dx, dy, {
                         color: color,
-                        size: currentSize,
+                        size: finalSize,
                         path: currentPath,
                         damage: this.wand.damage,
-                        shape: this.currentShape,
+                        shape: finalShape,
                         isPierce: this.buffs.pierce > 0,
                         isSplit: this.buffs.split > 0,
                         isLifesteal: this.buffs.lifesteal > 0,
@@ -634,7 +624,7 @@
                 
                 let enemy = game.enemyPool.get();
                 let x = Math.random() * (canvas.width - 40) + 20;
-                let emoji = GAME_DATA.emojis.monsters[Math.floor(Math.random() * GAME_DATA.emojis.monsters.length)];
+                let emoji = GAME_DATA.emojis.entities[Math.floor(Math.random() * GAME_DATA.emojis.entities.length)];
                 enemy.init(template, x, -30, emoji, this.stage);
                 game.enemies.push(enemy);
             }
@@ -651,7 +641,7 @@
                 game.changeEnvironment('boss');
                 let enemy = game.enemyPool.get();
                 let x = canvas.width / 2;
-                let emoji = GAME_DATA.emojis.bosses[Math.floor(Math.random() * GAME_DATA.emojis.bosses.length)];
+                let emoji = GAME_DATA.emojis.entities[Math.floor(Math.random() * GAME_DATA.emojis.entities.length)];
                 enemy.init(GAME_DATA.enemies.boss, x, -50, emoji, this.stage);
                 game.enemies.push(enemy);
             }
@@ -741,12 +731,10 @@
             }
 
             triggerRandomBuff(x, y) {
-                // 統整隨機發放 Buff 的邏輯，加入 color_shift (改變基礎顏色)
-                const buffs = ['multi', 'giant', 'homing', 'frenzy', 'shape_diamond', 'shape_triangle', 'shape_square', 'shape_hollow', 'pierce', 'split', 'lifesteal', 'freeze', 'explosion', 'color_shift'];
+                const buffs = ['multi', 'giant', 'homing', 'frenzy', 'shape_diamond', 'shape_triangle', 'shape_square', 'shape_hollow', 'pierce', 'split', 'lifesteal', 'freeze', 'explosion', 'color_shift', 'chaos'];
                 const buff = buffs[Math.floor(Math.random() * buffs.length)];
                 
                 if (buff === 'color_shift') {
-                    // 永久改變目前魔杖顏色，直到下次抽到此 Buff
                     this.player.wand.color = GAME_DATA.wandColors[Math.floor(Math.random() * GAME_DATA.wandColors.length)];
                     this.spawnFloatingText('COLOR SHIFT!', x, y, this.player.wand.color, 20);
                 } else if (buff.startsWith('shape_')) {
@@ -755,8 +743,8 @@
                     this.spawnFloatingText('SHAPE SHIFT!', x, y, '#00ffff', 20);
                 } else {
                     this.player.buffs[buff] = 4.0;
-                    let text = buff === 'multi' ? 'MULTI-SHOT!' : buff === 'giant' ? 'GIANT MAGIC!' : buff === 'homing' ? 'HOMING!' : buff === 'frenzy' ? 'FRENZY!' : buff === 'pierce' ? 'PIERCE!' : buff === 'split' ? 'SPLIT!' : buff === 'lifesteal' ? 'VAMPIRISM!' : buff === 'freeze' ? 'FREEZE!' : 'EXPLOSION!';
-                    let color = buff === 'multi' ? '#ff00ff' : buff === 'giant' ? '#ffff00' : buff === 'homing' ? '#00ff00' : buff === 'frenzy' ? '#ff0000' : buff === 'pierce' ? '#00ffff' : buff === 'split' ? '#ffaa00' : buff === 'lifesteal' ? '#ff0044' : buff === 'freeze' ? '#8888ff' : '#ff5500';
+                    let text = buff === 'multi' ? 'MULTI-SHOT!' : buff === 'giant' ? 'GIANT MAGIC!' : buff === 'homing' ? 'HOMING!' : buff === 'frenzy' ? 'FRENZY!' : buff === 'pierce' ? 'PIERCE!' : buff === 'split' ? 'SPLIT!' : buff === 'lifesteal' ? 'VAMPIRISM!' : buff === 'freeze' ? 'FREEZE!' : buff === 'explosion' ? 'EXPLOSION!' : 'CHAOS!';
+                    let color = buff === 'multi' ? '#ff00ff' : buff === 'giant' ? '#ffff00' : buff === 'homing' ? '#00ff00' : buff === 'frenzy' ? '#ff0000' : buff === 'pierce' ? '#00ffff' : buff === 'split' ? '#ffaa00' : buff === 'lifesteal' ? '#ff0044' : buff === 'freeze' ? '#8888ff' : buff === 'explosion' ? '#ff5500' : '#ffffff';
                     this.spawnFloatingText(text, x, y, color, 20);
                 }
             }
