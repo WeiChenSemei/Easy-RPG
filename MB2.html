@@ -55,7 +55,7 @@
                 weak: { hp: 10, speed: 80, radius: 15, score: 10, color: '#ff4444', type: 'minion', rate: 0.5 },
                 fast: { hp: 5, speed: 180, radius: 12, score: 15, color: '#4444ff', type: 'fast', rate: 0.3 },
                 tank: { hp: 50, speed: 40, radius: 25, score: 25, color: '#44ff44', type: 'tank', rate: 0.2 },
-                boss: { hp: 600, speed: 20, radius: 65, score: 500, color: '#ff00ff', type: 'boss', rate: 0 }
+                boss: { hp: 600, speed: 120, radius: 65, score: 500, color: '#ff00ff', type: 'boss', rate: 0 }
             },
             wandPaths: ['straight', 'curve', 'laser', 'homing'],
             wandColors: ['#FF5733', '#33FF57', '#3357FF', '#F333FF', '#33FFF3', '#FFFF33', '#FFFFFF'],
@@ -95,7 +95,7 @@
                 this.dx = dx; this.dy = dy;
                 this.isPlayer = isPlayer;
                 this.lifeTime = 0;
-                this.hitEnemies.clear();
+                this.hitEnemies.clear(); 
                 
                 this.shape = 'circle';
                 this.isPierce = false;
@@ -135,7 +135,7 @@
                 } else if (this.path === 'homing') {
                     let target = game.getNearestEnemy(this.x, this.y);
                     if (target) {
-                        let speed = Math.hypot(this.dx, this.dy) || 400;
+                        let speed = Math.hypot(this.dx, this.dy) || 400; 
                         let desiredAngle = Math.atan2(target.y - this.y, target.x - this.x);
                         let desiredDx = Math.cos(desiredAngle) * speed;
                         let desiredDy = Math.sin(desiredAngle) * speed;
@@ -215,7 +215,7 @@
                 ctx.save();
                 ctx.fillStyle = this.color;
                 let alpha = 1 - (this.lifeTime / this.maxLife);
-                ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha)); 
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
                 ctx.fill();
@@ -241,7 +241,7 @@
                 ctx.save();
                 ctx.fillStyle = this.color;
                 let alpha = 1 - (this.lifeTime / this.maxLife);
-                ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha)); 
                 ctx.font = `bold ${this.size}px 'Inter', sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.fillText(this.text, this.x, this.y);
@@ -267,28 +267,102 @@
                 this.score = template.score * stage;
                 
                 this.freezeTimer = 0;
-                this.fireTimer = 2.0 + Math.random(); 
                 this.spawnId = Math.random().toString(36).substring(2, 10);
+                
+                if (this.isBoss) {
+                    this.bossState = 'entering'; 
+                    this.bossTimer = 0;
+                    this.bossDashCooldown = 4.0;
+                    this.targetX = canvas.width / 2;
+                    this.dashAngle = 0;
+                    this.dashStartX = 0;
+                    this.dashStartY = 0;
+                    this.fireTimer = 2.0;
+                }
             }
             update(dt, game) {
                 if (this.freezeTimer > 0) {
                     this.freezeTimer -= dt;
                     return; 
                 }
-                let angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
-                this.x += Math.cos(angle) * this.speed * dt;
-                this.y += Math.sin(angle) * this.speed * dt;
 
                 if (this.isBoss) {
-                    this.fireTimer -= dt;
-                    if (this.fireTimer <= 0) {
-                        this.fireTimer = 2.5; 
-                        this.bossShoot(game);
+                    // Boss State Machine AI
+                    if (this.bossState === 'entering') {
+                        this.y += this.speed * dt;
+                        if (this.y >= canvas.height * 0.25) { // Stop near the top quarter
+                            this.bossState = 'strafing';
+                            this.targetX = Math.random() * (canvas.width - this.radius * 2) + this.radius;
+                        }
+                    } else if (this.bossState === 'strafing') {
+                        // Move randomly left and right
+                        let dx = this.targetX - this.x;
+                        if (Math.abs(dx) < 10) {
+                            this.targetX = Math.random() * (canvas.width - this.radius * 2) + this.radius;
+                        } else {
+                            this.x += Math.sign(dx) * this.speed * dt;
+                        }
+
+                        // Dash Cooldown
+                        this.bossDashCooldown -= dt;
+                        if (this.bossDashCooldown <= 0) {
+                            this.bossState = 'warning';
+                            this.bossTimer = 1.2; // Warning duration before dash
+                            this.dashAngle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+                            this.dashStartX = this.x;
+                            this.dashStartY = this.y;
+                        }
+
+                        // Periodic Shooting
+                        this.fireTimer -= dt;
+                        if (this.fireTimer <= 0) {
+                            this.fireTimer = 2.0; 
+                            this.bossShoot(game);
+                        }
+                    } else if (this.bossState === 'warning') {
+                        // Track player slightly for the first half of the warning
+                        if (this.bossTimer > 0.6) {
+                            this.dashAngle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+                        }
+                        this.bossTimer -= dt;
+                        if (this.bossTimer <= 0) {
+                            this.bossState = 'dashing';
+                            this.bossTimer = 1.0; // Max dash duration
+                        }
+                    } else if (this.bossState === 'dashing') {
+                        let dashSpeed = 1000; // Super fast dash
+                        this.x += Math.cos(this.dashAngle) * dashSpeed * dt;
+                        this.y += Math.sin(this.dashAngle) * dashSpeed * dt;
+                        
+                        this.bossTimer -= dt;
+                        if (this.bossTimer <= 0 || this.x < -100 || this.x > canvas.width + 100 || this.y > canvas.height + 100) {
+                            this.bossState = 'returning';
+                        }
+                    } else if (this.bossState === 'returning') {
+                        // Return to original attack position
+                        let dx = this.dashStartX - this.x;
+                        let dy = this.dashStartY - this.y;
+                        let dist = Math.hypot(dx, dy);
+                        let retSpeed = 400;
+                        if (dist < 10) {
+                            this.x = this.dashStartX;
+                            this.y = this.dashStartY;
+                            this.bossState = 'strafing';
+                            this.bossDashCooldown = 4.0 + Math.random() * 3.0; // Reset cooldown
+                        } else {
+                            this.x += (dx / dist) * retSpeed * dt;
+                            this.y += (dy / dist) * retSpeed * dt;
+                        }
                     }
+                } else {
+                    // Normal Enemy Chasing
+                    let angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+                    this.x += Math.cos(angle) * this.speed * dt;
+                    this.y += Math.sin(angle) * this.speed * dt;
                 }
             }
             bossShoot(game) {
-                let bulletCount = 5 + Math.floor(Math.random() * 4); 
+                let bulletCount = 7 + Math.floor(Math.random() * 6); 
                 let spread = 0.35;
                 let baseAngle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
 
@@ -321,6 +395,7 @@
                     game.player.addExp(this.score, game);
                     game.stageManager.onEnemyKilled(this.isBoss, game);
                     game.spawnParticles(this.x, this.y, this.color, this.isBoss ? 50 : 15);
+                    
                     if (Math.random() < 0.12) {
                         game.triggerRandomBuff(this.x, this.y);
                     }
@@ -328,6 +403,27 @@
                 }
             }
             draw(ctx) {
+                // Draw Warning for Boss Dash
+                if (this.isBoss && this.bossState === 'warning') {
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.dashAngle);
+                    
+                    let blink = Math.floor(this.bossTimer * 15) % 2 === 0 ? 0.3 : 0.05;
+                    ctx.fillStyle = `rgba(255, 0, 0, ${blink})`;
+                    ctx.fillRect(0, -this.radius, canvas.height * 1.5, this.radius * 2);
+                    
+                    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -this.radius);
+                    ctx.lineTo(canvas.height * 1.5, -this.radius);
+                    ctx.moveTo(0, this.radius);
+                    ctx.lineTo(canvas.height * 1.5, this.radius);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
                 ctx.font = `${this.radius * 2}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -341,6 +437,7 @@
                     ctx.fill();
                     ctx.restore();
                 }
+                
                 if (this.isBoss) {
                     ctx.save();
                     ctx.fillStyle = 'rgba(255,0,0,0.5)';
@@ -363,7 +460,7 @@
                 this.template = template;
                 this.emoji = template.emoji;
                 this.lifeTime = template.life;
-                this.radius = 15; // Set an explicit collision radius for allies
+                this.radius = 15; 
                 this.timer = 0;
             }
             update(dt, game) {
@@ -381,6 +478,7 @@
                         let angle = Math.atan2(target.y - this.y, target.x - this.x);
                         this.x += Math.cos(angle) * this.template.speed * dt;
                         this.y += Math.sin(angle) * this.template.speed * dt;
+                        
                         if (Math.hypot(target.x - this.x, target.y - this.y) < target.radius + this.radius) {
                             if (this.timer > 0.5) {
                                 target.takeDamage(20 + game.stageManager.stage * 5, game);
@@ -577,7 +675,6 @@
             takeDamage(amt, game) {
                 this.hp -= amt;
                 if (this.hp <= 0) {
-                    // Death Penalty: Keep Level, Reset Wand, Auto-reallocate points
                     this.rebornCount++;
                     this.hp = this.maxHp;
                     this.exp = 0;
@@ -588,7 +685,6 @@
                     
                     this.resetWand();
                     
-                    // Re-allocate skills silently based on current level
                     for(let i = 1; i < this.level; i++) {
                         this.evolveWand(); 
                     }
@@ -844,13 +940,79 @@
                 this.isIdle = (Date.now() - this.lastInteractionTime) > 5000;
                 
                 if (this.isIdle) {
+                    // Smart Evasion & Auto-Play AI
                     let target = this.getNearestEnemy(this.player.x, this.player.y);
+                    let baseX = this.player.x;
+                    let baseY = canvas.height - 150; 
+                    
                     if (target) {
-                        this.player.targetX = target.x;
+                        baseX = target.x; // Track horizontally
                     } else {
-                        this.player.targetX = canvas.width / 2;
+                        baseX = canvas.width / 2;
                     }
-                    this.player.targetY = canvas.height - 150; 
+                    
+                    let evX = 0, evY = 0;
+                    
+                    // Evade Bullets
+                    for (let b of this.bullets) {
+                        if (b.active && !b.isPlayer) {
+                            let dist = Math.hypot(b.x - this.player.x, b.y - this.player.y);
+                            if (dist < 100) {
+                                let push = (100 - dist) * 2; 
+                                evX += ((this.player.x - b.x) / dist) * push;
+                                evY += ((this.player.y - b.y) / dist) * push;
+                            }
+                        }
+                    }
+
+                    // Evade Boss Dash & Enemies
+                    for (let e of this.enemies) {
+                        if (e.isBoss) {
+                            if (e.bossState === 'warning' || e.bossState === 'dashing') {
+                                let dist = Math.hypot(e.x - this.player.x, e.y - this.player.y);
+                                if (dist < 350) {
+                                    // Calculate normal vector to the dash line
+                                    let perpX = -Math.sin(e.dashAngle);
+                                    let perpY = Math.cos(e.dashAngle);
+                                    // Determine which side of the line the player is on
+                                    let toPlayerX = this.player.x - e.x;
+                                    let toPlayerY = this.player.y - e.y;
+                                    let dot = toPlayerX * perpX + toPlayerY * perpY;
+                                    let dir = dot > 0 ? 1 : -1; 
+                                    let perpDist = Math.abs(dot);
+                                    
+                                    // Extremely strong push if near the warning track
+                                    if (perpDist < e.radius + 80) { 
+                                        evX += perpX * dir * 400;
+                                        evY += perpY * dir * 400;
+                                    }
+                                }
+                            } else {
+                                // Keep general distance from boss
+                                let dist = Math.hypot(e.x - this.player.x, e.y - this.player.y);
+                                if (dist < 200) {
+                                    let push = (200 - dist);
+                                    evX += ((this.player.x - e.x) / dist) * push;
+                                    evY += ((this.player.y - e.y) / dist) * push;
+                                }
+                            }
+                        } else {
+                            // Keep away from normal enemies
+                            let dist = Math.hypot(e.x - this.player.x, e.y - this.player.y);
+                            if (dist < 100) {
+                                let push = (100 - dist);
+                                evX += ((this.player.x - e.x) / dist) * push;
+                                evY += ((this.player.y - e.y) / dist) * push;
+                            }
+                        }
+                    }
+
+                    let finalTargetX = baseX + evX;
+                    let finalTargetY = baseY + evY;
+                    
+                    this.player.targetX = Math.max(this.player.radius, Math.min(canvas.width - this.player.radius, finalTargetX));
+                    this.player.targetY = Math.max(this.player.radius, Math.min(canvas.height - this.player.radius, finalTargetY));
+                    
                 } else {
                     let speed = 600 * dt;
                     let moved = false;
@@ -887,7 +1049,7 @@
                     let e = this.enemies[i];
                     e.update(dt, this);
                     
-                    // Enemy vs Enemy (prevent stacking)
+                    // Enemy vs Enemy (prevent stacking, bosses are immovable objects)
                     for (let j = i - 1; j >= 0; j--) {
                         let e2 = this.enemies[j];
                         let dx = e.x - e2.x;
@@ -897,10 +1059,15 @@
                         if (overlap > 0) {
                             let nx = dx / dist;
                             let ny = dy / dist;
-                            e.x += nx * overlap * 0.5;
-                            e.y += ny * overlap * 0.5;
-                            e2.x -= nx * overlap * 0.5;
-                            e2.y -= ny * overlap * 0.5;
+                            
+                            if (!e.isBoss && !e2.isBoss) {
+                                e.x += nx * overlap * 0.5; e.y += ny * overlap * 0.5;
+                                e2.x -= nx * overlap * 0.5; e2.y -= ny * overlap * 0.5;
+                            } else if (e.isBoss && !e2.isBoss) {
+                                e2.x -= nx * overlap; e2.y -= ny * overlap;
+                            } else if (!e.isBoss && e2.isBoss) {
+                                e.x += nx * overlap; e.y += ny * overlap;
+                            }
                         }
                     }
 
@@ -915,19 +1082,20 @@
                             this.player.takeDamage(e.isBoss ? 40 : 15, this);
                             this.player.iFrame = 0.5; 
                         }
-                        // Bounce resolution
+                        
                         let nx = pDx / pDist;
                         let ny = pDy / pDist;
                         
-                        // Push player away strongly (update target to stop instant snapping)
                         this.player.targetX += nx * pOverlap * 3;
                         this.player.targetY += ny * pOverlap * 3;
                         this.player.x += nx * pOverlap * 1.5;
                         this.player.y += ny * pOverlap * 1.5;
                         
-                        // Push enemy slightly
-                        e.x -= nx * pOverlap * 0.5;
-                        e.y -= ny * pOverlap * 0.5;
+                        // Bosses don't get pushed by player
+                        if (!e.isBoss) {
+                            e.x -= nx * pOverlap * 0.5;
+                            e.y -= ny * pOverlap * 0.5;
+                        }
                     }
 
                     // Ally vs Enemy
@@ -942,15 +1110,16 @@
                             let ny = aDy / aDist;
                             
                             if (a.template.type === 'warrior') {
-                                // Warrior is heavy: push enemy back only
-                                e.x -= nx * aOverlap;
-                                e.y -= ny * aOverlap;
+                                if (!e.isBoss) {
+                                    e.x -= nx * aOverlap; e.y -= ny * aOverlap;
+                                }
                             } else {
-                                // Normal bounce
-                                a.x += nx * aOverlap * 0.5;
-                                a.y += ny * aOverlap * 0.5;
-                                e.x -= nx * aOverlap * 0.5;
-                                e.y -= ny * aOverlap * 0.5;
+                                a.x += nx * aOverlap * (e.isBoss ? 1 : 0.5);
+                                a.y += ny * aOverlap * (e.isBoss ? 1 : 0.5);
+                                if (!e.isBoss) {
+                                    e.x -= nx * aOverlap * 0.5;
+                                    e.y -= ny * aOverlap * 0.5;
+                                }
                             }
                         }
                     }
@@ -970,7 +1139,6 @@
                     }
                 }
 
-                // Bullets Update & Collisions
                 for (let i = this.bullets.length - 1; i >= 0; i--) {
                     let b = this.bullets[i];
                     b.update(dt, this);
@@ -1098,11 +1266,14 @@
 
                 for (let p of this.particles) p.draw(ctx);
                 for (let b of this.bullets) b.draw(ctx);
-                for (let e of this.enemies) e.draw(ctx);
+                // Draw enemies, boss on top
+                for (let e of this.enemies) if (!e.isBoss) e.draw(ctx);
+                for (let e of this.enemies) if (e.isBoss) e.draw(ctx);
                 for (let a of this.allies) a.draw(ctx);
                 this.player.draw(ctx);
                 for (let t of this.texts) t.draw(ctx);
 
+                // HUD Draw
                 ctx.fillStyle = 'rgba(0,0,0,0.6)';
                 ctx.fillRect(0, 0, canvas.width, 65);
                 
