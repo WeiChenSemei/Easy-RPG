@@ -15,6 +15,8 @@
             font-family: 'MedievalSharp', cursive;
             overflow: hidden;
             touch-action: none; /* Prevent scroll on touch devices */
+            user-select: none;
+            -webkit-user-select: none;
         }
         #game-container {
             width: 100%; height: 100%;
@@ -29,7 +31,7 @@
             max-width: 600px;
             width: 100%;
             height: 100%;
-            cursor: pointer;
+            cursor: crosshair;
         }
     </style>
 </head>
@@ -64,10 +66,10 @@
                 entities: ['🦇', '🕷️', '🧟', '🧛', '🐺', '🐉', '🐲', '👹', '👺', '👻', '💀', '👽', '👾', '🐍', '🪲', '🦂', '😈', '👿', '🧌', '👁️', '🌋', '🌑', '🧿', '🦑']
             },
             allies: {
-                warrior: { emoji: '🤺', type: 'warrior', speed: 120, life: 15 },
-                cleric:  { emoji: '🧙‍♀️', type: 'cleric', speed: 80, life: 15 },
-                rogue:   { emoji: '🥷', type: 'rogue', speed: 200, life: 10 },
-                bard:    { emoji: '🧚', type: 'bard', speed: 100, life: 20 }
+                warrior: { emoji: '🤺', type: 'warrior', speed: 120, life: 15, radius: 15 },
+                cleric:  { emoji: '🧙‍♀️', type: 'cleric', speed: 80, life: 15, radius: 15 },
+                rogue:   { emoji: '🥷', type: 'rogue', speed: 200, life: 10, radius: 15 },
+                bard:    { emoji: '🧚', type: 'bard', speed: 100, life: 20, radius: 15 }
             },
             bulletShapes: ['circle', 'diamond', 'triangle', 'square', 'hollow']
         };
@@ -77,12 +79,8 @@
                 this.pool = [];
                 this.createFn = createFn;
             }
-            get() {
-                return this.pool.length > 0 ? this.pool.pop() : this.createFn();
-            }
-            release(obj) {
-                this.pool.push(obj);
-            }
+            get() { return this.pool.length > 0 ? this.pool.pop() : this.createFn(); }
+            release(obj) { this.pool.push(obj); }
         }
 
         class Bullet {
@@ -268,9 +266,10 @@
                 this.score = template.score * stage;
                 
                 this.freezeTimer = 0;
-                this.spawnId = Math.random().toString(36).substring(2, 10);
+                this.spawnId = Math.random().toString(36).substring(2, 10); 
                 
                 if (this.isBoss) {
+                    this.mass = 9999;
                     this.bossState = 'entering'; 
                     this.bossTimer = 0;
                     this.bossDashCooldown = 4.0;
@@ -278,7 +277,9 @@
                     this.dashAngle = 0;
                     this.dashStartX = 0;
                     this.dashStartY = 0;
-                    this.fireTimer = 2.0;
+                    this.fireTimer = 2.5; 
+                } else {
+                    this.mass = 1;
                 }
             }
             update(dt, game) {
@@ -290,7 +291,8 @@
                 if (this.isBoss) {
                     // Boss State Machine AI
                     if (this.bossState === 'entering') {
-                        this.y += this.speed * dt;
+                        // 【關鍵修復】：讓 Boss 用極快的速度進場，避免還在畫面外慢速移動時就被玩家秒殺
+                        this.y += 300 * dt; 
                         if (this.y >= canvas.height * 0.25) {
                             this.bossState = 'strafing';
                             this.targetX = Math.random() * (canvas.width - this.radius * 2) + this.radius;
@@ -306,7 +308,7 @@
                         this.bossDashCooldown -= dt;
                         if (this.bossDashCooldown <= 0) {
                             this.bossState = 'warning';
-                            this.bossTimer = 1.2;
+                            this.bossTimer = 1.2; 
                             this.dashAngle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
                             this.dashStartX = this.x;
                             this.dashStartY = this.y;
@@ -314,17 +316,18 @@
 
                         this.fireTimer -= dt;
                         if (this.fireTimer <= 0) {
-                            this.fireTimer = 2.0; 
-                            this.bossShoot(game);
+                            this.fireTimer = 2.5; 
+                            this.bossShoot(game); // 發射隨機屬性彈幕
                         }
                     } else if (this.bossState === 'warning') {
                         if (this.bossTimer > 0.6) {
+                            // Track player for the first half of warning
                             this.dashAngle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
                         }
                         this.bossTimer -= dt;
                         if (this.bossTimer <= 0) {
                             this.bossState = 'dashing';
-                            this.bossTimer = 1.0;
+                            this.bossTimer = 1.0; 
                         }
                     } else if (this.bossState === 'dashing') {
                         let dashSpeed = 1000;
@@ -344,7 +347,7 @@
                             this.x = this.dashStartX;
                             this.y = this.dashStartY;
                             this.bossState = 'strafing';
-                            this.bossDashCooldown = 4.0 + Math.random() * 3.0;
+                            this.bossDashCooldown = 4.0 + Math.random() * 3.0; // Randomize next dash
                         } else {
                             this.x += (dx / dist) * retSpeed * dt;
                             this.y += (dy / dist) * retSpeed * dt;
@@ -357,6 +360,7 @@
                 }
             }
             bossShoot(game) {
+                // Boss 扇形隨機變異彈幕
                 let bulletCount = 7 + Math.floor(Math.random() * 6); 
                 let spread = 0.35;
                 let baseAngle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
@@ -382,6 +386,12 @@
                 }
             }
             takeDamage(amt, game) {
+                // 【關鍵修復】：Boss 進場期間獲得無敵，避免因血量較少且移動慢，還沒進場就被高等玩家秒殺
+                if (this.isBoss && this.bossState === 'entering') {
+                    if (Math.random() < 0.1) game.spawnFloatingText("IMMUNE", this.x, this.y - this.radius, '#aaaaaa', 14);
+                    return; 
+                }
+
                 this.hp -= amt;
                 game.spawnFloatingText(Math.floor(amt).toString(), this.x, this.y - this.radius, '#ffffff', 14);
                 
@@ -418,11 +428,13 @@
                     ctx.restore();
                 }
 
+                // 畫出 Emoji 主體
                 ctx.font = `${this.radius * 2}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(this.emoji, this.x, this.y);
                 
+                // 冰凍特效
                 if (this.freezeTimer > 0 && !this.isBoss) {
                     ctx.save();
                     ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
@@ -432,12 +444,13 @@
                     ctx.restore();
                 }
                 
+                // Boss 血條
                 if (this.isBoss) {
                     ctx.save();
                     ctx.fillStyle = 'rgba(255,0,0,0.5)';
                     ctx.fillRect(this.x - 40, this.y - this.radius - 20, 80, 6);
                     ctx.fillStyle = '#ff0000';
-                    ctx.fillRect(this.x - 40, this.y - this.radius - 20, 80 * (this.hp / this.maxHp), 6);
+                    ctx.fillRect(this.x - 40, this.y - this.radius - 20, 80 * (Math.max(0, this.hp) / this.maxHp), 6);
                     ctx.strokeStyle = '#fff';
                     ctx.lineWidth = 1; 
                     ctx.strokeRect(this.x - 40, this.y - this.radius - 20, 80, 6);
@@ -454,7 +467,7 @@
                 this.template = template;
                 this.emoji = template.emoji;
                 this.lifeTime = template.life;
-                this.radius = 15; 
+                this.radius = template.radius; 
                 this.timer = 0;
             }
             update(dt, game) {
@@ -514,7 +527,7 @@
                         this.y += Math.sin(angle) * this.template.speed * dt;
                     }
                     if (this.timer > 1.5) {
-                        game.player.buffs.frenzy = Math.max(game.player.buffs.frenzy, 2.0);
+                        game.player.buffs.frenzy = Math.max(game.player.buffs.frenzy, 2.0); 
                         game.spawnFloatingText("🎵", this.x, this.y - 20, '#ff00ff', 16);
                         this.timer = 0;
                     }
@@ -572,7 +585,7 @@
                 this.buffs = {
                     multi: 0, giant: 0, homing: 0, frenzy: 0,
                     shapeTimer: 0, pierce: 0, split: 0, lifesteal: 0,
-                    freeze: 0, explosion: 0, chaos: 0
+                    freeze: 0, explosion: 0, chaos: 0, shield: 0, rebornPower: 0
                 };
             }
 
@@ -604,6 +617,12 @@
                 let currentPath = this.buffs.homing > 0 ? 'homing' : this.wand.path;
                 let isRainbow = this.buffs.giant > 0 || this.buffs.frenzy > 0 || this.buffs.multi > 0 || this.buffs.homing > 0 || this.buffs.chaos > 0;
                 
+                // Damage modifiers: Base + (Level - 1) * HP Missing Multiplier * Reborn Multiplier
+                let missingHpPercent = 1.0 - (Math.max(0, this.hp) / this.maxHp);
+                let hpMultiplier = 1.0 + missingHpPercent; 
+                let rebornMultiplier = this.buffs.rebornPower > 0 ? 2.0 : 1.0;
+                let finalDamage = (this.wand.damage + (this.level - 1)) * hpMultiplier * rebornMultiplier;
+                
                 for(let i=0; i<currentCount; i++) {
                     let angle = -Math.PI/2;
                     if (currentCount > 1) {
@@ -628,7 +647,7 @@
                         color: color,
                         size: finalSize,
                         path: currentPath,
-                        damage: this.wand.damage,
+                        damage: finalDamage,
                         shape: finalShape,
                         isPierce: this.buffs.pierce > 0,
                         isSplit: this.buffs.split > 0,
@@ -660,7 +679,7 @@
                     { desc: "Speed UP", fn: () => this.wand.speed = Math.min(this.wand.speed * 1.2, 1200) },
                     { desc: "Path Mutated", fn: () => this.wand.path = GAME_DATA.wandPaths[Math.floor(Math.random() * GAME_DATA.wandPaths.length)] },
                     { desc: "Chain +1", fn: () => this.wand.chain++ },
-                    { desc: "Damage UP", fn: () => this.wand.damage *= 1.4 }
+                    { desc: "Base Damage UP", fn: () => this.wand.damage *= 1.4 }
                 ];
                 let choice = choices[Math.floor(Math.random() * choices.length)];
                 choice.fn();
@@ -671,12 +690,18 @@
                 if (this.hp <= 0) {
                     this.rebornCount++;
                     this.hp = this.maxHp;
-                    this.exp = 0;
+                    // No longer resetting EXP to 0 based on new rules
                     
                     game.spawnFloatingText("REBORN!", this.x, this.y - 30, '#ff0000', 26);
                     game.spawnParticles(this.x, this.y, '#ff0000', 20);
                     
                     this.resetWand();
+                    this.resetBuffs(); 
+                    
+                    // Add Reborn specific Buffs
+                    this.buffs.shield = 5.0;
+                    this.buffs.rebornPower = 5.0;
+                    game.spawnFloatingText("SHIELD & 2x DMG!", this.x, this.y - 60, '#FFD700', 20);
                     
                     for(let i = 1; i < this.level; i++) {
                         this.evolveWand(); 
@@ -688,6 +713,31 @@
                 if (this.iFrame > 0 && Math.floor(this.iFrame * 15) % 2 === 0) {
                     ctx.globalAlpha = 0.5;
                 }
+                
+                // Draw Golden Shield
+                if (this.buffs.shield > 0) {
+                    ctx.save();
+                    ctx.strokeStyle = '#FFD700'; 
+                    ctx.lineWidth = 3;
+                    let pulse = Math.abs(Math.sin(Date.now() / 150)) * 4;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius + 12 + pulse, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // Draw Reborn 2x Power Aura
+                if (this.buffs.rebornPower > 0) {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius + 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
                 ctx.font = `${this.radius * 2}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -729,7 +779,8 @@
                     this.enemySpawnTimer = Math.max(0.3, 1.5 - this.stage * 0.08); 
                 }
                 
-                if (this.enemiesKilled >= 10 + this.stage * 5) {
+                // Requirement for boss greatly increased by stage level (boss spawns later)
+                if (this.enemiesKilled >= 10 + this.stage * 20) {
                     this.spawnBoss(game);
                 }
             }
@@ -808,6 +859,7 @@
                 this.isIdle = false;
                 this.noKillTimer = 0; 
 
+                // Low-pass filter targets for idle movement
                 this.idleTargetX = canvas.width / 2;
                 this.idleTargetY = canvas.height - 150;
 
@@ -903,7 +955,7 @@
             }
 
             triggerRandomBuff(x, y) {
-                const buffs = ['multi', 'giant', 'homing', 'frenzy', 'shape_diamond', 'shape_triangle', 'shape_square', 'shape_hollow', 'pierce', 'split', 'lifesteal', 'freeze', 'explosion', 'color_shift', 'chaos'];
+                const buffs = ['multi', 'giant', 'homing', 'frenzy', 'shape_diamond', 'shape_triangle', 'shape_square', 'shape_hollow', 'pierce', 'split', 'lifesteal', 'freeze', 'explosion', 'color_shift', 'chaos', 'shield'];
                 const buff = buffs[Math.floor(Math.random() * buffs.length)];
                 
                 if (buff === 'color_shift') {
@@ -914,9 +966,9 @@
                     this.player.currentShape = buff.split('_')[1];
                     this.spawnFloatingText('SHAPE SHIFT!', x, y, '#00ffff', 20);
                 } else {
-                    this.player.buffs[buff] = 4.0;
-                    let text = buff === 'multi' ? 'MULTI-SHOT!' : buff === 'giant' ? 'GIANT MAGIC!' : buff === 'homing' ? 'HOMING!' : buff === 'frenzy' ? 'FRENZY!' : buff === 'pierce' ? 'PIERCE!' : buff === 'split' ? 'SPLIT!' : buff === 'lifesteal' ? 'VAMPIRISM!' : buff === 'freeze' ? 'FREEZE!' : buff === 'explosion' ? 'EXPLOSION!' : 'CHAOS!';
-                    let color = buff === 'multi' ? '#ff00ff' : buff === 'giant' ? '#ffff00' : buff === 'homing' ? '#00ff00' : buff === 'frenzy' ? '#ff0000' : buff === 'pierce' ? '#00ffff' : buff === 'split' ? '#ffaa00' : buff === 'lifesteal' ? '#ff0044' : buff === 'freeze' ? '#8888ff' : buff === 'explosion' ? '#ff5500' : '#ffffff';
+                    this.player.buffs[buff] = buff === 'shield' ? 6.0 : 4.0;
+                    let text = buff === 'multi' ? 'MULTI-SHOT!' : buff === 'giant' ? 'GIANT MAGIC!' : buff === 'homing' ? 'HOMING!' : buff === 'frenzy' ? 'FRENZY!' : buff === 'pierce' ? 'PIERCE!' : buff === 'split' ? 'SPLIT!' : buff === 'lifesteal' ? 'VAMPIRISM!' : buff === 'freeze' ? 'FREEZE!' : buff === 'explosion' ? 'EXPLOSION!' : buff === 'shield' ? 'DIVINE SHIELD!' : 'CHAOS!';
+                    let color = buff === 'multi' ? '#ff00ff' : buff === 'giant' ? '#ffff00' : buff === 'homing' ? '#00ff00' : buff === 'frenzy' ? '#ff0000' : buff === 'pierce' ? '#00ffff' : buff === 'split' ? '#ffaa00' : buff === 'lifesteal' ? '#ff0044' : buff === 'freeze' ? '#8888ff' : buff === 'explosion' ? '#ff5500' : buff === 'shield' ? '#FFD700' : '#ffffff';
                     this.spawnFloatingText(text, x, y, color, 20);
                 }
             }
@@ -1007,6 +1059,7 @@
                     
                     let evX = 0, evY = 0;
                     
+                    // Repulsion from bullets
                     for (let b of this.bullets) {
                         if (b.active && !b.isPlayer) {
                             let dist = Math.hypot(b.x - this.player.x, b.y - this.player.y);
@@ -1019,6 +1072,7 @@
                         }
                     }
 
+                    // Repulsion from enemies/bosses
                     for (let e of this.enemies) {
                         if (e.isBoss) {
                             if (e.bossState === 'warning' || e.bossState === 'dashing' || e.bossState === 'returning') {
@@ -1056,6 +1110,7 @@
                         }
                     }
 
+                    // Apply low-pass filter to the evasion target to prevent jittering
                     let rawTargetX = desiredBaseX + evX;
                     let rawTargetY = desiredBaseY + evY;
                     
@@ -1080,7 +1135,6 @@
                         this.player.targetX = Math.max(this.player.radius, Math.min(canvas.width - this.player.radius, this.player.targetX));
                         this.player.targetY = Math.max(this.player.radius, Math.min(canvas.height - this.player.radius, this.player.targetY));
                         
-                        // If keyboard is used while mouse is dragging, just sync the anchors to avoid jumps
                         if (this.isDragging) {
                             this.charDragStartX = this.player.targetX;
                             this.charDragStartY = this.player.targetY;
@@ -1109,29 +1163,30 @@
                     let e = this.enemies[i];
                     e.update(dt, this);
                     
-                    // Enemy vs Enemy
+                    // Enemy vs Enemy Collision
                     for (let j = i - 1; j >= 0; j--) {
                         let e2 = this.enemies[j];
                         let dx = e.x - e2.x;
                         let dy = e.y - e2.y;
                         let dist = Math.hypot(dx, dy) || 1;
                         let overlap = (e.radius + e2.radius) - dist;
+                        
                         if (overlap > 0) {
                             let nx = dx / dist;
                             let ny = dy / dist;
+                            let totalMass = e.mass + e2.mass;
                             
-                            if (!e.isBoss && !e2.isBoss) {
-                                e.x += nx * overlap * 0.5; e.y += ny * overlap * 0.5;
-                                e2.x -= nx * overlap * 0.5; e2.y -= ny * overlap * 0.5;
-                            } else if (e.isBoss && !e2.isBoss) {
-                                e2.x -= nx * overlap; e2.y -= ny * overlap;
-                            } else if (!e.isBoss && e2.isBoss) {
-                                e.x += nx * overlap; e.y += ny * overlap;
-                            }
+                            let eRatio = e2.mass / totalMass;
+                            let e2Ratio = e.mass / totalMass;
+                            
+                            e.x += nx * overlap * eRatio;
+                            e.y += ny * overlap * eRatio;
+                            e2.x -= nx * overlap * e2Ratio;
+                            e2.y -= ny * overlap * e2Ratio;
                         }
                     }
 
-                    // Player vs Enemy
+                    // Player vs Enemy Collision
                     let pDx = this.player.x - e.x;
                     let pDy = this.player.y - e.y;
                     let pDist = Math.hypot(pDx, pDy) || 1;
@@ -1139,8 +1194,14 @@
                     
                     if (pOverlap > 0) {
                         if (this.player.iFrame <= 0) {
-                            this.player.takeDamage(e.isBoss ? 40 : 15, this);
-                            this.player.iFrame = 0.5; 
+                            if (this.player.buffs.shield > 0) {
+                                // Shield block
+                                this.player.iFrame = 0.5; 
+                                this.spawnFloatingText("BLOCKED!", this.player.x, this.player.y - 30, '#FFD700', 16);
+                            } else {
+                                this.player.takeDamage(e.isBoss ? 40 : 15, this);
+                                this.player.iFrame = 0.5; 
+                            }
                         }
                         
                         let nx = pDx / pDist;
@@ -1162,7 +1223,7 @@
                         }
                     }
 
-                    // Ally vs Enemy
+                    // Ally vs Enemy Collision
                     for (let a of this.allies) {
                         let aDx = a.x - e.x;
                         let aDy = a.y - e.y;
@@ -1279,8 +1340,13 @@
                         } else {
                             if (Math.hypot(b.x - this.player.x, b.y - this.player.y) < b.size + this.player.radius - 5) {
                                 if (this.player.iFrame <= 0) {
-                                    this.player.takeDamage(b.damage, this);
-                                    this.player.iFrame = 0.5;
+                                    if (this.player.buffs.shield > 0) {
+                                        this.player.iFrame = 0.5;
+                                        this.spawnFloatingText("BLOCKED!", this.player.x, this.player.y - 30, '#FFD700', 16);
+                                    } else {
+                                        this.player.takeDamage(b.damage, this);
+                                        this.player.iFrame = 0.5;
+                                    }
                                 }
                                 b.active = false;
                             }
@@ -1342,7 +1408,7 @@
                 ctx.fillStyle = 'rgba(255,0,0,0.3)';
                 ctx.fillRect(15, 15, canvas.width - 30, 12);
                 ctx.fillStyle = '#ff3333';
-                ctx.fillRect(15, 15, (this.player.hp / this.player.maxHp) * (canvas.width - 30), 12);
+                ctx.fillRect(15, 15, (Math.max(0, this.player.hp) / this.player.maxHp) * (canvas.width - 30), 12);
                 ctx.strokeStyle = '#fff';
                 ctx.strokeRect(15, 15, canvas.width - 30, 12);
 
