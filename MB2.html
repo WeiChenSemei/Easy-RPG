@@ -41,7 +41,6 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Resize canvas logic
         function resizeCanvas() {
             let w = Math.min(window.innerWidth, 600);
             let h = window.innerHeight;
@@ -153,7 +152,6 @@
                 if (this.y < -100 || this.y > canvas.height + 100 || this.x < -100 || this.x > canvas.width + 100) {
                     this.active = false;
                 }
-                
                 if (this.lifeTime > 2.0) {
                     this.active = false;
                 }
@@ -269,7 +267,6 @@
                 this.score = template.score * stage;
                 
                 this.freezeTimer = 0;
-                // 新增：Boss彈幕射擊冷卻器，稍微隨機化初始時間
                 this.fireTimer = 2.0 + Math.random(); 
                 this.spawnId = Math.random().toString(36).substring(2, 10);
             }
@@ -278,27 +275,23 @@
                     this.freezeTimer -= dt;
                     return; 
                 }
-
                 let angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
                 this.x += Math.cos(angle) * this.speed * dt;
                 this.y += Math.sin(angle) * this.speed * dt;
 
-                // 新增：Boss 射擊邏輯
                 if (this.isBoss) {
                     this.fireTimer -= dt;
                     if (this.fireTimer <= 0) {
-                        this.fireTimer = 2.5; // 每 2.5 秒發射一次彈幕
+                        this.fireTimer = 2.5; 
                         this.bossShoot(game);
                     }
                 }
             }
             bossShoot(game) {
-                // 產生扇形彈幕
-                let bulletCount = 5 + Math.floor(Math.random() * 4); // 5~8顆隨機數量子彈
+                let bulletCount = 5 + Math.floor(Math.random() * 4); 
                 let spread = 0.35;
                 let baseAngle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
 
-                // 完全隨機化外觀與物理屬性
                 let shapes = GAME_DATA.bulletShapes;
                 let randomShape = shapes[Math.floor(Math.random() * shapes.length)];
                 let randomSize = 8 * (0.8 + Math.random() * 1.5);
@@ -314,9 +307,9 @@
                         color: randomColor, 
                         size: randomSize,
                         path: 'straight',
-                        damage: 20 + game.stageManager.stage * 5, // 傷害隨關卡提升
+                        damage: 20 + game.stageManager.stage * 5,
                         shape: randomShape
-                    }, false); // isPlayer = false 表示這是敵方的子彈
+                    }, false);
                 }
             }
             takeDamage(amt, game) {
@@ -328,7 +321,6 @@
                     game.player.addExp(this.score, game);
                     game.stageManager.onEnemyKilled(this.isBoss, game);
                     game.spawnParticles(this.x, this.y, this.color, this.isBoss ? 50 : 15);
-                    
                     if (Math.random() < 0.12) {
                         game.triggerRandomBuff(this.x, this.y);
                     }
@@ -349,7 +341,6 @@
                     ctx.fill();
                     ctx.restore();
                 }
-
                 if (this.isBoss) {
                     ctx.save();
                     ctx.fillStyle = 'rgba(255,0,0,0.5)';
@@ -372,6 +363,7 @@
                 this.template = template;
                 this.emoji = template.emoji;
                 this.lifeTime = template.life;
+                this.radius = 15; // Set an explicit collision radius for allies
                 this.timer = 0;
             }
             update(dt, game) {
@@ -389,7 +381,7 @@
                         let angle = Math.atan2(target.y - this.y, target.x - this.x);
                         this.x += Math.cos(angle) * this.template.speed * dt;
                         this.y += Math.sin(angle) * this.template.speed * dt;
-                        if (Math.hypot(target.x - this.x, target.y - this.y) < target.radius + 15) {
+                        if (Math.hypot(target.x - this.x, target.y - this.y) < target.radius + this.radius) {
                             if (this.timer > 0.5) {
                                 target.takeDamage(20 + game.stageManager.stage * 5, game);
                                 this.timer = 0;
@@ -456,14 +448,20 @@
                 this.targetX = this.x;
                 this.targetY = this.y;
                 this.radius = 20;
-                this.iFrame = 0; // 新增：無敵時間，防止連續受傷
+                this.iFrame = 0; 
                 
                 this.maxHp = 100;
                 this.hp = this.maxHp;
                 this.level = 1;
                 this.exp = 0;
                 this.maxExp = 100;
+                this.rebornCount = 0;
 
+                this.resetWand();
+                this.resetBuffs();
+            }
+
+            resetWand() {
                 this.wand = {
                     color: '#33FFFF',
                     size: 6,
@@ -475,14 +473,17 @@
                     fireTimer: 0,
                     chain: 0
                 };
-                
+                this.currentShape = 'circle';
+            }
+
+            resetBuffs() {
                 this.buffs = {
                     multi: 0, giant: 0, homing: 0, frenzy: 0,
                     shapeTimer: 0, pierce: 0, split: 0, lifesteal: 0,
                     freeze: 0, explosion: 0, chaos: 0
                 };
-                this.currentShape = 'circle';
             }
+
             update(dt, game) {
                 this.x += (this.targetX - this.x) * 10 * dt;
                 this.y += (this.targetY - this.y) * 10 * dt;
@@ -490,7 +491,6 @@
                 this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
                 this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
 
-                // 更新受傷無敵時間
                 if (this.iFrame > 0) this.iFrame -= dt;
 
                 for (let k in this.buffs) {
@@ -530,7 +530,6 @@
                     
                     let dx = Math.cos(angle) * finalSpeed;
                     let dy = Math.sin(angle) * finalSpeed;
-                    
                     let color = isRainbow ? GAME_DATA.wandColors[Math.floor(Math.random() * GAME_DATA.wandColors.length)] : this.wand.color;
                     
                     game.spawnBullet(this.x, this.y - 20, dx, dy, {
@@ -578,20 +577,28 @@
             takeDamage(amt, game) {
                 this.hp -= amt;
                 if (this.hp <= 0) {
+                    // Death Penalty: Keep Level, Reset Wand, Auto-reallocate points
+                    this.rebornCount++;
                     this.hp = this.maxHp;
                     this.exp = 0;
                     game.stageManager.stage = Math.max(1, game.stageManager.stage - 1);
-                    game.spawnFloatingText("DEATH PENALTY!", this.x, this.y - 30, '#ff0000', 22);
-                    game.spawnParticles(this.x, this.y, '#ff0000', 5);
+                    
+                    game.spawnFloatingText("REBORN!", this.x, this.y - 30, '#ff0000', 26);
+                    game.spawnParticles(this.x, this.y, '#ff0000', 20);
+                    
+                    this.resetWand();
+                    
+                    // Re-allocate skills silently based on current level
+                    for(let i = 1; i < this.level; i++) {
+                        this.evolveWand(); 
+                    }
                 }
             }
             draw(ctx) {
                 ctx.save();
-                // 如果在無敵時間內，產生閃爍效果
                 if (this.iFrame > 0 && Math.floor(this.iFrame * 15) % 2 === 0) {
                     ctx.globalAlpha = 0.5;
                 }
-
                 ctx.font = `${this.radius * 2}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -875,23 +882,77 @@
                     }
                 }
 
-                // Enemies Update & Player Collision
+                // Physics & Collisions
                 for (let i = this.enemies.length - 1; i >= 0; i--) {
                     let e = this.enemies[i];
                     e.update(dt, this);
                     
-                    // 處理玩家與怪物本體的碰撞傷害
-                    let dx = this.player.x - e.x;
-                    let dy = this.player.y - e.y;
-                    let dist = Math.hypot(dx, dy);
-                    if (dist < this.player.radius + e.radius) {
+                    // Enemy vs Enemy (prevent stacking)
+                    for (let j = i - 1; j >= 0; j--) {
+                        let e2 = this.enemies[j];
+                        let dx = e.x - e2.x;
+                        let dy = e.y - e2.y;
+                        let dist = Math.hypot(dx, dy) || 1;
+                        let overlap = (e.radius + e2.radius) - dist;
+                        if (overlap > 0) {
+                            let nx = dx / dist;
+                            let ny = dy / dist;
+                            e.x += nx * overlap * 0.5;
+                            e.y += ny * overlap * 0.5;
+                            e2.x -= nx * overlap * 0.5;
+                            e2.y -= ny * overlap * 0.5;
+                        }
+                    }
+
+                    // Player vs Enemy (Damage + Bounce)
+                    let pDx = this.player.x - e.x;
+                    let pDy = this.player.y - e.y;
+                    let pDist = Math.hypot(pDx, pDy) || 1;
+                    let pOverlap = (this.player.radius + e.radius) - pDist;
+                    
+                    if (pOverlap > 0) {
                         if (this.player.iFrame <= 0) {
                             this.player.takeDamage(e.isBoss ? 40 : 15, this);
-                            this.player.iFrame = 0.5; // 給予 0.5 秒無敵時間，避免瞬間暴斃
+                            this.player.iFrame = 0.5; 
                         }
-                        // 稍微推開怪物，避免模型重疊黏死
-                        e.x -= dx * 0.05;
-                        e.y -= dy * 0.05;
+                        // Bounce resolution
+                        let nx = pDx / pDist;
+                        let ny = pDy / pDist;
+                        
+                        // Push player away strongly (update target to stop instant snapping)
+                        this.player.targetX += nx * pOverlap * 3;
+                        this.player.targetY += ny * pOverlap * 3;
+                        this.player.x += nx * pOverlap * 1.5;
+                        this.player.y += ny * pOverlap * 1.5;
+                        
+                        // Push enemy slightly
+                        e.x -= nx * pOverlap * 0.5;
+                        e.y -= ny * pOverlap * 0.5;
+                    }
+
+                    // Ally vs Enemy
+                    for (let a of this.allies) {
+                        let aDx = a.x - e.x;
+                        let aDy = a.y - e.y;
+                        let aDist = Math.hypot(aDx, aDy) || 1;
+                        let aOverlap = (a.radius + e.radius) - aDist;
+                        
+                        if (aOverlap > 0) {
+                            let nx = aDx / aDist;
+                            let ny = aDy / aDist;
+                            
+                            if (a.template.type === 'warrior') {
+                                // Warrior is heavy: push enemy back only
+                                e.x -= nx * aOverlap;
+                                e.y -= ny * aOverlap;
+                            } else {
+                                // Normal bounce
+                                a.x += nx * aOverlap * 0.5;
+                                a.y += ny * aOverlap * 0.5;
+                                e.x -= nx * aOverlap * 0.5;
+                                e.y -= ny * aOverlap * 0.5;
+                            }
+                        }
                     }
 
                     if (!e.active) {
@@ -984,9 +1045,7 @@
                                 }
                             }
                         } else {
-                            // 處理敵方子彈擊中玩家
                             if (Math.hypot(b.x - this.player.x, b.y - this.player.y) < b.size + this.player.radius - 5) {
-                                // 加入無敵時間判斷，讓受到子彈攻擊也一致
                                 if (this.player.iFrame <= 0) {
                                     this.player.takeDamage(b.damage, this);
                                     this.player.iFrame = 0.5;
@@ -1083,7 +1142,7 @@
                     
                     ctx.font = '16px "Inter", sans-serif';
                     ctx.fillStyle = '#FFD700';
-                    ctx.fillText(`Level ${this.player.level} • Stage ${this.stageManager.stage}`, canvas.width/2, canvas.height/2 + 50);
+                    ctx.fillText(`Level ${this.player.level} • Stage ${this.stageManager.stage} • Reborn ${this.player.rebornCount}`, canvas.width/2, canvas.height/2 + 50);
                     
                     ctx.fillStyle = '#ffffff';
                     ctx.fillText("Touch to resume control", canvas.width/2, canvas.height - 50);
