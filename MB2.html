@@ -14,7 +14,7 @@
             color: white;
             font-family: 'MedievalSharp', cursive;
             overflow: hidden;
-            touch-action: none; /* Prevent scroll on touch devices */
+            touch-action: none;
             user-select: none;
             -webkit-user-select: none;
         }
@@ -27,7 +27,6 @@
         canvas {
             background-color: #050510;
             box-shadow: 0 0 30px rgba(100, 0, 255, 0.2);
-            /* Constrain width on desktop to maintain portrait ratio */
             max-width: 600px;
             width: 100%;
             height: 100%;
@@ -58,6 +57,7 @@
                 weak: { hp: 10, speed: 80, radius: 15, score: 10, color: '#ff4444', type: 'minion', rate: 0.5 },
                 fast: { hp: 5, speed: 180, radius: 12, score: 15, color: '#4444ff', type: 'fast', rate: 0.3 },
                 tank: { hp: 50, speed: 40, radius: 25, score: 25, color: '#44ff44', type: 'tank', rate: 0.2 },
+                // 依據要求，Boss 基礎血量設定回 600
                 boss: { hp: 600, speed: 20, radius: 65, score: 500, color: '#ff00ff', type: 'boss', rate: 0 }
             },
             wandPaths: ['straight', 'curve', 'laser', 'homing'],
@@ -250,7 +250,7 @@
 
         class Enemy {
             constructor() { this.active = false; }
-            init(template, x, y, emoji, stage) {
+            init(template, x, y, emoji, stage, bossLevel = 1) {
                 this.active = true;
                 this.x = x; this.y = y;
                 this.template = template;
@@ -259,7 +259,8 @@
                 this.color = template.color;
                 this.isBoss = template.type === 'boss';
                 
-                let multiplier = this.isBoss ? Math.pow(1.5, stage - 1) : Math.pow(1.2, stage - 1);
+                // 【難度分離機制】：小怪強度看 stage，Boss 強度看 bossLevel
+                let multiplier = this.isBoss ? Math.pow(1.5, bossLevel - 1) : Math.pow(1.2, stage - 1);
                 this.maxHp = template.hp * multiplier;
                 this.hp = this.maxHp;
                 this.speed = template.speed * (1 + (stage * 0.05));
@@ -291,7 +292,6 @@
                 if (this.isBoss) {
                     // Boss State Machine AI
                     if (this.bossState === 'entering') {
-                        // 【關鍵修復】：讓 Boss 用極快的速度進場，避免還在畫面外慢速移動時就被玩家秒殺
                         this.y += 300 * dt; 
                         if (this.y >= canvas.height * 0.25) {
                             this.bossState = 'strafing';
@@ -360,7 +360,6 @@
                 }
             }
             bossShoot(game) {
-                // Boss 扇形隨機變異彈幕
                 let bulletCount = 7 + Math.floor(Math.random() * 6); 
                 let spread = 0.35;
                 let baseAngle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
@@ -386,7 +385,6 @@
                 }
             }
             takeDamage(amt, game) {
-                // 【關鍵修復】：Boss 進場期間獲得無敵，避免因血量較少且移動慢，還沒進場就被高等玩家秒殺
                 if (this.isBoss && this.bossState === 'entering') {
                     if (Math.random() < 0.1) game.spawnFloatingText("IMMUNE", this.x, this.y - this.radius, '#aaaaaa', 14);
                     return; 
@@ -428,13 +426,11 @@
                     ctx.restore();
                 }
 
-                // 畫出 Emoji 主體
                 ctx.font = `${this.radius * 2}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(this.emoji, this.x, this.y);
                 
-                // 冰凍特效
                 if (this.freezeTimer > 0 && !this.isBoss) {
                     ctx.save();
                     ctx.fillStyle = 'rgba(100, 200, 255, 0.4)';
@@ -444,7 +440,6 @@
                     ctx.restore();
                 }
                 
-                // Boss 血條
                 if (this.isBoss) {
                     ctx.save();
                     ctx.fillStyle = 'rgba(255,0,0,0.5)';
@@ -617,7 +612,6 @@
                 let currentPath = this.buffs.homing > 0 ? 'homing' : this.wand.path;
                 let isRainbow = this.buffs.giant > 0 || this.buffs.frenzy > 0 || this.buffs.multi > 0 || this.buffs.homing > 0 || this.buffs.chaos > 0;
                 
-                // Damage modifiers: Base + (Level - 1) * HP Missing Multiplier * Reborn Multiplier
                 let missingHpPercent = 1.0 - (Math.max(0, this.hp) / this.maxHp);
                 let hpMultiplier = 1.0 + missingHpPercent; 
                 let rebornMultiplier = this.buffs.rebornPower > 0 ? 2.0 : 1.0;
@@ -690,7 +684,6 @@
                 if (this.hp <= 0) {
                     this.rebornCount++;
                     this.hp = this.maxHp;
-                    // No longer resetting EXP to 0 based on new rules
                     
                     game.spawnFloatingText("REBORN!", this.x, this.y - 30, '#ff0000', 26);
                     game.spawnParticles(this.x, this.y, '#ff0000', 20);
@@ -698,7 +691,6 @@
                     this.resetWand();
                     this.resetBuffs(); 
                     
-                    // Add Reborn specific Buffs
                     this.buffs.shield = 5.0;
                     this.buffs.rebornPower = 5.0;
                     game.spawnFloatingText("SHIELD & 2x DMG!", this.x, this.y - 60, '#FFD700', 20);
@@ -714,7 +706,6 @@
                     ctx.globalAlpha = 0.5;
                 }
                 
-                // Draw Golden Shield
                 if (this.buffs.shield > 0) {
                     ctx.save();
                     ctx.strokeStyle = '#FFD700'; 
@@ -728,7 +719,6 @@
                     ctx.restore();
                 }
 
-                // Draw Reborn 2x Power Aura
                 if (this.buffs.rebornPower > 0) {
                     ctx.save();
                     ctx.fillStyle = 'rgba(255, 0, 0, 0.4)';
@@ -759,10 +749,12 @@
         class StageManager {
             constructor() {
                 this.stage = 1;
+                this.bossLevel = 1; // 獨立計算 Boss 難度階級
                 this.enemySpawnTimer = 0;
                 this.allySpawnTimer = 10;
                 this.bossActive = false;
                 this.enemiesKilled = 0;
+                this.bossFightTimer = 0; // 記錄與 Boss 戰鬥的時間
             }
             update(dt, game) {
                 this.allySpawnTimer -= dt;
@@ -771,7 +763,14 @@
                     this.allySpawnTimer = 15 + Math.random() * 15; 
                 }
 
-                if (this.bossActive) return;
+                // 處理 Boss 戰鬥時間邏輯 (3 分鐘限制)
+                if (this.bossActive) {
+                    this.bossFightTimer += dt;
+                    if (this.bossFightTimer >= 180) { // 3 分鐘 = 180 秒
+                        this.bossTimeout(game);
+                    }
+                    return; // 戰鬥中不生成新小怪
+                }
                 
                 this.enemySpawnTimer -= dt;
                 if (this.enemySpawnTimer <= 0) {
@@ -779,7 +778,6 @@
                     this.enemySpawnTimer = Math.max(0.3, 1.5 - this.stage * 0.08); 
                 }
                 
-                // Requirement for boss greatly increased by stage level (boss spawns later)
                 if (this.enemiesKilled >= 10 + this.stage * 20) {
                     this.spawnBoss(game);
                 }
@@ -794,7 +792,7 @@
                 let enemy = game.enemyPool.get();
                 let x = Math.random() * (canvas.width - 40) + 20;
                 let emoji = GAME_DATA.emojis.entities[Math.floor(Math.random() * GAME_DATA.emojis.entities.length)];
-                enemy.init(template, x, -30, emoji, this.stage);
+                enemy.init(template, x, -30, emoji, this.stage, this.bossLevel);
                 game.enemies.push(enemy);
             }
             spawnAlly(game) {
@@ -807,17 +805,40 @@
             }
             spawnBoss(game) {
                 this.bossActive = true;
+                this.bossFightTimer = 0; // 重置戰鬥計時器
                 game.changeEnvironment('boss');
                 let enemy = game.enemyPool.get();
                 let x = canvas.width / 2;
                 let emoji = GAME_DATA.emojis.entities[Math.floor(Math.random() * GAME_DATA.emojis.entities.length)];
-                enemy.init(GAME_DATA.enemies.boss, x, -50, emoji, this.stage);
+                // 傳入 bossLevel 設定強度
+                enemy.init(GAME_DATA.enemies.boss, x, -50, emoji, this.stage, this.bossLevel);
                 game.enemies.push(enemy);
+            }
+            bossTimeout(game) {
+                // 時間到，Boss 傳送逃脫
+                this.bossActive = false;
+                this.bossFightTimer = 0;
+                this.stage++; // 關卡推進
+                // 注意：bossLevel 沒有增加
+                this.enemiesKilled = 0;
+                game.changeEnvironment('normal');
+                
+                // 讓 Boss 消失並產生傳送特效
+                for (let i = game.enemies.length - 1; i >= 0; i--) {
+                    if (game.enemies[i].isBoss) {
+                        game.enemies[i].active = false;
+                        game.spawnParticles(game.enemies[i].x, game.enemies[i].y, '#00ffff', 50);
+                    }
+                }
+                
+                game.spawnFloatingText("TIME OUT! PORTAL OPENED!", canvas.width/2, canvas.height/2, '#00ffff', 26);
             }
             onEnemyKilled(isBoss, game) {
                 if (isBoss) {
                     this.bossActive = false;
+                    this.bossFightTimer = 0;
                     this.stage++;
+                    this.bossLevel++; // 只有成功擊殺，Boss 等級才會提升
                     this.enemiesKilled = 0;
                     game.changeEnvironment('normal');
                     game.player.hp = game.player.maxHp;
@@ -859,7 +880,6 @@
                 this.isIdle = false;
                 this.noKillTimer = 0; 
 
-                // Low-pass filter targets for idle movement
                 this.idleTargetX = canvas.width / 2;
                 this.idleTargetY = canvas.height - 150;
 
@@ -894,11 +914,9 @@
                     this.dragStartX = pos.x;
                     this.dragStartY = pos.y;
                     
-                    // Stop target exactly at current physics location so character doesn't jump
                     this.player.targetX = this.player.x;
                     this.player.targetY = this.player.y;
                     
-                    // Record the base point for this drag sequence
                     this.charDragStartX = this.player.targetX;
                     this.charDragStartY = this.player.targetY;
                     this.lastInteractionTime = Date.now();
@@ -908,15 +926,12 @@
                     if (!this.isDragging) return;
                     let pos = getPointerPos(e);
                     
-                    // Calculate pixel displacement from the initial touch point
                     let dx = pos.x - this.dragStartX;
                     let dy = pos.y - this.dragStartY;
                     
-                    // Apply relative displacement (x1.5 sensitivity for better phone feel)
                     let newTargetX = this.charDragStartX + dx * 1.5;
                     let newTargetY = this.charDragStartY + dy * 1.5;
                     
-                    // Clamp to canvas to prevent target escaping screen boundaries
                     this.player.targetX = Math.max(this.player.radius, Math.min(canvas.width - this.player.radius, newTargetX));
                     this.player.targetY = Math.max(this.player.radius, Math.min(canvas.height - this.player.radius, newTargetY));
                     
@@ -928,18 +943,15 @@
                     this.lastInteractionTime = Date.now();
                 };
 
-                // Desktop Mouse bindings
                 canvas.addEventListener('mousedown', pointerDown);
                 window.addEventListener('mousemove', pointerMove);
                 window.addEventListener('mouseup', pointerUp);
 
-                // Mobile Touch bindings
                 canvas.addEventListener('touchstart', (e) => { e.preventDefault(); pointerDown(e); }, { passive: false });
                 window.addEventListener('touchmove', (e) => { if (this.isDragging) e.preventDefault(); pointerMove(e); }, { passive: false });
                 window.addEventListener('touchend', pointerUp);
                 window.addEventListener('touchcancel', pointerUp);
                 
-                // Keyboard Fallback
                 window.addEventListener('keydown', (e) => {
                     if (this.keys.hasOwnProperty(e.key)) {
                         this.keys[e.key] = true;
@@ -1041,7 +1053,6 @@
             }
 
             update(dt) {
-                // Keep game active if user is holding the mouse down
                 if (this.isDragging) {
                     this.lastInteractionTime = Date.now();
                 }
@@ -1059,7 +1070,6 @@
                     
                     let evX = 0, evY = 0;
                     
-                    // Repulsion from bullets
                     for (let b of this.bullets) {
                         if (b.active && !b.isPlayer) {
                             let dist = Math.hypot(b.x - this.player.x, b.y - this.player.y);
@@ -1072,7 +1082,6 @@
                         }
                     }
 
-                    // Repulsion from enemies/bosses
                     for (let e of this.enemies) {
                         if (e.isBoss) {
                             if (e.bossState === 'warning' || e.bossState === 'dashing' || e.bossState === 'returning') {
@@ -1110,7 +1119,6 @@
                         }
                     }
 
-                    // Apply low-pass filter to the evasion target to prevent jittering
                     let rawTargetX = desiredBaseX + evX;
                     let rawTargetY = desiredBaseY + evY;
                     
@@ -1163,7 +1171,6 @@
                     let e = this.enemies[i];
                     e.update(dt, this);
                     
-                    // Enemy vs Enemy Collision
                     for (let j = i - 1; j >= 0; j--) {
                         let e2 = this.enemies[j];
                         let dx = e.x - e2.x;
@@ -1186,7 +1193,6 @@
                         }
                     }
 
-                    // Player vs Enemy Collision
                     let pDx = this.player.x - e.x;
                     let pDy = this.player.y - e.y;
                     let pDist = Math.hypot(pDx, pDy) || 1;
@@ -1195,7 +1201,6 @@
                     if (pOverlap > 0) {
                         if (this.player.iFrame <= 0) {
                             if (this.player.buffs.shield > 0) {
-                                // Shield block
                                 this.player.iFrame = 0.5; 
                                 this.spawnFloatingText("BLOCKED!", this.player.x, this.player.y - 30, '#FFD700', 16);
                             } else {
@@ -1223,7 +1228,6 @@
                         }
                     }
 
-                    // Ally vs Enemy Collision
                     for (let a of this.allies) {
                         let aDx = a.x - e.x;
                         let aDy = a.y - e.y;
@@ -1424,6 +1428,19 @@
                 ctx.textAlign = 'right';
                 ctx.fillText(`Stage ${this.stageManager.stage}`, canvas.width - 15, 55);
 
+                // Boss 戰鬥倒數計時介面
+                if (this.stageManager.bossActive) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.fillRect(canvas.width/2 - 80, 70, 160, 25);
+                    ctx.fillStyle = '#00ffff';
+                    ctx.font = '14px "Inter", sans-serif';
+                    ctx.textAlign = 'center';
+                    let timeLeft = Math.max(0, 180 - this.stageManager.bossFightTimer);
+                    let m = Math.floor(timeLeft / 60);
+                    let s = Math.floor(timeLeft % 60).toString().padStart(2, '0');
+                    ctx.fillText(`Portal Opens: ${m}:${s}`, canvas.width/2, 87);
+                }
+
                 if (this.isIdle) {
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1441,7 +1458,7 @@
                     
                     ctx.font = '16px "Inter", sans-serif';
                     ctx.fillStyle = '#FFD700';
-                    ctx.fillText(`Level ${this.player.level} • Stage ${this.stageManager.stage} • Reborn ${this.player.rebornCount}`, canvas.width/2, canvas.height/2 + 50);
+                    ctx.fillText(`Level ${this.player.level} • Stage ${this.stageManager.stage} • Boss Lv.${this.stageManager.bossLevel} • Reborn ${this.player.rebornCount}`, canvas.width/2, canvas.height/2 + 50);
                     
                     ctx.fillStyle = '#ffffff';
                     ctx.fillText("Touch & drag anywhere to resume", canvas.width/2, canvas.height - 50);
