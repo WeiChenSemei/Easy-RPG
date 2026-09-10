@@ -686,10 +686,12 @@
                     { desc: "Speed UP", fn: () => this.wand.speed = Math.min(this.wand.speed * 1.2, 1200) },
                     { desc: "Path Mutated", fn: () => this.wand.path = GAME_DATA.wandPaths[Math.floor(Math.random() * GAME_DATA.wandPaths.length)] },
                     { desc: "Chain +1", fn: () => this.wand.chain++ },
-                    { desc: "Base Damage UP", fn: () => this.wand.damage *= 1.4 },
-                    { desc: "Crit Rate +5%", fn: () => this.critRate = Math.min(this.critRate + 0.05, 1.0) },
+                    { desc: "Base Damage UP", fn: () => this.wand.damage *= 1.2 },
                     { desc: "Crit DMG +20%", fn: () => this.critDamage += 0.2 }
                 ];
+                if (this.critRate < 0.5) {
+                    choices.push({ desc: "Crit Rate +2%", fn: () => this.critRate = Math.min(this.critRate + 0.02, 0.5) });
+                }
                 let choice = choices[Math.floor(Math.random() * choices.length)];
                 choice.fn();
                 return choice.desc;
@@ -698,12 +700,14 @@
                 this.hp -= amt;
                 if (this.hp <= 0) {
                     this.rebornCount++;
-                    
-                    // Prestige (轉生) 永久獎勵
                     this.baseMaxHp += 10;
                     this.maxHp = this.baseMaxHp;
                     this.hp = this.maxHp;
-                    
+                    game.stageManager.stage = 1;           
+                    game.stageManager.bossLevel = 1;     
+                    game.stageManager.enemiesKilled = 0;  
+                    game.stageManager.bossActive = false;  
+                    game.changeEnvironment('normal');
                     game.spawnFloatingText("REBORN!", this.x, this.y - 30, '#ff0000', 26);
                     game.spawnParticles(this.x, this.y, '#ff0000', 20);
                     
