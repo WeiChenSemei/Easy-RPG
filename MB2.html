@@ -57,7 +57,6 @@
                 weak: { hp: 10, speed: 80, radius: 15, score: 10, color: '#ff4444', type: 'minion', rate: 0.5 },
                 fast: { hp: 5, speed: 180, radius: 12, score: 15, color: '#4444ff', type: 'fast', rate: 0.3 },
                 tank: { hp: 50, speed: 40, radius: 25, score: 25, color: '#44ff44', type: 'tank', rate: 0.2 },
-                // 依據要求，Boss 基礎血量設定回 600
                 boss: { hp: 600, speed: 20, radius: 65, score: 500, color: '#ff00ff', type: 'boss', rate: 0 }
             },
             wandPaths: ['straight', 'curve', 'laser', 'homing'],
@@ -105,6 +104,7 @@
                 this.chainCount = 0;
                 this.hasSplit = false;
                 this.laserTick = 0;
+                this.isCrit = false; // 新增暴擊標記
 
                 Object.assign(this, props);
             }
@@ -259,7 +259,6 @@
                 this.color = template.color;
                 this.isBoss = template.type === 'boss';
                 
-                // 【難度分離機制】：小怪強度看 stage，Boss 強度看 bossLevel
                 let multiplier = this.isBoss ? Math.pow(1.5, bossLevel - 1) : Math.pow(1.2, stage - 1);
                 this.maxHp = template.hp * multiplier;
                 this.hp = this.maxHp;
@@ -290,7 +289,6 @@
                 }
 
                 if (this.isBoss) {
-                    // Boss State Machine AI
                     if (this.bossState === 'entering') {
                         this.y += 300 * dt; 
                         if (this.y >= canvas.height * 0.25) {
@@ -317,11 +315,10 @@
                         this.fireTimer -= dt;
                         if (this.fireTimer <= 0) {
                             this.fireTimer = 2.5; 
-                            this.bossShoot(game); // 發射隨機屬性彈幕
+                            this.bossShoot(game); 
                         }
                     } else if (this.bossState === 'warning') {
                         if (this.bossTimer > 0.6) {
-                            // Track player for the first half of warning
                             this.dashAngle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
                         }
                         this.bossTimer -= dt;
@@ -347,7 +344,7 @@
                             this.x = this.dashStartX;
                             this.y = this.dashStartY;
                             this.bossState = 'strafing';
-                            this.bossDashCooldown = 4.0 + Math.random() * 3.0; // Randomize next dash
+                            this.bossDashCooldown = 4.0 + Math.random() * 3.0; 
                         } else {
                             this.x += (dx / dist) * retSpeed * dt;
                             this.y += (dy / dist) * retSpeed * dt;
@@ -384,14 +381,17 @@
                     }, false);
                 }
             }
-            takeDamage(amt, game) {
+            takeDamage(amt, game, isCrit = false) {
                 if (this.isBoss && this.bossState === 'entering') {
                     if (Math.random() < 0.1) game.spawnFloatingText("IMMUNE", this.x, this.y - this.radius, '#aaaaaa', 14);
                     return; 
                 }
 
                 this.hp -= amt;
-                game.spawnFloatingText(Math.floor(amt).toString(), this.x, this.y - this.radius, '#ffffff', 14);
+                let dmgColor = isCrit ? '#ffaa00' : '#ffffff';
+                let dmgSize = isCrit ? 20 : 14;
+                let dmgPrefix = isCrit ? "CRIT " : "";
+                game.spawnFloatingText(dmgPrefix + Math.floor(amt).toString(), this.x, this.y - this.radius, dmgColor, dmgSize);
                 
                 if (this.hp <= 0 && this.active) {
                     this.active = false;
@@ -550,15 +550,17 @@
                 this.radius = 20;
                 this.iFrame = 0; 
                 
-                this.maxHp = 100;
+                this.baseMaxHp = 100; // Prestige Base HP
+                this.maxHp = this.baseMaxHp;
                 this.hp = this.maxHp;
                 this.level = 1;
                 this.exp = 0;
                 this.maxExp = 100;
                 this.rebornCount = 0;
-
+                
                 this.resetWand();
                 this.resetBuffs();
+                this.resetCrit();
             }
 
             resetWand() {
@@ -582,6 +584,11 @@
                     shapeTimer: 0, pierce: 0, split: 0, lifesteal: 0,
                     freeze: 0, explosion: 0, chaos: 0, shield: 0, rebornPower: 0
                 };
+            }
+            
+            resetCrit() {
+                this.critRate = 0.05; // 5% 初始暴擊率
+                this.critDamage = 1.5; // 150% 初始暴擊傷害
             }
 
             update(dt, game) {
@@ -615,7 +622,9 @@
                 let missingHpPercent = 1.0 - (Math.max(0, this.hp) / this.maxHp);
                 let hpMultiplier = 1.0 + missingHpPercent; 
                 let rebornMultiplier = this.buffs.rebornPower > 0 ? 2.0 : 1.0;
-                let finalDamage = (this.wand.damage + (this.level - 1)) * hpMultiplier * rebornMultiplier;
+                let prestigeMultiplier = 1.0 + (this.rebornCount * 0.05); // 每轉生一次 +5% 傷害
+                
+                let baseDamage = (this.wand.damage + (this.level - 1)) * hpMultiplier * rebornMultiplier * prestigeMultiplier;
                 
                 for(let i=0; i<currentCount; i++) {
                     let angle = -Math.PI/2;
@@ -637,6 +646,9 @@
                     let dy = Math.sin(angle) * finalSpeed;
                     let color = isRainbow ? GAME_DATA.wandColors[Math.floor(Math.random() * GAME_DATA.wandColors.length)] : this.wand.color;
                     
+                    let isCrit = Math.random() < this.critRate;
+                    let finalDamage = isCrit ? baseDamage * this.critDamage : baseDamage;
+                    
                     game.spawnBullet(this.x, this.y - 20, dx, dy, {
                         color: color,
                         size: finalSize,
@@ -648,7 +660,8 @@
                         isLifesteal: this.buffs.lifesteal > 0,
                         isFreeze: this.buffs.freeze > 0,
                         isExplosion: this.buffs.explosion > 0,
-                        chainCount: this.wand.chain
+                        chainCount: this.wand.chain,
+                        isCrit: isCrit
                     }, true);
                 }
             }
@@ -657,7 +670,7 @@
                 if (this.exp >= this.maxExp) {
                     this.level++;
                     this.exp -= this.maxExp;
-                    this.maxExp = Math.floor(this.maxExp * 1.5);
+                    this.maxExp = Math.floor(this.maxExp * 1.25); // 調降升級曲線 (原本1.5)
                     this.hp = this.maxHp; 
                     
                     let mutation = this.evolveWand();
@@ -673,7 +686,9 @@
                     { desc: "Speed UP", fn: () => this.wand.speed = Math.min(this.wand.speed * 1.2, 1200) },
                     { desc: "Path Mutated", fn: () => this.wand.path = GAME_DATA.wandPaths[Math.floor(Math.random() * GAME_DATA.wandPaths.length)] },
                     { desc: "Chain +1", fn: () => this.wand.chain++ },
-                    { desc: "Base Damage UP", fn: () => this.wand.damage *= 1.4 }
+                    { desc: "Base Damage UP", fn: () => this.wand.damage *= 1.4 },
+                    { desc: "Crit Rate +5%", fn: () => this.critRate = Math.min(this.critRate + 0.05, 1.0) },
+                    { desc: "Crit DMG +20%", fn: () => this.critDamage += 0.2 }
                 ];
                 let choice = choices[Math.floor(Math.random() * choices.length)];
                 choice.fn();
@@ -683,6 +698,10 @@
                 this.hp -= amt;
                 if (this.hp <= 0) {
                     this.rebornCount++;
+                    
+                    // Prestige (轉生) 永久獎勵
+                    this.baseMaxHp += 10;
+                    this.maxHp = this.baseMaxHp;
                     this.hp = this.maxHp;
                     
                     game.spawnFloatingText("REBORN!", this.x, this.y - 30, '#ff0000', 26);
@@ -690,6 +709,7 @@
                     
                     this.resetWand();
                     this.resetBuffs(); 
+                    this.resetCrit();
                     
                     this.buffs.shield = 5.0;
                     this.buffs.rebornPower = 5.0;
@@ -749,12 +769,12 @@
         class StageManager {
             constructor() {
                 this.stage = 1;
-                this.bossLevel = 1; // 獨立計算 Boss 難度階級
+                this.bossLevel = 1; 
                 this.enemySpawnTimer = 0;
                 this.allySpawnTimer = 10;
                 this.bossActive = false;
                 this.enemiesKilled = 0;
-                this.bossFightTimer = 0; // 記錄與 Boss 戰鬥的時間
+                this.bossFightTimer = 0; 
             }
             update(dt, game) {
                 this.allySpawnTimer -= dt;
@@ -763,13 +783,12 @@
                     this.allySpawnTimer = 15 + Math.random() * 15; 
                 }
 
-                // 處理 Boss 戰鬥時間邏輯 (3 分鐘限制)
                 if (this.bossActive) {
                     this.bossFightTimer += dt;
-                    if (this.bossFightTimer >= 180) { // 3 分鐘 = 180 秒
+                    if (this.bossFightTimer >= 180) { 
                         this.bossTimeout(game);
                     }
-                    return; // 戰鬥中不生成新小怪
+                    return; 
                 }
                 
                 this.enemySpawnTimer -= dt;
@@ -805,25 +824,21 @@
             }
             spawnBoss(game) {
                 this.bossActive = true;
-                this.bossFightTimer = 0; // 重置戰鬥計時器
+                this.bossFightTimer = 0; 
                 game.changeEnvironment('boss');
                 let enemy = game.enemyPool.get();
                 let x = canvas.width / 2;
                 let emoji = GAME_DATA.emojis.entities[Math.floor(Math.random() * GAME_DATA.emojis.entities.length)];
-                // 傳入 bossLevel 設定強度
                 enemy.init(GAME_DATA.enemies.boss, x, -50, emoji, this.stage, this.bossLevel);
                 game.enemies.push(enemy);
             }
             bossTimeout(game) {
-                // 時間到，Boss 傳送逃脫
                 this.bossActive = false;
                 this.bossFightTimer = 0;
-                this.stage++; // 關卡推進
-                // 注意：bossLevel 沒有增加
+                this.stage++; 
                 this.enemiesKilled = 0;
                 game.changeEnvironment('normal');
                 
-                // 讓 Boss 消失並產生傳送特效
                 for (let i = game.enemies.length - 1; i >= 0; i--) {
                     if (game.enemies[i].isBoss) {
                         game.enemies[i].active = false;
@@ -838,7 +853,7 @@
                     this.bossActive = false;
                     this.bossFightTimer = 0;
                     this.stage++;
-                    this.bossLevel++; // 只有成功擊殺，Boss 等級才會提升
+                    this.bossLevel++; 
                     this.enemiesKilled = 0;
                     game.changeEnvironment('normal');
                     game.player.hp = game.player.maxHp;
@@ -1286,7 +1301,7 @@
 
                                 if (hit) {
                                     b.hitEnemies.add(e.spawnId);
-                                    e.takeDamage(b.damage, this);
+                                    e.takeDamage(b.damage, this, b.isCrit);
 
                                     if (b.isLifesteal) {
                                         let heal = b.damage / 10;
@@ -1302,7 +1317,7 @@
                                         this.spawnParticles(e.x, e.y, '#ff8800', 6);
                                         for (let other of this.enemies) {
                                             if (other !== e && Math.hypot(other.x - e.x, other.y - e.y) < 70) {
-                                                other.takeDamage(b.damage * 0.5, this);
+                                                other.takeDamage(other.maxHp * 0.05, this, false); // 爆炸傷害算最大生命值 5%
                                             }
                                         }
                                     }
@@ -1315,11 +1330,11 @@
                                         
                                         this.spawnBullet(b.x, b.y, Math.cos(angle - spreadAngle)*speed, Math.sin(angle - spreadAngle)*speed, {
                                             color: b.color, size: b.size*0.8, path: b.path, damage: b.damage*0.5, shape: b.shape, 
-                                            chainCount: b.chainCount, isPierce: b.isPierce, isLifesteal: b.isLifesteal, isFreeze: b.isFreeze, isExplosion: b.isExplosion
+                                            chainCount: b.chainCount, isPierce: b.isPierce, isLifesteal: b.isLifesteal, isFreeze: b.isFreeze, isExplosion: b.isExplosion, isCrit: b.isCrit
                                         }, true);
                                         this.spawnBullet(b.x, b.y, Math.cos(angle + spreadAngle)*speed, Math.sin(angle + spreadAngle)*speed, {
                                             color: b.color, size: b.size*0.8, path: b.path, damage: b.damage*0.5, shape: b.shape, 
-                                            chainCount: b.chainCount, isPierce: b.isPierce, isLifesteal: b.isLifesteal, isFreeze: b.isFreeze, isExplosion: b.isExplosion
+                                            chainCount: b.chainCount, isPierce: b.isPierce, isLifesteal: b.isLifesteal, isFreeze: b.isFreeze, isExplosion: b.isExplosion, isCrit: b.isCrit
                                         }, true);
                                     }
 
@@ -1428,7 +1443,6 @@
                 ctx.textAlign = 'right';
                 ctx.fillText(`Stage ${this.stageManager.stage}`, canvas.width - 15, 55);
 
-                // Boss 戰鬥倒數計時介面
                 if (this.stageManager.bossActive) {
                     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
                     ctx.fillRect(canvas.width/2 - 80, 70, 160, 25);
