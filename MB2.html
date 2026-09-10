@@ -561,6 +561,7 @@
                 this.resetWand();
                 this.resetBuffs();
                 this.resetCrit();
+                this.hasUsedLastStand = false;
             }
 
             resetWand() {
@@ -710,18 +711,14 @@
                     game.changeEnvironment('normal');
                     game.spawnFloatingText("REBORN!", this.x, this.y - 30, '#ff0000', 26);
                     game.spawnParticles(this.x, this.y, '#ff0000', 20);
-                    
-                    this.resetWand();
-                    this.resetBuffs(); 
-                    this.resetCrit();
-                    
-                    this.buffs.shield = 5.0;
-                    this.buffs.rebornPower = 5.0;
-                    game.spawnFloatingText("SHIELD & 2x DMG!", this.x, this.y - 60, '#FFD700', 20);
-                    
-                    for(let i = 1; i < this.level; i++) {
-                        this.evolveWand(); 
-                    }
+                    this.resetWand();this.resetBuffs(); this.resetCrit();
+                    this.level = 1;this.exp = 0;this.maxExp = 100;
+                    this.hasUsedLastStand = false;
+                } else if (this.hp <= this.maxHp * 0.2 && !this.hasUsedLastStand) {
+                    this.hasUsedLastStand = true;
+                    this.buffs.shield = 5.0;this.buffs.rebornPower = 5.0; 
+                    game.spawnFloatingText("LAST STAND!", this.x, this.y - 60, '#FFD700', 22);
+                    game.spawnParticles(this.x, this.y, '#FFD700', 20); 
                 }
             }
             draw(ctx) {
@@ -861,6 +858,7 @@
                     this.enemiesKilled = 0;
                     game.changeEnvironment('normal');
                     game.player.hp = game.player.maxHp;
+                    game.player.hasUsedLastStand = false;
                     game.spawnFloatingText("STAGE CLEARED!", canvas.width/2, canvas.height/2, '#00ff00', 30);
                 } else {
                     this.enemiesKilled++;
