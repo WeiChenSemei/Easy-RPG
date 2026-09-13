@@ -56,7 +56,7 @@
         
         /* 主角專屬強化特效 */
         .player-glow {
-            animation: heroGlow 2s infinite alternate, heroFloat 3s infinite ease-in-out;
+            //animation: heroGlow 2s infinite alternate, heroFloat 3s infinite ease-in-out;
             box-shadow: 0 0 15px rgba(59, 130, 246, 0.8), inset 0 0 10px rgba(96, 165, 250, 0.5);
             border: 2px solid #60a5fa !important;
             z-index: 35 !important;
@@ -399,7 +399,7 @@
                 }
             },
             rock: (target, cardEl) => { target.hp -= PlayerState.atk; if (target.hp <= 0) { Logger.add(`🪨 擊碎巨石。`, "text-slate-500"); GameEngine.removeCard(target.id); return true; } else { Logger.add(`⛏️ 敲擊巨石...`, "text-slate-500"); if (cardEl) { cardEl.classList.remove('card-shake'); void cardEl.offsetWidth; cardEl.classList.add('card-shake'); } return false; } },
-            chest_mimic: (target, cardEl) => { Logger.add(`👅 遭到寶箱怪突襲！`, "text-red-500 font-black"); target.type = 'monster'; target.trait = 'none'; target.icon = '👅'; target.hp = target.maxHp = 10 + GameState.floor * 5; target.atk = 2 + GameState.floor; PlayerState.takeDamage(target.atk); if (cardEl) { cardEl.classList.remove('card-enter', 'card-shake'); void cardEl.offsetWidth; cardEl.classList.add('mimic-anim'); } return false; },
+            chest_mimic: (target, cardEl) => { Logger.add(`👅 遭到寶箱怪突襲！`, "text-red-500 font-black"); target.type = 'monster'; target.trait = 'none'; target.icon = '👅'; target.hp = target.maxHp = 10 + GameState.floor * 5; target.atk = 2 + GameState.floor; target.needsFullRender = true; PlayerState.takeDamage(target.atk); if (cardEl) { cardEl.classList.remove('card-enter', 'card-shake'); void cardEl.offsetWidth; cardEl.classList.add('mimic-anim'); } return false; },
             chest: (target, cardEl) => { if (PlayerState.keys > 0) { PlayerState.keys--; PlayerState.gainExp(20 * GameState.floor); PlayerState.addArmor(15); PlayerState.atk += 2; Logger.add(`🎁 開啟寶箱！大豐收！`, "text-yellow-400 font-black"); GameEngine.removeCard(target.id); return true; } else { target.hp -= PlayerState.atk; if (target.hp <= 0) { PlayerState.gainExp(10); Logger.add(`💥 強行破壞寶箱，獲得少許經驗。`, "text-slate-400"); GameEngine.removeCard(target.id); return true; } else { Logger.add(`⛏️ 強行破壞寶箱中...`, "text-slate-500"); if (cardEl) { cardEl.classList.remove('card-shake'); void cardEl.offsetWidth; cardEl.classList.add('card-shake'); } return false; } } },
             key: (target) => { PlayerState.keys++; Logger.add(`🗝️ 獲得鑰匙！`, "text-yellow-300 font-bold"); GameEngine.removeCard(target.id); return true; },
             potion: (target) => { PlayerState.hp = Math.min(PlayerState.maxHp, PlayerState.hp + target.val); Logger.add(`🧪 恢復 <span class="text-green-400">${target.val}</span> 生命`, "text-green-300"); GameEngine.removeCard(target.id); return true; },
@@ -442,6 +442,7 @@
                         target.type = 'monster'; target.trait = 'none'; target.icon = '🧙‍♂️';
                         Logger.add(`😡 惹怒了商人！他決定給你點顏色瞧瞧！(缺50經驗)`, "text-red-500 font-bold");
                         PlayerState.takeDamage(target.atk);
+                        target.needsFullRender = true;
                         if (cardEl) { cardEl.classList.remove('card-shake'); void cardEl.offsetWidth; cardEl.classList.add('card-shake'); }
                         return false;
                     }
@@ -478,7 +479,7 @@
             }
         };
 
-        // 定義 UI 渲染模板映射
+        // STREAMING_CHUNK: 重新設計的 RENDER_MAP (加入識別用的 class)
         const RENDER_MAP = {
             monster: (c) => {
                 let r = { bg: c.hp / c.maxHp > 0.5 ? 'bg-red-900' : 'bg-red-950', border: 'border-red-500', badge: '' };
@@ -503,13 +504,15 @@
                     class: `${r.border} ${r.bg}`,
                     html: `
                         ${r.badge}
-                        <div class="text-4xl drop-shadow-md transition-all ${c.ghostShield ? 'opacity-50' : 'opacity-100'} ${c.trait==='boss' ? 'text-5xl' : ''}">${c.icon}</div>
-                        <div class="absolute -top-2 -left-2 bg-red-600 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md border border-red-800 shadow flex items-center">❤️${c.hp}</div>
-                        <div class="absolute -bottom-2 -right-2 bg-slate-700 text-yellow-400 text-[11px] font-bold px-1.5 py-0.5 rounded-md border border-slate-900 shadow flex items-center">⚔️${c.atk}</div>`
+                        <!-- 加入 icon-container 方便未來改透明度 -->
+                        <div class="icon-container text-4xl drop-shadow-md transition-all ${c.ghostShield ? 'opacity-50' : 'opacity-100'} ${c.trait==='boss' ? 'text-5xl' : ''}">${c.icon}</div>
+                        <!-- 【關鍵修改】：加入 hp-text 與 atk-text 的 class 以便 JS 精準抓取 -->
+                        <div class="hp-text absolute -top-2 -left-2 bg-red-600 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md border border-red-800 shadow flex items-center">❤️${c.hp}</div>
+                        <div class="atk-text absolute -bottom-2 -right-2 bg-slate-700 text-yellow-400 text-[11px] font-bold px-1.5 py-0.5 rounded-md border border-slate-900 shadow flex items-center">⚔️${c.atk}</div>`
                 };
             },
-            rock: (c) => ({ class: `border-slate-600 bg-slate-700`, html: `<div class="text-4xl drop-shadow-md grayscale">${c.icon}</div><div class="absolute -top-2 -left-2 bg-slate-500 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md border border-slate-800 shadow">❤️${c.hp}</div>` }),
-            chest: (c) => ({ class: `border-yellow-600 bg-yellow-900`, html: `${c.hp < c.maxHp ? `<div class="absolute -top-2 -left-2 bg-slate-600 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md border border-slate-800 shadow flex items-center">❤️${c.hp}</div>` : ''}<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-yellow-600 text-white text-[10px] font-bold px-2 py-0 rounded-md border border-yellow-800">${PlayerState.keys > 0 ? '可開啟' : '需鑰匙'}</div>` }),
+            rock: (c) => ({ class: `border-slate-600 bg-slate-700`, html: `<div class="text-4xl drop-shadow-md grayscale">${c.icon}</div><div class="hp-text absolute -top-2 -left-2 bg-slate-500 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md border border-slate-800 shadow">❤️${c.hp}</div>` }),
+            chest: (c) => ({ class: `border-yellow-600 bg-yellow-900`, html: `${c.hp < c.maxHp ? `<div class="hp-text absolute -top-2 -left-2 bg-slate-600 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md border border-slate-800 shadow flex items-center">❤️${c.hp}</div>` : ''}<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-yellow-600 text-white text-[10px] font-bold px-2 py-0 rounded-md border border-yellow-800">${PlayerState.keys > 0 ? '可開啟' : '需鑰匙'}</div>` }),
             chest_mimic: (c) => RENDER_MAP.chest(c),
             key: (c) => ({ class: `border-yellow-400 bg-slate-800`, html: `<div class="text-4xl drop-shadow-[0_0_8px_rgba(250,204,21,0.8)] animate-bounce">${c.icon}</div>` }),
             cursed_sword: (c) => ({ class: `border-rose-600 bg-rose-950`, html: `<div class="absolute -top-2 right-[-5px] bg-rose-600 text-white text-[9px] font-bold px-1 py-0.5 rounded shadow">詛咒</div><div class="text-4xl drop-shadow-[0_0_10px_rgba(225,29,72,0.8)]">${c.icon}</div><div class="absolute -bottom-2 bg-rose-700 text-white text-[11px] font-bold px-2 py-0.5 rounded-md border border-rose-900 shadow">⚔️+${c.val} / ❤️-5</div>` }),
@@ -525,7 +528,6 @@
             ally_priest: (c) => ({ class: `border-yellow-400 bg-yellow-600`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-yellow-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">大祭司</div>` }),
             ally_rogue: (c) => ({ class: `border-gray-400 bg-gray-800`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-gray-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">盜賊</div>` }),
             
-            // v8 新增渲染
             merchant: (c) => ({ class: `border-yellow-200 bg-yellow-900`, html: `<div class="text-4xl drop-shadow-md">${c.icon}</div><div class="absolute -bottom-2 bg-yellow-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow">付50 EXP</div>` }),
             spike_trap: (c) => ({ class: `border-slate-500 bg-slate-800`, html: `<div class="text-4xl transition-all ${c.active ? 'opacity-100' : 'opacity-20 grayscale'}">${c.icon}</div>` }),
             swap_scroll: (c) => ({ class: `border-fuchsia-400 bg-fuchsia-900`, html: `<div class="text-4xl drop-shadow-[0_0_8px_rgba(217,70,239,0.8)] animate-pulse">${c.icon}</div>` })
@@ -665,8 +667,12 @@
                     return c;
                 }
 
+                let currentMonsterCount = GameState.cards.filter(card => card.type === 'monster' && !card.toBeRemoved).length;
+
                 let r = Math.random();
-                if (GameState.monsterQuota <= 0 && r < 0.45) r = 0.5 + Math.random() * 0.5; 
+                if (GameState.monsterQuota <= 0) {r = 0.5 + Math.random() * 0.5; 
+                } else if (currentMonsterCount < 3) {r = 0.1; 
+                } else if (currentMonsterCount >= 6) {r = 0.5 + Math.random() * 0.5; }
                 
                 if (r < 0.45) {
                     c.type = 'monster'; GameState.monsterQuota--;
@@ -1012,15 +1018,13 @@
                 });
             },
 
+            // STREAMING_CHUNK: 優化後的精準更新 Render 函數...
             render: function() {
-                // UI 狀態更新
+                // UI 狀態更新 (這部分保持原本的，因為只是一些純文字更新，負擔不大)
                 document.getElementById('hp-text').innerText = `${PlayerState.hp}/${PlayerState.maxHp}`;
                 document.getElementById('hp-bar').style.width = `${Math.max(0, (PlayerState.hp / PlayerState.maxHp) * 100)}%`;
-                
-                const armorDisplayMax = PlayerState.maxHp * 2;
-                document.getElementById('armor-text').innerText = `${PlayerState.armor}/${armorDisplayMax}`;
-                document.getElementById('armor-bar').style.width = `${Math.min(100, (PlayerState.armor / armorDisplayMax) * 100)}%`;
-                
+                document.getElementById('armor-text').innerText = PlayerState.armor;
+                document.getElementById('armor-bar').style.width = `${Math.min(100, (PlayerState.armor / (50 + GameState.floor * 10)) * 100)}%`;
                 document.getElementById('level-display').innerText = `Lv.${PlayerState.level}`;
                 document.getElementById('exp-bar').style.width = `${Math.min(100, (PlayerState.exp / (PlayerState.level * CONFIG.EXP_BASE)) * 100)}%`;
                 document.getElementById('atk-text').innerText = PlayerState.atk;
@@ -1057,6 +1061,7 @@
 
                 const board = document.getElementById('board');
                 
+                // 處理被移除的卡片
                 GameState.cards.forEach(c => {
                     if (c.toBeRemoved) {
                         const el = document.getElementById(c.id);
@@ -1075,32 +1080,74 @@
 
                 GameState.cards.forEach(c => {
                     let el = document.getElementById(c.id);
+                    let isNew = false;
+                    
                     if (!el) {
-                        el = document.createElement('div'); el.id = c.id; 
+                        isNew = true;
+                        el = document.createElement('div'); 
+                        el.id = c.id; 
                         el.onclick = () => this.handleTap(c);
-                        board.appendChild(el); el.classList.add('game-card', 'card-enter');
+                        board.appendChild(el); 
+                        el.classList.add('game-card', 'card-enter');
                         setTimeout(() => el.classList.remove('card-enter'), 300);
                     }
-                    el.style.left = `${(c.x * 25) + 1}%`; el.style.top = `${(c.y * 25) + 1}%`;
+                    
+                    // 無論如何都要更新位置，因為位置可能在掉落時改變
+                    el.style.left = `${(c.x * 25) + 1}%`; 
+                    el.style.top = `${(c.y * 25) + 1}%`;
 
+                    // 處理動畫類別
                     if (c.justHealed) { el.classList.remove('heal-anim'); void el.offsetWidth; el.classList.add('heal-anim'); c.justHealed = false; }
                     if (c.justAte) { el.classList.remove('eat-anim'); void el.offsetWidth; el.classList.add('eat-anim'); c.justAte = false; }
 
+                    // 【核心優化】：只在卡片「剛創建」時，或它是「動態變化的怪物」時更新 HTML 內容
                     if (c.type === 'player') {
-                        let playerAnimClasses = 'player-glow';
-                        if (el.className.includes('card-enter')) playerAnimClasses += ' card-enter';
-                        if (el.className.includes('swap-anim')) playerAnimClasses += ' swap-anim';
-                        if (PlayerState.justDamaged) {
-                            playerAnimClasses += ' player-damaged';
-                            PlayerState.justDamaged = false; // Reset the flag
+                        // 主角永遠只需在初始化寫一次 innerHTML，之後只控制 class
+                        if (isNew) {
+                            el.innerHTML = `<div class="text-5xl ${GameState.isGameOver ? 'grayscale opacity-50' : ''}">🧑</div>`;
                         }
-                        el.className = `game-card border-blue-400 bg-blue-900 ${playerAnimClasses}`;
-                        el.innerHTML = `<div class="text-5xl ${GameState.isGameOver ? 'grayscale opacity-50' : ''}">🧑</div>`;
-                    } else {
+                        // 移除 .player-glow 動畫，改為靜態但明顯的樣式，減輕 GPU 負擔
+                        el.className = `game-card z-30 border-blue-400 bg-blue-900 border-[3px] shadow-[0_0_15px_rgba(59,130,246,0.8)] ${el.className.includes('card-enter') ? 'card-enter' : ''} ${el.className.includes('swap-anim') ? 'swap-anim' : ''}`;
+                    } else if (c.type === 'monster' || c.type === 'rock' || c.type === 'chest' || c.type === 'chest_mimic' || c.type === 'merchant') {
                         let rConfig = RENDER_MAP[c.type] ? RENDER_MAP[c.type](c) : { class: 'border-white bg-black', html: '?' };
                         const currentAnimClasses = Array.from(el.classList).filter(cls => ['card-enter', 'card-shake', 'mimic-anim', 'heal-anim', 'eat-anim', 'swap-anim'].includes(cls)).join(' ');
+                        
+                        // 動態計算背景顏色 (血量比例)
+                        if (c.type === 'monster' && c.trait !== 'boss' && c.trait !== 'ethereal' && c.trait !== 'explosive' && c.trait !== 'healer' && c.trait !== 'splitter' && c.trait !== 'greedy' && c.trait !== 'sniper' && c.trait !== 'vampire' && c.trait !== 'piercer' && c.trait !== 'poisonous' && c.trait !== 'cursed' && c.trait !== 'spiky') {
+                           rConfig.class = `${rConfig.class.split('bg-')[0]} ${c.hp / c.maxHp > 0.5 ? 'bg-red-900' : 'bg-red-950'}`;
+                        }
+                        
                         el.className = `game-card ${c.type === 'spike_trap' ? 'z-0' : 'z-10'} ${rConfig.class} ${currentAnimClasses}`;
-                        el.innerHTML = rConfig.html;
+                        
+                        if (isNew || c.needsFullRender) {
+                            // 只有全新生成的卡片才塞完整的 innerHTML
+                            el.innerHTML = rConfig.html;
+                        } else {
+                            // 【精準更新】：若是已存在的卡片，只更新它內部的特定文字節點！
+                            const hpEl = el.querySelector('.hp-text');
+                            if (hpEl) hpEl.innerText = `❤️${c.hp}`;
+                            
+                            const atkEl = el.querySelector('.atk-text');
+                            if (atkEl) atkEl.innerText = `⚔️${c.atk}`;
+                            
+                            const iconEl = el.querySelector('.icon-container');
+                            if (iconEl && c.type === 'monster') {
+                                if (c.ghostShield) {
+                                    iconEl.classList.remove('opacity-100');
+                                    iconEl.classList.add('opacity-50');
+                                } else {
+                                    iconEl.classList.remove('opacity-50');
+                                    iconEl.classList.add('opacity-100');
+                                }
+                            }
+                        }
+                    } else {
+                        // 靜態道具 (Potion, Sword, Keys 等)，生成一次後就不會變了！
+                        if (isNew) {
+                            let rConfig = RENDER_MAP[c.type] ? RENDER_MAP[c.type](c) : { class: 'border-white bg-black', html: '?' };
+                            el.className = `game-card ${c.type === 'spike_trap' ? 'z-0' : 'z-10'} ${rConfig.class}`;
+                            el.innerHTML = rConfig.html;
+                        }
                     }
                 });
             }
