@@ -23,7 +23,8 @@
             --font-xl: 18px;
         }
 
-        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        /* 修正 Safari 雙擊放大問題：加入 touch-action: manipulation; */
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
         body { margin: 0; padding: 0; background-color: var(--bg-color); color: var(--text-main); font-family: 'Helvetica Neue', Arial, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
         #game-container { display: flex; flex-direction: column; height: 100%; max-width: 600px; margin: 0 auto; width: 100%; position: relative; }
@@ -112,7 +113,7 @@
         .s-pet { background: #566573; color: #fff; } 
         .s-sil { background: #b7950b; color: #fff; } 
         .s-ref { background: #2471a3; color: #fff; } 
-        .s-bbk { background: #8e0000; color: #fff; } /* 魔王狂化 */
+        .s-bbk { background: #8e0000; color: #fff; }
 
         .log-area { 
             background: #0a0a0a; 
@@ -400,7 +401,7 @@ const BUFF_EFFECTS = {
     'confuse': { name: '混亂', desc: '神智不清不受控。每回合隨機選擇任意對象進行隨機技能施放（包含敵我傷害或治癒）' },
     'petrify': { name: '石化', desc: '無法行動。受到的傷害降低為 25%，並且完全免疫任何新的負面狀態' },
     'silence': { name: '禁咒', desc: '無法施展魔法類（magic）技能，但仍可使用戰鬥武技（melee）' },
-    'reflect': { name: '反射結界', desc: '將受到的 80% 傷害與所有正負面附加狀態完全反彈回發動者身上' },
+    'reflect': { name: '反射結界', desc: '將受到的 80% 傷害與所有負面附加狀態完全反彈回發動者身上' },
     'boss_berserk': { name: '魔王狂化', desc: '傷害提升 50%，並完全免疫所有負面異常狀態！' }
 };
 
@@ -468,7 +469,7 @@ const SKILLS = {
     'confuse_spell': { id: 'confuse_spell', name: '混亂術', type: 'buff', power: 0, mpCost: 12, target: 'enemy', tags: ['magic', 'debuff'], applyDebuff: 'confuse', chance: 0.50, desc: '50% 機率使敵人陷入混亂狀態 3 回合，敵我不分隨機進行攻擊或技能。' },
     'petrify_spell': { id: 'petrify_spell', name: '石化術', type: 'buff', power: 0, mpCost: 15, target: 'any', tags: ['magic', 'debuff'], applyDebuff: 'petrify', chance: 0.50, desc: '50% 機率使對象石化 3 回合。石化期間無法動作、承受傷害降低 75% 且免疫新的 Debuff。' },
     'silence_spell': { id: 'silence_spell', name: '禁咒術', type: 'buff', power: 0, mpCost: 10, target: 'enemy', tags: ['magic', 'debuff'], applyDebuff: 'silence', chance: 0.50, desc: '50% 機率使目標被禁咒 3 回合，封印所有 magic 屬性技能，僅限使用 melee（物理）武技。' },
-    'reflect_spell': { id: 'reflect_spell', name: '反射結界', type: 'buff', power: 0, mpCost: 18, target: 'ally', tags: ['magic', 'buff'], applyBuff: 'reflect', desc: '為對象附加反射結界 2 回合，將其受到的 80% 傷害與所有傳遞狀態完全彈回。' }
+    'reflect_spell': { id: 'reflect_spell', name: '反射結界', type: 'buff', power: 0, mpCost: 18, target: 'ally', tags: ['magic', 'buff'], applyBuff: 'reflect', desc: '為對象附加反射結界 2 回合，將其受到的 80% 傷害與所有負面狀態完全彈回。' }
 };
 
 const CLASSES = [
@@ -789,14 +790,16 @@ class Entity {
     hasBuff(type) { return this.buffs.some(b => b.type === type); }
     
     addBuff(type, duration, value = 0, source = null) {
-        if (source && source !== this && this.hasBuff('reflect')) {
+        // 定義負面狀態清單，反射結界只對此清單中的狀態生效
+        const debuffList = ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped', 'blind', 'sleep', 'confuse', 'silence'];
+
+        // 【更新】只反彈敵意（包含在 debuffList）的狀態
+        if (source && source !== this && this.hasBuff('reflect') && debuffList.includes(type)) {
             Battle.log(`> 🔮 ${this.displayName} 的<b>【反射結界】</b>發動！將 <b>【${BUFF_EFFECTS[type]?.name || type}】</b> 完全彈回給 ${source.displayName}！`);
             source.addBuff(type, duration, value, this);
             Battle.floatText(source.id, `狀態反彈!`, '#9b59b6');
             return;
         }
-
-        const debuffList = ['poison', 'bleed', 'atk_down', 'def_down', 'stun', 'paralyze', 'freeze', 'weakened', 'vine_wrapped', 'blind', 'sleep', 'confuse', 'silence'];
         
         if (this.hasBuff('petrify') && debuffList.includes(type)) {
             Battle.log(`> 🗿 ${this.displayName} 目前正處於石化凝固狀態，完全免疫負面效果【${BUFF_EFFECTS[type]?.name || type}】！`);
@@ -1967,7 +1970,6 @@ const Battle = {
         if (skill.special === 'summon') {
             actor.summonCount++; 
             
-            // 修正：如果是 boss_rush 模式，直接從所有非 Boss 怪物中抽，否則從當前地下城抽
             let basePool = Game.state.mode === 'boss_rush' ? ENDLESS_MONSTERS : Game.state.dungeonPool;
             let pool = basePool.filter(m => !m.isBoss && !m.isLarge && !m.isSupport);
             
