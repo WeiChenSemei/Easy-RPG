@@ -252,13 +252,13 @@
                 <div class="flex justify-around items-end h-1/2 pt-4" id="battle-party"></div>
             </div>
 
-            <!-- 底部選單 -->
-            <div class="min-h-[180px] shrink-0 rpg-window flex flex-col relative z-10">
+            <!-- 底部選單: 修正為固定高度以觸發子層滾動 -->
+            <div class="h-[210px] shrink-0 rpg-window flex flex-col relative z-10">
                 <div class="text-xs text-yellow-300 mb-2 border-b border-gray-600 pb-1 flex justify-between shrink-0">
                     <span id="turn-indicator">等待中...</span>
                 </div>
                 
-                <div id="battle-menu-main" class="flex-1 grid grid-cols-2 gap-x-4 gap-y-3">
+                <div id="battle-menu-main" class="flex-1 grid grid-cols-2 gap-x-4 gap-y-3 content-start">
                     <button class="rpg-btn font-bold justify-center" onclick="handleActionCommand('attack')">⚔️ 攻擊</button>
                     <button class="rpg-btn font-bold text-teal-300 justify-center" onclick="handleActionCommand('defend')">🛡️ 防禦</button>
                     <button class="rpg-btn font-bold text-blue-300 justify-center" onclick="openSubMenu('skills')">✨ 技能</button>
@@ -266,9 +266,11 @@
                     <button class="rpg-btn font-bold text-gray-400 justify-center col-span-2 mt-1" onclick="fleeBattle()">🏃 逃跑</button>
                 </div>
 
-                <div id="battle-menu-sub" class="flex-1 hidden flex-col overflow-y-auto pr-2 relative">
-                    <div id="sub-list" class="grid grid-cols-2 gap-2 mb-8"></div>
-                    <button class="rpg-btn text-gray-400 text-xs border-t border-gray-600 pt-2 mt-auto absolute bottom-0 w-full bg-[#111827] justify-center py-2 z-20" onclick="closeSubMenu()">🔙 返回</button>
+                <div id="battle-menu-sub" class="flex-1 hidden flex-col overflow-hidden relative">
+                    <!-- 加入 padding-bottom (pb-12) 確保最下方的技能不會被按鈕遮擋 -->
+                    <div id="sub-list" class="flex-1 overflow-y-auto grid grid-cols-2 gap-2 pb-12 pr-1 content-start"></div>
+                    <!-- 按鈕改用絕對定位綁定在底部 -->
+                    <button class="rpg-btn text-gray-400 text-xs border-t border-gray-600 pt-2 absolute bottom-0 left-0 w-full bg-[#0f172a] justify-center py-2 z-20" onclick="closeSubMenu()">🔙 返回</button>
                 </div>
             </div>
         </div>
@@ -661,7 +663,6 @@
                 document.getElementById('town-gold').innerText = gameState.gold;
                 document.getElementById('town-zone').innerText = gameState.maxZoneCleared;
                 
-                // 修正：依照 maxZoneCleared 來控制破關按鈕的顯示與隱藏
                 if (gameState.maxZoneCleared >= 14) {
                     document.getElementById('btn-throne').classList.remove('hidden');
                 } else {
@@ -1090,7 +1091,6 @@
         function renderBattleView() {
             renderBattleLog();
             
-            // 渲染敵人 (加上異常狀態圖示)
             document.getElementById('battle-enemies').innerHTML = battle.enemies.map(e => `
                 <div class="flex flex-col items-center relative mx-1 w-16" id="ui-${e.uniqueId}">
                     <div class="absolute -top-6 w-full flex justify-center gap-1 z-20 text-sm drop-shadow-md">
@@ -1103,7 +1103,6 @@
                 </div>
             `).join('');
 
-            // 渲染隊伍 (加上異常狀態圖示)
             document.getElementById('battle-party').innerHTML = battle.party.map(p => {
                 const char = p.ref; const hpPct = Math.max(0, (char.currentHp/char.computed.maxHp)*100); const mpPct = Math.max(0, (char.currentMp/char.computed.maxMp)*100);
                 return `<div class="flex flex-col items-center bg-black/70 p-2 rounded border ${char.currentHp <= 0 ? 'border-red-900 opacity-50' : 'border-gray-500'} relative w-20 shadow-lg" id="ui-${p.uniqueId}">
@@ -1139,7 +1138,6 @@
 
             document.getElementById('turn-indicator').innerHTML = `行動順位: <span class="text-white font-bold text-sm ml-2">${actor.type==='player'?actor.ref.name:actor.name}</span>`;
             
-            // 結算異常狀態機制
             if (actor.statuses && actor.statuses.length > 0) {
                 let skipTurn = false;
                 for (let i = actor.statuses.length - 1; i >= 0; i--) {
@@ -1181,7 +1179,6 @@
         }
 
         async function aiEnemyAction(actor) {
-            // Boss 蓄力腳本系統
             if (actor.aiScript) {
                 actor.turnCount++;
                 if (actor.isCharging) {
@@ -1263,7 +1260,6 @@
         async function performAttack(attacker, target, skillId = null) {
             let atk, def, isMagic = false; let dmgMult = 1.0; let animType = 'melee'; let element = 'physical';
             
-            // 判斷技能或普攻武器屬性
             if (skillId) { 
                 const sk = dbSkills[skillId]; 
                 isMagic = sk.type === 'm_atk'; 
@@ -1286,7 +1282,6 @@
 
             let baseDmg = Math.max(1, (atk * 2 - def) * dmgMult);
             
-            // 屬性相剋計算
             let weakHit = false; let resistHit = false;
             let enemyData = target.type === 'enemy' ? dbEnemies[target.enemyId] : null;
             if (target.type === 'enemy' && enemyData) {
@@ -1314,7 +1309,6 @@
                 
                 screenShake(); if(targetEl) { targetEl.classList.add('flash-red'); setTimeout(() => targetEl.classList.remove('flash-red'), 300); }
 
-                // 結算附加異常狀態
                 let statusObj = null;
                 if (skillId && dbSkills[skillId].applyStatus) statusObj = dbSkills[skillId].applyStatus;
                 else if (!skillId && attacker.type === 'enemy' && dbEnemies[attacker.enemyId].onHitStatus) statusObj = dbEnemies[attacker.enemyId].onHitStatus;
