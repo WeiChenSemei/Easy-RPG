@@ -7,7 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #000; color: #fff; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+        
+        /* 徹底封鎖手機瀏覽器雙擊放大行為 */
+        * { touch-action: manipulation; }
+        
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #000; color: #fff; user-select: none; -webkit-user-select: none; }
         .screen { display: none; height: 100dvh; width: 100vw; max-width: 600px; margin: 0 auto; background: #111; position: relative; overflow: hidden; }
         .screen.active { display: flex; flex-direction: column; }
         
@@ -357,7 +361,6 @@
             'hi_ether': { name: '高級魔法水', type: 'mp_heal', power: 100, price: 150, reqZone: 7, desc: '恢復 100 MP', anim: 'item_mp' },
             'elixir': { name: '聖靈藥', type: 'heal_all', power: 9999, price: 1000, reqZone: 13, desc: '完全恢復單體 HP/MP', anim: 'item_heal' },
             
-            // 新增解毒/解控道具
             'antidote': { name: '解毒草', type: 'cure', power: 0, price: 15, reqZone: 1, desc: '解除所有異常狀態', anim: 'item_heal' },
 
             'seed_hp': { name: '生命之種', type: 'seed_hp', power: 20, price: 3000, reqZone: 5, desc: '永久提升 20 基礎 HP', anim: 'item_heal' },
@@ -372,7 +375,6 @@
             'abyss_crystal': { name: '深淵水晶', type: 'material', price: 1000, reqZone: 12, desc: '用於傳說裝備鍛造強化' }
         };
 
-        // 裝備資料 - 增加屬性標籤 (element)
         const dbEquips = {
             'bronze_sword': { name: '銅劍', type: 'weapon', slot: 'weapon', str: 8, int: 0, def: 0, agi: 0, price: 50, reqZone: 0, desc: '物攻+8' },
             'staff': { name: '木杖', type: 'weapon', slot: 'weapon', str: 2, int: 12, def: 0, agi: 0, price: 60, reqZone: 0, desc: '魔攻+12' },
@@ -658,7 +660,14 @@
                 });
                 document.getElementById('town-gold').innerText = gameState.gold;
                 document.getElementById('town-zone').innerText = gameState.maxZoneCleared;
-                if (gameState.maxZoneCleared >= 14) document.getElementById('btn-throne').classList.remove('hidden');
+                
+                // 修正：依照 maxZoneCleared 來控制破關按鈕的顯示與隱藏
+                if (gameState.maxZoneCleared >= 14) {
+                    document.getElementById('btn-throne').classList.remove('hidden');
+                } else {
+                    document.getElementById('btn-throne').classList.add('hidden');
+                }
+
                 if (gameState.ngPlus > 0) {
                     document.getElementById('town-ngplus-text').classList.remove('hidden');
                     document.getElementById('town-ngplus-num').innerText = gameState.ngPlus + 1;
@@ -843,7 +852,7 @@
                 
                 let disabled = false;
                 if(item.type === 'revive') disabled = !hasDead;
-                if(item.type === 'material' || item.type === 'cure') disabled = true; // 素材與解控不能在非戰鬥吃
+                if(item.type === 'material' || item.type === 'cure') disabled = true; 
                 
                 let btnAction = '';
                 if(type === 'item') {
@@ -980,10 +989,10 @@
         function renderWorldMap() {
             const container = document.getElementById('dungeon-list');
             container.innerHTML = dbEncounters.map((enc, idx) => `
-                <div class="rpg-btn flex-col items-start cursor-pointer hover:bg-gray-700 ${idx > gameState.maxZoneCleared + 1 && gameState.ngPlus === 0 ? 'opacity-50 pointer-events-none' : ''}" 
+                <div class="rpg-btn flex-col items-start cursor-pointer hover:bg-gray-700 ${idx > gameState.maxZoneCleared + 1 ? 'opacity-50 pointer-events-none' : ''}" 
                      onclick="startBattle(${idx})">
                     <div class="flex justify-between w-full"><span class="font-bold ${enc.color} text-lg mb-1">${enc.title}</span>
-                    ${idx > gameState.maxZoneCleared + 1 && gameState.ngPlus === 0 ? '<span class="text-red-500 text-xs mt-1">未解鎖</span>' : ''}</div>
+                    ${idx > gameState.maxZoneCleared + 1 ? '<span class="text-red-500 text-xs mt-1">未解鎖</span>' : ''}</div>
                     <div class="text-xs text-gray-400">${enc.desc}</div>
                 </div>
             `).join('');
@@ -1277,7 +1286,7 @@
 
             let baseDmg = Math.max(1, (atk * 2 - def) * dmgMult);
             
-            // 屬性相剋計算 (目前主要實裝對怪物的相剋)
+            // 屬性相剋計算
             let weakHit = false; let resistHit = false;
             let enemyData = target.type === 'enemy' ? dbEnemies[target.enemyId] : null;
             if (target.type === 'enemy' && enemyData) {
