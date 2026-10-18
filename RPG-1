@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Grand JRPG - Epic Edition Final</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #000; color: #fff; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+        .screen { display: none; height: 100dvh; width: 100vw; max-width: 600px; margin: 0 auto; background: #111; position: relative; overflow: hidden; }
+        .screen.active { display: flex; flex-direction: column; }
+        
+        .rpg-window {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 4px 6px rgba(0,0,0,0.5);
+            padding: 12px;
+            color: #f8fafc;
+        }
+        
+        .rpg-btn {
+            background: linear-gradient(to bottom, #334155, #0f172a);
+            border: 1px solid #94a3b8;
+            color: #f8fafc;
+            padding: 10px 12px;
+            border-radius: 6px;
+            text-align: left;
+            transition: all 0.1s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .rpg-btn:active:not(:disabled) { transform: scale(0.97); background: #475569; }
+        .rpg-btn:disabled { opacity: 0.5; cursor: not-allowed; border-color: #475569; }
+        
+        .text-shadow { text-shadow: 1px 1px 2px #000, 0 0 5px rgba(0,0,0,0.8); }
+        .char-sprite { font-size: 2.5rem; filter: drop-shadow(2px 4px 2px rgba(0,0,0,0.5)); transition: transform 0.2s; z-index: 10; position: relative; }
+        .acting { animation: bounce 0.5s infinite; filter: drop-shadow(0 0 8px yellow) !important; }
+        
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes shake { 0% { transform: translate(1px, 1px); } 20% { transform: translate(-3px, 0px); } 40% { transform: translate(1px, -1px); } 60% { transform: translate(-3px, 1px); } 80% { transform: translate(-1px, -1px); } 100% { transform: translate(1px, -2px); } }
+        @keyframes flashRed { 0% { filter: brightness(1) sepia(1) hue-rotate(-50deg) saturate(5); } 100% { filter: none; } }
+        @keyframes lungeUp { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-25px); } }
+        @keyframes lungeDown { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(25px); } }
+        
+        .lunge-up { animation: lungeUp 0.3s cubic-bezier(.36,.07,.19,.97); }
+        .lunge-down { animation: lungeDown 0.3s cubic-bezier(.36,.07,.19,.97); }
+        .shake { animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+        .flash-red { animation: flashRed 0.3s ease-out; }
+        
+        .floating-text { position: absolute; font-weight: bold; font-size: 1.5rem; pointer-events: none; z-index: 50; animation: floatUp 1s ease-out forwards; text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1.5); } 100% { opacity: 0; transform: translateY(-50px) scale(1); } }
+        
+        .dmg-physical { color: #fff; } .dmg-magical { color: #c084fc; } .dmg-heal { color: #4ade80; } .dmg-miss { color: #94a3b8; }
+        
+        .rarity-common { color: #f8fafc; }
+        .rarity-uncommon { color: #4ade80; }
+        .rarity-rare { color: #60a5fa; }
+        .rarity-epic { color: #c084fc; text-shadow: 0 0 5px rgba(192, 132, 252, 0.5); }
+        .rarity-legendary { color: #facc15; text-shadow: 0 0 8px rgba(250, 204, 21, 0.8); }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #64748b; border-radius: 3px; }
+
+        .bg-town { background: linear-gradient(to bottom, #1e3a8a, #0f172a); }
+        .bg-plains { background: linear-gradient(to bottom, #14532d, #064e3b); }
+        .bg-forest { background: linear-gradient(to bottom, #064e3b, #022c22); }
+        .bg-cave { background: linear-gradient(to bottom, #312e81, #1e1b4b); }
+        .bg-volcano { background: linear-gradient(to bottom, #7f1d1d, #450a0a); }
+        .bg-dark-castle { background: linear-gradient(to bottom, #111827, #000000); }
+        .bg-ending { background: linear-gradient(to bottom, #b45309, #451a03); }
+
+        .item-slot { border: 1px solid #555; background: #222; border-radius: 4px; padding: 4px; text-align: center; cursor: pointer; transition: 0.1s; }
+        .item-slot:hover { border-color: #facc15; background: #333; }
+        .item-slot.equipped { border-color: #4ade80; background: #14532d; }
+
+        #save-toast { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #4ade80; padding: 5px 10px; border-radius: 4px; border: 1px solid #4ade80; font-size: 12px; opacity: 0; transition: opacity 0.5s; z-index: 1000; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <div id="save-toast">💾 遊戲已儲存</div>
+
+    <!-- 自訂確認視窗 -->
+    <div id="confirm-modal" class="screen" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.8); justify-content:center; align-items:center;">
+        <div class="rpg-window p-6 text-center max-w-sm w-full mx-4 shadow-2xl border-yellow-600">
+            <p id="confirm-msg" class="mb-6 text-lg font-bold text-white">確認嗎？</p>
+            <div class="flex gap-4">
+                <button class="rpg-btn flex-1 justify-center bg-gray-600" onclick="closeConfirm(false)">取消</button>
+                <button class="rpg-btn flex-1 justify-center bg-red-800 border-red-500 font-bold" onclick="closeConfirm(true)">確認執行</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-town" class="screen active">
+        <div class="p-4 flex flex-col h-full justify-between bg-town relative">
+            <div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(circle, #fff 1px, transparent 1px); background-size: 20px 20px;"></div>
+            <div class="z-10 relative">
+                <h1 class="text-3xl text-yellow-400 mb-2 text-center text-shadow font-bold mt-4 tracking-widest">王都 艾爾迪亞</h1>
+                <div class="rpg-window text-sm mb-4 leading-relaxed">
+                    <p>壯闊的王都充滿生機。隨著關卡推進，商店會解鎖更強的裝備與珍貴的種子。</p>
+                    <p class="text-green-400 mt-2">※ 隊伍 HP/MP、異常狀態 已完全恢復。進度已自動儲存。</p>
+                    <p id="town-ngplus-text" class="text-purple-400 font-bold mt-1 hidden">👑 當前周目: 第 <span id="town-ngplus-num"></span> 周目</p>
+                </div>
+            </div>
+            <div class="rpg-window flex flex-col gap-3 z-10 relative shadow-2xl mt-auto mb-4">
+                <div class="flex justify-between text-yellow-400 font-bold px-2 border-b border-gray-600 pb-2 mb-1">
+                    <span>💰 金幣: <span id="town-gold">0</span> G</span>
+                    <span class="text-blue-300 text-xs self-end">最高通關: 區域 <span id="town-zone">0</span></span>
+                </div>
+                <button class="rpg-btn text-lg text-blue-300" onclick="openShop()">🏪 道具屋與武具店</button>
+                <button class="rpg-btn text-lg text-orange-300 font-bold" onclick="openForge()">🔨 鐵匠鍛造屋</button>
+                <button class="rpg-btn text-lg text-green-300" onclick="openInventory()">🎒 行囊與裝備</button>
+                <button class="rpg-btn text-lg text-purple-300" onclick="viewParty()">📋 隊伍狀態與轉職</button>
+                <button id="btn-throne" class="rpg-btn text-lg text-red-400 hidden border-red-500 font-bold" onclick="navTo('screen-ending')">👑 殿堂與轉生 (破關解鎖)</button>
+                <button class="rpg-btn text-lg text-yellow-300 border-yellow-600 font-bold" onclick="navTo('screen-world')">🌍 前往世界地圖</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-shop" class="screen">
+        <div class="p-4 flex flex-col h-full bg-town">
+            <h2 class="text-xl text-yellow-400 mb-2 text-shadow flex justify-between font-bold"><span>🏪 雜貨店</span><span>💰 <span id="shop-gold">0</span></span></h2>
+            <div class="flex gap-2 mb-2 shrink-0">
+                <button class="rpg-btn flex-1 justify-center text-sm bg-blue-900" onclick="renderShop('item')" id="btn-shop-item">買道具</button>
+                <button class="rpg-btn flex-1 justify-center text-sm" onclick="renderShop('equip')" id="btn-shop-equip">買裝備</button>
+                <button class="rpg-btn flex-1 justify-center text-sm" onclick="renderShop('sell')" id="btn-shop-sell">賣出</button>
+            </div>
+            <div class="rpg-window flex-1 overflow-y-auto space-y-2 pr-2" id="shop-list"></div>
+            <div class="mt-4 shrink-0">
+                <button class="rpg-btn w-full justify-center py-3 text-lg" onclick="navTo('screen-town')">🔙 離開商店</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-forge" class="screen">
+        <div class="p-4 flex flex-col h-full bg-town">
+            <h2 class="text-xl text-yellow-400 mb-2 text-shadow flex justify-between font-bold"><span>🔨 鍛造屋</span><span>💰 <span id="forge-gold">0</span></span></h2>
+            <div class="text-xs text-gray-300 mb-2">消耗冒險掉落的素材與金幣，無上限提升裝備能力。</div>
+            <div class="rpg-window flex-1 overflow-y-auto space-y-2 pr-2" id="forge-list"></div>
+            <div class="mt-4 shrink-0">
+                <button class="rpg-btn w-full justify-center py-3 text-lg" onclick="navTo('screen-town')">🔙 返回王都</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-inventory" class="screen">
+        <div class="p-4 flex flex-col h-full bg-town">
+            <h2 class="text-xl text-yellow-400 mb-2 text-shadow flex justify-between font-bold"><span>🎒 行囊</span><span>💰 <span id="inv-gold">0</span></span></h2>
+            
+            <div class="rpg-window mb-2 p-2 relative shrink-0">
+                <div class="flex justify-between items-center mb-2 bg-gray-800 rounded p-1">
+                    <button class="text-gray-300 hover:text-white px-3 py-1 text-lg font-bold bg-gray-700 rounded" onclick="invPrevChar()">◀</button>
+                    <span id="inv-char-name" class="font-bold text-yellow-300 text-lg tracking-wider">角色名稱</span>
+                    <button class="text-gray-300 hover:text-white px-3 py-1 text-lg font-bold bg-gray-700 rounded" onclick="invNextChar()">▶</button>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-xs mb-2">
+                    <div class="item-slot" id="slot-weapon" onclick="unequip('weapon')">武器<br><span class="text-gray-500">無</span></div>
+                    <div class="item-slot" id="slot-armor" onclick="unequip('armor')">防具<br><span class="text-gray-500">無</span></div>
+                    <div class="item-slot" id="slot-accessory" onclick="unequip('accessory')">飾品<br><span class="text-gray-500">無</span></div>
+                </div>
+                <div class="grid grid-cols-6 gap-1 text-[10px] mt-2 text-center text-gray-300 bg-gray-900 p-1 rounded">
+                    <div>HP<br><span id="inv-hp" class="text-green-400 font-bold">0</span></div>
+                    <div>MP<br><span id="inv-mp" class="text-blue-400 font-bold">0</span></div>
+                    <div>物攻<br><span id="inv-atk" class="text-red-400 font-bold">0</span></div>
+                    <div>魔攻<br><span id="inv-matk" class="text-purple-400 font-bold">0</span></div>
+                    <div>防禦<br><span id="inv-def" class="text-gray-200 font-bold">0</span></div>
+                    <div>敏捷<br><span id="inv-agi" class="text-yellow-200 font-bold">0</span></div>
+                </div>
+            </div>
+
+            <div class="flex gap-2 mb-2 shrink-0">
+                <button class="rpg-btn flex-1 justify-center text-sm" onclick="renderInventory('item')" id="btn-inv-item">消耗品/素材</button>
+                <button class="rpg-btn flex-1 justify-center text-sm" onclick="renderInventory('equip')" id="btn-inv-equip">裝備庫</button>
+            </div>
+            <div class="rpg-window flex-1 overflow-y-auto space-y-2 pr-2" id="inventory-list"></div>
+            <div class="mt-4 shrink-0">
+                <button class="rpg-btn w-full justify-center py-3 text-lg" onclick="navTo('screen-town')">🔙 返回王都</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-party" class="screen">
+        <div class="p-4 flex flex-col h-full bg-town">
+            <h2 class="text-xl text-yellow-400 mb-2 text-shadow font-bold flex justify-between items-center">
+                <span>📋 隊伍與轉職</span>
+                <button class="bg-red-900 text-white text-xs px-2 py-1 rounded border border-red-500" onclick="wipeSave()">重置存檔</button>
+            </h2>
+            
+            <div class="flex justify-between items-center mb-2 shrink-0">
+                <button class="rpg-btn text-xs px-4" onclick="partyPrevChar()">◀ 上一位</button>
+                <span id="party-char-name" class="font-bold text-lg text-white"></span>
+                <button class="rpg-btn text-xs px-4" onclick="partyNextChar()">下一位 ▶</button>
+            </div>
+
+            <div class="rpg-window mb-2 shrink-0">
+                <div class="flex justify-between text-sm border-b border-gray-600 pb-2 mb-2">
+                    <span>Lv. <span id="party-lv" class="text-yellow-300"></span></span>
+                    <span>EXP: <span id="party-exp" class="text-green-300"></span></span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>HP: <span id="party-hp"></span></div><div>MP: <span id="party-mp"></span></div>
+                    <div>物攻: <span id="party-str"></span></div><div>魔攻: <span id="party-int"></span></div>
+                    <div>防禦: <span id="party-def"></span></div><div>敏捷: <span id="party-agi"></span></div>
+                </div>
+            </div>
+
+            <h3 class="text-sm text-gray-300 mb-1 shrink-0 flex justify-between">
+                <span>轉職樹 (Max JLv.30)</span>
+                <span class="text-[10px] text-yellow-500">※ 戰鬥獲得 JP 升級與解鎖</span>
+            </h3>
+            <div class="rpg-window flex-1 overflow-y-auto space-y-2 pr-2" id="job-list"></div>
+            
+            <div class="mt-4 shrink-0">
+                <button class="rpg-btn w-full justify-center py-3 text-lg" onclick="navTo('screen-town')">🔙 返回王都</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-world" class="screen">
+        <div class="p-4 flex flex-col h-full bg-town">
+            <h2 class="text-xl text-yellow-400 mb-4 text-shadow font-bold">🌍 世界地圖</h2>
+            <div class="text-xs text-gray-300 mb-2">※ 怪物會隨機 1~4 隻出現，越後面的關卡怪物越強大。</div>
+            <div class="rpg-window flex-1 overflow-y-auto space-y-3" id="dungeon-list"></div>
+            <div class="mt-4 shrink-0">
+                <button class="rpg-btn w-full justify-center py-3 text-lg" onclick="navTo('screen-town')">🔙 返回王都</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-battle" class="screen">
+        <div id="battle-bg" class="flex flex-col h-full p-2 transition-colors duration-500 bg-plains relative overflow-hidden">
+            <div class="absolute inset-0 opacity-30 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
+            
+            <!-- 頂部控制列 -->
+            <div class="flex justify-between mb-2 z-10 shrink-0">
+                <button id="btn-speed" class="bg-gray-800 border border-gray-600 rounded px-3 py-1 text-xs text-white opacity-80" onclick="toggleSpeed()">▶ 速度: x1</button>
+                <button id="btn-auto" class="bg-gray-800 border border-gray-600 rounded px-3 py-1 text-xs text-white opacity-80" onclick="toggleAuto()">🤖 自動: 關</button>
+            </div>
+            <div class="rpg-window h-24 shrink-0 overflow-y-auto text-xs mb-2 flex flex-col-reverse relative z-10 opacity-90 shadow-lg" id="battle-log"></div>
+
+            <!-- 戰場區 -->
+            <div class="flex-1 flex flex-col justify-between mb-2 relative z-10 min-h-[160px]" id="battle-arena">
+                <div class="flex justify-center items-end gap-2 h-1/2 flex-wrap pb-4" id="battle-enemies"></div>
+                <div class="flex justify-around items-end h-1/2 pt-4" id="battle-party"></div>
+            </div>
+
+            <!-- 底部選單 -->
+            <div class="min-h-[180px] shrink-0 rpg-window flex flex-col relative z-10">
+                <div class="text-xs text-yellow-300 mb-2 border-b border-gray-600 pb-1 flex justify-between shrink-0">
+                    <span id="turn-indicator">等待中...</span>
+                </div>
+                
+                <div id="battle-menu-main" class="flex-1 grid grid-cols-2 gap-x-4 gap-y-3">
+                    <button class="rpg-btn font-bold justify-center" onclick="handleActionCommand('attack')">⚔️ 攻擊</button>
+                    <button class="rpg-btn font-bold text-teal-300 justify-center" onclick="handleActionCommand('defend')">🛡️ 防禦</button>
+                    <button class="rpg-btn font-bold text-blue-300 justify-center" onclick="openSubMenu('skills')">✨ 技能</button>
+                    <button class="rpg-btn font-bold text-green-300 justify-center" onclick="openSubMenu('items')">🎒 道具</button>
+                    <button class="rpg-btn font-bold text-gray-400 justify-center col-span-2 mt-1" onclick="fleeBattle()">🏃 逃跑</button>
+                </div>
+
+                <div id="battle-menu-sub" class="flex-1 hidden flex-col overflow-y-auto pr-2 relative">
+                    <div id="sub-list" class="grid grid-cols-2 gap-2 mb-8"></div>
+                    <button class="rpg-btn text-gray-400 text-xs border-t border-gray-600 pt-2 mt-auto absolute bottom-0 w-full bg-[#111827] justify-center py-2 z-20" onclick="closeSubMenu()">🔙 返回</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-victory" class="screen">
+        <div class="p-6 flex flex-col h-full bg-town items-center justify-center relative">
+            <div class="absolute inset-0 opacity-50 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+            <div class="z-10 w-full max-w-sm flex flex-col h-full">
+                <div class="mt-8 mb-4 shrink-0">
+                    <h2 class="text-4xl text-yellow-400 text-shadow font-black text-center tracking-widest">VICTORY</h2>
+                </div>
+                
+                <div class="rpg-window mb-4 text-center text-lg shadow-2xl shrink-0">
+                    <p class="mb-1">獲得 EXP: <span class="text-green-400 font-bold" id="reward-exp"></span></p>
+                    <p class="mb-1">獲得 JP: <span class="text-purple-400 font-bold" id="reward-jp"></span></p>
+                    <p class="mb-1">獲得 金幣: <span class="text-yellow-400 font-bold" id="reward-gold"></span> G</p>
+                    <p class="text-sm mt-2 border-t border-gray-600 pt-2">戰利品: <span class="text-blue-300 font-bold" id="reward-drops"></span></p>
+                </div>
+                
+                <div class="rpg-window flex-1 overflow-y-auto text-sm mb-6 shadow-2xl" id="level-up-log"></div>
+                
+                <div class="flex flex-col gap-3 shrink-0 mb-4">
+                    <button id="btn-continue" class="rpg-btn w-full justify-center text-lg py-3 shadow-lg font-bold bg-green-900 border-green-600" onclick="continueBattle()">繼續冒險 (掛機連刷)</button>
+                    <button class="rpg-btn w-full justify-center text-lg py-3 shadow-lg font-bold" onclick="returnToTownFromVictory()">返回王都整備</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-ending" class="screen">
+        <div class="p-6 flex flex-col h-full bg-ending items-center justify-center relative">
+            <div class="z-10 w-full max-w-sm flex flex-col h-full text-center">
+                <div class="mt-8 mb-4 shrink-0">
+                    <h2 class="text-3xl text-yellow-400 text-shadow font-black tracking-widest">英雄殿堂</h2>
+                </div>
+                
+                <div class="rpg-window flex-1 flex flex-col justify-center items-center text-sm mb-6 shadow-2xl p-6">
+                    <p class="mb-4 text-lg font-bold">恭喜你擊敗了魔王！</p>
+                    <p class="mb-2 text-gray-300">世界暫時恢復了和平...</p>
+                    <p class="mb-6 text-gray-300">但更強大的敵人正在星界甦醒。</p>
+                    
+                    <div class="w-full bg-black/50 p-4 rounded border border-gray-600 mb-4">
+                        <h4 class="text-orange-400 font-bold mb-2">【進入下一周目】</h4>
+                        <ul class="text-xs text-left text-gray-300 list-disc pl-4 space-y-1">
+                            <li>怪物血量與攻擊力大幅提升</li>
+                            <li>獲得的經驗值與金幣成倍增加</li>
+                            <li>保留所有裝備、種子加成、等級、職業與金幣</li>
+                            <li>冒險進度重置至初始區域</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col gap-3 shrink-0 mb-4">
+                    <button class="rpg-btn w-full justify-center text-lg py-3 shadow-lg font-bold bg-red-900 border-red-600" onclick="startNGPlus()">⚔️ 進入下一周目 (難度提升)</button>
+                    <button class="rpg-btn w-full justify-center text-lg py-3 shadow-lg font-bold" onclick="navTo('screen-town')">🔙 返回王都 (繼續農)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const MAX_JLV = 30; 
+        
+        let confirmCallback = null;
+        function showConfirm(msg, callback) {
+            document.getElementById('confirm-msg').innerText = msg;
+            document.getElementById('confirm-modal').style.display = 'flex';
+            confirmCallback = callback;
+        }
+        function closeConfirm(result) {
+            document.getElementById('confirm-modal').style.display = 'none';
+            if(result && confirmCallback) confirmCallback();
+        }
+        
+        const getRarityClass = (price) => {
+            if(price >= 10000) return 'rarity-legendary';
+            if(price >= 4000) return 'rarity-epic';
+            if(price >= 1000) return 'rarity-rare';
+            if(price >= 400) return 'rarity-uncommon';
+            return 'rarity-common';
+        };
+
+        const dbItems = {
+            'potion': { name: '傷藥', type: 'heal', power: 50, price: 10, reqZone: 0, desc: '恢復 50 HP', anim: 'item_heal' },
+            'hi_potion': { name: '高級傷藥', type: 'heal', power: 250, price: 50, reqZone: 4, desc: '恢復 250 HP', anim: 'item_heal' },
+            'mega_potion': { name: '特效傷藥', type: 'heal', power: 1000, price: 200, reqZone: 9, desc: '恢復 1000 HP', anim: 'item_heal' },
+            'ether': { name: '魔法水', type: 'mp_heal', power: 30, price: 40, reqZone: 0, desc: '恢復 30 MP', anim: 'item_mp' },
+            'phoenix_down': { name: '鳳凰尾巴', type: 'revive', power: 0.5, price: 200, reqZone: 2, desc: '復活隊友並恢復 50% HP', anim: 'item_heal' },
+            'hi_ether': { name: '高級魔法水', type: 'mp_heal', power: 100, price: 150, reqZone: 7, desc: '恢復 100 MP', anim: 'item_mp' },
+            'elixir': { name: '聖靈藥', type: 'heal_all', power: 9999, price: 1000, reqZone: 13, desc: '完全恢復單體 HP/MP', anim: 'item_heal' },
+            
+            // 新增解毒/解控道具
+            'antidote': { name: '解毒草', type: 'cure', power: 0, price: 15, reqZone: 1, desc: '解除所有異常狀態', anim: 'item_heal' },
+
+            'seed_hp': { name: '生命之種', type: 'seed_hp', power: 20, price: 3000, reqZone: 5, desc: '永久提升 20 基礎 HP', anim: 'item_heal' },
+            'seed_mp': { name: '魔力之種', type: 'seed_mp', power: 10, price: 3000, reqZone: 5, desc: '永久提升 10 基礎 MP', anim: 'item_mp' },
+            'seed_str': { name: '力量之種', type: 'seed_str', power: 3, price: 4500, reqZone: 7, desc: '永久提升 3 基礎物攻', anim: 'item_heal' },
+            'seed_int': { name: '智慧之種', type: 'seed_int', power: 3, price: 4500, reqZone: 7, desc: '永久提升 3 基礎魔攻', anim: 'item_mp' },
+            'seed_vit': { name: '守護之種', type: 'seed_vit', power: 3, price: 4500, reqZone: 7, desc: '永久提升 3 基礎防禦', anim: 'item_heal' },
+            'seed_agi': { name: '敏捷之種', type: 'seed_agi', power: 3, price: 4500, reqZone: 7, desc: '永久提升 3 基礎敏捷', anim: 'item_heal' },
+
+            'iron_ore': { name: '鐵礦石', type: 'material', price: 50, reqZone: 2, desc: '用於基礎裝備鍛造強化' },
+            'mithril_ore': { name: '秘銀礦石', type: 'material', price: 200, reqZone: 7, desc: '用於中級裝備鍛造強化' },
+            'abyss_crystal': { name: '深淵水晶', type: 'material', price: 1000, reqZone: 12, desc: '用於傳說裝備鍛造強化' }
+        };
+
+        // 裝備資料 - 增加屬性標籤 (element)
+        const dbEquips = {
+            'bronze_sword': { name: '銅劍', type: 'weapon', slot: 'weapon', str: 8, int: 0, def: 0, agi: 0, price: 50, reqZone: 0, desc: '物攻+8' },
+            'staff': { name: '木杖', type: 'weapon', slot: 'weapon', str: 2, int: 12, def: 0, agi: 0, price: 60, reqZone: 0, desc: '魔攻+12' },
+            'leather_armor': { name: '皮甲', type: 'armor', slot: 'armor', str: 0, int: 0, def: 10, agi: 0, price: 50, reqZone: 0, desc: '防禦+10' },
+            
+            'iron_sword': { name: '鐵劍', type: 'weapon', slot: 'weapon', str: 20, int: 0, def: 0, agi: -2, price: 200, reqZone: 2, desc: '物攻+20' },
+            'iron_armor': { name: '鐵甲', type: 'armor', slot: 'armor', str: 0, int: 0, def: 25, agi: -5, price: 220, reqZone: 2, desc: '防禦+25' },
+            'robe': { name: '魔法袍', type: 'armor', slot: 'armor', str: 0, int: 5, def: 12, agi: 2, price: 180, reqZone: 2, desc: '防禦+12, 魔攻+5' },
+            'ring_str': { name: '力量戒指', type: 'accessory', slot: 'accessory', str: 15, int: 0, def: 0, agi: 0, price: 300, reqZone: 2, desc: '物攻+15' },
+            
+            'long_bow': { name: '長弓', type: 'weapon', slot: 'weapon', str: 30, int: 0, def: 0, agi: 10, price: 400, reqZone: 3, desc: '物攻+30, 敏捷+10' },
+            'hunter_garb': { name: '獵人裝', type: 'armor', slot: 'armor', str: 0, int: 0, def: 18, agi: 15, price: 450, reqZone: 3, desc: '防禦+18, 敏捷+15' },
+
+            'steel_sword': { name: '鋼鐵大劍', type: 'weapon', slot: 'weapon', str: 45, int: 0, def: 0, agi: -5, price: 800, reqZone: 5, desc: '物攻+45' },
+            'speed_boots': { name: '速度之靴', type: 'armor', slot: 'armor', str: 0, int: 0, def: 15, agi: 40, price: 850, reqZone: 5, desc: '大幅提升敏捷' },
+            'ring_agi': { name: '疾風戒指', type: 'accessory', slot: 'accessory', str: 0, int: 0, def: 0, agi: 25, price: 600, reqZone: 5, desc: '敏捷+25' },
+            
+            'thief_dagger': { name: '盜賊匕首', type: 'weapon', slot: 'weapon', str: 35, int: 0, def: 0, agi: 20, price: 750, reqZone: 6, desc: '物攻+35, 敏捷+20' },
+            'bone_shield': { name: '骨盾', type: 'armor', slot: 'armor', str: 0, int: 0, def: 35, agi: -5, price: 600, reqZone: 6, desc: '防禦+35' },
+            
+            'mithril_staff': { name: '秘銀法杖', type: 'weapon', slot: 'weapon', str: 5, int: 40, def: 5, agi: 5, price: 900, reqZone: 7, desc: '魔攻+40' },
+            'mithril_armor': { name: '秘銀鎧甲', type: 'armor', slot: 'armor', str: 0, int: 0, def: 55, agi: 0, price: 850, reqZone: 7, desc: '防禦+55' },
+            'mp_ring': { name: '冥想戒指', type: 'accessory', slot: 'accessory', str: 0, int: 20, def: 10, agi: 0, price: 1200, reqZone: 7, desc: '魔攻+20, 防禦+10' },
+
+            'obsidian_sword': { name: '黑曜石劍', type: 'weapon', slot: 'weapon', element: 'dark', str: 65, int: 0, def: 5, agi: 0, price: 1500, reqZone: 8, desc: '暗屬物攻+65' },
+            
+            'crystal_wand': { name: '水晶魔杖', type: 'weapon', slot: 'weapon', str: 0, int: 65, def: 5, agi: 10, price: 1800, reqZone: 9, desc: '魔攻+65' },
+            'knight_armor': { name: '騎士重甲', type: 'armor', slot: 'armor', str: 5, int: 0, def: 80, agi: -10, price: 1700, reqZone: 9, desc: '防禦+80' },
+
+            'dragon_blade': { name: '龍骨刃', type: 'weapon', slot: 'weapon', str: 90, int: 0, def: 10, agi: 10, price: 2500, reqZone: 10, desc: '物攻+90' },
+            'sage_book': { name: '賢者之書', type: 'weapon', slot: 'weapon', str: 0, int: 85, def: 15, agi: 5, price: 2600, reqZone: 10, desc: '魔攻+85' },
+            'dragon_armor': { name: '巨龍護甲', type: 'armor', slot: 'armor', str: 10, int: 0, def: 120, agi: 0, price: 3000, reqZone: 10, desc: '防禦+120' },
+            
+            'lava_axe': { name: '熔岩戰斧', type: 'weapon', slot: 'weapon', element: 'fire', str: 110, int: 0, def: 0, agi: -10, price: 4000, reqZone: 11, desc: '火屬物攻+110' },
+
+            'flame_sword': { name: '烈焰魔劍', type: 'weapon', slot: 'weapon', element: 'fire', str: 150, int: 80, def: 0, agi: 0, price: 6000, reqZone: 12, desc: '火屬物魔雙修' },
+            'ice_staff': { name: '極寒法杖', type: 'weapon', slot: 'weapon', element: 'ice', str: 0, int: 160, def: 20, agi: 10, price: 6200, reqZone: 12, desc: '冰屬魔攻+160' },
+            
+            'shadow_cloak': { name: '暗影斗篷', type: 'armor', slot: 'armor', str: 0, int: 20, def: 150, agi: 40, price: 8000, reqZone: 13, desc: '防禦+150, 敏捷+40' },
+
+            'excalibur': { name: '聖劍 Excalibur', type: 'weapon', slot: 'weapon', element: 'light', str: 280, int: 80, def: 30, agi: 30, price: 15000, reqZone: 14, desc: '光屬傳說聖劍' },
+            'ultima_weapon': { name: '究極神兵', type: 'weapon', slot: 'weapon', str: 0, int: 300, def: 30, agi: 20, price: 16000, reqZone: 14, desc: '傳說法器' },
+            'god_robe': { name: '創世神袍', type: 'armor', slot: 'armor', str: 0, int: 120, def: 220, agi: 30, price: 14000, reqZone: 14, desc: '終極護甲' },
+            'aegis_shield': { name: '神盾', type: 'armor', slot: 'armor', str: 20, int: 20, def: 300, agi: -10, price: 15000, reqZone: 14, desc: '絕對防禦' },
+            
+            'demon_ring': { name: '惡魔指環', type: 'accessory', slot: 'accessory', str: 50, int: 50, def: 50, agi: 50, price: 12000, reqZone: 15, desc: '全屬性+50 (破關解鎖)' },
+            'hero_emblem': { name: '勇者紋章', type: 'accessory', slot: 'accessory', str: 100, int: 100, def: 100, agi: 100, price: 30000, reqZone: 15, desc: '全屬性+100 (破關解鎖)' }
+        };
+
+        function getEquipData(instanceId) {
+            let parts = instanceId.split('_+');
+            let baseId = parts[0];
+            let plus = parts.length > 1 ? parseInt(parts[1]) : 0;
+            let baseData = dbEquips[baseId];
+            if (!baseData) return null;
+            
+            return {
+                ...baseData,
+                name: baseData.name + (plus > 0 ? ` +${plus}` : ''),
+                str: Math.floor((baseData.str || 0) * (1 + 0.2 * plus)),
+                int: Math.floor((baseData.int || 0) * (1 + 0.2 * plus)),
+                def: Math.floor((baseData.def || 0) * (1 + 0.2 * plus)),
+                agi: Math.floor((baseData.agi || 0) * (1 + 0.2 * plus)),
+                price: Math.floor((baseData.price || 0) * (1 + 0.5 * plus)),
+                baseId: baseId,
+                plus: plus,
+                reqMat: plus >= 5 ? 'abyss_crystal' : (plus >= 2 ? 'mithril_ore' : 'iron_ore')
+            };
+        }
+
+        const dbSkills = {
+            'dash': { name: '衝撞', type: 'p_atk', element: 'physical', target: 'single', power: 1.5, mpCost: 2, desc: '150% 物理傷害', anim: 'melee' },
+            'smash': { name: '重擊', type: 'p_atk', element: 'physical', target: 'single', power: 2.5, mpCost: 5, desc: '250% 物理傷害', anim: 'melee' },
+            'cleave': { name: '旋風斬', type: 'p_atk', element: 'physical', target: 'all', power: 1.3, mpCost: 12, desc: '全體 130% 物理傷害', anim: 'slash_aoe' },
+            
+            'fireball': { name: '火球術', type: 'm_atk', element: 'fire', target: 'single', power: 2.2, mpCost: 6, desc: '220% 火屬魔法傷害', anim: 'projectile_fire' },
+            'meteor': { name: '隕石術', type: 'm_atk', element: 'fire', target: 'all', power: 1.8, mpCost: 20, desc: '全體 180% 火屬魔法傷害', anim: 'drop_meteor' },
+            'blizzard': { name: '冰凍術', type: 'm_atk', element: 'ice', target: 'single', power: 2.0, mpCost: 8, desc: '冰屬魔法，高機率眩暈', anim: 'item_mp', applyStatus: { id: 'stun', chance: 0.35, duration: 1 } },
+            
+            'resurrect': { name: '復活術', type: 'revive', target: 'single', power: 0.3, mpCost: 35, desc: '復活死去的隊友(30% HP)', anim: 'heal' },
+            'heal': { name: '治癒術', type: 'heal', target: 'single', power: 100, mpCost: 5, desc: '恢復單體 HP', anim: 'heal' },
+            'holy_light': { name: '聖光祈禱', type: 'heal', target: 'all', power: 120, mpCost: 25, desc: '恢復全體 HP', anim: 'heal' },
+            'purify': { name: '淨化', type: 'cure', target: 'single', power: 0, mpCost: 5, desc: '解除單體所有異常狀態', anim: 'heal' },
+            
+            'sneak_attack': { name: '偷襲', type: 'p_atk', element: 'physical', target: 'single', power: 2.0, mpCost: 3, desc: '200% 物理傷害', anim: 'melee' },
+            'assassinate': { name: '暗殺', type: 'p_atk', element: 'physical', target: 'single', power: 4.5, mpCost: 15, desc: '極高爆發，機率淬毒', anim: 'ultimate_slash', applyStatus: { id: 'poison', chance: 0.5, duration: 3 } },
+            'power_shot': { name: '強力射擊', type: 'p_atk', element: 'physical', target: 'single', power: 2.2, mpCost: 4, desc: '遠程打擊', anim: 'projectile_arrow' },
+            'arrow_rain': { name: '箭雨', type: 'p_atk', element: 'physical', target: 'all', power: 1.5, mpCost: 14, desc: '全體 150% 物理傷害', anim: 'drop_arrow' },
+            
+            'holy_strike': { name: '聖光劍', type: 'p_atk', element: 'light', target: 'single', power: 3.5, mpCost: 12, desc: '光屬神聖斬擊', anim: 'smite' },
+            'dark_blade': { name: '暗黑衝擊', type: 'p_atk', element: 'dark', target: 'all', power: 2.5, mpCost: 25, desc: '全體 250% 暗屬毀滅傷害', anim: 'dark_burst' },
+            'shuriken': { name: '手裏劍', type: 'p_atk', element: 'physical', target: 'single', power: 3.0, mpCost: 8, desc: '忍術暗器，附帶中毒', anim: 'projectile_shuriken', applyStatus: { id: 'poison', chance: 0.8, duration: 3 } },
+            
+            'judgement': { name: '神聖審判', type: 'm_atk', element: 'light', target: 'all', power: 3.5, mpCost: 40, desc: '全體 350% 光屬魔法', anim: 'ultimate_magic' },
+            'omnislash': { name: '無盡斬裂', type: 'p_atk', element: 'physical', target: 'single', power: 8.0, mpCost: 50, desc: '單體 800% 物理傷害', anim: 'ultimate_slash' },
+            'dragon_dive': { name: '龍星隕落', type: 'p_atk', element: 'physical', target: 'all', power: 3.0, mpCost: 35, desc: '全體 300% 物理傷害，機率眩暈', anim: 'drop_meteor', applyStatus: { id: 'stun', chance: 0.3, duration: 1 } },
+            'summon_bahamut': { name: '召喚巴哈姆特', type: 'm_atk', element: 'fire', target: 'all', power: 4.0, mpCost: 50, desc: '全體 400% 火屬魔法傷害', anim: 'dark_burst' },
+            'final_heaven': { name: '最終天堂', type: 'p_atk', element: 'light', target: 'single', power: 10.0, mpCost: 80, desc: '單體 1000% 光屬究極打擊', anim: 'smite' },
+            'ultima': { name: '究極核爆', type: 'm_atk', element: 'physical', target: 'all', power: 6.0, mpCost: 100, desc: '無視屬性的全體毀滅魔法', anim: 'ultimate_magic' }
+        };
+
+        const dbJobs = {
+            'novice': { tier: 1, name: '初心者', icon: '🥚', statMult: { hp: 1.0, mp: 1.0, str: 1.0, int: 1.0, vit: 1.0, agi: 1.0 }, unlockReq: [], skills: [{jlv: 1, skillId: 'dash'}] },
+            
+            'fighter': { tier: 2, name: '戰士', icon: '⚔️', statMult: { hp: 1.3, mp: 0.7, str: 1.4, int: 0.5, vit: 1.2, agi: 1.0 }, unlockReq: [{jobId: 'novice', jlv: 5}], skills: [{jlv: 1, skillId: 'dash'}, {jlv: 4, skillId: 'smash'}] },
+            'mage': { tier: 2, name: '法師', icon: '🔮', statMult: { hp: 0.8, mp: 1.5, str: 0.5, int: 1.6, vit: 0.8, agi: 1.1 }, unlockReq: [{jobId: 'novice', jlv: 5}], skills: [{jlv: 1, skillId: 'fireball'}, {jlv: 3, skillId: 'blizzard'}, {jlv: 6, skillId: 'meteor'}] },
+            'cleric': { tier: 2, name: '牧師', icon: '✝️', statMult: { hp: 1.0, mp: 1.3, str: 0.8, int: 1.2, vit: 1.0, agi: 0.9 }, unlockReq: [{jobId: 'novice', jlv: 5}], skills: [{jlv: 1, skillId: 'heal'}, {jlv: 3, skillId: 'purify'}, {jlv: 6, skillId: 'holy_light'}] },
+            'thief': { tier: 2, name: '盜賊', icon: '🗡️', statMult: { hp: 0.9, mp: 0.8, str: 1.1, int: 0.8, vit: 0.9, agi: 1.6 }, unlockReq: [{jobId: 'novice', jlv: 5}], skills: [{jlv: 1, skillId: 'sneak_attack'}] },
+            'archer': { tier: 2, name: '弓箭手', icon: '🏹', statMult: { hp: 1.0, mp: 0.9, str: 1.3, int: 0.7, vit: 1.0, agi: 1.4 }, unlockReq: [{jobId: 'novice', jlv: 5}], skills: [{jlv: 1, skillId: 'power_shot'}] },
+            
+            'knight': { tier: 3, name: '騎士', icon: '🛡️', statMult: { hp: 1.6, mp: 0.8, str: 1.3, int: 0.8, vit: 1.6, agi: 0.8 }, unlockReq: [{jobId: 'fighter', jlv: 5}], skills: [{jlv: 1, skillId: 'smash'}, {jlv: 5, skillId: 'holy_strike'}] },
+            'berserker': { tier: 3, name: '狂戰士', icon: '🪓', statMult: { hp: 1.5, mp: 0.5, str: 1.8, int: 0.3, vit: 1.0, agi: 1.2 }, unlockReq: [{jobId: 'fighter', jlv: 5}], skills: [{jlv: 1, skillId: 'smash'}, {jlv: 5, skillId: 'cleave'}] },
+            'wizard': { tier: 3, name: '巫師', icon: '📜', statMult: { hp: 0.8, mp: 1.8, str: 0.4, int: 2.0, vit: 0.7, agi: 1.2 }, unlockReq: [{jobId: 'mage', jlv: 5}], skills: [{jlv: 1, skillId: 'fireball'}, {jlv: 3, skillId: 'meteor'}] },
+            'bishop': { tier: 3, name: '主教', icon: '🕊️', statMult: { hp: 1.1, mp: 1.6, str: 0.7, int: 1.5, vit: 1.1, agi: 1.0 }, unlockReq: [{jobId: 'cleric', jlv: 5}, {jobId: 'mage', jlv: 3}], skills: [{jlv: 1, skillId: 'heal'}, {jlv: 4, skillId: 'holy_light'}, {jlv: 8, skillId: 'resurrect'}] },
+            'assassin': { tier: 3, name: '刺客', icon: '☠️', statMult: { hp: 1.0, mp: 0.9, str: 1.4, int: 0.9, vit: 0.9, agi: 2.0 }, unlockReq: [{jobId: 'thief', jlv: 5}], skills: [{jlv: 1, skillId: 'sneak_attack'}, {jlv: 5, skillId: 'assassinate'}] },
+            'ranger': { tier: 3, name: '遊俠', icon: '🦅', statMult: { hp: 1.1, mp: 1.0, str: 1.4, int: 0.8, vit: 1.1, agi: 1.7 }, unlockReq: [{jobId: 'archer', jlv: 5}, {jobId: 'thief', jlv: 3}], skills: [{jlv: 1, skillId: 'power_shot'}, {jlv: 5, skillId: 'arrow_rain'}] },
+            'monk': { tier: 3, name: '武僧', icon: '🥋', statMult: { hp: 1.4, mp: 1.1, str: 1.5, int: 1.0, vit: 1.3, agi: 1.4 }, unlockReq: [{jobId: 'cleric', jlv: 5}, {jobId: 'fighter', jlv: 3}], skills: [{jlv: 1, skillId: 'smash'}, {jlv: 4, skillId: 'heal'}] },
+            
+            'paladin': { tier: 4, name: '聖騎士', icon: '🔆', statMult: { hp: 1.8, mp: 1.2, str: 1.5, int: 1.2, vit: 1.8, agi: 1.0 }, unlockReq: [{jobId: 'knight', jlv: 10}, {jobId: 'bishop', jlv: 5}], skills: [{jlv: 1, skillId: 'holy_strike'}, {jlv: 5, skillId: 'holy_light'}, {jlv: 8, skillId: 'resurrect'}] },
+            'dark_knight': { tier: 4, name: '暗黑騎士', icon: '🌑', statMult: { hp: 1.7, mp: 1.0, str: 2.2, int: 1.4, vit: 1.2, agi: 1.1 }, unlockReq: [{jobId: 'berserker', jlv: 10}, {jobId: 'assassin', jlv: 5}], skills: [{jlv: 1, skillId: 'cleave'}, {jlv: 6, skillId: 'dark_blade'}] },
+            'sage': { tier: 4, name: '賢者', icon: '🌌', statMult: { hp: 1.2, mp: 2.2, str: 0.8, int: 2.2, vit: 1.0, agi: 1.3 }, unlockReq: [{jobId: 'wizard', jlv: 10}, {jobId: 'bishop', jlv: 10}], skills: [{jlv: 1, skillId: 'meteor'}, {jlv: 1, skillId: 'holy_light'}, {jlv: 8, skillId: 'judgement'}] },
+            'ninja': { tier: 4, name: '忍者', icon: '💨', statMult: { hp: 1.2, mp: 1.2, str: 1.7, int: 1.5, vit: 1.0, agi: 2.5 }, unlockReq: [{jobId: 'assassin', jlv: 10}, {jobId: 'monk', jlv: 5}], skills: [{jlv: 1, skillId: 'assassinate'}, {jlv: 4, skillId: 'shuriken'}] },
+            'dragoon': { tier: 4, name: '龍騎士', icon: '🐉', statMult: { hp: 1.6, mp: 1.0, str: 2.0, int: 1.0, vit: 1.5, agi: 1.8 }, unlockReq: [{jobId: 'knight', jlv: 10}, {jobId: 'berserker', jlv: 5}], skills: [{jlv: 1, skillId: 'cleave'}, {jlv: 8, skillId: 'dragon_dive'}] },
+            'summoner': { tier: 4, name: '召喚師', icon: '🦄', statMult: { hp: 1.0, mp: 2.5, str: 0.5, int: 2.5, vit: 0.8, agi: 1.2 }, unlockReq: [{jobId: 'wizard', jlv: 10}, {jobId: 'ranger', jlv: 5}], skills: [{jlv: 1, skillId: 'meteor'}, {jlv: 8, skillId: 'summon_bahamut'}] },
+            
+            'hero': { tier: 5, name: '勇者', icon: '👑', statMult: { hp: 2.2, mp: 1.5, str: 2.2, int: 1.8, vit: 2.0, agi: 1.6 }, unlockReq: [{jobId: 'paladin', jlv: 10}, {jobId: 'sage', jlv: 10}], skills: [{jlv: 1, skillId: 'holy_strike'}, {jlv: 5, skillId: 'judgement'}] },
+            'demon_lord': { tier: 5, name: '魔王', icon: '👿', statMult: { hp: 2.5, mp: 2.5, str: 2.5, int: 2.5, vit: 2.0, agi: 1.5 }, unlockReq: [{jobId: 'dark_knight', jlv: 10}, {jobId: 'sage', jlv: 10}], skills: [{jlv: 1, skillId: 'dark_blade'}, {jlv: 5, skillId: 'meteor'}, {jlv: 10, skillId: 'judgement'}] },
+            'sword_saint': { tier: 5, name: '劍聖', icon: '🗡️', statMult: { hp: 1.8, mp: 1.2, str: 2.8, int: 1.0, vit: 1.5, agi: 2.8 }, unlockReq: [{jobId: 'paladin', jlv: 10}, {jobId: 'ninja', jlv: 10}], skills: [{jlv: 1, skillId: 'cleave'}, {jlv: 5, skillId: 'omnislash'}] },
+            'god_hand': { tier: 5, name: '神之手', icon: '👊', statMult: { hp: 2.4, mp: 1.4, str: 3.0, int: 1.2, vit: 2.2, agi: 2.0 }, unlockReq: [{jobId: 'monk', jlv: 10}, {jobId: 'paladin', jlv: 10}], skills: [{jlv: 1, skillId: 'smash'}, {jlv: 8, skillId: 'final_heaven'}] },
+            'archmage': { tier: 5, name: '大魔導', icon: '🌟', statMult: { hp: 1.5, mp: 3.5, str: 0.8, int: 3.5, vit: 1.2, agi: 1.5 }, unlockReq: [{jobId: 'sage', jlv: 10}, {jobId: 'summoner', jlv: 10}], skills: [{jlv: 1, skillId: 'judgement'}, {jlv: 8, skillId: 'ultima'}] }
+        };
+
+        const dbEnemies = {
+            'slime': { name: '史萊姆', sprite: '🟢', hp: 45, str: 12, int: 2, def: 5, agi: 8, exp: 12, jp: 4, gold: 8, drops: [{id: 'iron_ore', chance: 0.1}], weak: ['fire'] },
+            'red_slime': { name: '紅史萊姆', sprite: '🔴', hp: 60, str: 18, int: 5, def: 8, agi: 10, exp: 18, jp: 5, gold: 12, drops: [{id: 'iron_ore', chance: 0.2}], weak: ['ice'], resist: ['fire'] },
+            'goblin': { name: '哥布林', sprite: '👹', hp: 100, str: 28, int: 5, def: 12, agi: 18, exp: 35, jp: 8, gold: 20, drops: [{id: 'iron_ore', chance: 0.4}] },
+            'rogue': { name: '盜賊', sprite: '🥷', hp: 150, str: 35, int: 5, def: 15, agi: 35, exp: 50, jp: 10, gold: 25, drops: [{id: 'iron_ore', chance: 0.6}] },
+            'poison_slime': { name: '劇毒史萊姆', sprite: '🟣', hp: 180, str: 40, int: 20, def: 20, agi: 15, exp: 60, jp: 12, gold: 30, drops: [{id: 'iron_ore', chance: 0.5}], onHitStatus: { id: 'poison', chance: 0.4, duration: 3 } },
+            'wolf': { name: '狂暴狼', sprite: '🐺', hp: 80, str: 35, int: 2, def: 10, agi: 30, exp: 40, jp: 10, gold: 15, weak: ['fire'] },
+            'skeleton': { name: '骷髏兵', sprite: '💀', hp: 200, str: 50, int: 10, def: 25, agi: 15, exp: 80, jp: 15, gold: 40, drops: [{id: 'mithril_ore', chance: 0.1}], weak: ['light'], resist: ['physical', 'dark'] },
+            'ghost': { name: '幽靈', sprite: '👻', hp: 120, str: 20, int: 60, def: 50, agi: 25, exp: 90, jp: 18, gold: 35, drops: [{id: 'mithril_ore', chance: 0.1}], weak: ['light'], resist: ['physical', 'dark'] },
+            'golem': { name: '石巨人', sprite: '🗿', hp: 600, str: 90, int: 10, def: 80, agi: 5, exp: 250, jp: 35, gold: 100, drops: [{id: 'mithril_ore', chance: 0.3}, {id: 'iron_ore', chance: 1.0}] },
+            'demon': { name: '下級惡魔', sprite: '👿', hp: 450, str: 80, int: 90, def: 40, agi: 45, exp: 350, jp: 50, gold: 150, drops: [{id: 'mithril_ore', chance: 0.5}], weak: ['light'], resist: ['dark', 'fire'] },
+            'fire_spirit': { name: '火精靈', sprite: '🔥', hp: 550, str: 60, int: 110, def: 50, agi: 40, exp: 400, jp: 55, gold: 180, weak: ['ice'], resist: ['fire', 'physical'] },
+            
+            'dragon': { name: '遠古巨龍', sprite: '🐉', hp: 3000, str: 250, int: 150, def: 150, agi: 60, exp: 1500, jp: 200, gold: 1000, drops: [{id: 'abyss_crystal', chance: 0.8}, {id: 'seed_str', chance: 0.2}], weak: ['ice'], resist: ['fire'], aiScript: { chargeAt: 4, chargeMsg: '巨龍深吸了一口氣，吐息即將到來...', releaseSkill: 'dragon_dive' } },
+            'dark_knight_e': { name: '暗黑騎士', sprite: '🤺', hp: 2500, str: 180, int: 50, def: 100, agi: 50, exp: 1200, jp: 150, gold: 600, drops: [{id: 'abyss_crystal', chance: 0.5}], weak: ['light'], resist: ['dark'] },
+            'abyss_eye': { name: '深淵之眼', sprite: '👁️‍🗨️', hp: 4000, str: 200, int: 300, def: 150, agi: 70, exp: 2000, jp: 250, gold: 1200, drops: [{id: 'abyss_crystal', chance: 1.0}], weak: ['light'], resist: ['physical', 'dark'], aiScript: { chargeAt: 3, chargeMsg: '深淵之眼匯聚著暗影能量...', releaseSkill: 'dark_blade' }, onHitStatus: { id: 'stun', chance: 0.2, duration: 1 } },
+            'dark_lord': { name: '黑暗之主', sprite: '👁️', hp: 8000, str: 450, int: 350, def: 250, agi: 80, exp: 5000, jp: 500, gold: 5000, drops: [{id: 'abyss_crystal', chance: 1.0}, {id: 'seed_hp', chance: 1.0}], weak: ['light'], resist: ['dark', 'fire', 'ice'], aiScript: { chargeAt: 5, chargeMsg: '黑暗之主高舉雙手，星辰開始墜落...', releaseSkill: 'ultima' }, onHitStatus: { id: 'poison', chance: 0.5, duration: 3 } }
+        };
+
+        const dbEncounters = [
+            { id: 'zone_0', title: '0. 訓練所 (Lv.1+)', desc: '適合完全新手的假人訓練區。', pool: ['slime'], minEnemies: 1, maxEnemies: 2, color: 'text-gray-400', bg: 'bg-town' },
+            { id: 'zone_1', title: '1. 史萊姆平原 (Lv.3+)', desc: '微風輕拂，史萊姆群聚之地。', pool: ['slime', 'red_slime'], minEnemies: 1, maxEnemies: 3, color: 'text-green-300', bg: 'bg-plains' },
+            { id: 'zone_2', title: '2. 微風草原 (Lv.5+)', desc: '更廣闊的草原，野狼開始出沒。', pool: ['red_slime', 'wolf'], minEnemies: 2, maxEnemies: 3, color: 'text-green-400', bg: 'bg-plains' },
+            { id: 'zone_3', title: '3. 哥布林森林 (Lv.8+)', desc: '充滿狡猾哥布林的幽暗樹林。', pool: ['goblin', 'wolf'], minEnemies: 2, maxEnemies: 4, color: 'text-green-500', bg: 'bg-forest' },
+            { id: 'zone_4', title: '4. 盜賊營地 (Lv.12+)', desc: '法外狂徒聚集的營地。', pool: ['goblin', 'rogue'], minEnemies: 2, maxEnemies: 4, color: 'text-yellow-400', bg: 'bg-forest' },
+            { id: 'zone_5', title: '5. 不死者墓穴 (Lv.15+)', desc: '徘徊著亡魂與白骨的地下陰宅。', pool: ['skeleton', 'ghost'], minEnemies: 2, maxEnemies: 4, color: 'text-purple-300', bg: 'bg-cave' },
+            { id: 'zone_6', title: '6. 荒暗沼澤 (Lv.20+)', desc: '佈滿瘴氣，潛伏著劇毒魔物。', pool: ['poison_slime', 'skeleton'], minEnemies: 2, maxEnemies: 4, color: 'text-purple-400', bg: 'bg-forest' },
+            { id: 'zone_7', title: '7. 巨石荒野 (Lv.25+)', desc: '堅硬的岩石魔物在此遊蕩。', pool: ['golem', 'wolf'], minEnemies: 2, maxEnemies: 3, color: 'text-yellow-600', bg: 'bg-plains' },
+            { id: 'zone_8', title: '8. 迷霧廢墟 (Lv.30+)', desc: '古代遺跡，亡靈與盜賊盤據。', pool: ['rogue', 'ghost', 'golem'], minEnemies: 3, maxEnemies: 4, color: 'text-gray-500', bg: 'bg-town' },
+            { id: 'zone_9', title: '9. 惡魔之門 (Lv.35+)', desc: '魔界生物入侵的防線，極度危險。', pool: ['demon', 'ghost'], minEnemies: 2, maxEnemies: 4, color: 'text-red-400', bg: 'bg-volcano' },
+            { id: 'zone_10', title: '10. 熔岩地穴 (Lv.40+)', desc: '炙熱的岩漿地帶，火精靈飛舞。', pool: ['demon', 'fire_spirit'], minEnemies: 2, maxEnemies: 4, color: 'text-red-500', bg: 'bg-volcano' },
+            { id: 'zone_11', title: '11. 巨龍之巔 (Lv.45+)', desc: '傳說中萬物俱滅的災厄之地。', pool: ['dragon', 'demon'], minEnemies: 1, maxEnemies: 2, color: 'text-red-600', bg: 'bg-volcano' },
+            { id: 'zone_12', title: '12. 虛空裂隙 (Lv.50+)', desc: '時空扭曲的異界，強敵環伺。', pool: ['dark_knight_e', 'abyss_eye'], minEnemies: 1, maxEnemies: 3, color: 'text-purple-500', bg: 'bg-cave' },
+            { id: 'zone_13', title: '13. 墮落王座 (Lv.55+)', desc: '魔王城的前哨站，佈滿深淵守衛。', pool: ['abyss_eye', 'dragon', 'dark_knight_e'], minEnemies: 2, maxEnemies: 3, color: 'text-purple-600', bg: 'bg-dark-castle' },
+            { id: 'zone_14', title: '14. 魔王城深處 (Lv.60+)', desc: '終極的試煉，挑戰世界之惡。', pool: ['dark_lord', 'dragon'], minEnemies: 1, maxEnemies: 3, color: 'text-fuchsia-600', bg: 'bg-dark-castle' }
+        ];
+
+        let gameState = { 
+            party: [], gold: 150, 
+            inventory: { 'potion': 10, 'ether': 5, 'phoenix_down': 1 }, 
+            equips: {}, maxZoneCleared: 0, ngPlus: 0 
+        };
+        let viewState = { invCharIdx: 0, partyCharIdx: 0, shopMode: 'item', invMode: 'item' };
+        let battle = { active: false, enemies: [], party: [], queue: [], turnIdx: 0, logs: [], isAuto: false, speedMult: 1, actionLock: false, currentZoneIdx: 0 };
+        let autoContinueTimer = null;
+        let toastTimer = null;
+
+        const getExpNeeded = (level) => Math.floor(100 * Math.pow(1.3, level - 1));
+        const getJpNeeded = (jlv) => Math.floor(50 * Math.pow(1.15, jlv - 1) + jlv * 20);
+        const sleep = ms => new Promise(r => setTimeout(r, ms / battle.speedMult));
+        const logMsg = msg => { battle.logs.unshift(msg); if(battle.logs.length > 20) battle.logs.pop(); renderBattleLog(); };
+
+        function autoSave(customMsg) {
+            localStorage.setItem('grand_jrpg_save', JSON.stringify(gameState));
+            showToast(customMsg || '💾 遊戲已儲存');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('save-toast');
+            toast.innerText = msg;
+            toast.style.opacity = 1;
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.style.opacity = 0, 2000);
+        }
+
+        function loadGame() {
+            const saved = localStorage.getItem('grand_jrpg_save');
+            if (saved) {
+                try {
+                    let loadedState = JSON.parse(saved);
+                    loadedState.party.forEach(char => {
+                        ['weapon', 'armor', 'accessory'].forEach(slot => {
+                            if (char.equips[slot] && !getEquipData(char.equips[slot])) char.equips[slot] = null;
+                        });
+                        if (!char.bonus) char.bonus = { hp: 0, mp: 0, str: 0, int: 0, vit: 0, agi: 0 };
+                        updateCharacterStats(char);
+                    });
+                    for (let id in loadedState.inventory) if (!dbItems[id]) delete loadedState.inventory[id];
+                    for (let id in loadedState.equips) if (!getEquipData(id)) delete loadedState.equips[id];
+                    gameState = loadedState;
+                    return true;
+                } catch(e) { console.error("Save corrupted, generating new."); }
+            }
+            return false;
+        }
+
+        function wipeSave() {
+            showConfirm("確定要刪除進度重新開始嗎？", () => {
+                localStorage.removeItem('grand_jrpg_save');
+                location.reload();
+            });
+        }
+
+        function createCharacter(name, initialJob) {
+            let char = {
+                id: 'char_' + Math.random().toString(36).substr(2, 9), name: name, level: 1, exp: 0,
+                jobs: {}, currentJob: initialJob, base: { hp: 60, mp: 15, str: 10, int: 10, vit: 10, agi: 10 },
+                bonus: { hp: 0, mp: 0, str: 0, int: 0, vit: 0, agi: 0 }, 
+                equips: { weapon: null, armor: null, accessory: null }, currentHp: 0, currentMp: 0, learnedSkills: []
+            };
+            char.jobs[initialJob] = { jlv: 1, jp: 0 };
+            updateCharacterStats(char);
+            char.currentHp = char.computed.maxHp; char.currentMp = char.computed.maxMp;
+            checkSkillUnlocks(char);
+            return char;
+        }
+
+        function updateCharacterStats(char) {
+            const jobData = dbJobs[char.currentJob];
+            const lvOffset = char.level - 1;
+            const b = char.bonus || { hp: 0, mp: 0, str: 0, int: 0, vit: 0, agi: 0 };
+            
+            char.computed = {
+                maxHp: Math.floor((char.base.hp + b.hp + lvOffset * 20) * jobData.statMult.hp),
+                maxMp: Math.floor((char.base.mp + b.mp + lvOffset * 8) * jobData.statMult.mp),
+                str: Math.floor((char.base.str + b.str + lvOffset * 4) * jobData.statMult.str),
+                int: Math.floor((char.base.int + b.int + lvOffset * 4) * jobData.statMult.int),
+                vit: Math.floor((char.base.vit + b.vit + lvOffset * 3) * jobData.statMult.vit),
+                agi: Math.floor((char.base.agi + b.agi + lvOffset * 3) * jobData.statMult.agi)
+            };
+            char.computed.def = Math.floor(char.computed.vit * 1.5);
+
+            Object.values(char.equips).forEach(eqId => {
+                if (eqId) {
+                    const eq = getEquipData(eqId);
+                    if (eq) {
+                        char.computed.str += eq.str || 0; char.computed.int += eq.int || 0;
+                        char.computed.def += eq.def || 0; char.computed.agi += eq.agi || 0;
+                    }
+                }
+            });
+        }
+
+        function checkSkillUnlocks(char) {
+            char.learnedSkills = [];
+            Object.entries(char.jobs).forEach(([jobId, jobData]) => {
+                const jobDef = dbJobs[jobId];
+                jobDef.skills.forEach(sk => { if (jobData.jlv >= sk.jlv && !char.learnedSkills.includes(sk.skillId)) char.learnedSkills.push(sk.skillId); });
+            });
+        }
+
+        function navTo(screenId) {
+            if(autoContinueTimer) { clearInterval(autoContinueTimer); autoContinueTimer = null; }
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            
+            if (screenId === 'screen-town') {
+                gameState.party.forEach(char => { 
+                    char.currentHp = char.computed.maxHp; 
+                    char.currentMp = char.computed.maxMp; 
+                });
+                document.getElementById('town-gold').innerText = gameState.gold;
+                document.getElementById('town-zone').innerText = gameState.maxZoneCleared;
+                if (gameState.maxZoneCleared >= 14) document.getElementById('btn-throne').classList.remove('hidden');
+                if (gameState.ngPlus > 0) {
+                    document.getElementById('town-ngplus-text').classList.remove('hidden');
+                    document.getElementById('town-ngplus-num').innerText = gameState.ngPlus + 1;
+                }
+                autoSave();
+            } else if (screenId === 'screen-world') {
+                renderWorldMap();
+            }
+        }
+
+        function openShop() { navTo('screen-shop'); document.getElementById('shop-gold').innerText = gameState.gold; renderShop('item'); }
+
+        function renderShop(type) {
+            viewState.shopMode = type;
+            document.getElementById('btn-shop-item').classList.toggle('bg-blue-900', type === 'item');
+            document.getElementById('btn-shop-equip').classList.toggle('bg-blue-900', type === 'equip');
+            document.getElementById('btn-shop-sell').classList.toggle('bg-blue-900', type === 'sell');
+            
+            if (type === 'sell') { renderSellList(); return; }
+
+            const db = type === 'item' ? dbItems : dbEquips;
+            let availableItems = Object.entries(db).filter(([id, item]) => (item.reqZone || 0) <= gameState.maxZoneCleared + (gameState.ngPlus * 20)); 
+            
+            document.getElementById('shop-list').innerHTML = availableItems.map(([id, item]) => {
+                const rClass = getRarityClass(item.price);
+                return `
+                <div class="flex justify-between items-center border-b border-gray-700 pb-2">
+                    <div><div class="${rClass} font-bold text-[15px]">${item.name}</div><div class="text-[10px] text-gray-400">${item.desc}</div></div>
+                    <button class="bg-gray-800 border border-yellow-600 px-3 py-1 rounded text-sm hover:bg-gray-700 disabled:opacity-50 text-yellow-400 font-bold" 
+                            onclick="buy('${type}', '${id}')" ${gameState.gold < item.price ? 'disabled' : ''}>${item.price} G</button>
+                </div>`;
+            }).join('');
+            if (availableItems.length === 0) document.getElementById('shop-list').innerHTML = '<div class="text-center text-gray-500 mt-4">目前沒有商品。</div>';
+        }
+
+        function renderSellList() {
+            let html = '';
+            const allInventory = {...gameState.inventory, ...gameState.equips};
+            
+            html = Object.entries(allInventory).filter(([id, qty]) => qty > 0).map(([id, qty]) => {
+                let isItem = dbItems[id] !== undefined;
+                const item = isItem ? dbItems[id] : getEquipData(id);
+                if (!item) return '';
+                const rClass = getRarityClass(item.price);
+                const sellPrice = Math.max(1, Math.floor(item.price / 2));
+                return `
+                <div class="flex justify-between items-center border-b border-gray-700 pb-2">
+                    <div><div class="${rClass} font-bold text-[15px]">${item.name} <span class="text-yellow-400 text-xs">x${qty}</span></div></div>
+                    <button class="bg-gray-800 border border-green-600 px-3 py-1 rounded text-sm hover:bg-gray-700 text-green-400 font-bold" 
+                            onclick="sell('${isItem ? 'item' : 'equip'}', '${id}')">賣出 +${sellPrice} G</button>
+                </div>`;
+            }).join('');
+            document.getElementById('shop-list').innerHTML = html || '<div class="text-center text-gray-500 mt-4">沒有可以賣的東西。</div>';
+        }
+
+        function buy(type, id) {
+            const item = type === 'item' ? dbItems[id] : dbEquips[id];
+            if (gameState.gold >= item.price) {
+                gameState.gold -= item.price; document.getElementById('shop-gold').innerText = gameState.gold;
+                const storage = type === 'item' ? gameState.inventory : gameState.equips;
+                storage[id] = (storage[id] || 0) + 1;
+                renderShop(type); autoSave();
+            }
+        }
+
+        function sell(type, id) {
+            const storage = type === 'item' ? gameState.inventory : gameState.equips;
+            const item = type === 'item' ? dbItems[id] : getEquipData(id);
+            if (storage[id] && storage[id] > 0) {
+                storage[id]--;
+                if (storage[id] <= 0) delete storage[id];
+                gameState.gold += Math.max(1, Math.floor(item.price / 2));
+                document.getElementById('shop-gold').innerText = gameState.gold;
+                renderSellList(); autoSave();
+            }
+        }
+
+        function openForge() {
+            navTo('screen-forge');
+            document.getElementById('forge-gold').innerText = gameState.gold;
+            renderForgeList();
+        }
+
+        function renderForgeList() {
+            let html = '';
+            const equips = Object.entries(gameState.equips).filter(([id, qty]) => qty > 0);
+
+            if (equips.length === 0) {
+                document.getElementById('forge-list').innerHTML = '<div class="text-center text-gray-500 mt-4">行囊中沒有可強化的裝備。</div>';
+                return;
+            }
+
+            html = equips.map(([instanceId, qty]) => {
+                const eq = getEquipData(instanceId);
+                const nextPlus = eq.plus + 1;
+                const matId = eq.reqMat;
+                const matName = dbItems[matId].name;
+                const matCost = nextPlus * 2; 
+                const goldCost = Math.floor(eq.price * 0.5 * nextPlus);
+
+                const hasMat = (gameState.inventory[matId] || 0) >= matCost;
+                const hasGold = gameState.gold >= goldCost;
+                const canUpgrade = hasMat && hasGold;
+
+                return `
+                <div class="flex justify-between items-center border-b border-gray-700 pb-2 bg-black/30 p-2 rounded mb-2">
+                    <div class="flex-1">
+                        <div class="text-white font-bold text-[15px]">${eq.name} <span class="text-gray-400 text-xs ml-1">-> +${nextPlus}</span></div>
+                        <div class="text-[11px] text-gray-400 mt-1">
+                            需: <span class="${hasMat ? 'text-green-400' : 'text-red-400'}">${matName} x${matCost}</span> (持有: ${gameState.inventory[matId]||0})<br>
+                            費: <span class="${hasGold ? 'text-yellow-400' : 'text-red-400'}">${goldCost} G</span>
+                        </div>
+                    </div>
+                    <button class="bg-orange-800 border border-orange-500 px-3 py-2 rounded shadow font-bold text-sm ${canUpgrade ? 'hover:bg-orange-700 text-white' : 'opacity-50 text-gray-400 cursor-not-allowed'}"
+                            onclick="if(${canUpgrade}) upgradeEquip('${instanceId}', '${matId}', ${matCost}, ${goldCost})" ${!canUpgrade ? 'disabled' : ''}>
+                        敲打
+                    </button>
+                </div>`;
+            }).join('');
+            document.getElementById('forge-list').innerHTML = html;
+        }
+
+        function upgradeEquip(instanceId, matId, matCost, goldCost) {
+            if (gameState.inventory[matId] >= matCost && gameState.gold >= goldCost && gameState.equips[instanceId] > 0) {
+                gameState.inventory[matId] -= matCost;
+                if(gameState.inventory[matId] <= 0) delete gameState.inventory[matId];
+                gameState.gold -= goldCost;
+                document.getElementById('forge-gold').innerText = gameState.gold;
+
+                gameState.equips[instanceId]--;
+                if(gameState.equips[instanceId] <= 0) delete gameState.equips[instanceId];
+
+                const eqData = getEquipData(instanceId);
+                const newInstanceId = `${eqData.baseId}_+${eqData.plus + 1}`;
+                gameState.equips[newInstanceId] = (gameState.equips[newInstanceId] || 0) + 1;
+
+                showToast(`🔨 成功強化了 ${eqData.name}！`);
+                autoSave(); renderForgeList();
+            }
+        }
+
+        function openInventory() { navTo('screen-inventory'); viewState.invCharIdx = 0; document.getElementById('inv-gold').innerText = gameState.gold; renderInventoryChar(); renderInventory('item'); }
+        function invNextChar() { viewState.invCharIdx = (viewState.invCharIdx + 1) % gameState.party.length; renderInventoryChar(); }
+        function invPrevChar() { viewState.invCharIdx = (viewState.invCharIdx - 1 + gameState.party.length) % gameState.party.length; renderInventoryChar(); }
+
+        function renderInventoryChar() {
+            const char = gameState.party[viewState.invCharIdx];
+            document.getElementById('inv-char-name').innerHTML = `${char.name} <span class="text-xs text-blue-300 ml-1">[${dbJobs[char.currentJob].name}]</span>`;
+            ['weapon', 'armor', 'accessory'].forEach(slot => {
+                const eqId = char.equips[slot];
+                const el = document.getElementById(`slot-${slot}`);
+                if (eqId) {
+                    const eqData = getEquipData(eqId);
+                    if (eqData) {
+                        const rClass = getRarityClass(eqData.price);
+                        el.innerHTML = `${slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : '飾品'}<br><span class="${rClass} text-[10px] font-bold">${eqData.name}</span>`;
+                        el.classList.add('equipped');
+                    }
+                } else {
+                    el.innerHTML = `${slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : '飾品'}<br><span class="text-gray-500 text-[10px]">無</span>`;
+                    el.classList.remove('equipped');
+                }
+            });
+            document.getElementById('inv-hp').innerText = `${char.currentHp}/${char.computed.maxHp}`;
+            document.getElementById('inv-mp').innerText = `${char.currentMp}/${char.computed.maxMp}`;
+            document.getElementById('inv-atk').innerText = char.computed.str; document.getElementById('inv-matk').innerText = char.computed.int;
+            document.getElementById('inv-def').innerText = char.computed.def; document.getElementById('inv-agi').innerText = char.computed.agi;
+        }
+
+        function renderInventory(type) {
+            viewState.invMode = type;
+            document.getElementById('btn-inv-item').classList.toggle('bg-blue-900', type === 'item');
+            document.getElementById('btn-inv-equip').classList.toggle('bg-blue-900', type === 'equip');
+
+            const storage = type === 'item' ? gameState.inventory : gameState.equips;
+            
+            let html = Object.entries(storage).filter(([id, qty]) => qty > 0).map(([id, qty]) => {
+                const item = type === 'item' ? dbItems[id] : getEquipData(id); 
+                if (!item) return '';
+                const rClass = getRarityClass(item.price);
+                const hasDead = gameState.party.some(p => p.currentHp <= 0);
+                
+                let disabled = false;
+                if(item.type === 'revive') disabled = !hasDead;
+                if(item.type === 'material' || item.type === 'cure') disabled = true; // 素材與解控不能在非戰鬥吃
+                
+                let btnAction = '';
+                if(type === 'item') {
+                    if(item.type !== 'material') {
+                        btnAction = `<button class="bg-gray-700 border border-gray-500 px-3 py-1 rounded text-sm text-green-400 font-bold hover:bg-gray-600 disabled:opacity-30 disabled:text-gray-500" onclick="useItemOutside('${id}')" ${disabled ? 'disabled' : ''}>使用</button>`;
+                    } else {
+                        btnAction = `<span class="text-xs text-gray-500 px-2">鍛造素材</span>`;
+                    }
+                } else {
+                    btnAction = `<button class="bg-gray-700 border border-gray-500 px-3 py-1 rounded text-sm text-blue-400 font-bold hover:bg-gray-600" onclick="equip('${id}')">裝備</button>`;
+                }
+                
+                return `<div class="flex justify-between items-center border-b border-gray-700 pb-2 bg-black/20 p-2 rounded shadow">
+                    <div><div class="${rClass} font-bold text-[14px]">${item.name} <span class="text-yellow-400 text-xs ml-1">x${qty}</span></div>
+                    <div class="text-[10px] text-gray-400">${item.desc}</div></div>${btnAction}</div>`;
+            }).join('');
+            document.getElementById('inventory-list').innerHTML = html || '<div class="text-center text-gray-500 mt-8 font-bold">空空如也</div>';
+        }
+
+        function equip(eqId) {
+            const char = gameState.party[viewState.invCharIdx]; const eq = getEquipData(eqId); if (!eq) return;
+            if (char.equips[eq.slot]) gameState.equips[char.equips[eq.slot]] = (gameState.equips[char.equips[eq.slot]] || 0) + 1;
+            char.equips[eq.slot] = eqId; gameState.equips[eqId]--; if (gameState.equips[eqId] <= 0) delete gameState.equips[eqId];
+            updateCharacterStats(char); char.currentHp = Math.min(char.currentHp, char.computed.maxHp); char.currentMp = Math.min(char.currentMp, char.computed.maxMp);
+            renderInventoryChar(); renderInventory('equip'); autoSave();
+        }
+
+        function unequip(slot) {
+            const char = gameState.party[viewState.invCharIdx]; const eqId = char.equips[slot];
+            if (eqId) {
+                gameState.equips[eqId] = (gameState.equips[eqId] || 0) + 1; char.equips[slot] = null;
+                updateCharacterStats(char); char.currentHp = Math.min(char.currentHp, char.computed.maxHp); char.currentMp = Math.min(char.currentMp, char.computed.maxMp);
+                renderInventoryChar(); if(viewState.invMode === 'equip') renderInventory('equip'); autoSave();
+            }
+        }
+
+        function useItemOutside(itemId) {
+            const char = gameState.party[viewState.invCharIdx]; const item = dbItems[itemId];
+            if (!item || !gameState.inventory[itemId]) return;
+            
+            let used = false;
+            let customMsg = null;
+            
+            if (item.type.startsWith('seed_')) {
+                const stat = item.type.split('_')[1];
+                if (!char.bonus) char.bonus = { hp: 0, mp: 0, str: 0, int: 0, vit: 0, agi: 0 };
+                char.bonus[stat] += item.power;
+                updateCharacterStats(char);
+                used = true;
+                customMsg = `🌱 ${char.name} 服用了 ${item.name}，能力提升了！`;
+            }
+            else if (item.type === 'heal' && char.currentHp > 0 && char.currentHp < char.computed.maxHp) { char.currentHp = Math.min(char.computed.maxHp, char.currentHp + item.power); used = true; } 
+            else if (item.type === 'mp_heal' && char.currentHp > 0 && char.currentMp < char.computed.maxMp) { char.currentMp = Math.min(char.computed.maxMp, char.currentMp + item.power); used = true; } 
+            else if (item.type === 'heal_all' && char.currentHp > 0) { char.currentHp = char.computed.maxHp; char.currentMp = char.computed.maxMp; used = true; }
+            else if (item.type === 'revive' && char.currentHp <= 0) { char.currentHp = Math.floor(char.computed.maxHp * item.power); used = true; }
+            
+            if (used) {
+                gameState.inventory[itemId]--; if (gameState.inventory[itemId] <= 0) delete gameState.inventory[itemId];
+                renderInventoryChar(); renderInventory('item'); autoSave(customMsg); 
+            }
+        }
+
+        function viewParty() { navTo('screen-party'); viewState.partyCharIdx = 0; renderPartyChar(); }
+        function partyNextChar() { viewState.partyCharIdx = (viewState.partyCharIdx + 1) % gameState.party.length; renderPartyChar(); }
+        function partyPrevChar() { viewState.partyCharIdx = (viewState.partyCharIdx - 1 + gameState.party.length) % gameState.party.length; renderPartyChar(); }
+
+        function renderPartyChar() {
+            const char = gameState.party[viewState.partyCharIdx];
+            document.getElementById('party-char-name').innerHTML = `${dbJobs[char.currentJob].icon} ${char.name} <span class="text-sm text-blue-300 ml-1">[${dbJobs[char.currentJob].name}]</span>`;
+            document.getElementById('party-lv').innerText = char.level; document.getElementById('party-exp').innerText = `${char.exp} / ${getExpNeeded(char.level)}`;
+            document.getElementById('party-hp').innerText = char.computed.maxHp; document.getElementById('party-mp').innerText = char.computed.maxMp;
+            
+            const formatStat = (val, bonus) => bonus > 0 ? `<span class="text-yellow-300">${val}</span>` : val;
+            const b = char.bonus || { hp: 0, mp: 0, str: 0, int: 0, vit: 0, agi: 0 };
+            
+            document.getElementById('party-str').innerHTML = formatStat(char.computed.str, b.str); 
+            document.getElementById('party-int').innerHTML = formatStat(char.computed.int, b.int);
+            document.getElementById('party-def').innerHTML = formatStat(char.computed.def, b.vit); 
+            document.getElementById('party-agi').innerHTML = formatStat(char.computed.agi, b.agi);
+            renderJobTree(char);
+        }
+
+        function renderJobTree(char) {
+            const container = document.getElementById('job-list'); let html = '';
+            const sortedJobs = Object.entries(dbJobs).sort((a, b) => a[1].tier - b[1].tier);
+            
+            sortedJobs.forEach(([jobId, job]) => {
+                const isCurrent = char.currentJob === jobId; const jobData = char.jobs[jobId]; const isUnlocked = !!jobData;
+                let canUnlock = false; let reqText = '';
+                
+                if (!isUnlocked) {
+                    const reqsMet = job.unlockReq.every(req => char.jobs[req.jobId] && char.jobs[req.jobId].jlv >= req.jlv);
+                    canUnlock = reqsMet; reqText = job.unlockReq.map(req => `${dbJobs[req.jobId].name}Lv${req.jlv}`).join(', ');
+                }
+
+                let statusInfo = '';
+                if (isUnlocked) statusInfo = `<span class="text-green-400 text-xs mr-2 font-bold">Lv.${jobData.jlv} (JP: ${jobData.jp}/${jobData.jlv>=MAX_JLV ? 'MAX' : getJpNeeded(jobData.jlv)})</span>`;
+                else if (!canUnlock) statusInfo = `<span class="text-gray-500 text-[10px]">需求: ${reqText || '無'}</span>`;
+
+                let actionBtn = '';
+                if (isCurrent) actionBtn = '<span class="bg-blue-600 text-white text-xs px-2 py-1 rounded shadow font-bold">裝備中</span>';
+                else if (isUnlocked) actionBtn = `<button class="bg-gray-700 border border-blue-400 text-blue-300 text-xs px-3 py-1 rounded shadow font-bold hover:bg-gray-600" onclick="changeJob('${jobId}')">切換</button>`;
+                else if (canUnlock) actionBtn = `<button class="bg-yellow-600 border border-yellow-400 text-white text-xs px-3 py-1 rounded shadow font-bold hover:bg-yellow-500" onclick="changeJob('${jobId}')">解鎖</button>`;
+
+                let skillPreview = '<div class="mt-2 pt-2 border-t border-gray-600/50 space-y-1 w-full">';
+                job.skills.forEach(sk => {
+                    const skillInfo = dbSkills[sk.skillId];
+                    const isSkillUnlocked = jobData && jobData.jlv >= sk.jlv;
+                    const lockColor = isSkillUnlocked ? 'text-blue-300' : 'text-gray-500';
+                    const reqText = isSkillUnlocked ? '' : ` <span class="text-gray-500 text-[10px]">(JLv.${sk.jlv} 解鎖)</span>`;
+                    skillPreview += `<div class="text-[11px] leading-tight flex justify-between items-start"><div class="flex-1"><span class="${lockColor} font-bold">▶ ${skillInfo.name}</span>${reqText}<div class="text-gray-400 ml-3 text-[10px] mt-0.5">${skillInfo.desc}</div></div><span class="text-blue-400/70 text-[10px] whitespace-nowrap ml-2">${skillInfo.mpCost}MP</span></div>`;
+                });
+                skillPreview += '</div>';
+
+                html += `<div class="flex flex-col border border-gray-700 mb-2 pb-2 ${isCurrent ? 'bg-blue-900/40 border-blue-500 shadow-md' : 'bg-black/30'} p-2 rounded">
+                    <div class="flex justify-between items-center w-full">
+                        <div><div class="font-bold text-[15px] ${isUnlocked ? 'text-gray-100' : 'text-gray-500'}">${job.icon} ${job.name} <span class="text-[10px] text-gray-400 ml-1">T${job.tier}</span></div>
+                        <div class="mt-1">${statusInfo}</div></div><div class="flex items-center gap-2">${actionBtn}</div>
+                    </div>
+                    ${skillPreview}
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function changeJob(jobId) {
+            const char = gameState.party[viewState.partyCharIdx];
+            if (!char.jobs[jobId]) char.jobs[jobId] = { jlv: 1, jp: 0 }; 
+            char.currentJob = jobId; updateCharacterStats(char); checkSkillUnlocks(char);
+            char.currentHp = Math.min(char.currentHp, char.computed.maxHp); char.currentMp = Math.min(char.currentMp, char.computed.maxMp);
+            renderPartyChar(); autoSave();
+        }
+
+        function renderWorldMap() {
+            const container = document.getElementById('dungeon-list');
+            container.innerHTML = dbEncounters.map((enc, idx) => `
+                <div class="rpg-btn flex-col items-start cursor-pointer hover:bg-gray-700 ${idx > gameState.maxZoneCleared + 1 && gameState.ngPlus === 0 ? 'opacity-50 pointer-events-none' : ''}" 
+                     onclick="startBattle(${idx})">
+                    <div class="flex justify-between w-full"><span class="font-bold ${enc.color} text-lg mb-1">${enc.title}</span>
+                    ${idx > gameState.maxZoneCleared + 1 && gameState.ngPlus === 0 ? '<span class="text-red-500 text-xs mt-1">未解鎖</span>' : ''}</div>
+                    <div class="text-xs text-gray-400">${enc.desc}</div>
+                </div>
+            `).join('');
+        }
+
+        async function startBattle(encIdx) {
+            if(autoContinueTimer) { clearInterval(autoContinueTimer); autoContinueTimer = null; }
+            battle.currentZoneIdx = encIdx; const enc = dbEncounters[encIdx];
+            battle.active = true; battle.logs = [`進入了 ${enc.title}！`];
+            
+            document.getElementById('battle-bg').className = `flex flex-col h-full p-2 transition-colors duration-500 relative overflow-hidden ${enc.bg || 'bg-plains'}`;
+            
+            let enemyCount = Math.floor(Math.random() * (enc.maxEnemies - enc.minEnemies + 1)) + enc.minEnemies;
+            battle.enemies = [];
+            const ngMult = 1 + (gameState.ngPlus * 1.5); 
+            
+            for (let i = 0; i < enemyCount; i++) {
+                let eId = enc.pool[Math.floor(Math.random() * enc.pool.length)];
+                let t = dbEnemies[eId];
+                battle.enemies.push({ 
+                    uniqueId: 'e_'+i, enemyId: eId, type: 'enemy', name: t.name + (enemyCount > 1 ? String.fromCharCode(65+i) : ''), 
+                    hp: Math.floor(t.hp * ngMult), maxHp: Math.floor(t.hp * ngMult), 
+                    str: Math.floor(t.str * ngMult), int: Math.floor(t.int * ngMult), 
+                    def: Math.floor(t.def * ngMult), agi: t.agi, sprite: t.sprite, 
+                    exp: Math.floor(t.exp * ngMult), jp: t.jp, gold: Math.floor((t.gold||0) * ngMult),
+                    drops: t.drops, aiScript: t.aiScript, turnCount: 0, isCharging: false, isDefending: false, statuses: []
+                });
+            }
+            
+            battle.party = gameState.party.map((p, idx) => ({ uniqueId: 'p_'+idx, type: 'player', ref: p, isDefending: false, statuses: [] }));
+            buildTurnQueue(); navTo('screen-battle'); renderBattleView();
+            await sleep(500); processTurn();
+        }
+
+        function buildTurnQueue() {
+            battle.queue = [...battle.party.filter(p=>p.ref.currentHp>0), ...battle.enemies.filter(e=>e.hp>0)];
+            battle.queue.sort((a,b) => (b.type==='player'?b.ref.computed.agi:b.agi) - (a.type==='player'?a.ref.computed.agi:a.agi));
+            battle.turnIdx = 0;
+        }
+
+        async function playFX(type, attackerEl, targetEl) {
+            if (!attackerEl || !targetEl) return;
+            const lungeClass = attackerEl.id.startsWith('ui-p_') ? 'lunge-up' : 'lunge-down';
+            attackerEl.classList.add(lungeClass); setTimeout(() => attackerEl.classList.remove(lungeClass), 300);
+
+            const r1 = attackerEl.getBoundingClientRect(); const r2 = targetEl.getBoundingClientRect();
+            const fx = document.createElement('div');
+            fx.style.position = 'fixed'; fx.style.zIndex = '9999'; fx.style.pointerEvents = 'none'; fx.style.transform = 'translate(-50%, -50%)';
+            document.body.appendChild(fx);
+
+            let duration = 400 / battle.speedMult;
+            if (type === 'projectile_fire' || type === 'projectile_arrow' || type === 'projectile_shuriken') {
+                fx.innerText = type === 'projectile_fire' ? '🔥' : type === 'projectile_arrow' ? '🏹' : '🗡️';
+                fx.style.fontSize = '2.5rem'; fx.style.left = (r1.left + r1.width/2) + 'px'; fx.style.top = (r1.top + r1.height/2) + 'px';
+                const dx = r2.left - r1.left; const dy = r2.top - r1.top; const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                await fx.animate([{ transform: `translate(-50%, -50%) rotate(${angle}deg)` }, { transform: `translate(calc(${dx}px - 50%), calc(${dy}px - 50%)) rotate(${angle}deg)` }], { duration: duration, easing: 'ease-in' }).finished;
+                fx.innerText = '💥'; fx.style.left = (r2.left + r2.width/2) + 'px'; fx.style.top = (r2.top + r2.height/2) + 'px';
+                await fx.animate([{ transform: 'translate(-50%, -50%) scale(1)', opacity: 1 }, { transform: 'translate(-50%, -50%) scale(2.5)', opacity: 0 }], { duration: 250 }).finished;
+            } else if (type === 'drop_meteor' || type === 'drop_arrow' || type === 'smite') {
+                fx.innerText = type === 'drop_meteor' ? '☄️' : type === 'drop_arrow' ? '⬇️' : '⚡';
+                fx.style.fontSize = '4rem'; fx.style.left = (r2.left + r2.width/2) + 'px'; fx.style.top = (r2.top - 250) + 'px'; 
+                await fx.animate([{ transform: `translate(-50%, -50%)`, opacity: 0 }, { transform: `translate(-50%, calc(250px - 50%))`, opacity: 1 }], { duration: duration, easing: 'ease-in' }).finished;
+                fx.innerText = '💥'; fx.style.top = (r2.top + r2.height/2) + 'px';
+                await fx.animate([{ transform: 'translate(-50%, -50%) scale(1.5)', opacity: 1 }, { transform: 'translate(-50%, -50%) scale(3.5)', opacity: 0 }], { duration: 250 }).finished;
+            } else if (type === 'heal' || type === 'item_heal' || type === 'item_mp') {
+                fx.innerText = type === 'item_mp' ? '💧' : '✨'; fx.style.fontSize = '3rem'; fx.style.left = (r2.left + r2.width/2) + 'px'; fx.style.top = (r2.top + r2.height/2) + 'px';
+                fx.style.filter = type === 'item_mp' ? 'drop-shadow(0 0 10px #60a5fa)' : 'drop-shadow(0 0 10px #4ade80)';
+                await fx.animate([{ transform: `translate(-50%, -50%) scale(0.5)`, opacity: 1 }, { transform: `translate(-50%, calc(-80px - 50%)) scale(1.5)`, opacity: 0 }], { duration: 600 / battle.speedMult, easing: 'ease-out' }).finished;
+            } else if (type === 'ultimate_slash' || type === 'slash_aoe' || type === 'dark_burst' || type === 'ultimate_magic') {
+                const bg = document.createElement('div'); bg.style.position = 'fixed'; bg.style.inset = '0'; bg.style.background = 'rgba(0,0,0,0.6)'; bg.style.zIndex = '9998'; document.body.appendChild(bg);
+                fx.innerText = type === 'ultimate_magic' ? '🌌' : type === 'dark_burst' ? '🌑' : '💢';
+                fx.style.fontSize = '5rem'; fx.style.left = (r2.left + r2.width/2) + 'px'; fx.style.top = (r2.top + r2.height/2) + 'px';
+                
+                if (type.includes('slash')) {
+                    const slashCount = type === 'ultimate_slash' ? 5 : 2;
+                    for(let i=0; i<slashCount; i++) {
+                        const slash = document.createElement('div'); slash.innerText = '🗡️'; slash.style.position = 'fixed'; slash.style.fontSize = '4rem';
+                        slash.style.left = (r2.left + r2.width/2 + (Math.random()*60-30)) + 'px'; slash.style.top = (r2.top + r2.height/2 + (Math.random()*60-30)) + 'px'; slash.style.zIndex = '9999'; document.body.appendChild(slash);
+                        slash.animate([{ transform: `translate(-50%, -50%) scale(2) rotate(${Math.random()*360}deg)`, opacity: 1 }, { transform: `translate(-50%, -50%) scale(1) rotate(${Math.random()*360}deg)`, opacity: 0 }], { duration: 250/battle.speedMult }).onfinish = () => slash.remove();
+                        await sleep(100/battle.speedMult);
+                    }
+                } else {
+                    await fx.animate([{ transform: `translate(-50%, -50%) scale(0.5) rotate(0deg)`, opacity: 1 }, { transform: `translate(-50%, -50%) scale(4) rotate(180deg)`, opacity: 0 }], { duration: 700 / battle.speedMult, easing: 'ease-out' }).finished;
+                }
+                bg.remove();
+            } else {
+                fx.innerText = '💥'; fx.style.fontSize = '3rem'; fx.style.left = (r2.left + r2.width/2) + 'px'; fx.style.top = (r2.top + r2.height/2) + 'px';
+                await fx.animate([{ transform: `translate(-50%, -50%) scale(0.5)`, opacity: 1 }, { transform: `translate(-50%, -50%) scale(2)`, opacity: 0 }], { duration: 300 / battle.speedMult, easing: 'ease-out' }).finished;
+            }
+            fx.remove();
+        }
+
+        function renderBattleLog() { document.getElementById('battle-log').innerHTML = battle.logs.map(l => `<div>${l}</div>`).join(''); }
+
+        function renderBattleView() {
+            renderBattleLog();
+            
+            // 渲染敵人 (加上異常狀態圖示)
+            document.getElementById('battle-enemies').innerHTML = battle.enemies.map(e => `
+                <div class="flex flex-col items-center relative mx-1 w-16" id="ui-${e.uniqueId}">
+                    <div class="absolute -top-6 w-full flex justify-center gap-1 z-20 text-sm drop-shadow-md">
+                       ${e.statuses && e.statuses.some(s=>s.id==='poison') ? '<span class="animate-pulse">☠️</span>' : ''}
+                       ${e.statuses && e.statuses.some(s=>s.id==='stun') ? '<span class="animate-pulse">⚡</span>' : ''}
+                    </div>
+                    ${e.isDefending ? '<div class="absolute -top-3 right-0 text-lg z-20" style="text-shadow: 0 0 5px black;">🛡️</div>' : ''}
+                    <div class="w-12 h-1.5 bg-gray-700 mb-1 rounded overflow-hidden shadow"><div class="h-full bg-red-500 transition-all duration-300" style="width: ${Math.max(0, (e.hp/e.maxHp)*100)}%"></div></div>
+                    <div class="char-sprite ${e.hp <= 0 ? 'opacity-0' : ''}">${e.sprite}</div>
+                </div>
+            `).join('');
+
+            // 渲染隊伍 (加上異常狀態圖示)
+            document.getElementById('battle-party').innerHTML = battle.party.map(p => {
+                const char = p.ref; const hpPct = Math.max(0, (char.currentHp/char.computed.maxHp)*100); const mpPct = Math.max(0, (char.currentMp/char.computed.maxMp)*100);
+                return `<div class="flex flex-col items-center bg-black/70 p-2 rounded border ${char.currentHp <= 0 ? 'border-red-900 opacity-50' : 'border-gray-500'} relative w-20 shadow-lg" id="ui-${p.uniqueId}">
+                    <div class="absolute -top-3 left-1 flex gap-1 z-20 text-sm drop-shadow-md">
+                       ${p.statuses && p.statuses.some(s=>s.id==='poison') ? '<span class="animate-pulse">☠️</span>' : ''}
+                       ${p.statuses && p.statuses.some(s=>s.id==='stun') ? '<span class="animate-pulse">⚡</span>' : ''}
+                    </div>
+                    ${p.isDefending ? '<div class="absolute -top-4 right-0 text-lg z-20" style="text-shadow: 0 0 5px black; animation: bounce 1s infinite;">🛡️</div>' : ''}
+                    <div class="text-xs font-bold text-white mb-1 truncate w-full text-center">${char.name}</div>
+                    <div class="w-full h-1.5 bg-gray-700 mb-1 rounded overflow-hidden"><div class="h-full bg-green-400 transition-all duration-300" style="width: ${hpPct}%"></div></div>
+                    <div class="w-full h-1.5 bg-gray-700 mb-1 rounded overflow-hidden"><div class="h-full bg-blue-400 transition-all duration-300" style="width: ${mpPct}%"></div></div>
+                    <div class="text-[9px] text-gray-300 mt-1">${char.currentHp}/${char.computed.maxHp}</div>
+                </div>`;
+            }).join('');
+
+            document.querySelectorAll('.acting').forEach(el => el.classList.remove('acting', 'border-yellow-400'));
+            if (battle.active && battle.queue.length > 0 && battle.queue[battle.turnIdx]) {
+                let currentActor = battle.queue[battle.turnIdx]; let uiEl = document.getElementById(`ui-${currentActor.uniqueId}`);
+                if(uiEl) { if (currentActor.type === 'enemy') uiEl.querySelector('.char-sprite').classList.add('acting'); else uiEl.classList.add('acting', 'border-yellow-400'); }
+            }
+        }
+
+        async function processTurn() {
+            if (!battle.active) return;
+            if (checkWinLose()) return;
+            if (battle.turnIdx >= battle.queue.length) buildTurnQueue();
+
+            let actor = battle.queue[battle.turnIdx];
+            actor.isDefending = false; 
+
+            let hp = actor.type === 'player' ? actor.ref.currentHp : actor.hp;
+            if (hp <= 0) { battle.turnIdx++; return processTurn(); }
+
+            document.getElementById('turn-indicator').innerHTML = `行動順位: <span class="text-white font-bold text-sm ml-2">${actor.type==='player'?actor.ref.name:actor.name}</span>`;
+            
+            // 結算異常狀態機制
+            if (actor.statuses && actor.statuses.length > 0) {
+                let skipTurn = false;
+                for (let i = actor.statuses.length - 1; i >= 0; i--) {
+                    let st = actor.statuses[i];
+                    if (st.id === 'poison') {
+                        let maxHp = actor.type === 'player' ? actor.ref.computed.maxHp : actor.maxHp;
+                        let dmg = Math.floor(maxHp * 0.05) || 1;
+                        if (actor.type === 'player') actor.ref.currentHp -= dmg; else actor.hp -= dmg;
+                        logMsg(`☠️ ${actor.type==='player'?actor.ref.name:actor.name} 因中毒受到 ${dmg} 傷害！`);
+                        const el = document.getElementById(`ui-${actor.uniqueId}`);
+                        if(el) { showFloatingText(el, dmg, 'dmg-magical'); el.classList.add('flash-red'); setTimeout(() => el.classList.remove('flash-red'), 300); }
+                    } else if (st.id === 'stun') {
+                        logMsg(`⚡ ${actor.type==='player'?actor.ref.name:actor.name} 處於眩暈狀態，無法行動！`);
+                        skipTurn = true;
+                    }
+                    st.duration--;
+                    if (st.duration <= 0) actor.statuses.splice(i, 1);
+                }
+                
+                if ((actor.type === 'player' ? actor.ref.currentHp : actor.hp) <= 0) {
+                    renderBattleView(); await sleep(500); finishAction(); return;
+                }
+                if (skipTurn) {
+                    renderBattleView(); await sleep(800); finishAction(); return;
+                }
+            }
+            
+            renderBattleView(); closeSubMenu();
+
+            if (actor.type === 'enemy') { 
+                disablePlayerMenu(); await sleep(800); await aiEnemyAction(actor); 
+            } else { 
+                if (battle.isAuto) { 
+                    disablePlayerMenu(); await sleep(500); await aiPlayerAction(actor); 
+                } else {
+                    enablePlayerMenu(); 
+                }
+            }
+        }
+
+        async function aiEnemyAction(actor) {
+            // Boss 蓄力腳本系統
+            if (actor.aiScript) {
+                actor.turnCount++;
+                if (actor.isCharging) {
+                    actor.isCharging = false;
+                    logMsg(`⚠️ ${actor.name} 釋放了毀滅性的大絕招！`);
+                    const el = document.getElementById(`ui-${actor.uniqueId}`);
+                    if(el) el.classList.remove('acting');
+
+                    let alivePlayers = battle.party.filter(p => p.ref.currentHp > 0);
+                    let skillId = actor.aiScript.releaseSkill;
+                    let targets = dbSkills[skillId].target === 'all' ? alivePlayers : [alivePlayers[Math.floor(Math.random() * alivePlayers.length)]];
+                    
+                    for(let t of targets) await performAttack(actor, t, skillId);
+                    finishAction();
+                    return; 
+                } else if (actor.turnCount % actor.aiScript.chargeAt === 0) {
+                    actor.isCharging = true;
+                    logMsg(`🔥 ${actor.aiScript.chargeMsg}`);
+                    const el = document.getElementById(`ui-${actor.uniqueId}`);
+                    if(el) { el.classList.add('acting'); showFloatingText(el, '蓄力中', 'text-red-500'); }
+                    await sleep(1000);
+                    finishAction();
+                    return;
+                }
+            }
+
+            let alivePlayers = battle.party.filter(p => p.ref.currentHp > 0);
+            let target = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+            logMsg(`${actor.name} 發動了攻擊！`);
+            await performAttack(actor, target);
+            finishAction();
+        }
+
+        async function aiPlayerAction(actor) {
+            const char = actor.ref;
+            if (char.currentHp <= 0) { finishAction(); return; }
+
+            let aliveEnemies = battle.enemies.filter(e => e.hp > 0); let alivePlayers = battle.party.filter(p => p.ref.currentHp > 0);
+            let deadPlayers = battle.party.filter(p => p.ref.currentHp <= 0);
+            let needHeal = alivePlayers.find(p => p.ref.currentHp / p.ref.computed.maxHp < 0.5);
+            let statusPlayers = alivePlayers.filter(p => p.statuses && p.statuses.length > 0);
+            
+            if (deadPlayers.length > 0 && char.learnedSkills.includes('resurrect') && char.currentMp >= dbSkills['resurrect'].mpCost) { await executeSkill(actor, 'resurrect'); return; }
+            if (needHeal && char.learnedSkills.includes('heal') && char.currentMp >= dbSkills['heal'].mpCost) { await executeSkill(actor, 'heal'); return; }
+            if (needHeal && char.learnedSkills.includes('holy_light') && char.currentMp >= dbSkills['holy_light'].mpCost) { await executeSkill(actor, 'holy_light'); return; }
+            if (statusPlayers.length > 0 && char.learnedSkills.includes('purify') && char.currentMp >= dbSkills['purify'].mpCost) { await executeSkill(actor, 'purify'); return; }
+            
+            const aoeSkills = char.learnedSkills.filter(s => dbSkills[s].target === 'all' && char.currentMp >= dbSkills[s].mpCost && dbSkills[s].type !== 'heal');
+            if (aliveEnemies.length > 1 && aoeSkills.length > 0) { await executeSkill(actor, aoeSkills[aoeSkills.length - 1]); return; }
+
+            const singleSkills = char.learnedSkills.filter(s => dbSkills[s].target === 'single' && dbSkills[s].type !== 'heal' && dbSkills[s].type !== 'cure' && char.currentMp >= dbSkills[s].mpCost);
+            if (singleSkills.length > 0) { await executeSkill(actor, singleSkills[singleSkills.length - 1]); return; }
+
+            await handleActionCommand('attack', true);
+        }
+
+        function disablePlayerMenu() { document.querySelectorAll('#battle-menu-main .rpg-btn:not(.text-gray-400)').forEach(b => b.disabled = true); }
+        function enablePlayerMenu() { document.querySelectorAll('#battle-menu-main .rpg-btn:not(.text-gray-400)').forEach(b => b.disabled = false); }
+        
+        async function handleActionCommand(cmd, isAuto = false) {
+            if (battle.actionLock) return; battle.actionLock = true; disablePlayerMenu();
+            let actor = battle.queue[battle.turnIdx];
+            if (cmd === 'attack') {
+                let aliveEnemies = battle.enemies.filter(e => e.hp > 0); let target = aliveEnemies[0]; 
+                logMsg(`${actor.ref.name} 攻擊了 ${target.name}！`);
+                await performAttack(actor, target);
+                finishAction();
+            } else if (cmd === 'defend') {
+                actor.isDefending = true;
+                logMsg(`${actor.ref.name} 採取了防禦姿態！`);
+                const actorEl = document.getElementById(`ui-${actor.uniqueId}`);
+                if(actorEl) showFloatingText(actorEl, '🛡️ 防禦', 'text-teal-300');
+                renderBattleView();
+                await sleep(500);
+                finishAction();
+            }
+        }
+
+        async function performAttack(attacker, target, skillId = null) {
+            let atk, def, isMagic = false; let dmgMult = 1.0; let animType = 'melee'; let element = 'physical';
+            
+            // 判斷技能或普攻武器屬性
+            if (skillId) { 
+                const sk = dbSkills[skillId]; 
+                isMagic = sk.type === 'm_atk'; 
+                dmgMult = sk.power; 
+                animType = sk.anim || 'melee'; 
+                element = sk.element || 'physical';
+            } else if (attacker.type === 'player') {
+                const wpnId = attacker.ref.equips.weapon;
+                if (wpnId) {
+                    const baseId = wpnId.split('_+')[0];
+                    if (dbEquips[baseId].element) element = dbEquips[baseId].element;
+                }
+            }
+
+            const attackerEl = document.getElementById(`ui-${attacker.uniqueId}`); const targetEl = document.getElementById(`ui-${target.uniqueId}`);
+            await playFX(animType, attackerEl, targetEl);
+
+            atk = attacker.type === 'player' ? (isMagic ? attacker.ref.computed.int : attacker.ref.computed.str) : attacker.str;
+            def = target.type === 'player' ? target.ref.computed.def : target.def;
+
+            let baseDmg = Math.max(1, (atk * 2 - def) * dmgMult);
+            
+            // 屬性相剋計算 (目前主要實裝對怪物的相剋)
+            let weakHit = false; let resistHit = false;
+            let enemyData = target.type === 'enemy' ? dbEnemies[target.enemyId] : null;
+            if (target.type === 'enemy' && enemyData) {
+                if (enemyData.weak && enemyData.weak.includes(element)) { baseDmg *= 1.5; weakHit = true; }
+                if (enemyData.resist && enemyData.resist.includes(element)) { baseDmg *= 0.5; resistHit = true; }
+            }
+
+            if (target.isDefending) {
+                baseDmg *= 0.5; 
+                if(targetEl) showFloatingText(targetEl, '🛡️ 減傷', 'text-teal-300');
+            }
+
+            let variance = baseDmg * 0.15; let finalDmg = Math.floor(baseDmg + (Math.random() * variance * 2 - variance));
+            if (finalDmg <= 0) finalDmg = 1;
+
+            if (Math.random() < 0.05 && !isMagic) {
+                logMsg(`未擊中！`); showFloatingText(targetEl, 'MISS', 'dmg-miss');
+            } else {
+                if (target.type === 'enemy') target.hp -= finalDmg; else target.ref.currentHp -= finalDmg;
+                logMsg(`對 ${target.type==='player'?target.ref.name:target.name} 造成 ${finalDmg} 傷害。`);
+                showFloatingText(targetEl, finalDmg, isMagic ? 'dmg-magical' : 'dmg-physical');
+                
+                if (weakHit) { logMsg(`👉 擊中弱點！傷害倍增！`); setTimeout(() => showFloatingText(targetEl, 'WEAK', 'text-orange-400 text-sm -mt-6'), 400); }
+                else if (resistHit) { logMsg(`🛡️ 屬性抵抗！傷害減輕。`); setTimeout(() => showFloatingText(targetEl, 'RESIST', 'text-gray-400 text-sm -mt-6'), 400); }
+                
+                screenShake(); if(targetEl) { targetEl.classList.add('flash-red'); setTimeout(() => targetEl.classList.remove('flash-red'), 300); }
+
+                // 結算附加異常狀態
+                let statusObj = null;
+                if (skillId && dbSkills[skillId].applyStatus) statusObj = dbSkills[skillId].applyStatus;
+                else if (!skillId && attacker.type === 'enemy' && dbEnemies[attacker.enemyId].onHitStatus) statusObj = dbEnemies[attacker.enemyId].onHitStatus;
+
+                if (statusObj && Math.random() < statusObj.chance) {
+                    if (!target.statuses) target.statuses = [];
+                    if (!target.statuses.find(s => s.id === statusObj.id)) {
+                        target.statuses.push({ id: statusObj.id, duration: statusObj.duration });
+                        logMsg(`${target.type==='player'?target.ref.name:target.name} 被附加了 ${statusObj.id==='poison'?'中毒':'眩暈'} 狀態！`);
+                        setTimeout(() => showFloatingText(targetEl, statusObj.id==='poison'?'☠️中毒':'⚡眩暈', 'text-purple-400 text-sm mt-6'), 600);
+                    }
+                }
+            }
+            renderBattleView(); await sleep(500);
+        }
+
+        function openSubMenu(type) { 
+            document.getElementById('battle-menu-main').classList.add('hidden'); document.getElementById('battle-menu-sub').classList.replace('hidden', 'flex'); 
+            const list = document.getElementById('sub-list');
+            const hasDead = battle.party.some(p => p.ref.currentHp <= 0);
+            
+            if (type === 'skills') {
+                let char = battle.queue[battle.turnIdx].ref;
+                list.innerHTML = char.learnedSkills.map(skId => {
+                    const sk = dbSkills[skId]; 
+                    const canCast = char.currentMp >= sk.mpCost && (sk.type !== 'revive' || hasDead);
+                    return `<button class="rpg-btn flex-col items-start !p-2 ${canCast ? 'text-white' : 'text-gray-500'}" onclick="if(${canCast}) executeSkill(battle.queue[battle.turnIdx], '${skId}')">
+                                <div class="flex justify-between w-full mb-1"><span class="text-sm font-bold text-blue-200">${sk.name}</span><span class="text-xs text-blue-400">${sk.mpCost} MP</span></div>
+                                <span class="text-[10px] text-gray-400">${sk.desc}</span></button>`;
+                }).join('');
+                if(list.innerHTML === '') list.innerHTML = '<div class="text-gray-500 text-xs col-span-2 text-center mt-2">沒有技能</div>';
+            } else if (type === 'items') {
+                list.innerHTML = Object.entries(gameState.inventory).filter(([id, qty]) => qty > 0).map(([id, qty]) => {
+                    const item = dbItems[id];
+                    let canUse = false;
+                    if(item.type === 'revive') canUse = hasDead;
+                    else if(item.type === 'cure') canUse = true; 
+                    else if(!item.type.startsWith('seed_') && item.type !== 'material') canUse = true; 
+                    
+                    return `<button class="rpg-btn flex-col items-start !p-2 ${canUse ? 'text-white' : 'text-gray-500'}" onclick="if(${canUse}) executeItem(battle.queue[battle.turnIdx], '${id}')">
+                                <div class="flex justify-between w-full mb-1"><span class="text-sm font-bold text-green-200">${item.name}</span><span class="text-xs text-yellow-300">x${qty}</span></div>
+                                <span class="text-[10px] text-gray-400">${item.desc}</span></button>`;
+                }).join('');
+                if(list.innerHTML === '') list.innerHTML = '<div class="text-gray-500 text-xs col-span-2 text-center mt-2">沒有可用道具</div>';
+            }
+        }
+        function closeSubMenu() { document.getElementById('battle-menu-main').classList.remove('hidden'); document.getElementById('battle-menu-sub').classList.replace('flex', 'hidden'); }
+
+        async function executeSkill(actor, skillId) {
+            battle.actionLock = true; closeSubMenu(); disablePlayerMenu();
+            const sk = dbSkills[skillId]; actor.ref.currentMp -= sk.mpCost;
+            logMsg(`${actor.ref.name} 詠唱了 ${sk.name}！`); renderBattleView(); 
+            const actorEl = document.getElementById(`ui-${actor.uniqueId}`);
+
+            if (sk.type === 'heal' || sk.type === 'heal_all') {
+                let targets = sk.target === 'all' ? battle.party.filter(p=>p.ref.currentHp>0) : [];
+                if (sk.target === 'single') {
+                    let alive = battle.party.filter(p=>p.ref.currentHp>0); alive.sort((a,b) => a.ref.currentHp/a.ref.computed.maxHp - b.ref.currentHp/b.ref.computed.maxHp);
+                    targets = [alive[0]];
+                }
+                for(let t of targets) {
+                    const targetEl = document.getElementById(`ui-${t.uniqueId}`);
+                    await playFX(sk.anim || 'heal', actorEl, targetEl);
+                    let healAmt = Math.floor(sk.power + actor.ref.computed.int * 0.8);
+                    t.ref.currentHp = Math.min(t.ref.computed.maxHp, t.ref.currentHp + healAmt);
+                    logMsg(`${t.ref.name} 恢復了 ${healAmt} HP。`); showFloatingText(targetEl, healAmt, 'dmg-heal');
+                }
+                renderBattleView(); await sleep(600); finishAction();
+            } else if (sk.type === 'revive') {
+                let deadPlayers = battle.party.filter(p=>p.ref.currentHp<=0);
+                if (deadPlayers.length > 0) {
+                    let t = deadPlayers[0];
+                    const targetEl = document.getElementById(`ui-${t.uniqueId}`);
+                    await playFX(sk.anim || 'heal', actorEl, targetEl);
+                    let healAmt = Math.floor(t.ref.computed.maxHp * sk.power);
+                    t.ref.currentHp = healAmt;
+                    logMsg(`${t.ref.name} 被復活了！`); showFloatingText(targetEl, healAmt, 'dmg-heal');
+                }
+                renderBattleView(); await sleep(600); finishAction();
+            } else if (sk.type === 'cure') {
+                let targets = sk.target === 'all' ? battle.party.filter(p=>p.ref.currentHp>0) : [];
+                if (sk.target === 'single') {
+                    let alive = battle.party.filter(p=>p.ref.currentHp>0 && p.statuses && p.statuses.length>0);
+                    targets = alive.length > 0 ? [alive[0]] : [battle.party.filter(p=>p.ref.currentHp>0)[0]];
+                }
+                for(let t of targets) {
+                    const targetEl = document.getElementById(`ui-${t.uniqueId}`);
+                    await playFX(sk.anim || 'heal', actorEl, targetEl);
+                    t.statuses = [];
+                    logMsg(`${t.ref.name} 的異常狀態被淨化了！`); showFloatingText(targetEl, '✨淨化', 'dmg-heal');
+                }
+                renderBattleView(); await sleep(600); finishAction();
+            } else {
+                let targets = sk.target === 'all' ? battle.enemies.filter(e=>e.hp>0) : [battle.enemies.filter(e=>e.hp>0)[0]];
+                for (let t of targets) { if (t.hp > 0) { await performAttack(actor, t, skillId); if(sk.target === 'all') await sleep(200); } }
+                finishAction();
+            }
+        }
+
+        async function executeItem(actor, itemId) {
+            battle.actionLock = true; closeSubMenu(); disablePlayerMenu();
+            const item = dbItems[itemId]; gameState.inventory[itemId]--; if (gameState.inventory[itemId] <= 0) delete gameState.inventory[itemId];
+            logMsg(`${actor.ref.name} 使用了 ${item.name}！`);
+            const actorEl = document.getElementById(`ui-${actor.uniqueId}`);
+            
+            if (item.type === 'revive') {
+                let deadPlayers = battle.party.filter(p => p.ref.currentHp <= 0);
+                if (deadPlayers.length > 0) {
+                    let target = deadPlayers[0];
+                    const targetEl = document.getElementById(`ui-${target.uniqueId}`);
+                    await playFX(item.anim || 'item_heal', actorEl, targetEl);
+                    let healAmt = Math.floor(target.ref.computed.maxHp * item.power);
+                    target.ref.currentHp = healAmt;
+                    logMsg(`${target.ref.name} 被復活了！`); showFloatingText(targetEl, healAmt, 'dmg-heal');
+                }
+            } else if (item.type === 'cure') {
+                let statusPlayers = battle.party.filter(p => p.ref.currentHp > 0 && p.statuses && p.statuses.length > 0);
+                let target = statusPlayers.length > 0 ? statusPlayers[0] : battle.party.filter(p => p.ref.currentHp > 0)[0];
+                const targetEl = document.getElementById(`ui-${target.uniqueId}`);
+                await playFX(item.anim || 'item_heal', actorEl, targetEl);
+                target.statuses = [];
+                logMsg(`${target.ref.name} 的異常狀態被解除了！`); showFloatingText(targetEl, '✨解除', 'dmg-heal');
+            } else {
+                let alivePlayers = battle.party.filter(p => p.ref.currentHp > 0); alivePlayers.sort((a,b) => a.ref.currentHp/a.ref.computed.maxHp - b.ref.currentHp/b.ref.computed.maxHp);
+                let targets = item.type === 'heal_all' ? alivePlayers : [alivePlayers[0]];
+
+                for(let target of targets) {
+                    const targetEl = document.getElementById(`ui-${target.uniqueId}`);
+                    await playFX(item.anim || 'item_heal', actorEl, targetEl);
+                    if (item.type === 'heal' || item.type === 'heal_all') {
+                        let healAmt = item.power > 1000 ? target.ref.computed.maxHp : item.power;
+                        target.ref.currentHp = Math.min(target.ref.computed.maxHp, target.ref.currentHp + healAmt); showFloatingText(targetEl, healAmt, 'dmg-heal');
+                    }
+                    if (item.type === 'mp_heal' || item.type === 'heal_all') {
+                        let healAmt = item.power > 1000 ? target.ref.computed.maxMp : item.power;
+                        target.ref.currentMp = Math.min(target.ref.computed.maxMp, target.ref.currentMp + healAmt); showFloatingText(targetEl, healAmt, 'dmg-magical');
+                    }
+                }
+            }
+            renderBattleView(); await sleep(800); finishAction();
+        }
+
+        function showFloatingText(targetEl, text, className) {
+            if (!targetEl) return;
+            let f = document.createElement('div'); f.className = `floating-text ${className}`; f.innerText = text;
+            f.style.left = '50%'; f.style.top = '20%'; f.style.transform = 'translate(-50%, -50%)'; targetEl.appendChild(f); setTimeout(() => f.remove(), 1000);
+        }
+
+        function screenShake() { document.getElementById('screen-battle').classList.add('shake'); setTimeout(() => document.getElementById('screen-battle').classList.remove('shake'), 300); }
+        async function fleeBattle() { if(battle.actionLock) return; logMsg("全隊落荒而逃..."); disablePlayerMenu(); await sleep(1000); battle.active = false; if(battle.isAuto) toggleAuto(); navTo('screen-town'); }
+        function finishAction() { battle.actionLock = false; battle.turnIdx++; processTurn(); }
+
+        function checkWinLose() {
+            let alivePlayers = battle.party.filter(p => p.ref.currentHp > 0).length; let aliveEnemies = battle.enemies.filter(e => e.hp > 0).length;
+            if (alivePlayers === 0) { loseBattle(); return true; } else if (aliveEnemies === 0) { winBattle(); return true; }
+            return false;
+        }
+
+        async function winBattle() {
+            battle.active = false; disablePlayerMenu();
+            let exp = 0, jp = 0, gold = 0; 
+            let dropsList = [];
+            
+            battle.enemies.forEach(e => { 
+                exp += e.exp; jp += e.jp; gold += e.gold || 0; 
+                if (e.drops) {
+                    e.drops.forEach(d => {
+                        if (Math.random() <= d.chance) dropsList.push(d.id);
+                    });
+                }
+            });
+            
+            gameState.gold += gold;
+            if (battle.currentZoneIdx > gameState.maxZoneCleared) gameState.maxZoneCleared = battle.currentZoneIdx;
+            
+            let dropsMap = {};
+            dropsList.forEach(id => dropsMap[id] = (dropsMap[id]||0) + 1);
+            
+            await sleep(1000); showVictoryScreen(exp, jp, gold, dropsMap);
+        }
+        async function loseBattle() { battle.active = false; disablePlayerMenu(); logMsg("隊伍全滅了..."); await sleep(1500); if(battle.isAuto) toggleAuto(); navTo('screen-town'); }
+
+        function showVictoryScreen(exp, jp, gold, dropsMap) {
+            document.getElementById('reward-exp').innerText = exp; 
+            document.getElementById('reward-jp').innerText = jp; 
+            document.getElementById('reward-gold').innerText = gold;
+            
+            let dropHtmlArr = [];
+            Object.keys(dropsMap || {}).forEach(id => {
+                gameState.inventory[id] = (gameState.inventory[id] || 0) + dropsMap[id];
+                dropHtmlArr.push(`${dbItems[id].name}x${dropsMap[id]}`);
+            });
+            document.getElementById('reward-drops').innerHTML = dropHtmlArr.length > 0 ? dropHtmlArr.join(', ') : '無';
+
+            const logContainer = document.getElementById('level-up-log'); logContainer.innerHTML = '';
+
+            gameState.party.forEach(char => {
+                if (char.currentHp <= 0) return;
+                char.exp += exp; let jobData = char.jobs[char.currentJob]; jobData.jp += jp;
+                while (char.exp >= getExpNeeded(char.level)) {
+                    char.exp -= getExpNeeded(char.level); char.level++; updateCharacterStats(char); char.currentHp = char.computed.maxHp; char.currentMp = char.computed.maxMp;
+                    logContainer.innerHTML += `<div class="text-yellow-300 font-bold mb-1">🎉 ${char.name} 升到了 Lv.${char.level}！</div>`;
+                }
+                while (jobData.jp >= getJpNeeded(jobData.jlv) && jobData.jlv < MAX_JLV) {
+                    jobData.jp -= getJpNeeded(jobData.jlv); jobData.jlv++; checkSkillUnlocks(char);
+                    logContainer.innerHTML += `<div class="text-purple-300 mb-1">🌟 ${char.name} [${dbJobs[char.currentJob].name}] 達到了 Lv.${jobData.jlv}！</div>`;
+                }
+            });
+            if(logContainer.innerHTML === '') logContainer.innerHTML = '<div class="text-gray-500 text-center mt-4">沒有人升級。</div>';
+            navTo('screen-victory');
+
+            const btnContinue = document.getElementById('btn-continue');
+            if (battle.isAuto) {
+                let countdown = 3; btnContinue.innerText = `繼續冒險 (${countdown})`;
+                autoContinueTimer = setInterval(() => {
+                    countdown--;
+                    if (countdown <= 0) { clearInterval(autoContinueTimer); continueBattle(); } else btnContinue.innerText = `繼續冒險 (${countdown})`;
+                }, 1000);
+            } else btnContinue.innerText = `繼續冒險 (掛機連刷)`;
+            autoSave();
+        }
+
+        function continueBattle() { startBattle(battle.currentZoneIdx); }
+        function returnToTownFromVictory() { if(autoContinueTimer) clearInterval(autoContinueTimer); navTo('screen-town'); }
+
+        function toggleAuto() {
+            battle.isAuto = !battle.isAuto; const btn = document.getElementById('btn-auto');
+            btn.innerHTML = battle.isAuto ? '🤖 自動: 開' : '🤖 自動: 關';
+            btn.classList.toggle('text-yellow-400', battle.isAuto); btn.classList.toggle('border-yellow-600', battle.isAuto);
+            if (battle.isAuto && !battle.actionLock && battle.queue[battle.turnIdx]?.type === 'player') processTurn();
+        }
+
+        function toggleSpeed() {
+            if (battle.speedMult === 1) battle.speedMult = 2; else if (battle.speedMult === 2) battle.speedMult = 4; else battle.speedMult = 1;
+            const btn = document.getElementById('btn-speed'); btn.innerHTML = `▶ 速度: x${battle.speedMult}`;
+            btn.classList.toggle('text-green-400', battle.speedMult > 1); btn.classList.toggle('text-red-400', battle.speedMult === 4);
+        }
+
+        function startNGPlus() {
+            showConfirm("確定要進入下一周目嗎？怪物將變得更強大！", () => {
+                gameState.ngPlus++;
+                gameState.maxZoneCleared = 0;
+                autoSave();
+                navTo('screen-town');
+            });
+        }
+
+        window.onload = function() {
+            if (!loadGame()) {
+                gameState.party.push(createCharacter('雷恩', 'novice'));
+                gameState.party.push(createCharacter('亞特', 'novice'));
+                gameState.party.push(createCharacter('莉莉', 'novice'));
+            }
+            navTo('screen-town');
+        }
+    </script>
+</body>
+</html>
