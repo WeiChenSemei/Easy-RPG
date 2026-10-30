@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>怪物仙境</title>
+<style>
+:root{--bg:#e4edf1;--fg:#172a33;--card:#f8fcfd;--line:#b9cdd6;--acc:#1f8a8a;--mut:#5d7580;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1a22;--fg:#e3eef2;--card:#18262f;--line:#2c4150;--acc:#e0a21b;--mut:#8aa3b0}}
+:root[data-theme=dark]{--bg:#0f1a22;--fg:#e3eef2;--card:#18262f;--line:#2c4150;--acc:#e0a21b;--mut:#8aa3b0}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;display:flex;flex-direction:column;max-width:480px;margin:0 auto;-webkit-user-select:none;user-select:none}
+#top{display:flex;justify-content:space-between;padding:6px 12px;font-weight:700}
+#arena{margin:0 6px;border-radius:12px;padding:8px 6px;color:#fff;text-shadow:0 1px 3px #000;flex:none}
+.row3{display:flex;gap:6px}
+.u{flex:1;min-width:0;position:relative;background:rgba(0,0,0,.34);border-radius:10px;padding:4px 4px 6px;text-align:center;font-size:11px;transition:transform .12s}
+.em{font-size:38px;line-height:1.2}.bo .em{font-size:50px}
+.nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.u.dead{opacity:.28;filter:grayscale(1)}
+.u.rdy{box-shadow:0 0 0 2px #f1c40f,0 0 12px #f1c40f;cursor:pointer}
+.lg0{transform:translateY(-14px)}.lg1{transform:translateY(14px)}
+#mid{text-align:center;font-size:12px;padding:5px 0}
+.bar{height:6px;border-radius:3px;background:rgba(0,0,0,.5);overflow:hidden;margin-top:2px}.bar i{display:block;height:100%;width:0}
+.pop{position:absolute;top:8px;font-weight:800;font-size:15px;animation:up .8s forwards;pointer-events:none;white-space:nowrap}
+@keyframes up{to{transform:translateY(-34px);opacity:0}}
+button{font:inherit;color:var(--fg);background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:7px 8px;cursor:pointer}
+button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+#ctl{display:flex;gap:6px;padding:6px 6px 0}#ctl button{flex:1}
+#nav{display:flex;padding:6px 6px 0;gap:4px}#nav button{flex:1;padding:6px 0;font-size:11px}button[disabled]{opacity:.5}
+#panel{flex:1;overflow:auto;padding:8px 10px;min-height:0}
+small,.sm{font-size:12px;color:var(--mut)}
+.row{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+.g{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.t{background:var(--card);border:1.5px solid var(--line);border-radius:8px;text-align:center;font-size:24px;padding:4px 0 14px;position:relative}
+.t b{position:absolute;left:0;right:0;bottom:1px;font-size:10px;font-weight:600}
+.t.sl{border-color:var(--acc)}.t.in::after,.u::before{content:attr(data-p);position:absolute;left:3px;top:0;font-size:10px;opacity:.9}.ev1 .em{text-shadow:0 0 8px #7df}.ev2 .em{text-shadow:0 0 12px gold}.u::after{content:attr(data-m);position:absolute;right:3px;top:0;font-size:12px}
+h4{margin:10px 0 4px}
+.cardbox{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px;margin:6px 0}
+</style></head><body>
+<div id="top"><span id="zn"></span><span id="zy"></span></div>
+<div id="arena"><div class="row3" id="eRow"></div><div id="mid">⚔️ VS ⚔️</div><div class="row3" id="pRow"></div></div>
+<div id="ctl"><button id="bAuto" data-a="auto"></button><button id="bSpd" data-a="spd"></button><button id="bFarm" data-a="farm"></button></div>
+<div id="nav"></div>
+<div id="panel"></div>
+<script>
+// ===== 資料區：新增怪物／區域／技能只需改這裡 =====
+const ELC={無:'⚪',水:'💧',火:'🔥',風:'🌪️',地:'⛰️',聖:'✨',暗:'🌑'};
+const EL={水:'火',火:'風',風:'地',地:'水',聖:'暗',暗:'聖'}; // key 剋 value
+// 怪物格式：emoji + 名稱 + 屬性字 + 類型碼(無=普通 1堅硬 2猛攻 3疾速 9=BOSS)
+const ZONES=[
+{n:'翠綠草原',c:'#5aa845,#bfe39b',m:'🐛綠蟲地 🦋蝴蝶風 🐰兔子地3 🐝蜜蜂風2 🐌蝸牛地1 🐗野豬地 🐍草蛇地3 🐿️松鼠地3 🍄毒菇地 🐻森林熊王地9'},
+{n:'孤寂墓地',c:'#2b2440,#6b5b8a',m:'🦇蝙蝠暗3 💀骷髏暗 🧟殭屍暗1 👻幽靈暗3 🐀巨鼠地 🕷️毒蜘蛛地2 🎃南瓜怪暗 🧛吸血鬼暗2 🐺餓狼地 👹墓地之王暗9'},
+{n:'蟻穴洞窟',c:'#3b2f26,#8c6b4a',m:'🐜兵蟻地 🦂蠍子地2 🦎蜥蜴地 🐸毒蛙水 🐊鱷魚水1 🐢巨龜水1 🦀螃蟹水 🐍毒蛇地3 🦇洞窟蝠暗3 🦖暴龍王地9'},
+{n:'烈日沙漠',c:'#d9a441,#f6dd9b',m:'🐪駱駝地1 🌵仙人掌地 🦅禿鷹風3 🐆獵豹地3 🦏犀牛地1 🧞燈神火2 🏺古甕怪地 🦂沙蠍地2 🐍響尾蛇地3 🐲沙漠龍王火9'},
+{n:'極寒冰原',c:'#6fa8dc,#e8f4fd',m:'🐧企鵝水 ⛄雪人水1 🦌麋鹿水 🐇雪兔水3 🦉雪鴞風3 🥶寒冰怪水2 🐺冰原狼水 🦈冰鯊水2 ❄️冰晶靈水1 🐉冰龍王水9'},
+{n:'熔岩火山',c:'#7a1f0f,#f07b2a',m:'🔥火焰精靈火3 🦎火蜥蜴火 😈小惡魔火2 👺烈焰天狗火 🐂火牛火1 🌋熔岩巨人火1 🐓火雞火3 💥爆爆火2 🦂熔岩蠍火 👿炎魔火9'},
+{n:'深海神殿',c:'#0b3d6b,#3aa0c9',m:'🐙章魚水 🦑烏賊水 🐠熱帶魚水3 🐡河豚水2 🦞龍蝦水1 🐚貝殼怪水1 🐬海豚水3 🧜人魚水2 🦐蝦兵水 🐋深海巨鯨水9'},
+{n:'古代遺跡',c:'#4a4a45,#9b9a8a',m:'🗿石像鬼地1 🤖機械傀儡無1 👁️邪眼暗2 🦴骸骨龍無 🧙亡靈法師暗2 👾遺跡守衛無3 🎭面具怪暗 🔮水晶魔偶無 🐍遺跡蛇地3 👑古代王者無9'},
+{n:'雲端天空城',c:'#79b8f0,#fbe6f7',m:'🕊️和平鴿聖 🦢天鵝聖1 🦜鸚鵡風3 ☁️雲朵怪風 🧚妖精聖3 😇小天使聖2 🦄獨角獸聖1 🌈彩虹怪風2 ⚡雷靈風3 🦚天空孔雀王聖9'},
+{n:'異界深淵',c:'#0a0a12,#4b1d52',m:'🦇深淵蝠暗3 🕷️深淵蛛暗2 🐍深淵蛇暗3 🧟深淵殭屍暗1 😈深淵惡魔暗2 👹深淵羅剎暗1 💀死靈騎士暗 🐺深淵狼暗3 👁️深淵之眼暗2 🦹深淵魔王暗9'},
+{n:'妖精森林',c:'#1f6b3a,#a4e8aa',m:'🌳古樹精地1 🦊狐仙火2 🐦翠羽鳥風3 🐝女王蜂風2 🦉智慧梟聖 🌸花精地 🍀幸運草地3 🐞瓢蟲地 🦋夢幻蝶風3 🦌森林之神聖9'},
+{n:'龍之巢穴',c:'#3a1212,#e0572b',m:'🥚龍蛋無1 🐲小飛龍火3 🦕長頸龍地1 🦎龍蜥火 🦇翼龍風3 🐊龍鱷水1 🐍龍蛇暗3 🦈龍鯊水2 😈龍裔暗2 🐲龍皇火9'},
+{n:'星海銀河',c:'#0b1030,#5b4bb5',m:'👽外星人無 ☄️彗星火3 ⭐流星風3 🌟星靈聖 🌌星雲怪暗 🛰️衛星砲無1 🚀火箭獸火2 🌙月影暗 🌍行星守衛地1 🛸星海母艦無9'},
+{n:'魔導學院',c:'#3a2a5e,#b995f0',m:'📚魔導書怪無 🧪毒藥水怪水2 ⚗️煉金僀儡地1 🕯️燭火精火 🧹掃帚精風3 🐈使魔貓暗3 🎓高階學徒聖2 🗝️守門魔像地1 🔮預言幻影聖 📖禁書魔王暗9'},
+{n:'神話終焉',c:'#6b4a0e,#ffd978',m:'🦁獅鷲獸風1 🐅白虎地2 🐘遠古巨象地1 🐎聖戰馬聖 🔱海神衛兵水2 ⚔️劍靈無3 🏹弓靈風3 🛡️盾靈地1 🔥烈焰鳳凰火3 ☀️太陽神聖9'}];
+// 類型係數 h血量 a攻擊 d防禦 s速度 x經驗
+const ARCH={0:{h:1,a:1,d:1,s:1,x:1,t:'普通'},1:{h:1.7,a:.8,d:1.4,s:.75,x:1.2,t:'堅硬'},2:{h:.7,a:1.45,d:.8,s:1,x:1.2,t:'猛攻'},3:{h:.8,a:.9,d:.9,s:1.4,x:1.1,t:'疾速'},9:{h:4.5,a:1.4,d:1.5,s:1,x:8,t:'BOSS'}};
+// 必殺技（依怪物屬性）t: d單體 a全體 x隨機三連 v吸血 h治療 s護盾
+const SK={
+無:{n:'猛擊',t:'d',m:2.3,d:'單體 230% 傷害'},火:{n:'烈焰',t:'d',m:2.7,d:'單體 270% 火焰傷害'},
+水:{n:'水波',t:'a',m:1.2,d:'全體敵人 120% 傷害'},風:{n:'疾風連擊',t:'x',m:1,d:'隨機 3 連擊，各 100%'},
+地:{n:'岩盾',t:'s',m:.2,d:'全隊獲得 20% 最大HP 護盾'},聖:{n:'治癒',t:'h',m:.45,d:'治療血量比例最低的隊友 45%'},
+暗:{n:'吸魂',t:'v',m:2,d:'單體 200% 傷害，吸血 60%'}};
+const SHOP=[
+{k:'net',ic:'🕸️',n:'捕獲網',d:'捕獲率 +1.5% / 級',max:20,c:l=>Math.round(80*1.35**l)},
+{k:'trn',ic:'🏋️',n:'訓練場',d:'戰後經驗 +8% / 級',max:30,c:l=>Math.round(60*1.35**l)},
+{k:'gld',ic:'🏦',n:'金庫',d:'金幣收入 +8% / 級',max:30,c:l=>Math.round(70*1.35**l)}];
+const NEED=l=>Math.round(12*Math.pow(l,1.5)+10);
+// 站位：n名稱 w被攻擊權重 d受傷倍率 a輸出倍率
+const POS=[{n:'前',w:3,d:.75,a:.9},{n:'中',w:2,d:1,a:1},{n:'後',w:1,d:1.25,a:1.3}];
+// 進化階段：m能力倍率 L等級需求 c金幣
+const EVT=[{n:'',a:'',m:1,L:0,c:0},{n:'進化・',a:'✨',m:1.5,L:20,c:1500},{n:'究極・',a:'🌟',m:2.3,L:50,c:15000}];
+// 融合：兩者屬性序號相加取餘＝結果屬性；結果取該屬性中區域最接近「較高區域+1」的怪物
+const ELS=['無','水','火','風','地','聖','暗'];
+function fuseRes(a,b){const A=MON[a],B=MON[b],el=ELS[(ELS.indexOf(A.el)+ELS.indexOf(B.el))%7],zt=Math.min(ZONES.length-1,Math.max(A.z,B.z)+1),
+ c=MON.filter(m=>m.el==el&&m.k!=9&&m.id!=a&&m.id!=b),d=Math.min(...c.map(m=>Math.abs(m.z-zt))),p=c.filter(m=>Math.abs(m.z-zt)==d);return p[(a*b+a+b)%p.length].id}
+const SUMC=()=>Math.round(150*1.4**S.maxZone);
+// 屬性被動：v為基礎數值；威力 ×(1+0.5×進化階)×(1+0.25×同屬隊友數)，上限 ×2.5
+const PASV={無:{n:'蓄力',d:'氣力獲得 +50%',v:.5},火:{n:'烈焰',d:'暴擊率 +15%',v:.15},水:{n:'冰寒',d:'普攻 25% 機率凍結目標（行動條 −50）',v:.25},風:{n:'疾風',d:'速度 +20%',v:.2},地:{n:'堅岩',d:'開場 15% HP 護盾，受傷 −7.5%',v:.15},聖:{n:'祝福',d:'行動後治療最虛弱隊友 3% 最大HP',v:.03},暗:{n:'詛咒',d:'對 HP<40% 的目標傷害 +40%',v:.4}};
+// 元素反應：目標身上附著上一次攻擊的屬性(8秒)，被「不同屬性」命中即引發反應並消耗附著。
+// d追加傷害 a其他敵人傷害 g敵方行動條− w目標防禦− h我方回血 s我方護盾 e我方氣力+（皆為倍率/比例）
+const RX={
+火水:{n:'蒸發',d:2},火風:{n:'烈焰風暴',a:.8},火地:{n:'熔岩',d:1,w:.25},火聖:{n:'聖焰',d:1,h:.1},火暗:{n:'獄火',d:2.6},
+水風:{n:'暴風雪',a:.6,g:40},水地:{n:'泥沼',g:70,w:.15},水聖:{n:'淨化',s:.15,h:.06},水暗:{n:'毒霧',a:.5,w:.2},
+風地:{n:'沙暴',a:.7,g:25},風聖:{n:'神風',e:35},風暗:{n:'暗影突襲',d:1.6,e:20},
+地聖:{n:'大地祝福',s:.25},地暗:{n:'崩塌',d:1.2,w:.3},聖暗:{n:'湮滅',d:3.2}};
+const P=x=>Math.round(x*100),rxd=r=>[r.d&&`追加 ${P(r.d)}% 傷害`,r.a&&`其他敵人 ${P(r.a)}% 傷害`,r.g&&`敵方行動條 −${r.g}`,r.w&&`目標防禦 −${P(r.w)}%`,r.h&&`我方回復 ${P(r.h)}% HP`,r.s&&`我方護盾 ${P(r.s)}% HP`,r.e&&`我方氣力 +${r.e}`].filter(Boolean).join('、');
+function mark(a,t,el){const e=el||a.m.el;if(e=='無'||t.dead)return;const o=t.mk;
+ if(o&&o!=e){t.mk=0;react(a,t,RX[o+e]||RX[e+o])}else{t.mk=e;t.mt=8}}
+function react(a,t,r){if(!a.side)dq('rx');pop(t,r.n,'#ffb3e6');const fo=al(1-a.side),fr=al(a.side);
+ const k=1+(a.af.rx||0);if(r.d)dmg(a,t,r.d*k,1);if(r.a)fo.forEach(x=>x!=t&&dmg(a,x,r.a*k,1));if(r.g)fo.forEach(x=>x.g=Math.max(0,x.g-r.g));if(r.w)t.df*=1-r.w;
+ fr.forEach(x=>{if(r.h)x.hp=Math.min(x.mhp,x.hp+x.mhp*r.h);if(r.s)x.sh+=Math.round(x.mhp*r.s);if(r.e)x.en=Math.min(100,x.en+r.e)})}
+// ===== 每日冠軍錦標賽：8強賽→準決賽→決賽/季軍賽，前三名得金銀銅牌；NXT[場次][勝,敗]=下一場或結果(g金 s銀 b銅 x無) =====
+const CUP=[{n:'八強賽',m:1},{n:'準決賽',m:1.15},{n:'決賽',m:1.3},{n:'季軍賽',m:1.1}],NXT=[[1,'x'],[2,3],['g','s'],['b','x']],
+ REW={g:1000,s:600,b:300,x:100},MD={g:'🥇 金牌',s:'🥈 銀牌',b:'🥉 銅牌',x:'未奪牌'},
+ NAMES=['阿龍','小美','火爆浪子','冰山女王','森林守護者','沙漠旅人','深海獵人','雷霆老爹','星空少女','鐵壁老兵','暗影刺客','聖光騎士'];
+let T=null,TW=null,bt=0,et=99;
+const dk=t=>{const d=new Date(t||Date.now());return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()},
+ hs=s=>[...s].reduce((a,c)=>Math.imul(a^c.charCodeAt(0),16777619),2166136261)>>>0,
+ rng=s=>()=>{s=s+1831565813|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+function tn(){const t=S.tn||(S.tn={d:'',r:0,h:[],res:null,streak:0,sd:'',a:0});if(t.d!=dk()){t.d=dk();t.r=0;t.h=[];t.res=null;t.a=0}return t}
+function tOpp(r){const g=rng(hs(dk()+r)),top=Object.values(S.box).map(o=>o.L).sort((a,b)=>b-a).slice(0,3),L=Math.max(1,Math.round(top.reduce((s,x)=>s+x,0)/top.length*CUP[r].m)),
+ pool=MON.filter(m=>m.z<=S.maxZone&&m.z>=S.maxZone-2&&m.k!=9);
+ return{n:NAMES[F(g()*NAMES.length)],ids:[0,1,2].map(()=>pool[F(g()*pool.length)].id),L,st:[1,2,3,2][r],ev:L>=50?2:L>=20?1:0}}
+const tTeam=()=>{const o=tOpp(T.r);return o.ids.map((id,i)=>mkU(id,o.L,1,o.st,o.ev,i))};
+function tEnd(w,r){r=r??T.r;dq('cup');const t=tn(),n=NXT[r][w?0:1];T=null;t.a=0;t.h.push(`${CUP[r].n}：${w?'✅ 勝':'❌ 敗'}`);
+ if(typeof n=='number')t.r=n;else{t.r=9;t.res=n;fin(n)}save();dirty=1}
+function fin(n){const t=S.tn,md=S.med||(S.med={g:0,s:0,b:0});t.streak=t.sd==dk(Date.now()-864e5)?t.streak+1:1;t.sd=dk();
+ const c=Math.round(REW[n]*(1+S.maxZone*.7)*(1+Math.min(t.streak-1,7)*.1));S.coin+=c;if(n!='x'){md[n]++;addItem(S.maxZone,{g:3,s:2,b:1}[n])}
+ if(n=='g'){const m=pick(MON.filter(x=>x.z<=S.maxZone&&x.k!=9));S.seen[m.id]=1;give(m.id,Math.max(1,m.z*6),0,0)}
+ lg(`🏆 錦標賽結束：${MD[n]}　+${c}💰${n=='g'?'，並獲得冠軍獎勵怪物！':''}`)}
+function pCup(){const t=tn(),md=S.med||{g:0,s:0,b:0};
+ let h=`<div><b>🏆 每日冠軍錦標賽</b></div><div style='margin:6px 0;font-size:18px'>🥇 ${md.g}　🥈 ${md.s}　🥉 ${md.b}<small>　連續參賽 ${t.streak||0} 天</small></div><div class='sm'>每天限挑戰一次：八強賽→準決賽→決賽（敗者打季軍賽），最多 3 場，打進前三名即得獎牌與金幣。對手依你最強三隻怪物的等級每日組隊；比賽中不可換隊，中途離開視為落敗。連續參賽每天獎勵 +10%（最多 +70%），金牌另贈一隻怪物。</div>`+t.h.map(x=>`<div class='row'>${x}</div>`).join('');
+ if(t.res)return h+`<div class='cardbox'>今日結果：<b>${MD[t.res]}</b>　明天再來挑戰！</div>`;
+ const o=tOpp(t.r);return h+`<div class='cardbox'><b>${CUP[t.r].n}</b>　對手：${o.n}　Lv${o.L}${o.st?'★'+o.st:''}<br><span style='font-size:22px'>${o.ids.map(i=>MON[i].e+ELC[MON[i].el]).join(' ')}</span><div style='margin-top:6px'><button data-a='cup'${T?' disabled':''}>⚔️ ${T?'比賽中…':'開始比賽'}</button></div></div>`}
+// ===== 裝備：每隻怪物 3 格（武器 ATK%／防具 HP%+DEF/2%／飾品 速度%/3）；效力% = (4+區域×1.2)×稀有度×(1+0.1×強化) =====
+const RAR=[{n:'普通',c:'#8fa0a8',m:1,w:60},{n:'精良',c:'#3fae5a',m:1.4,w:28},{n:'稀有',c:'#3b8eea',m:2,w:9},{n:'史詩',c:'#a855f7',m:3,w:2.5},{n:'傳說',c:'#f59e0b',m:4.5,w:.5}],
+ EQS=[{ic:'⚔️',n:'武器',s:'ATK',w:['利爪','尖牙','銳角','羽刃','毒針']},{ic:'🛡️',n:'防具',s:'HP/DEF',w:['硬殼','鱗甲','厚皮','骨盾','鬃甲']},{ic:'💍',n:'飾品',s:'速度',w:['護符','寶珠','羽飾','徽章','項鏈']}];
+const pc=x=>(4+x.t*1.2)*RAR[x.q].m*(1+.1*x.n),val=x=>Math.round(30*(1+x.t)*RAR[x.q].m*(1+x.n*.5)),upc=x=>Math.round(60*(1+x.t)*RAR[x.q].m*1.5**x.n),
+ rr=()=>{let r=R()*100;for(let i=0;i<5;i++)if((r-=RAR[i].w)<0)return i;return 0},
+ eqb=id=>{const b=[0,0,0];S.inv.forEach(x=>{if(x.o==id)b[x.s]+=pc(x)/100});return b},
+ xs=x=>`<span style='color:${RAR[x.q].c}'>${RAR[x.q].n}${x.nm}${x.n?'+'+x.n:''}</span> <small>${EQS[x.s].ic}${EQS[x.s].s} +${(x.s==2?pc(x)/3:pc(x)).toFixed(1)}%　【${setN(x.t)}】</small>${(x.a||[]).length?'<br><small>'+x.a.map(([i,v])=>AFX[i].n+' +'+(v*100).toFixed(1)+'%').join('　')+'</small>':''}`;
+function addItem(t,q){const s=F(R()*3),x={s,q,t,n:0,nm:ZONES[t].n.slice(0,2)+pick(EQS[s].w),o:null,a:affx(t,q)};
+ if(S.inv.length>=60){const y=S.inv.filter(z=>z.o==null).sort((a,b)=>val(a)-val(b))[0];if(y&&val(y)<val(x)){S.coin+=val(y);S.inv.splice(S.inv.indexOf(y),1)}else{S.coin+=val(x);return lg('🎒 背包已滿，裝備自動售出')}}
+ S.inv.push(x);dq('item');lg(`🎁 獲得 <span style='color:${RAR[q].c}'>${RAR[q].n}${x.nm}</span>`)}
+function pEq(){em=S.team.includes(em)?em:S.team[0];const m=em,b=eqb(m),it=S.inv,L=it.map((x,i)=>[x,i]).filter(([x])=>x.s==es).sort((a,c)=>pc(c[0])-pc(a[0]));
+ return `<div class='sm'>點選隊伍中的怪物，為它穿裝。裝備由戰鬥掉落（BOSS 機率高）或錦標賽獎勵獲得，可強化到 +10；精良以上有隨機詞條（可花金幣 🎲 重洗），同區域裝備 2／3 件觸發套裝效果。下一波戰鬥生效。</div><div class='g'>${S.team.map((i,k)=>tile(i,k,'em',i==m)).join('')}</div>
+ <div class='cardbox'><b>${MON[m].e} ${MON[m].n}</b>　<small>ATK +${P(b[0])}%　HP +${P(b[1])}%　DEF +${P(b[1]/2)}%　速度 +${P(b[2]/3)}%</small>${sets(m)}<div style='display:flex;gap:4px;margin-top:6px'>${[0,1,2].map(s=>{const x=it.find(y=>y.o==m&&y.s==s);return `<button data-a='es:${s}' style='flex:1;font-size:12px;${es==s?'border-color:var(--acc)':''}'>${EQS[s].ic}<br>${x?x.nm+(x.n?'+'+x.n:''):'空'}</button>`}).join('')}</div></div>
+ <div style='margin:6px 0'><button data-a='esall' style='font-size:12px'>🧹 出售未裝備的普通／精良</button>　<small>背包 ${it.length}/60</small></div>`+(L.map(([x,i])=>`<div class='row' style='flex-wrap:wrap'><div style='flex:1 1 100%'>${xs(x)}<br><small>${x.o!=null?'裝備中 '+MON[x.o].e:'未裝備'}　售價 💰${fmt(val(x))}</small></div><button data-a='eqp:${i}'>${x.o==m?'卸下':'裝備'}</button><button data-a='eup:${i}' style='opacity:${x.n>=10||S.coin<upc(x)?.5:1}'>${x.n>=10?'MAX':'💰'+fmt(upc(x))}</button>${x.q?`<button data-a='ere:${i}' style='opacity:${S.coin<rrc(x)?.5:1}'>🎲 ${fmt(rrc(x))}</button>`:''}<button data-a='esell:${i}'>賣</button></div>`).join('')||`<div class='sm'>沒有${EQS[es].n}</div>`)}
+// ===== 詞條：精良以上裝備有隨機詞條(數量=AFN[稀有度])；k對應戰鬥效果 v基礎值 c上限 =====
+const AFX=[{k:'crit',n:'暴擊',v:.04,c:.6},{k:'cd',n:'爆傷',v:.1,c:1.2},{k:'ls',n:'吸血',v:.03,c:.3},{k:'th',n:'荊棘',v:.08,c:.6},{k:'en',n:'蓄氣',v:.08,c:.8},{k:'pn',n:'穿透',v:.05,c:.5},{k:'rg',n:'再生',v:.004,c:.03},{k:'rx',n:'共鳴',v:.1,c:1.2}],
+ AFN=[0,1,2,3,4],
+ KN={atk:'ATK',hp:'HP',spd:'速度',crit:'暴擊',cd:'爆傷',ls:'吸血',th:'荊棘',en:'蓄氣',pn:'穿透',rg:'再生/秒',rx:'反應傷害',pv:'被動威力',sk:'必殺威力',df:'DEF'};
+// 套裝：同「區域」裝備 2/3 件觸發；模板依 區域%6 循環；效果鍵同詞條(另有 atk/hp/spd)
+const SETB=[{n:'迅捷',two:{spd:.1},three:{crit:.12,cd:.25}},{n:'鋼壁',two:{hp:.12},three:{th:.2,rg:.006}},{n:'狂戰',two:{atk:.1},three:{pn:.15,ls:.06}},{n:'奧術',two:{en:.15},three:{rx:.3,en:.15}},{n:'生命',two:{rg:.004},three:{hp:.15,ls:.05}},{n:'獵手',two:{crit:.08},three:{atk:.12,cd:.3,pn:.1}}];
+const affx=(t,q)=>AFX.map((_,i)=>i).sort(()=>R()-.5).slice(0,AFN[q]).map(i=>[i,+(AFX[i].v*(.7+.6*R())*(1+t*.05)*(1+.15*q)).toFixed(4)]),
+ rrc=x=>Math.round(120*(1+x.t)*(1+x.q)),setN=t=>ZONES[t].n.slice(0,2)+'·'+SETB[t%6].n,
+ fxd=o=>Object.entries(o).map(([k,v])=>KN[k]+(v<0?'':'+')+(v*100).toFixed(k=='rg'?1:0)+'%').join(' ');
+function afb(id){const o={},cnt={},add=(k,v)=>o[k]=(o[k]||0)+v;
+ S.inv.forEach(x=>{if(x.o==id){(x.a||[]).forEach(([i,v])=>add(AFX[i].k,v));cnt[x.t]=(cnt[x.t]||0)+1}});
+ for(const t in cnt){const s=SETB[t%6];if(cnt[t]>=2)for(const k in s.two)add(k,s.two[k]);if(cnt[t]>=3)for(const k in s.three)add(k,s.three[k])}
+ const tl=(S.box[id]||{}).tl||{};TAL.forEach(x=>{if(tl[x.k])add(x.k,x.v*tl[x.k])});const bo=S.box[id]||{};if(bo.iv){add('atk',bo.iv[0]*IVK);add('hp',bo.iv[1]*IVK);add('spd',bo.iv[2]*IVK);const n=NAT[bo.nt];if(n){add(n.u,.08);add(n.d,-.05)}}(bo.ps||[]).forEach(k=>{if(PKG[k])for(const e in PKG[k].e)add(e,PKG[k].e[e])});if(S.bf)for(const k in S.bf.e)add(k,S.bf.e[k]);const ap=apn(),eb=ecn(MON[id].el).b;add('atk',Math.min(.5,ap*.0015));add('hp',Math.min(.5,ap*.0015));if(eb){add('atk',eb[1]);add('hp',eb[1])}AFX.forEach(a=>{if(o[a.k]>a.c)o[a.k]=a.c});return o}
+function sets(id){const cnt={};S.inv.forEach(x=>{if(x.o==id)cnt[x.t]=(cnt[x.t]||0)+1});
+ const h=Object.entries(cnt).filter(([,c])=>c>=2).map(([t,c])=>`【${setN(t)}】${c}件：${fxd(SETB[t%6].two)}${c>=3?'；3件：'+fxd(SETB[t%6].three):''}`),a=fxd(afb(id));
+ return `<br><small>${h.join('<br>')||'套裝：同區域裝備 2／3 件觸發（見裝備的【】標記）'}${a?'<br>詞條＋套裝合計：'+a:''}</small>`}
+// ===== 天賦：點數 = 每 2 級+1、進化每階+4、每星+2；效果鍵同詞條（另有 pv 被動威力、sk 必殺威力），每級加成 v，最高 m 級 =====
+const TAL=[{k:'atk',n:'力量',d:'ATK',v:.03,m:10},{k:'hp',n:'體魄',d:'HP',v:.04,m:10},{k:'spd',n:'敏捷',d:'速度',v:.02,m:10},{k:'crit',n:'精準',d:'暴擊率',v:.015,m:10},{k:'cd',n:'致命',d:'爆傷',v:.04,m:10},{k:'pn',n:'破甲',d:'穿透',v:.015,m:10},{k:'ls',n:'汲取',d:'吸血',v:.01,m:10},{k:'th',n:'反震',d:'荊棘',v:.03,m:10},{k:'rg',n:'恢復',d:'再生/秒',v:.001,m:10},{k:'en',n:'凝神',d:'氣力獲得',v:.03,m:10},{k:'rx',n:'元素親和',d:'反應傷害',v:.04,m:10},{k:'pv',n:'被動精通',d:'被動威力',v:.08,m:5},{k:'sk',n:'必殺精通',d:'必殺威力',v:.06,m:5}];
+const tp=o=>Math.max(0,F((o.L-1)/2)+(o.ev||0)*4+(o.st||0)*2-Object.values(o.tl||{}).reduce((s,x)=>s+x,0));
+function tal(id){const o=S.box[id],tl=o.tl||{},c=Math.round(40*o.L);
+ return `<div class='cardbox'><b>🌿 天賦</b>　剩餘 <b>${tp(o)}</b> 點<br><small>每 2 級 +1、進化每階 +4、每星 +2 點；下一波戰鬥生效</small>`+TAL.map(x=>{const l=tl[x.k]||0;return `<div class='row' style='padding:4px 0'><div style='flex:1'><b>${x.n}</b> <small>${l}/${x.m}　${x.d} +${(x.v*(l||1)*100).toFixed(1)}%${l?'':'（每級）'}</small></div><button data-a='tlu:${x.k}:1'>+1</button><button data-a='tlu:${x.k}:5'>+5</button></div>`}).join('')+`<div style='margin-top:6px'><button data-a='trs' style='opacity:${o.tl&&Object.keys(o.tl).length&&S.coin>=c?1:.5}'>🔄 重置天賦 💰${fmt(c)}</button></div></div>`}
+// ===== 每日任務：每天依日期從 QST 抽 5 項（f=可行條件），進度由各事件呼叫 dq(k) 累計；r=獎勵倍率 =====
+const QST=[{k:'kill',n:'擊敗敵人',v:50,r:1},{k:'wave',n:'通關波數',v:15,r:1},{k:'cap',n:'捕獲怪物',v:2,r:2},{k:'rx',n:'觸發元素反應',v:20,r:1},{k:'sk',n:'發動必殺技',v:30,r:1},{k:'boss',n:'擊敗 BOSS',v:1,r:2},{k:'enh',n:'強化裝備',v:3,r:1},{k:'cup',n:'完成錦標賽場次',v:1,r:2},{k:'lvl',n:'怪物升級',v:3,r:1},
+ {k:'fuse',n:'融合怪物',v:1,r:2,f:()=>Object.keys(S.box).length>=5},{k:'evo',n:'進化怪物',v:1,r:3,f:()=>Object.values(S.box).some(o=>o.L>=20&&(o.ev||0)<2)},{k:'item',n:'獲得裝備',v:2,r:2},{k:'wb',n:'挑戰世界 BOSS',v:1,r:2}];
+function dqs(){if(S.dq&&S.dq.d==dk())return S.dq;const g=rng(hs(dk()+'q'));
+ return S.dq={d:dk(),p:{},c:{},all:0,l:QST.filter(q=>!q.f||q.f()).map(q=>q.k).sort(()=>g()-.5).slice(0,5)}}
+const dq=(k,n=1)=>{const d=dqs();d.p[k]=(d.p[k]||0)+n;const l=S.st||(S.st={});l[k]=(l[k]||0)+n},dqr=q=>Math.round(150*q.r*(1+S.maxZone*.7)),
+ ready=()=>{const d=dqs();return d.l.some(k=>!d.c[k]&&(d.p[k]||0)>=QST.find(q=>q.k==k).v)||(!d.all&&d.l.every(k=>d.c[k]))};
+function pQ(){const d=dqs(),L=d.l.map(k=>QST.find(q=>q.k==k)),n=L.filter(q=>d.c[q.k]).length;
+ return `<div><b>📋 每日任務</b>　<small>${n}/${L.length} 已領取　每天重置</small></div>`+L.map(q=>{const p=Math.min(d.p[q.k]||0,q.v),ok=p>=q.v&&!d.c[q.k];
+  return `<div class='row'><div style='flex:1'>${q.n} <b>${p}/${q.v}</b><div class='bar' style='background:var(--line);height:5px;margin-top:3px'><i style='width:${p/q.v*100}%;background:var(--acc)'></i></div></div><button data-a='dqc:${q.k}' style='opacity:${ok?1:.5}'>${d.c[q.k]?'✅':'💰'+fmt(dqr(q))}</button></div>`}).join('')
+  +`<div style='margin:8px 0 16px'><button data-a='dqa' style='opacity:${n==L.length&&!d.all?1:.5}'>🎁 全勤獎勵${d.all?'（已領）':''}</button><small>　全部領取後獲得稀有裝備與大量金幣</small></div>`}
+// ===== 招式：等級達 MS 里程磑（進化每階再+1）可從 3 個選項中學習或強化一招（最高 3 級）；按學習順序在「行動」時發動（冷卻以行動數計），氣力滿則發動屬性必殺。
+// el=特定屬性招式：第 4 次選擇起可跨屬性學習（以不同屬性附著、引發元素反應）。t類型見 TN；m倍率 cd冷卻。
+const SKL=[{n:'重擊',ic:'🔨',t:'d',m:1.8,cd:2},{n:'連擊',ic:'👊',t:'x',m:.8,cd:3},{n:'衝撞',ic:'🐃',t:'f',m:1.2,cd:3},{n:'破甲',ic:'🗡️',t:'w',m:1,cd:3},{n:'鼓舞',ic:'📣',t:'b',m:.08,cd:5},
+ {n:'治療',ic:'💚',t:'h',m:.25,cd:4},{n:'護盾',ic:'🛡️',t:'s',m:.15,cd:4},{n:'助力',ic:'⏩',t:'q',m:.45,cd:5},{n:'全體衝擊',ic:'💥',t:'a',m:1,cd:4},{n:'吸取',ic:'🧛',t:'v',m:1.5,cd:3},
+ {n:'火球',ic:'🔥',t:'d',m:2.4,cd:3,el:'火'},{n:'水刃',ic:'💧',t:'x',m:.9,cd:3,el:'水'},{n:'風暴',ic:'🌪️',t:'a',m:1.1,cd:4,el:'風'},{n:'岩崩',ic:'⛰️',t:'f',m:1.4,cd:4,el:'地'},
+ {n:'淨光',ic:'✨',t:'h',m:.3,cd:4,el:'聖'},{n:'暗影',ic:'🌑',t:'v',m:1.8,cd:3,el:'暗'},{n:'無影拳',ic:'⚪',t:'d',m:1.7,cd:2,el:'無'}],
+ TN={d:'單體攻擊',a:'全體攻擊',x:'隨機三連擊',v:'攻擊並吸血',f:'攻擊並延遲目標行動',w:'攻擊並降低目標防禦',h:'治療最虛弱隊友',s:'全隊護盾',b:'全隊 ATK 提升',q:'全隊行動條前進'},
+ MS=[3,8,15,25,40,60,80,100],picks=o=>MS.filter(x=>o.L>=x).length+(o.ev||0)-(o.sk||[]).length,
+ sd=(s,l=1)=>{const m=s.m*(1+.25*(l-1));return TN[s.t]+' '+(s.t=='q'?'+'+Math.round(m*100):P(m)+'%')+'　冷卻 '+Math.max(1,s.cd-(l>2?1:0))+' 行動'};
+function offer(id){const ks=S.box[id].sk||[],n=ks.length,m=MON[id],g=rng(hs(id+':'+ks.join(',')+':'+n)),
+ up=[...new Set(ks)].filter(i=>ks.filter(x=>x==i).length<3).map(i=>[i,1]),nw=SKL.map((_,i)=>i).filter(i=>!ks.includes(i)&&(!SKL[i].el||SKL[i].el==m.el||n>=3)).map(i=>[i,0]);
+ return [...up,...nw].sort(()=>g()-.5).slice(0,3)}
+function useSk(u,i){const s=SKL[i],l=u.sk.filter(x=>x==i).length,M=s.m*(1+.25*(l-1))*(1+.4*u.ev+(u.af.sk||0)),el=s.el||null,fo=al(1-u.side),fr=al(u.side),t=pick(fo);
+ u.cd[i]=Math.max(1,s.cd-(l>2?1:0));lunge(u);pop(u,s.n,'#ffe08a');if(!u.side)dq('sk');
+ if(s.t=='d')dmg(u,t,M,0,el);else if(s.t=='a')fo.forEach(x=>dmg(u,x,M,0,el));
+ else if(s.t=='x')for(let k=0;k<3;k++){const f=al(1-u.side);if(f.length)dmg(u,pick(f),M,0,el)}
+ else if(s.t=='v'){const d=dmg(u,t,M,0,el);u.hp=Math.min(u.mhp,u.hp+d*.6)}
+ else if(s.t=='f'){dmg(u,t,M,0,el);t.g=Math.max(0,t.g-50)}else if(s.t=='w'){dmg(u,t,M,0,el);t.df*=.8}
+ else if(s.t=='h'){const w=fr.reduce((a,b)=>a.hp/a.mhp<=b.hp/b.mhp?a:b),h=Math.min(w.mhp-w.hp,Math.round(w.mhp*M*(u.hsc||1)));w.hp+=h;pop(w,'+'+h,'#7dff9b')}
+ else if(s.t=='s')fr.forEach(x=>x.sh+=Math.round(u.mhp*M));else if(s.t=='b')fr.forEach(x=>x.atk*=1+M);else fr.forEach(x=>x.g+=M*100);
+ u.en=eg(u,18)}
+function skp(id){const o=S.box[id],ks=o.sk||[],n=picks(o),c=Math.round(60*o.L),el=MON[id].el;
+ return `<div class='cardbox'><b>⚔️ 招式</b>　可選擇 <b>${n}</b> 次<br><small>Lv ${MS.join('/')} 各 1 次，進化每階再 +1；無需消耗，選擇即可</small>
+ <div class='row' style='padding:4px 0'><div>🌟 ${SK[el].n}（必殺・氣力滿發動）<br><small>${SK[el].d}</small></div></div>`
+ +[...new Set(ks)].map(i=>{const s=SKL[i],l=ks.filter(x=>x==i).length;return `<div class='row' style='padding:4px 0'><div>${s.ic} <b>${s.n}</b> Lv${l}${s.el?' '+ELC[s.el]:''}<br><small>${sd(s,l)}</small></div></div>`}).join('')
+ +(n>0?`<div class='sm' style='margin-top:6px'>請選擇：</div>`+offer(id).map(([i,up])=>{const s=SKL[i],l=ks.filter(x=>x==i).length;return `<button data-a='skp:${i}' style='display:block;width:100%;text-align:left;margin-top:4px'>${up?'⬆️ 強化':'🆕 學習'} ${s.ic} <b>${s.n}</b>${s.el?' '+ELC[s.el]:''}<br><small>${sd(s,l+1)}</small></button>`}).join(''):'')
+ +(ks.length?`<div style='margin-top:6px'><button data-a='skr' style='opacity:${S.coin>=c?1:.5}'>🔄 重置招式 💰${fmt(c)}</button></div>`:'')+'</div>'}
+// ===== 個體差異：性格(+8%/−5%)與資質 iv[力,體,速]=0~31（每點 +0.1/31，最高 +10%）；重複捕獲、融合會提升資質，可花金幣重塑性格／覺醒資質 =====
+const NAT=[{n:'勇敢',u:'atk',d:'spd'},{n:'固執',u:'atk',d:'hp'},{n:'溫厚',u:'hp',d:'atk'},{n:'堅韌',u:'df',d:'spd'},{n:'敏捷',u:'spd',d:'hp'},{n:'沉著',u:'df',d:'atk'},{n:'機靈',u:'spd',d:'df'},{n:'魯莽',u:'atk',d:'df'},{n:'穩重',u:'hp',d:'spd'},{n:'精惍',u:'spd',d:'atk'}],
+ IVK=.1/31,rollIV=()=>({iv:[0,1,2].map(()=>F(R()*32)),nt:F(R()*NAT.length)}),
+ impIV=o=>{const r=rollIV();o.iv=(o.iv||r.iv).map((x,i)=>Math.max(x,r.iv[i]))},
+ gr=o=>{const s=(o.iv||[0,0,0]).reduce((a,b)=>a+b,0)/93;return s>=.85?'S':s>=.65?'A':s>=.4?'B':s>=.2?'C':'D'};
+function indiv(id){const o=S.box[id];if(!o.iv)Object.assign(o,rollIV());const n=NAT[o.nt],c1=Math.round(100*o.L),c2=Math.round(200*(1+o.iv.reduce((a,b)=>a+b,0)/31));
+ return `<div class='cardbox'><b>🧬 個體差異</b><br><small>性格 <b>${n.n}</b>（${KN[n.u]} +8%　${KN[n.d]} −5%）　資質 <b>${gr(o)}</b>：力 ${o.iv[0]}／體 ${o.iv[1]}／速 ${o.iv[2]}（各最高 31＝+10%）</small><div style='margin-top:6px;display:flex;gap:4px;flex-wrap:wrap'><button data-a='nrr' style='opacity:${S.coin>=c1?1:.5}'>🎲 重塑性格 💰${fmt(c1)}</button><button data-a='awk' style='opacity:${S.coin>=c2&&o.iv.some(x=>x<31)?1:.5}'>💎 覺醒資質 💰${fmt(c2)}</button></div></div>`}
+// ===== 被動技能：除天生屬性被動(PASV)外，達 PMS 里程碑可學其他屬性被動，或「能力組合」PKG（e=效果鍵同詞條，可為負） =====
+const PKG={'狂暴':{ic:'🥊',e:{atk:.12,df:-.06}},'要塞':{ic:'🏰',e:{hp:.15,df:.1,spd:-.05}},'迅雷':{ic:'⚡',e:{spd:.15,crit:.08}},'狙擊':{ic:'🎯',e:{pn:.12,cd:.2}},'嗜血':{ic:'🩸',e:{ls:.08,atk:.05}},'刺甲':{ic:'🌵',e:{th:.15,df:.08}},'聚能':{ic:'🔮',e:{en:.2,rx:.2}},'幸運':{ic:'🍀',e:{crit:.1,rg:.003}}},
+ PMS=[10,25,45,70],ppk=o=>PMS.filter(x=>o.L>=x).length-(o.ps||[]).length,
+ pnm=k=>PASV[k]?ELC[k]+PASV[k].n:PKG[k].ic+k,pds=k=>PASV[k]?PASV[k].d:fxd(PKG[k].e),
+ poff=id=>{const ps=S.box[id].ps||[],g=rng(hs(id+'p'+ps.join('')));return [...Object.keys(PASV),...Object.keys(PKG)].filter(k=>k!=MON[id].el&&!ps.includes(k)).sort(()=>g()-.5).slice(0,3)};
+function pasp(id){const o=S.box[id],ps=o.ps||[],n=ppk(o),c=Math.round(60*o.L),row=k=>`<div class='row' style='padding:4px 0'><div>${pnm(k)}<br><small>${pds(k)}</small></div></div>`;
+ return `<div class='cardbox'><b>🔰 被動技能</b>　可選擇 <b>${n}</b> 次<br><small>Lv ${PMS.join('/')} 各 1 次。隊伍中擁有相同屬性被動的怪物越多，威力越高</small>${row(MON[id].el).replace('</b><br>','（天生）</b><br>')}${ps.map(row).join('')}`
+ +(n>0?`<div class='sm' style='margin-top:6px'>請選擇：</div>`+poff(id).map(k=>`<button data-a='pkp:${k}' style='display:block;width:100%;text-align:left;margin-top:4px'>🆕 ${pnm(k)}<br><small>${pds(k)}</small></button>`).join(''):'')
+ +(ps.length?`<div style='margin-top:6px'><button data-a='pkr' style='opacity:${S.coin>=c?1:.5}'>🔄 重置被動 💰${fmt(c)}</button></div>`:'')+'</div>'}
+// ===== 無盡之塔：連續樓層，血量帶到下一層（每層回復 25%、倒下者以 25% 復活）；敵方等級 = 你最強三隻平均等級×(0.75+0.03×樓層)；每 5 層掉裝備、每 10 層 BOSS；每 10 層為存檔點 =====
+function wTeam(){if(TW.el)return eTeam();if(TW.wb)return bTeam();const f=TW.f,boss=f%10==0,top=Object.values(S.box).map(o=>o.L).sort((a,b)=>b-a).slice(0,3),L=Math.max(1,Math.round(top.reduce((s,x)=>s+x,0)/top.length*(.75+.03*f))),
+ zt=Math.min(ZONES.length-1,F(f/4)),pool=MON.filter(m=>m.z<=zt&&m.z>=Math.max(0,zt-2)&&m.k!=9),bs=MON.filter(m=>m.k==9&&m.z<=zt),
+ ids=boss?[pick(pool).id,pick(bs).id,pick(pool).id]:[0,1,2].map(()=>pick(pool).id);
+ return ids.map((id,i)=>mkU(id,boss&&i==1?Math.round(L*1.15):L,1,Math.min(5,F(f/10)),L>=50?2:L>=20?1:0,i))}
+function wEnd(w){if(TW.el)return eEnd(w);if(TW.wb)return bEnd();const t=S.tw,f=TW.f;
+ if(!w){TW=null;return lg(`🗼 挑戰結束：止步第 ${f} 層（最高 ${t.best} 層）`)}
+ const first=f>t.best,c=Math.round((30+f*8)*(1+S.maxZone*.5)*(first?2:1)),z=Math.min(ZONES.length-1,F(f/4));S.coin+=c;dq('wave');
+ if(f%5==0)addItem(z,f%10==0?Math.max(rr(),rr(),rr()):Math.max(rr(),rr()));
+ if(first&&f%10==0){const m=pick(MON.filter(x=>x.z<=z&&x.k!=9));S.seen[m.id]=1;give(m.id,Math.max(1,m.z*6),0,0)}
+ if(first)t.best=f;TW.hp=U[0].map(u=>u.dead?.25:Math.min(1,u.hp/u.mhp+.25));TW.f=f+1;lg(`🗼 第 ${f} 層通關　+${c}💰${first?'（首次）':''}`);save()}
+function pTower(){const t=S.tw||(S.tw={best:0}),st=[1,...Array.from({length:F(t.best/10)},(_,i)=>(i+1)*10+1)].slice(-6);
+ return `<div class='cardbox'><b>🗼 無盡之塔</b>　<small>最高 ${t.best} 層</small><br><small>連續挑戰，血量帶到下一層（每層回復 25%，倒下的怪物以 25% 復活）。敵人強度依你最強三隻怪物等級計算，並隨樓層上升。每 5 層掉落裝備，每 10 層是 BOSS 層；首次通關金幣加倍，首次抵達 10 的倍數層贈送怪物。每通過 10 層可從下一層續爬。全滅即本次結束。</small>`
+ +(TW&&!TW.wb&&!TW.el?`<div style='margin-top:6px'>目前：第 ${TW.f} 層　<button data-a='twx'>🏳️ 撤退</button></div>`:`<div style='margin-top:6px;display:flex;gap:4px;flex-wrap:wrap'>${st.map(f=>`<button data-a='tws:${f}'${T?' disabled':''}>🗼 第 ${f} 層開始</button>`).join('')}</div>`)+'</div>'}
+// ===== 世界 BOSS：每日依日期選一隻 BOSS（區域≤已解鎖+1），血量為共用血池（×WK），每次限時 90 秒、每日 3 次，累計傷害達 25/50/75/100% 領獎（100% 討伐可獲得該 BOSS）。用 TW.wb 旗標沿用體塔的戰鬥流程 =====
+const WK=9,WBR={25:1,50:2,75:2,100:3};
+function wbd(){if(S.wb&&S.wb.d==dk())return S.wb;const g=rng(hs(dk()+'wb')),bs=MON.filter(m=>m.k==9&&m.z<=Math.min(ZONES.length-1,S.maxZone+1)),m=bs[F(g()*bs.length)],
+ top=Object.values(S.box).map(o=>o.L).sort((a,b)=>b-a).slice(0,3),L=Math.max(1,Math.round(top.reduce((s,x)=>s+x,0)/top.length)),u=mkU(m.id,L,1,2,L>=50?2:L>=20?1:0,1),mx=Math.round(u.mhp*WK);
+ return S.wb={d:dk(),id:m.id,L,max:mx,hp:mx,att:0,c:{}}}
+function bTeam(){const w=S.wb,u=mkU(w.id,w.L,1,2,w.L>=50?2:w.L>=20?1:0,1);u.mhp=w.max;u.hp=w.hp;u.hsc=1/WK;u.sk=[...new Set([8,...u.sk])];return[u]}
+function bEnd(){const w=S.wb,u=U[1][0],d=Math.max(0,w.hp-u.hp),c=Math.round(d/w.max*3000*(1+S.maxZone*.7));w.hp=Math.min(w.hp,Math.max(0,u.hp));TW=null;S.coin+=c;
+ lg(`🐲 本次造成 ${fmt(d)} 傷害　+${c}💰　累計 ${((1-w.hp/w.max)*100).toFixed(1)}%`);
+ for(const p in WBR)if(!w.c[p]&&1-w.hp/w.max>=p/100-1e-9){w.c[p]=1;const g=Math.round(500*(1+S.maxZone*.7)*p/25);S.coin+=g;addItem(MON[w.id].z,p==100?Math.max(rr(),rr(),rr(),3):Math.max(rr(),WBR[p]));
+  lg(`🎁 世界BOSS累計 ${p}% 獎勵　+${fmt(g)}💰`);if(p==100){dq('wbk');give(w.id,Math.max(1,Math.round(w.L*.5)),0,0);lg('🏆 討伐成功！獲得 BOSS 夥伴')}}
+ save()}
+function pWB(){const w=wbd(),m=MON[w.id],p=1-w.hp/w.max,left=3-w.att;
+ return `<div class='cardbox'><b>🐲 世界 BOSS</b>　<small>每日更換；血量為共用血池，限時 90 秒、每日 3 次</small><br><span style='font-size:34px'>${m.e}</span> <b>${m.n}</b> Lv${w.L} ${ELC[m.el]}${m.el}<div class='bar' style='background:var(--line);height:8px;margin:4px 0'><i style='width:${(1-p)*100}%;background:#e74c3c'></i></div><small>剩餘 ${fmt(w.hp)} / ${fmt(w.max)}　累計 ${(p*100).toFixed(1)}%</small>`
+ +[25,50,75,100].map(x=>`<div class='sm'>${w.c[x]?'✅':'⬜'} 累計 ${x}%：${RAR[WBR[x]].n}以上裝備　金幣${x==100?'　＋ BOSS 夥伴':''}</div>`).join('')
+ +`<div style='margin-top:6px'>${TW&&TW.wb?`<button data-a='wbx'>🏳️ 結束本次挑戰</button>`:`<button data-a='wbs'${left<=0||w.hp<=0||TW||T?' disabled':''}>⚔️ 挑戰（剩 ${Math.max(0,left)} 次）</button>`}</div></div>`}
+// ===== 成就：各 4 階（領金幣＋成就點數，第3、4階加裝備），每成就點數使全怪物 ATK/HP +0.15%（上限 50%）；累計數由 dq() 同步記錄在 S.st。圖鑑獎勵：區域全收服領獎、各屬性收服達 30/60/100% 永久加成 =====
+const lt=k=>(S.st||{})[k]||0,APV=[1,2,3,5],ACC=[300,1e3,3e3,1e4],ECB=[[.3,.02],[.6,.04],[1,.08]],
+ ACH=[{k:'kill',n:'獵殺者',d:'擊敗敵人',t:[100,1e3,1e4,1e5],g:()=>lt('kill')},{k:'wave',n:'征途',d:'通關波數',t:[50,500,5e3,2e4],g:()=>lt('wave')},
+ {k:'cap',n:'訓練師',d:'捕獲次數',t:[10,100,500,2e3],g:()=>lt('cap')},{k:'rx',n:'元素大師',d:'觸發元素反應',t:[50,500,5e3,3e4],g:()=>lt('rx')},
+ {k:'sk',n:'招式達人',d:'發動必殺技與招式',t:[100,1e3,1e4,1e5],g:()=>lt('sk')},{k:'boss',n:'屠龍者',d:'擊敗 BOSS',t:[5,50,300,1e3],g:()=>lt('boss')},
+ {k:'enh',n:'鍛造師',d:'強化裝備次數',t:[10,100,500,2e3],g:()=>lt('enh')},{k:'item',n:'尋寶者',d:'獲得裝備',t:[10,100,500,2e3],g:()=>lt('item')},
+ {k:'lvl',n:'培育家',d:'怪物升級次數',t:[50,500,3e3,1e4],g:()=>lt('lvl')},{k:'fuse',n:'煉成師',d:'融合怪物',t:[1,10,50,200],g:()=>lt('fuse')},
+ {k:'evo',n:'進化者',d:'進化怪物',t:[1,5,20,50],g:()=>lt('evo')},{k:'dqn',n:'勤奮',d:'領取每日任務',t:[10,100,500,2e3],g:()=>S.dqn||0},
+ {k:'med',n:'冠軍之路',d:'錦標賽獎牌數',t:[1,7,30,100],g:()=>Object.values(S.med||{}).reduce((a,b)=>a+b,0)},{k:'gold',n:'常勝將軍',d:'錦標賽金牌',t:[1,5,20,60],g:()=>(S.med||{}).g||0},
+ {k:'tw',n:'登塔者',d:'無盡之塔最高層',t:[10,30,60,100],g:()=>(S.tw||{}).best||0},{k:'wbk',n:'屠世者',d:'討伐世界 BOSS',t:[1,5,20,60],g:()=>lt('wbk')},
+ {k:'own',n:'收藏家',d:'收服怪物種類',t:[10,40,100,150],g:()=>Object.keys(S.box).length},{k:'seen',n:'博物學家',d:'遇見怪物種類',t:[30,80,130,150],g:()=>MON.filter(m=>S.seen[m.id]).length},
+ {k:'lv',n:'登峰造極',d:'怪物最高等級',t:[20,50,100,130],g:()=>Math.max(...Object.values(S.box).map(o=>o.L))},{k:'star',n:'滿星傳說',d:'滿星(★5)怪物數',t:[1,5,20,50],g:()=>Object.values(S.box).filter(o=>o.st>=5).length},
+ {k:'zn',n:'探險家',d:'解鎖區域數',t:[3,6,10,15],g:()=>S.maxZone+1},{k:'sgr',n:'天選之子',d:'S 級資質怪物數',t:[1,5,15,40],g:()=>Object.values(S.box).filter(o=>gr(o)=='S').length},{k:'evn',n:'冒險家',d:'處理隨機事件',t:[5,30,150,600],g:()=>lt('evn')}],
+ apn=()=>ACH.reduce((s,a)=>s+APV.slice(0,(S.ac||{})[a.k]||0).reduce((x,y)=>x+y,0),0)+3*Object.keys(S.zc||{}).length,
+ ecn=el=>{const t=MON.filter(m=>m.el==el).length,c=Object.keys(S.box).filter(i=>MON[i].el==el).length;return{t,c,b:ECB.filter(x=>c>=Math.ceil(t*x[0])).pop()}},
+ zcnt=z=>MON.filter(m=>m.z==z&&S.box[m.id]).length,
+ achReady=()=>ACH.some(a=>{const n=(S.ac||{})[a.k]||0;return n<4&&a.g()>=a.t[n]})||ZONES.some((_,z)=>!(S.zc||{})[z]&&zcnt(z)>=10),
+ dnav=()=>`<div style='display:flex;gap:6px;margin-bottom:6px'><button data-a='dv:0' class='${dv?'':'on'}' style='flex:1'>📖 圖鑑</button><button data-a='dv:1' class='${dv?'on':''}' style='flex:1'>🏅 成就${achReady()?' ❗':''}</button></div>`;
+function claim(a,n){S.ac[a.k]=n+1;const c=Math.round(ACC[n]*(1+S.maxZone*.7));S.coin+=c;if(n>=2)addItem(Math.min(ZONES.length-1,S.maxZone),Math.max(rr(),n));
+ lg(`🏅 成就【${a.n}】${'★'.repeat(n+1)}　+${fmt(c)}💰　成就點數 +${APV[n]}`);dirty=1;save()}
+function pAch(){const ap=apn(),bn=Math.min(.5,ap*.0015),ac=S.ac||{},zc=S.zc||{};
+ return `<div class='cardbox'><b>🏅 成就點數 ${ap}</b>　<small>每點使全怪物 ATK／HP +0.15%（目前 +${(bn*100).toFixed(1)}%，上限 50%）</small><div style='margin-top:6px'><button data-a='acha'>全部領取</button></div></div>`
+ +ACH.map(a=>{const n=ac[a.k]||0,v=a.g(),nx=a.t[Math.min(n,3)],ok=n<4&&v>=nx;return `<div class='row'><div style='flex:1'><b>${a.n}</b> <small>${a.d}　${'★'.repeat(n)}${'☆'.repeat(4-n)}</small><div class='bar' style='background:var(--line);height:5px;margin-top:3px'><i style='width:${Math.min(100,v/nx*100)}%;background:var(--acc)'></i></div><small>${fmt(v)} / ${fmt(nx)}</small></div><button data-a='ach:${a.k}' style='opacity:${ok?1:.5}'>${n>=4?'✅':ok?'領取':'🔒'}</button></div>`}).join('')
+ +`<h4>區域圖鑑</h4>`+ZONES.map((z,i)=>{const c=zcnt(i),ok=!zc[i]&&c>=10;return `<div class='row'><div style='flex:1'>${z.n} <b>${c}/10</b><br><small>全數收服：金幣＋${RAR[3].n}以上裝備＋成就點數 3</small></div><button data-a='zcl:${i}' style='opacity:${ok?1:.5}'>${zc[i]?'✅':ok?'領取':'🔒'}</button></div>`}).join('')
+ +`<h4>元素收藏加成</h4><div class='sm'>收服某屬性的怪物達該屬性總數的 30%／60%／100%，該屬性怪物永久 ATK／HP +2%／+4%／+8%</div>`+ELS.map(el=>{const e=ecn(el);return `<div class='row'><div style='flex:1'>${ELC[el]}${el}　<b>${e.c}/${e.t}</b></div><small>${e.b?'目前 +'+P(e.b[1])+'%':'尚未達成'}</small></div>`}).join('')}
+// ===== 區域隨機事件：一般戰鬥勝利後 15% 機率觸發，限 5 波內在「戰況」分頁處理；選項可能花金幣（c）、有風險／報酬（f）；祖福 S.bf={n,e,w} 在 w 波內提供戰力（併入 afb）；精英挑戰沿用 TW 流程（TW.el） =====
+const zs=()=>1+S.maxZone*.7,sc=n=>Math.round(n*zs()),bf=(n,e,w)=>{S.bf={n,e,w}},
+ EVN=[
+ {ic:'🧳',n:'神秘商人',d:'一位商人攤開貨物：「今天特價！」',o:[
+  {t:'購買裝備箱（精良以上裝備）',c:()=>sc(400),f:()=>{addItem(S.zone,Math.max(rr(),1));return '🧳 成交！獲得一件裝備'}},
+  {t:'購買經驗藥水（全隊獲得一級所需經驗）',c:()=>sc(250),f:()=>{S.team.forEach(id=>gain(id,NEED(S.box[id].L)));return '🧪 全隊獲得大量經驗'}},
+  {t:'婉拒',f:()=>'商人耸耸肩離開了'}]},
+ {ic:'🎁',n:'路邊寶箱',d:'路邊有一個陈舊的寶箱，似乎沒有上鎖。',o:[
+  {t:'直接打開（可能是陷阱）',f:()=>{const r=R();if(r<.6){const c=sc(500);S.coin+=c;return `🎁 箱內有 ${fmt(c)} 金幣`}if(r<.85){addItem(S.zone,rr());return '🎁 箱內有一件裝備'}const c=Math.min(S.coin,sc(200));S.coin-=c;return `💥 是陷阱！損失 ${fmt(c)} 金幣`}},
+  {t:'謹慎拆除（必得獲利）',c:()=>sc(200),f:()=>{S.coin+=sc(600);return '🔧 安全開啟，獲得金幣'}},
+  {t:'無視',f:()=>'你繼續趨路'}]},
+ {ic:'🐾',n:'受傷的怪物',d:'一隻受傷的怪物倒在路邊，眼神哀求地看著你。',o:[
+  {t:'治療並收服（本區怪物）',c:()=>sc(300),f:()=>{const m=pick(MON.filter(x=>x.z==S.zone&&x.k!=9));S.seen[m.id]=1;give(m.id,Math.max(1,S.zone*6),0,0);return `🐾 ${m.e}${m.n} 成為了夥伴`}},
+  {t:'留下食物離開（5 波 ATK +15%）',c:()=>sc(100),f:()=>{bf('善行的回報',{atk:.15},5);return '🐾 怪物感激地目送你遠去'}},
+  {t:'離開',f:()=>'你轉過頭去'}]},
+ {ic:'🛐',n:'古老神殿',d:'一座古老的神殿，祭壇上散發著微光。',o:[
+  {t:'祈祷戰神（10 波 ATK +20%）',c:()=>sc(200),f:()=>{bf('戰神祖福',{atk:.2},10);return '🛐 感受到力量湧入體內'}},
+  {t:'祈祷守護神（10 波 HP +25%）',c:()=>sc(200),f:()=>{bf('守護祖福',{hp:.25},10);return '🛐 一股暖流包圍著你們'}},
+  {t:'祈祷風神（10 波 速度 +20%）',c:()=>sc(200),f:()=>{bf('風神祖福',{spd:.2},10);return '🛐 腳步變得輕盈'}},
+  {t:'離開',f:()=>'你静静地離開了'}]},
+ {ic:'🎲',n:'迷路賣徒',d:'一個賣徒挑釁地看著你：「敢不敢賣一把？」',o:[
+  {t:'小賣（押 10% 金幣，五成翻倍）',f:()=>{const b=Math.floor(S.coin*.1);if(R()<.5){S.coin+=b;return `🎲 贏了！+${fmt(b)} 金幣`}S.coin-=b;return `🎲 輸了… −${fmt(b)} 金幣`}},
+  {t:'豪賣（押 30% 金幣，四成獲得三倍）',f:()=>{const b=Math.floor(S.coin*.3);if(R()<.4){S.coin+=b*2;return `🎲 大贏！+${fmt(b*2)} 金幣`}S.coin-=b;return `🎲 輸了… −${fmt(b)} 金幣`}},
+  {t:'拒絕',f:()=>'你擺擺手走開了'}]},
+ {ic:'🥚',n:'神秘蛋',d:'草叢裏有一顆微微發光的蛋。',o:[
+  {t:'帶回孵化（本區或更前區的怪物）',c:()=>sc(350),f:()=>{const m=pick(MON.filter(x=>x.z<=S.zone&&x.k!=9));S.seen[m.id]=1;give(m.id,Math.max(1,m.z*6),0,0);return `🥚 孵出了 ${m.e}${m.n}！`}},
+  {t:'放回原處',f:()=>'你輕輕地把蛋放回草叢'}]},
+ {ic:'🔨',n:'游歷鐵匠',d:'旅行鐵匠願意為你的裝備服務。',o:[
+  {t:'免費保養（隨機一件已裝備的裝備 +1）',f:()=>{const L=S.inv.filter(x=>x.o!=null&&x.n<10);if(!L.length)return '🔨 沒有可強化的已裝備裝備';const x=pick(L);x.n++;return `🔨 ${x.nm} 強化到 +${x.n}`}},
+  {t:'購買磨刀石（5 波暴擊 +15%）',c:()=>sc(150),f:()=>{bf('磨刀石',{crit:.15},5);return '🔨 武器變得鎖利'}},
+  {t:'離開',f:()=>'鐵匠揮揮手'}]},
+ {ic:'🏛️',n:'迷霧遺跡',d:'迷霧中浮現一座遺跡入口。',o:[
+  {t:'謹慎探索（獲得少量金幣）',f:()=>{const c=sc(300);S.coin+=c;return `🏛️ 找到 ${fmt(c)} 金幣`}},
+  {t:'深入探索（四成獲得史詩裝備，否則損失金幣）',f:()=>{if(R()<.4){addItem(S.zone,Math.max(rr(),3));return '🏛️ 發現了遠古裝備！'}const c=Math.min(S.coin,sc(250));S.coin-=c;return `🏛️ 觸發機關！損失 ${fmt(c)} 金幣`}},
+  {t:'離開',f:()=>'你選擇不冒险'}]},
+ {ic:'⚔️',n:'精英挑戰者',d:'一位強大的訓練師攔住去路：「讓我見識你的實力！」',o:[
+  {t:'迎戰（勝利獲得豐厚獎勵）',f:()=>{TW={el:1,hp:[1,1,1],f:0};startWave();return '⚔️ 精英挑戰開始！'}},
+  {t:'婉拒',f:()=>'你繞道離開了'}]},
+ {ic:'☄️',n:'流星雨',d:'夜空劃過流星，怪物們躁動不安。',o:[
+  {t:'許願（8 波全隊 ATK／HP +10%）',f:()=>{bf('流星祖福',{atk:.1,hp:.1},8);return '☄️ 願望被聽見了'}},
+  {t:'收集隨石碎片（獲得金幣）',f:()=>{const c=sc(450);S.coin+=c;return `☄️ 收集到 ${fmt(c)} 金幣的碎片`}},
+  {t:'離開',f:()=>'你静静欣賞完流星'}]}];
+function evTick(){if(S.bf&&--S.bf.w<=0){lg('✨ '+S.bf.n+' 效果結束');S.bf=null}
+ if(S.ev){if(--S.ev.w<=0){S.ev=null;lg('⌛ 你錯過了事件')}}else if(R()<.15){S.ev={i:F(R()*EVN.length),w:5};lg(`❗ 遇到事件：${EVN[S.ev.i].ic}${EVN[S.ev.i].n}`)}}
+function pEv(){const e=S.ev,b=S.bf;let h=b?`<div class='sm'>✨ ${b.n}：剩餘 ${b.w} 波</div>`:'';if(!e)return h;const v=EVN[e.i];
+ return h+`<div class='cardbox'><b>${v.ic} ${v.n}</b>　<small>${ZONES[S.zone].n}・剩餘 ${e.w} 波</small><br>${v.d}<div style='margin-top:6px'>${v.o.map((o,k)=>{const c=o.c?o.c():0;return `<button data-a='ev:${k}' style='display:block;width:100%;text-align:left;margin-top:4px;opacity:${S.coin<c?.5:1}'>${o.t}${c?` 💰${fmt(c)}`:''}</button>`}).join('')}</div></div>`}
+function eTeam(){const top=Object.values(S.box).map(o=>o.L).sort((a,b)=>b-a).slice(0,3),L=Math.max(1,Math.round(top.reduce((s,x)=>s+x,0)/top.length*1.1)),pool=MON.filter(m=>m.z==S.zone&&m.k!=9);
+ return[0,1,2].map(i=>mkU(pick(pool).id,L,1,3,L>=50?2:L>=20?1:0,i))}
+function eEnd(w){TW=null;if(w){const c=sc(2500);S.coin+=c;addItem(S.zone,Math.max(rr(),rr(),2));lg(`⚔️ 精英挑戰勝利！+${fmt(c)}💰 與稀有以上裝備`)}else lg('⚔️ 精英挑戰失敗…')}
+const eg=(u,x)=>Math.min(100,u.en+x*(1+(u.af.en||0))*(1+PASV.無.v*(u.pp.無||0)));
+function pass(){[0,1].forEach(s=>{const c={};U[s].forEach(u=>u.ps.forEach(k=>c[k]=(c[k]||0)+1));
+ U[s].forEach(u=>{u.pp={};u.ps.forEach(k=>u.pp[k]=Math.min(2.5,(1+.5*u.ev+(u.af.pv||0))*(1+.25*(c[k]-1))));
+  if(u.pp.風)u.rate*=1+PASV.風.v*u.pp.風;if(u.pp.地)u.sh=Math.round(u.mhp*PASV.地.v*u.pp.地)})})}
+
+// ===== 解析怪物資料庫 =====
+const MON=[];
+ZONES.forEach((z,zi)=>z.m.split(' ').forEach(t=>{const r=t.match(/^(\p{Extended_Pictographic}\uFE0F?)(.+?)(.)(\d?)$/u);
+ MON.push({id:MON.length,z:zi,e:r[1],n:r[2],el:r[3],k:+r[4]||0})}));
+
+// ===== 狀態 =====
+const E=id=>document.getElementById(id),R=Math.random,F=Math.floor,KEY='monster_wonder_v1';
+const pick=a=>{if(a[0]&&a[0].p!=null){let r=R()*a.reduce((s,u)=>s+POS[u.p].w,0);for(const u of a)if((r-=POS[u.p].w)<0)return u}return a[F(R()*a.length)]},emul=(a,d)=>a==d&&a!='無'?.5:EL[a]==d?1.5:EL[d]==a?.7:1;
+const fmt=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e4?(n/1e3).toFixed(1)+'k':Math.round(n);
+let S=null,U=[[],[]],st='wait',tw=.3,logs=[],dirty=1,tab=0,sel=null,dsel=null,cs=[],em=null,es=0,dv=0,bgk=-1,rst=0;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+const save=()=>{S.t=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const lg=t=>{logs.push(t);if(logs.length>60)logs.shift();dirty=1};
+function fresh(){S={box:{5:{L:1,exp:0,st:0},4:{L:1,exp:0,st:0},3:{L:1,exp:0,st:0}},team:[5,4,3],coin:30,zone:0,maxZone:0,w:0,seen:{3:1,4:1,5:1},up:{net:0,trn:0,gld:0},auto:1,spd:1,farm:0,inv:[]}}
+
+// ===== 戰鬥 =====
+function mkU(id,L,side,star,ev=0,p=0){const m=MON[id],a=ARCH[m.k],pb=!side&&m.k==9,q=(1+.2*star+(side?0:.25))*EVT[ev].m,b=side?[0,0,0]:eqb(id),f=side?{}:afb(id),mhp=Math.round((25+L*L*1.1+L*14)*a.h*q*(pb?.6:1)*(1+b[1]+(f.hp||0)));
+ return{id,m,side,L,star,ev,p,mhp,hp:mhp,atk:(3+L*2.1)*a.a*q*(pb?.8:1)*(1+b[0]+(f.atk||0)),af:f,sk:side?[(id*7+3)%10].concat(m.k==9?[SKL.findIndex(s=>s.el==m.el)]:[]):(S.box[id]||{}).sk||[],cd:{},ps:[m.el].concat(side?[]:((S.box[id]||{}).ps||[]).filter(k=>PASV[k])),df:L*1.4*a.d*(1+b[1]/2+(f.df||0)),rate:45*a.s*(1+b[2]/3+(f.spd||0)),g:R()*50,en:0,sh:0,mk:0,mt:0,dead:0,exp:(8+L*4)*a.x,zn:(3+L*2)*a.x}}
+const al=s=>U[s].filter(u=>!u.dead);
+function pop(u,t,c){if(!u.el)return;const d=document.createElement('div');d.className='pop';d.textContent=t;d.style.cssText=`color:${c};left:${15+R()*40}%`;u.el.appendChild(d);setTimeout(()=>d.remove(),800)}
+function lunge(u){const c='lg'+u.side;u.el.classList.add(c);setTimeout(()=>u.el.classList.remove(c),120)}
+function dmg(a,t,mult,nr,el){const e=emul(el||a.m.el,t.m.el),c=R()<.1+PASV.火.v*(a.pp.火||0)+(a.af.crit||0);let d=Math.max(1,Math.round(a.atk*mult*(.9+R()*.2)*e*POS[a.p].a*POS[t.p].d*(a.pp.暗&&t.hp<t.mhp*.4?1+PASV.暗.v*a.pp.暗:1)*(1-PASV.地.v*(t.pp.地||0)/2)*(bt>et?1+(bt-et)/10:1)*100/(100+t.df*(1-(a.af.pn||0)))*(c?1.5+(a.af.cd||0):1)));
+ if(t.sh>0){const s=Math.min(t.sh,d);t.sh-=s;d-=s}
+ t.hp-=d;if(a.af.ls)a.hp=Math.min(a.mhp,a.hp+d*a.af.ls);if(t.af.th&&!nr)a.hp=Math.max(1,a.hp-d*t.af.th);t.en=eg(t,12);pop(t,'-'+d+(e>1?'↑':e<1?'↓':''),c?'#ffd23f':e>1?'#ffb061':'#fff');if(t.hp<=0){t.hp=0;t.dead=1;if(t.side){dq('kill');if(t.m.k==9)dq('boss')}}if(!nr)mark(a,t,el);return d}
+function special(u){const k={...SK[u.m.el]},fo=al(1-u.side),fr=al(u.side);k.m*=1+.4*u.ev+(u.af.sk||0);u.en=0;lunge(u);pop(u,k.n,'#7df');if(!u.side)dq('sk');
+ if(k.t=='d')dmg(u,pick(fo),k.m);
+ else if(k.t=='a')fo.forEach(t=>dmg(u,t,k.m));
+ else if(k.t=='x')for(let i=0;i<3;i++){const f=al(1-u.side);if(f.length)dmg(u,pick(f),k.m)}
+ else if(k.t=='v'){const d=dmg(u,pick(fo),k.m);u.hp=Math.min(u.mhp,u.hp+d*.6)}
+ else if(k.t=='h'){const t=fr.reduce((a,b)=>a.hp/a.mhp<=b.hp/b.mhp?a:b),h=Math.round(t.mhp*k.m*(u.hsc||1));t.hp=Math.min(t.mhp,t.hp+h);pop(t,'+'+h,'#7dff9b')}
+ else fr.forEach(t=>t.sh+=Math.round(u.mhp*k.m))}
+function act(u){const fo=al(1-u.side);if(!fo.length)return;
+ if(u.en>=100&&(u.side||S.auto))special(u);else{for(const i in u.cd)if(u.cd[i]>0)u.cd[i]--;const si=[...new Set(u.sk)].find(i=>!u.cd[i]);if(si!=null)useSk(u,si);else{lunge(u);const t=pick(fo);dmg(u,t,1);u.en=eg(u,22);if(u.pp.水&&!t.dead&&R()<PASV.水.v*u.pp.水){t.g=Math.max(0,t.g-50);pop(t,'❄️凍結','#9df')}}}
+ if(u.pp.聖&&!u.dead){const t=al(u.side).reduce((a,b)=>a.hp/a.mhp<=b.hp/b.mhp?a:b),h=Math.min(t.mhp-t.hp,Math.round(t.mhp*(u.hsc||1)*PASV.聖.v*u.pp.聖));t.hp+=h;if(h>0)pop(t,'+'+h,'#7dff9b')}}
+function startWave(){for(const k in S.box)if(!S.box[k].iv)Object.assign(S.box[k],rollIV());const z=S.zone,boss=S.w%10==9,pool=MON.filter(m=>m.z==z&&m.k!=9),bs=MON.find(m=>m.z==z&&m.k==9),
+ L=z*8+1+F((S.w%10)*.7)+(boss?2:0),ids=boss?[pick(pool).id,bs.id,pick(pool).id]:[0,1,2].map(()=>pick(pool).id);
+ U[1]=T?tTeam():TW?wTeam():ids.map((id,i)=>mkU(id,Math.max(1,boss&&i!=1?L-2:L),1,0,z>=6?2:z>=3?1:0,i));U[1].forEach(u=>S.seen[u.id]=1);
+ U[0]=S.team.map((id,i)=>mkU(id,S.box[id].L,0,S.box[id].st,S.box[id].ev||0,i));bond();pass();if(TW)TW.hp.forEach((f,i)=>{const u=U[0][i];if(u)u.hp=Math.max(1,u.mhp*f)});buildArena();st='fight';bt=0;et=20+1.2*Math.max(...U[0].concat(U[1]).map(u=>u.L));if(TW&&TW.wb)et=999;dirty=1}
+function bond(){const n=new Set(U[0].map(u=>u.m.el)).size,b=n==1?['同屬共鳴 ATK+20%',1.2,1]:n==3?['多元編成 HP+15%',1,1.15]:['',1,1];
+ U[0].forEach(u=>{u.atk*=b[1];u.mhp=Math.round(u.mhp*b[2]);u.hp=u.mhp});E('mid').textContent='⚔️ VS ⚔️'+(b[0]?'　✨'+b[0]:'')}
+function give(id,L,st,ev){const o=S.box[id],m=MON[id];if(!o){S.box[id]={L,exp:0,st,ev,...rollIV()};return lg(`🎉 獲得 ${m.e}${m.n}！`)}
+ o.L=Math.max(o.L,L);impIV(o);o.ev=Math.max(o.ev||0,ev);if(o.st<5){o.st=Math.min(5,Math.max(o.st,st)+1);lg(`⭐ ${m.e}${m.n} 升星 ★${o.st}`)}else S.coin+=200}
+function fixTeam(){const t=[...S.team],ks=Object.keys(S.box).map(Number).sort((a,b)=>S.box[b].L-S.box[a].L);t.forEach((id,i)=>{if(!S.box[id]||t.indexOf(id)!=i)t[i]=ks.find(k=>!t.includes(k))});S.team=t}
+function buildArena(){[0,1].forEach(s=>{const r=E(s?'eRow':'pRow');
+ r.innerHTML=U[s].map((u,i)=>`<div class="u${u.m.k==9?' bo':''} ev${u.ev}" data-p="${POS[i].n}" ${s?'':`data-a="cast:${i}"`}><div class="em" style="font-size:${(u.m.k==9?50:38)+u.ev*5}px">${u.m.e}</div><div class="nm">${EVT[u.ev].a}${ELC[u.m.el]}${u.m.n} Lv${u.L}${u.star?'★'+u.star:''}</div><div class="bar"><i class="hp" style="background:#2ecc71"></i></div><div class="bar"><i class="en" style="background:#f1c40f"></i></div></div>`).join('');
+ [...r.children].forEach((el,i)=>{const u=U[s][i];u.el=el;u.hb=el.querySelector('.hp');u.eb=el.querySelector('.en')})})}
+function gain(id,x){const o=S.box[id];o.exp+=x;while(o.L<130&&o.exp>=NEED(o.L)){o.exp-=NEED(o.L);o.L++;dq('lvl');lg(`⬆️ ${MON[id].e}${MON[id].n} 升到 Lv${o.L}`)}}
+function capture(u){dq('cap');const m=u.m,o=S.box[u.id];pop(u,'🎯捕獲！','#ffd23f');
+ if(!o){S.box[u.id]={L:Math.max(1,F(u.L*.6)),exp:0,st:0};lg(`🎉 捕獲了 ${m.e}${m.n}！`)}
+ else if(o.st<5){o.st++;impIV(o);lg(`⭐ ${m.e}${m.n} 升星 ★${o.st}（全能力 +20%）`)}
+ else{S.coin+=Math.round(u.zn*5);lg(`${m.e}${m.n} 已滿星，轉為金幣`)}}
+function win(){let ex=0,zn=0;
+ U[1].forEach(u=>{ex+=u.exp;zn+=u.zn;if(R()<(u.m.k==9?.3:.12)+S.up.net*.015)capture(u);if(R()<(u.m.k==9?.6:.07))addItem(S.zone,u.m.k==9?Math.max(rr(),rr()):rr())});
+ zn=Math.round(zn*(1+S.up.gld*.08));S.coin+=zn;const xp=Math.round(ex*.6*(1+S.up.trn*.08));S.team.forEach(id=>gain(id,xp));
+ lg(`✅ 勝利！+${zn}💰　每隻 +${xp}EXP`);
+ if(U[1].some(u=>u.m.k==9)&&S.zone==S.maxZone&&S.maxZone<ZONES.length-1){S.maxZone++;lg('🔓 解鎖新區域：'+ZONES[S.maxZone].n)}
+ dq('wave');evTick();if(!S.farm)S.w++;save()}
+function end(){const a=al(0).length,b=al(1).length;if(a&&b)return false;
+ if(T)tEnd(a>0);else if(TW)wEnd(a>0);else if(a)win();else{lg('💀 隊伍全滅…退回本輪第 1 波');S.w-=S.w%10}
+ st='wait';tw=1.2;dirty=1;return true}
+function tick(dt){dt*=S.spd;
+ if(st=='wait'){tw-=dt;if(tw<=0)startWave();return}
+ bt+=dt;if(TW&&TW.wb&&bt>TW.t){bEnd();st='wait';tw=1.2;dirty=1;return}for(const u of [...U[0],...U[1]]){if(u.dead)continue;if(u.mk&&(u.mt-=dt)<=0)u.mk=0;if(u.af.rg)u.hp=Math.min(u.mhp,u.hp+u.mhp*u.af.rg*dt);u.g+=u.rate*dt;if(u.g>=100){u.g-=100;act(u);if(end())return}}}
+
+// ===== 畫面 =====
+function draw(){const z=ZONES[S.zone];
+ if(bgk!=S.zone){bgk=S.zone;E('arena').style.background=`linear-gradient(${z.c})`}
+ E('zn').textContent=TW&&TW.el?'⚔️ 精英挑戰':TW&&TW.wb?'🐲 世界BOSS　剩餘 '+Math.max(0,Math.ceil(TW.t-bt))+' 秒':TW?`🗼 無盡之塔　第 ${TW.f} 層${TW.f%10==0?' 👑':''}`:`${z.n}　第 ${S.w%10+1}/10 波${S.w%10==9?' 👑':''}`;E('zy').textContent='💰 '+fmt(S.coin);
+ [0,1].forEach(s=>U[s].forEach(u=>{u.hb.style.width=u.hp/u.mhp*100+'%';u.hb.style.background=u.sh>0?'#5dade2':'#2ecc71';u.eb.style.width=u.en+'%';u.el.dataset.m=u.mk&&!u.dead?ELC[u.mk]:'';
+  u.el.classList.toggle('dead',!!u.dead);u.el.classList.toggle('rdy',!s&&!u.dead&&u.en>=100&&!S.auto)}));
+ E('bAuto').textContent='🤖 AUTO '+(S.auto?'ON':'OFF');E('bAuto').classList.toggle('on',!!S.auto);
+ E('bSpd').textContent='⏩ x'+S.spd;E('bFarm').textContent='🔁 農怪 '+(S.farm?'ON':'OFF');E('bFarm').classList.toggle('on',!!S.farm)}
+const tile=(id,p,a='sel',on=sel==id)=>{const o=S.box[id];return `<div class="t${on?' sl':''}${S.team.includes(+id)?' in':''}" data-p="${p!=null?POS[p].n:S.team.includes(+id)?'👥':''}" data-a="${a}:${id}">${MON[id].e}<b>${EVT[o.ev||0].a}Lv${o.L}${o.st?'★'+o.st:''}</b></div>`};
+const pLog=()=>logs.slice(-14).reverse().map(l=>`<div class="sm">${l}</div>`).join('')+'<div class="sm" style="margin-top:8px">每次攻擊累積氣力，滿格發動必殺。AUTO 開啟＝自動放必殺；關閉時，氣力滿的我方怪物會發光，點它才發動。擊敗敵人有機率捕獲，重複捕獲＝升星。農怪＝停在同一波反覆戰鬥。<br>站位：前排減傷但輸出較低、後排輸出 +30% 但較脆弱（被攻擊機率 前3：中2：後1）。同屬 ×3 或三屬各異有羈絆加成。進化與融合在「培育」。<br>被動：每隻怪有天生屬性被動，並可在培育分頁學習其他被動；隊伍中擁有相同被動的怪物每多一隻威力 +25%，進化每階 +50%（上限 ×2.5）。<br>元素反應：目標卡片右上角會附著上一次攻擊的屬性，被「不同屬性」攻擊就引發反應（敌人也會）。完整反應表在圖鑑底部。</div>';
+function pTeam(){let h='<div class="sm">點選怪物查看，再放入隊伍 1／2／3 格（放入後該波重新開始）</div><div class="g">'+S.team.map((id,i)=>tile(id,i)).join('')+'</div>';
+ if(sel!=null&&S.box[sel]){const o=S.box[sel],u=mkU(sel,o.L,0,o.st,o.ev||0),k=SK[u.m.el],c=Math.round(NEED(o.L)*1.1);
+  h+=`<div class="cardbox"><b style="font-size:18px">${u.m.e} ${EVT[o.ev||0].n}${u.m.n}</b>　Lv${o.L} ${o.st?'★'.repeat(o.st):'☆'}　${ELC[u.m.el]}${u.m.el}・${ARCH[u.m.k].t}<br><small>HP ${u.mhp}　ATK ${F(u.atk)}　DEF ${F(u.df)}　EXP ${o.exp}/${NEED(o.L)}<br>必殺【${k.n}】${k.d}<br>被動【${PASV[u.m.el].n}】${PASV[u.m.el].d}</small><div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">${[1,2,3].map(n=>`<button data-a="put:${n-1}">放入 ${n}</button>`).join('')}<button data-a="lvup" style="opacity:${S.coin<c?.5:1}">💰${fmt(c)} 升級</button></div></div>`}
+ return h+`<h4>怪物箱 ${Object.keys(S.box).length}/${MON.length}</h4><div class="g">`+Object.keys(S.box).sort((a,b)=>S.box[b].L-S.box[a].L).map(id=>tile(id)).join('')+'</div>'}
+const pShop=()=>SHOP.map(s=>{const l=S.up[s.k],c=s.c(l);return `<div class="row"><span style="font-size:26px">${s.ic}</span><div style="flex:1"><b>${s.n}</b> <small>Lv${l}/${s.max}</small><br><small>${s.d}</small></div><button data-a="buy:${s.k}" style="opacity:${S.coin<c||l>=s.max?.5:1}">${l>=s.max?'MAX':'💰'+fmt(c)}</button></div>`}).join('')+`<div class="row"><span style="font-size:26px">🔮</span><div style="flex:1"><b>召喚水晶</b><br><small>隨機召喚已解鎖區域的怪物（已有則升星）</small></div><button data-a="sum" style="opacity:${S.coin<SUMC()?.5:1}">💰${fmt(SUMC())}</button></div><div style="margin-top:14px"><button data-a="reset">${rst?'再按一次確認（進度清除）':'重新開始'}</button></div>`;
+function pDex(){const own=MON.filter(m=>S.box[m.id]).length,sn=MON.filter(m=>S.seen[m.id]).length;let h=`<div>收服 ${own}　遇見 ${sn}　共 ${MON.length}</div>`;
+ if(dsel!=null){const m=MON[dsel],k=SK[m.el];h+=`<div class="cardbox">${S.seen[dsel]?`<b style="font-size:18px">${m.e} ${m.n}</b>　${ELC[m.el]}${m.el}・${ARCH[m.k].t}・${ZONES[m.z].n}<br><small>必殺【${k.n}】${k.d}<br>被動【${PASV[m.el].n}】${PASV[m.el].d}<br>${S.box[dsel]?'已收服 ★'+S.box[dsel].st:'尚未收服（擊敗後有機率捕獲）'}</small>`:'❓ 尚未遇見'}</div>`}
+ ZONES.forEach((z,zi)=>{h+=`<h4>${z.n}</h4><div class="g">`+MON.filter(m=>m.z==zi).map(m=>`<div class="t" data-a="mon:${m.id}" style="${S.box[m.id]?'':S.seen[m.id]?'opacity:.55':''}">${S.seen[m.id]?m.e:'❓'}${S.box[m.id]?'<b>✔</b>':''}</div>`).join('')+'</div>'});h+='<h4>元素反應表</h4>'+Object.entries(RX).map(([k,r])=>`<div class="sm"><b>${ELC[k[0]]}${ELC[k[1]]} ${r.n}</b>：${rxd(r)}</div>`).join('');return h}
+const pZone=()=>pTower()+ZONES.map((z,i)=>`<div class="row" data-a="zone:${i}" style="opacity:${i>S.maxZone?.4:1}"><span style="font-size:22px">${i>S.maxZone?'🔒':i==S.zone?'📍':'🗺️'}</span><div style="flex:1"><b>${z.n}</b> <small>敵人 Lv${i*8+1}~${i*8+9}</small><br>${MON.filter(m=>m.z==i).map(m=>m.e).join('')}</div></div>`).join('')+'<div class="sm" style="margin-top:6px">擊敗該區 BOSS 解鎖下一區。每 10 波出現一次 BOSS 戰；全滅會退回本輪第 1 波。</div>';
+function pLab(){cs=cs.filter(i=>S.box[i]);const n=cs.length,ks=Object.keys(S.box).sort((a,b)=>S.box[b].L-S.box[a].L);
+ let h="<div class='sm'>選 1 隻＝進化／個體／招式／被動／天賦；選 2 隻＝融合（兩隻消耗，得到新怪物）</div><div class='g'>"+ks.map(i=>tile(i,null,'cs',cs.includes(+i))).join('')+'</div>';
+ if(n==1){const o=S.box[cs[0]],m=MON[cs[0]],v=o.ev||0,t=EVT[v+1];
+  h+=`<div class='cardbox'><b>${m.e} ${EVT[v].n}${m.n}</b>　Lv${o.L}<br>`+(t?`<small>進化為【${t.n}】：全能力 ×${t.m}／必殺威力 +40%<br>需求 Lv${t.L}　💰${fmt(t.c)}</small><div style='margin-top:6px'><button data-a='evo' style='opacity:${o.L>=t.L&&S.coin>=t.c?1:.5}'>🧬 進化</button></div>`:'<small>已達最終型態 🌟</small>')+'</div>'+indiv(cs[0])+skp(cs[0])+pasp(cs[0])+tal(cs[0])}
+ if(n==2){const[a,b]=cs,m=MON[fuseRes(a,b)],ok=ks.length>=5;h+=`<div class='cardbox'>${MON[a].e}＋${MON[b].e} → <b style='font-size:20px'>${m.e} ${m.n}</b> ${ELC[m.el]}${m.el}<br><small>${S.box[m.id]?'已擁有：升星':'新夥伴'}　Lv${Math.max(1,F((S.box[a].L+S.box[b].L)*.6))}，繼承較高星級與進化${ok?'':'<br>怪物箱需至少 5 隻才能融合'}</small><div style='margin-top:6px'><button data-a='fuse' style='opacity:${ok?1:.5}'>🧪 融合</button></div></div>`}
+ return h}
+function render(){const p=E('panel'),y=p.scrollTop;E('nav').children[5].textContent='🏆 每日'+(ready()?' ❗':'');E('nav').children[3].textContent='📖 圖鑑'+(achReady()?' ❗':'');E('nav').children[0].textContent='📜 戰況'+(S.ev?' ❗':'');[...E('nav').children].forEach((b,i)=>b.classList.toggle('on',i==tab));p.innerHTML=[()=>pEv()+pLog(),pTeam,pLab,()=>dnav()+(dv?pAch():pDex()),pZone,()=>pQ()+pWB()+pCup(),pEq,pShop][tab]();p.scrollTop=y}
+E('nav').innerHTML=['📜 戰況','👥 隊伍','🧬 培育','📖 圖鑑','🗺️ 區域','🏆 每日','🎒 裝備','🏪 商店'].map((t,i)=>`<button data-a="tab:${i}">${t}</button>`).join('');
+
+// ===== 操作 =====
+const ACT={
+ tab:i=>{tab=+i;dirty=1},em:i=>{em=+i;dirty=1},es:s=>{es=+s;dirty=1},
+ eqp:i=>{const x=S.inv[+i];if(x.o==em)x.o=null;else{S.inv.forEach(y=>{if(y.o==em&&y.s==x.s)y.o=null});x.o=em}dirty=1;save()},
+ eup:i=>{const x=S.inv[+i],c=upc(x);if(x.n<10&&S.coin>=c){S.coin-=c;x.n++;dq('enh');dirty=1;save()}},
+ esell:i=>{S.coin+=val(S.inv[+i]);S.inv.splice(+i,1);dirty=1;save()},
+ ev:k=>{const e=S.ev;if(!e||TW||T)return;const o=EVN[e.i].o[+k];if(!o)return;const c=o.c?o.c():0;if(S.coin<c)return;S.coin-=c;S.ev=null;dq('evn');lg(o.f());dirty=1;save()},
+ dv:i=>{dv=+i;dirty=1},
+ ach:k=>{const a=ACH.find(x=>x.k==k),ac=S.ac||(S.ac={}),n=ac[k]||0;if(n<4&&a.g()>=a.t[n])claim(a,n)},
+ acha:()=>{const ac=S.ac||(S.ac={});ACH.forEach(a=>{let n=ac[a.k]||0;while(n<4&&a.g()>=a.t[n]){claim(a,n);n++}});dirty=1;save()},
+ zcl:z=>{z=+z;const zc=S.zc||(S.zc={});if(!zc[z]&&zcnt(z)>=10){zc[z]=1;const c=Math.round(800*(1+z*.5)*(1+S.maxZone*.3));S.coin+=c;addItem(z,Math.max(rr(),rr(),3));lg(`📖 ${ZONES[z].n}圖鑑完成　+${fmt(c)}💰`);dirty=1;save()}},
+ wbs:()=>{const w=wbd();if(T||TW||w.att>=3||w.hp<=0)return;w.att++;dq('wb');TW={wb:1,t:90,hp:[1,1,1],f:0};lg('🐲 挑戰世界 BOSS！');save();startWave()},
+ wbx:()=>{if(TW&&TW.wb){bEnd();st='wait';tw=1.2;dirty=1}},
+ tws:f=>{f=+f;const t=S.tw||(S.tw={best:0});if(T||TW||!(f==1||(f-1)%10==0&&f-1<=t.best))return;TW={f,hp:[1,1,1]};lg(`🗼 無盡之塔開始，第 ${f} 層`);startWave()},
+ twx:()=>{if(TW){TW=null;lg('🏳️ 已撤退');startWave()}},
+ nrr:()=>{const o=S.box[cs[0]],c=Math.round(100*o.L);if(S.coin>=c){S.coin-=c;let n;do n=F(R()*NAT.length);while(n==o.nt);o.nt=n;dirty=1;save()}},
+ awk:()=>{const o=S.box[cs[0]],c=Math.round(200*(1+o.iv.reduce((a,b)=>a+b,0)/31));if(S.coin>=c&&o.iv.some(x=>x<31)){S.coin-=c;let j=F(R()*3);while(o.iv[j]>=31)j=(j+1)%3;o.iv[j]=Math.min(31,o.iv[j]+4);dirty=1;save()}},
+ pkp:k=>{const o=S.box[cs[0]];if(ppk(o)>0&&poff(cs[0]).includes(k)){(o.ps=o.ps||[]).push(k);dirty=1;save()}},
+ pkr:()=>{const o=S.box[cs[0]],c=Math.round(60*o.L);if(o.ps&&o.ps.length&&S.coin>=c){S.coin-=c;o.ps=[];dirty=1;save()}},
+ skp:i=>{const o=S.box[cs[0]];if(picks(o)>0&&offer(cs[0]).some(x=>x[0]==+i)){(o.sk=o.sk||[]).push(+i);dirty=1;save()}},
+ skr:()=>{const o=S.box[cs[0]],c=Math.round(60*o.L);if(o.sk&&o.sk.length&&S.coin>=c){S.coin-=c;o.sk=[];dirty=1;save()}},
+ tlu:(k,n)=>{const o=S.box[cs[0]],x=TAL.find(y=>y.k==k),l=(o.tl=o.tl||{})[k]||0,a=Math.min(+n,x.m-l,tp(o));if(a>0){o.tl[k]=l+a;dirty=1;save()}},
+ trs:()=>{const o=S.box[cs[0]],c=Math.round(40*o.L);if(o.tl&&Object.keys(o.tl).length&&S.coin>=c){S.coin-=c;o.tl={};dirty=1;save()}},
+ dqc:k=>{const d=dqs(),q=QST.find(x=>x.k==k);if(q&&d.l.includes(k)&&(d.p[k]||0)>=q.v&&!d.c[k]){d.c[k]=1;S.coin+=dqr(q);S.dqn=(S.dqn||0)+1;dirty=1;save()}},
+ dqa:()=>{const d=dqs();if(!d.all&&d.l.every(k=>d.c[k])){d.all=1;S.coin+=Math.round(600*(1+S.maxZone*.7));addItem(S.maxZone,R()<.2?3:2);lg('🎁 全勤獎勵已領取！');dirty=1;save()}},
+ ere:i=>{const x=S.inv[+i],c=rrc(x);if(S.coin>=c){S.coin-=c;x.a=affx(x.t,x.q);dirty=1;save()}},
+ esall:()=>{S.inv=S.inv.filter(x=>x.o!=null||x.q>1||(S.coin+=val(x),0));dirty=1;save()},
+ cup:()=>{const t=tn();if(T||TW||t.res||t.r>3)return;T={r:t.r};t.a=1;save();lg(`🏆 ${CUP[t.r].n} 開打！`);startWave()},cs:i=>{i=+i;cs=cs.includes(i)?cs.filter(x=>x!=i):[...cs,i].slice(-2);dirty=1},
+ evo:()=>{const id=cs[0],o=S.box[id],t=EVT[(o.ev||0)+1];if(t&&o.L>=t.L&&S.coin>=t.c){S.coin-=t.c;o.ev=(o.ev||0)+1;dq('evo');lg(`🧬 ${MON[id].e}${MON[id].n} 進化為【${t.n}】！`);dirty=1;save()}},
+ fuse:()=>{const[a,b]=cs;if(T||TW||Object.keys(S.box).length<5)return;const A=S.box[a],B=S.box[b],r=fuseRes(a,b);delete S.box[a];delete S.box[b];S.inv.forEach(x=>{if(x.o==a||x.o==b)x.o=null});give(r,Math.max(1,F((A.L+B.L)*.6)),Math.max(A.st,B.st),Math.max(A.ev||0,B.ev||0));{const q=S.box[r];if(A.iv&&B.iv&&q.iv)q.iv=q.iv.map((x,i)=>Math.max(x,A.iv[i],B.iv[i]))}dq('fuse');fixTeam();cs=[r];startWave();save()},
+ sum:()=>{const c=SUMC();if(S.coin<c)return;S.coin-=c;const m=pick(MON.filter(x=>x.z<=S.maxZone&&x.k!=9));S.seen[m.id]=1;give(m.id,Math.max(1,m.z*6),0,0);dirty=1;save()},auto:()=>{S.auto^=1;save()},spd:()=>{S.spd=S.spd==1?2:S.spd==2?4:1;save()},farm:()=>{S.farm^=1;save()},
+ cast:i=>{const u=U[0][+i];if(st=='fight'&&u&&!u.dead&&u.en>=100){special(u);end()}},
+ sel:i=>{sel=+i;dirty=1},mon:i=>{dsel=+i;dirty=1},
+ put:n=>{n=+n;if(sel==null||T||TW)return;const i=S.team.indexOf(sel);if(i>=0)[S.team[i],S.team[n]]=[S.team[n],S.team[i]];else S.team[n]=sel;startWave();save()},
+ lvup:()=>{const o=S.box[sel],c=Math.round(NEED(o.L)*1.1);if(S.coin>=c){S.coin-=c;gain(sel,NEED(o.L)-o.exp);dirty=1;save()}},
+ buy:k=>{const s=SHOP.find(x=>x.k==k),l=S.up[k],c=s.c(l);if(l<s.max&&S.coin>=c){S.coin-=c;S.up[k]++;dirty=1;save()}},
+ zone:i=>{i=+i;if(!T&&!TW&&i<=S.maxZone&&i!=S.zone){S.zone=i;S.w=0;lg('➡️ 移動到 '+ZONES[i].n);startWave();save()}},
+ reset:()=>{if(!rst){rst=1;dirty=1;setTimeout(()=>{rst=0;dirty=1},3000);return}try{localStorage.removeItem(KEY)}catch(e){}fresh();T=null;logs=[];rst=0;sel=null;startWave()}};
+document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(!t)return;const[a,b,c]=t.dataset.a.split(':');ACT[a](b,c)});
+let last=0;function loop(t){const dt=Math.min(.1,(t-last)/1000||0);last=t;tick(dt);draw();if(dirty){dirty=0;render()}requestAnimationFrame(loop)}
+if(!S||!S.box)fresh();S.inv=S.inv||[];if(S.t){const m=Math.min(480,(Date.now()-S.t)/6e4);if(m>=5){const c=Math.round(m*(10+S.zone*30));S.coin+=c;lg(`🌙 離線 ${F(m)} 分鐘，獲得 ${c}💰`)}}lg('歡迎來到怪物仙境！擊敗敵人並捕獲新夥伴，組成最強 3 隻隊伍。');if(S.tn&&S.tn.a){if(S.tn.d==dk()){tEnd(0,S.tn.r);lg('⚠️ 錦標賽中途離開，視為落敗')}else S.tn.a=0}startWave();requestAnimationFrame(loop);
+</script></body></html>
