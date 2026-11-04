@@ -395,21 +395,36 @@ ACL=[['w1','初陣','贏得 1 場戰鬥',()=>ctv('b'),1,100,0],['w2','百戰老�
 ['l1','登峰造極','任一隊員達到 Lv80',()=>Math.max(...acU().map(u=>u.lv)),80,3000,10],['j1','五階之道','任一隊員的五階職業達到 Lv1',()=>acU().some(u=>Object.keys(u.jl).some(id=>T[id]&&T[id].t==5&&u.jl[id]>0))?1:0,1,2000,10],
 ['r1','輪迴新生','任一隊員轉生 1 次',()=>Math.max(...acU().map(u=>u.rb||0)),1,5000,15],['d1','次元挑戰者','完成 5 次次元魔王討伐',()=>ctv('r'),5,3000,10],['d2','傷害之王','次元魔王討伐單次累計傷害達 100 萬',()=>ctv('m'),1e6,5000,15],
 ['c1','博物學家','圖鑑收集 20 種',()=>cxN(),20,1000,5],['c2','圖鑑大師','收集全部圖鑑',()=>cxN(),cxT(),10000,30],['q1','勤奮冒險者','每日任務全部完成 7 天',()=>ctv('a'),7,2000,10]],
-qBad=()=>{dqEns();return P.dq.q.filter(x=>x.c>=x.t&&!x.r).length+ACL.filter(a=>!P.ac[a[0]]&&a[3]()>=a[4]).length};
+qBad=()=>{dqEns();return P.dq.q.filter(x=>x.c>=x.t&&!x.r).length+ACL.filter(acOk).length};
 function dqEns(){if(P.dq&&P.dq.d===dk()&&Array.isArray(P.dq.q))return;const av=avg(),ks=['b','k','s','l','y'].sort(()=>Math.random()-.5).slice(0,P.best>=100?3:4),tg={b:8,k:40,s:1,l:6,y:Math.round((2000+av*100)/100)*100};
 if(P.best>=100)ks.push('r');P.dq={d:dk(),b:0,q:ks.map(k=>({k,t:k=='r'?1:tg[k],c:0,r:0,g:Math.round((200+av*20)*(k=='r'?3:k=='s'?1.5:1)),cr:k=='r'?5:k=='s'?2:1}))}}
 function dqAdd(k,n){dqEns();const q=P.dq.q.find(x=>x.k==k);if(!q||q.c>=q.t)return;q.c=Math.min(q.t,q.c+n);if(q.c>=q.t)return'📜 每日任務完成：'+DQP[k][0]}
 function ctw(en,g,msg){const c=P.ct,nl=msg.filter(m=>/^(獲得|背包已滿)/.test(m)).length,bs=en.filter(e=>e.boss).length;c.b=ctv('b')+1;c.k=ctv('k')+en.length;c.s=ctv('s')+bs;cxAdd(en);
-[dqAdd('b',1),dqAdd('k',en.length),dqAdd('s',bs),dqAdd('l',nl),dqAdd('y',g)].filter(Boolean).forEach(m=>msg.push(m));const n=ACL.filter(a=>!P.ac[a[0]]&&a[3]()>=a[4]).length;if(n)msg.push('🏅 有 '+n+' 項成就可領取（首頁「每日・成就・圖鑑」）')}
+[dqAdd('b',1),dqAdd('k',en.length),dqAdd('s',bs),dqAdd('l',nl),dqAdd('y',g)].filter(Boolean).forEach(m=>msg.push(m));const n=ACL.filter(acOk).length;if(n)msg.push('🏅 有 '+n+' 項成就可領取（首頁「每日・成就・圖鑑」）')}
 function cxAdd(en){en.forEach(e=>{const n=e.nm.replace('★','');P.cx[n]=(P.cx[n]||0)+1})}
 function ctRd(t){P.ct.r=ctv('r')+1;P.ct.m=Math.max(ctv('m'),t);dqAdd('r',1)}
 function dqGet(i){const q=P.dq.q[i];if(!q||q.c<q.t||q.r)return;q.r=1;P.g+=q.g;P.cr=(P.cr||0)+q.cr;if(P.dq.q.every(x=>x.r)&&!P.dq.b){P.dq.b=1;P.cr+=10;P.ct.a=ctv('a')+1}save();qv()}
-function acGet(id){const a=ACL.find(x=>x[0]==id);if(!a||P.ac[id]||a[3]()<a[4])return;P.ac[id]=1;P.g+=a[5];P.cr=(P.cr||0)+a[6];save();qv()}
+// ===== 成就：部分成就可無限成長（第 n 階目標＝基礎目標×n，獎勵也是，用加法成長）；P.ac[id]＝已領取階數；每領一階＝1 點成就點數 =====
+let qMsg='';
+function acI(a){return['w3','k2','s1','f4','j1','r1','d1','d2','q1'].includes(a[0])}
+function acN(a){return Math.max(0,Math.floor(+P.ac[a[0]]||0))}
+// 階距：預設＝基礎目標；ACS 可指定某個成就「第 2 階起」每階的距離（弒王者：第 1 階 20 隻，之後 100、200、300…）
+const ACS={s1:100};
+function acT(a){const n=acN(a);return!acI(a)?a[4]:n&&ACS[a[0]]?ACS[a[0]]*n:a[4]*(n+1)}
+function acG(a){const k=acI(a)?acN(a)+1:1;return[a[5]*k,a[6]*k]}
+function acV(a){return a[0]=='j1'?Math.max(0,...acU().map(u=>Object.keys(u.jl).reduce((t,id)=>t+(T[id]&&T[id].t==5?u.jl[id]:0),0))):a[3]()}
+function acOk(a){return(acI(a)||!acN(a))&&acV(a)>=acT(a)}
+function acNm(a){const n=acN(a);return a[1]+(acI(a)&&n>0?'('+(n+1)+')':'')}
+function acWan(n){return n>=1e4&&n%1e4==0?fmt(n/1e4)+' 萬':fmt(n)}
+function acD(a){const t=acT(a);if(!acI(a)||!acN(a))return a[2];return({w3:`贏得 ${fmt(t)} 場戰鬥`,k2:`擊敗 ${fmt(t)} 隻怪物`,s1:`擊敗 ${fmt(t)} 隻 BOSS`,f4:`抵達第 ${fmt(t)} 層`,j1:`任一隊員的五階職業合計達到 Lv${t}`,r1:`任一隊員轉生 ${t} 次`,d1:`完成 ${t} 次次元魔王討伐`,d2:`次元魔王討伐單次累計傷害達 ${acWan(t)}`,q1:`每日任務全部完成 ${t} 天`})[a[0]]||a[2]}
+function acP(){return ACL.reduce((t,a)=>t+(acI(a)?acN(a):acN(a)?1:0),0)}
+function acGet(id){const a=ACL.find(x=>x[0]==id);if(!a||!acOk(a))return;const g=acG(a);P.ac[id]=acN(a)+1;P.g+=g[0];P.cr=(P.cr||0)+g[1];save();qv()}
+function acAll(){let g=0,c=0,n=0;for(let i=0;i<2000;i++){const a=ACL.find(acOk);if(!a)break;const r=acG(a);P.ac[a[0]]=acN(a)+1;g+=r[0];c+=r[1];n++}if(n){P.g+=g;P.cr=(P.cr||0)+c;qMsg='已領取 '+n+' 項：💰'+fmt(g)+(c?' 💎'+c:'');save()}qv()}
 function qT(t){qTab=t;qv()}
 function qv(){dqEns();let h='';
 if(qTab=='d')h=P.dq.q.map((x,i)=>`<div class=c style="text-align:left"><b>${DQP[x.k][0]}${x.k=='r'?'':' '+fmt(x.t)+DQP[x.k][1]}</b><br><small>進度 ${fmt(x.c)}/${fmt(x.t)}　獎勵 💰${fmt(x.g)} 💎${x.cr}</small><div class=row>${x.k=='r'&&x.c<x.t&&rdOk()?'<button onclick="rd0()">前往挑戰</button>':''}<button ${x.c>=x.t&&!x.r?'class=p':'disabled'} onclick="dqGet(${i})">${x.r?'已領取':'領取'}</button></div></div>`).join('')+`<div class=c><small>每日任務每天重置；全部領取後額外 💎10。累計全部完成 ${ctv('a')} 天。${P.best<100?'<br>通關魔王城後會多一項「次元魔王討伐」任務。':''}</small></div>`;
-else if(qTab=='a'){const L=ACL.map(a=>{const v=Math.min(a[3](),a[4]),ok=v>=a[4],got=!!P.ac[a[0]];return{a,v,ok,got,o:got?2:ok?0:1}}).sort((x,y)=>x.o-y.o);
-h=L.map(({a,v,ok,got})=>`<div class=c style="text-align:left${got?';opacity:.6':''}"><b>${got?'🏅':'🎖️'} ${a[1]}</b> <small>${a[2]}</small><br><small>進度 ${fmt(v)}/${fmt(a[4])}　獎勵 💰${fmt(a[5])}${a[6]?' 💎'+a[6]:''}</small><button style="margin-top:4px" ${ok&&!got?'class=p':'disabled'} onclick="acGet('${a[0]}')">${got?'已領取':ok?'領取':'未達成'}</button></div>`).join('')}
+else if(qTab=='a'){const L=ACL.map(a=>{const T0=acT(a),v=Math.min(acV(a),T0),ok=acOk(a),inf=acI(a),got=!inf&&acN(a)>0;return{a,v,T0,ok,got,inf,g:acG(a),o:got?2:ok?0:1}}).sort((x,y)=>x.o-y.o),nb=L.filter(x=>x.ok).length;
+h=`<div class=c style="text-align:left"><b>🏅 成就點數 ${acP()}</b>${qMsg?'<br><small>'+qMsg+'</small>':''}<br><small>每領取一個成就（可無限成長的成就每一階都算）+1 點。標有 ∞ 的成就領完會自動出現下一階，目標與獎勵逐階遞增。</small>${nb>1?'<button class=p style="margin-top:6px" onclick="acAll()">全部領取（'+nb+' 項可領）</button>':''}</div>`+L.map(({a,v,T0,ok,got,inf,g})=>`<div class=c style="text-align:left${got?';opacity:.6':''}"><b>${got?'🏅':'🎖️'} ${acNm(a)}</b>${inf?' <small style="color:var(--ac2)">∞</small>':''} <small>${acD(a)}</small><br><small>進度 ${fmt(v)}/${fmt(T0)}　獎勵 💰${fmt(g[0])}${g[1]?' 💎'+g[1]:''}</small><button style="margin-top:4px" ${ok&&!got?'class=p':'disabled'} onclick="acGet('${a[0]}')">${got?'已領取':ok?'領取':'未達成'}</button></div>`).join('');qMsg=''}
 else{const sec=(n,e,l)=>{const k=l.filter(x=>P.cx[x.n]>0).length;return`<h3>${e} ${n} <small>(${k}/${l.length})</small></h3><div class=g2>${l.map(x=>{const c=P.cx[x.n]||0;return`<div class=c><div class=big>${c?x.e:'❓'}</div><small>${c?x.n+'<br>擊敗 '+fmt(c):'？？？'}</small></div>`}).join('')}</div>`};
 h=`<div class=c><small>已收集 ${cxN()}/${cxT()} 種（擊敗怪物即登錄）</small></div>`+AR.map(a=>sec(a.n,a.e,[a.b,...a.sp])).join('')+sec('次元裂隙','🌀',RDS)}
 V(`<h3>📜 每日・成就・圖鑑</h3><div class=row>${[['d','每日'],['a','成就'],['c','圖鑑']].map(([k,n])=>`<button ${k==qTab?'class=p':''} onclick="qT('${k}')">${n}</button>`).join('')}</div><div class=sc>${h}</div><button onclick="town()">返回</button>`)}
