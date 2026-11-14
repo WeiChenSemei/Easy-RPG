@@ -69,17 +69,18 @@ small{color:var(--mu);font-size:12px}
 <script>
 // ═════ 程式區段索引（搜尋「■■■ [S」可跳到各區段；新增內容請放進對應區段）═════
 //  [S00] 防止雙擊／雙指縮放（Safari）
+//  [S01A] 平衡常數（調整難度、機率、獎勵倍率只改這一區）
 //  [S01] 資料表與常數：職業樹、技能、區域與怪物
 //  [S02] 全域狀態、能力值計算、升級與主職加成
 //  [S03] 通用畫面元件、城鎮、隊伍頁
 //  [S04] 職業頁：配點、主職／副職、退點、轉生、隊員管理
 //  [S05] 裝備資料：品質、詞條、套裝、神話武器、mkItem
-//  [S06] 裝備背包、管理、批次分解、鍛造、鎖定
+//  [S06] 裝備背包、管理、批次分解、鍛造、鎖定、整備（最佳裝備／預設組）
 //  [S07] 酒館：道具店、存款、賣出頁、招募
-//  [S08] 戰鬥系統：敵人生成、狀態、弱點與護盾、畫面與特效、AI、行動、結算
+//  [S08] 戰鬥系統：敵人生成、狀態、弱點與護盾、戰鬥統計收集、畫面與特效、AI、行動、結算
 //  [S09] 存檔系統：版本、自動修復、遷移
 //  [S10] 出發頁、次元魔境、次元魔王討伐
-//  [S11] 每日任務、成就、圖鑑
+//  [S11] 每日任務、成就、圖鑑、戰鬥統計頁
 //  [S12] 存檔管理頁：匯出入、備份、清除
 //  [S13] 啟動：讀檔、進入城鎮
 // ══════════════════════════════════════════════════════════════
@@ -91,6 +92,15 @@ D.addEventListener('touchmove',function(e){if(e.touches.length>1){ok=0;e.prevent
 D.addEventListener('touchend',function(e){var n=Date.now();if(ok&&e.touches.length===0&&e.changedTouches.length===1){if(n-lt<350&&!sk(e.target)&&e.cancelable){e.preventDefault();var el=e.target;if(el&&el.click)el.click()}lt=n}else lt=0},{passive:false});
 ['gesturestart','gesturechange','gestureend'].forEach(function(k){D.addEventListener(k,function(e){e.preventDefault()},{passive:false})});
 })();
+// ■■■ [S01A] 平衡常數：調整難度、機率、獎勵倍率請只改這一區（其他地方不要再寫死數字）■■■
+// 弱點：WKP 怪物有弱點的機率；WKS／WKA 弱點威力基準（單體／全體每目標）；WKX 弱點倍率上限
+const WKP=.6,WKS=5.2,WKA=2.9,WKX=3.5,
+// 護盾：SHL 怪物等級門檻；SHP／SHB 一般怪／BOSS 出現機率；SHF 階數係數（一～五階）；SHD 有盾時受到的傷害倍率
+SHL=90,SHP=.25,SHB=.5,SHF=[0,1,.8,.6,.4,.2],SHD=.5,
+// 特性：TRL 怪物等級門檻；TRP／TRB 一般怪／BOSS 出現機率；TRH 硬化後的傷害倍率；TRF 反傷比例；TRG 再生每回合回復比例（占最大 HP）
+TRL=100,TRP=.25,TRB=.5,TRH=.6,TRF=.15,TRG=.05,
+// 每日任務：DQM 獎勵倍率；DQC 魔石倍率；DQRP 裝備品質機率（普通／精良／稀有／傳說）；DQSP 裝備部位機率（武器／防具／飾品）
+DQM={m:1,o:1.5,u:1,t:1.5,e:1,r:3},DQC={m:1,o:2,u:1,t:2,e:1,r:5},DQRP=[.4,.29,.12,.18],DQSP={w:.4,a:.41,x:.2};
 // ■■■ [S01] 資料表與常數：職業樹、技能、區域與怪物 ■■■
 const B0=[30,5,5,3,5],LG=[2,1,1,.6,.8],K=['hp','atk','mag','def','spd'],LV=80,
 NM=['艾倫','莉娜','洛克','米菈','卡爾','諾亞','蕾雅','凱恩','索菲','泰爾','瑪麗','溫蒂'],
@@ -179,20 +189,22 @@ u.pts=p;u.main=path[path.length-1];u.subs=path.slice(0,-1).reverse().slice(0,slo
 // ■■■ [S03] 通用畫面元件、城鎮、隊伍頁 ■■■
 const bar=(v,m,c,k)=>{const to=Math.round(Math.max(0,Math.min(100,v/m*100))*10)/10,pv=B&&B.pv,from=pv&&k&&pv[k]!==undefined?pv[k]:
 to;if(pv&&k)pv[k]=to;return `<div class=bar>${from>to?`<i class=tr style="--f:${from}%;--t:${to}%;width:${to}%"></i>`:''}<i style="--f:${from}%;--t:${to}%;width:${to}%;background:${c}"></i></div>`};
-const card=(u,x='',a='')=>`<div ${a} id=u${u.id} class="c ${u.hp<=0?'dead':''} ${u.en?(u.boss?'bs':''):'t'+(u.main?T[u.main].t:0)} ${u.ch?
+const card=(u,x='',a='',nb=0)=>`<div ${a} id=u${u.id} class="c ${u.hp<=0?'dead':''} ${u.en?(u.boss?'bs':''):'t'+(u.main?T[u.main].t:0)} ${u.ch?
 'chg':''} ${u.eg?'egr':''} ${u.sh&&u.hp>0?'shd':''} ${x}"><div class=big>${emo(u)}</div><b style="font-size:13px">${P.u[0]==u?'👑':
 ''}${u.nm}</b><div style="font-size:12px;color:var(--mu)">Lv${u.lv}${u.en?'':' '+jn(u)+(u.pts||u.rb?'<span class=px>'+(u.pts?' 🔸'+u.pts:
-'')+(u.rb?' ✨'+u.rb:'')+'</span>':'')}${sic(u)}</div>${bar(u.hp,mx(u),'var(--hp)',u.id+'h')}${u.en?'':bar(u.mp,mm(u),'var(--mp)',u.id+'m')}</div>`;
+'')+(u.rb?' ✨'+u.rb:'')+'</span>':'')}${sic(u)}</div>${nb&&!u.en?cdn(u):bar(u.hp,mx(u),'var(--hp)',u.id+'h')+(u.en?'':bar(u.mp,mm(u),'var(--mp)',u.id+'m'))}</div>`;
+// 首頁與隊伍頁的角色卡：不畫血條／法力條，改顯示 HP／MP 數值與副職業（card 第 4 個參數 nb=1）
+const cdn=u=>`<div style="font-size:12px;line-height:1.35"><span style="color:var(--hp)">HP</span> ${mx(u)}<span style="margin-left:8px;color:var(--mp)">MP</span> ${mm(u)}</div><div style="font-size:11px;line-height:1.3;color:var(--mu)">${(u.subs||[]).map(id=>T[id]&&T[id].sn).filter(Boolean).join('+')||'無副職'}</div>`;
 
 function town(){fd=1;P.w=P.sf||0;[...P.u,...P.rs].forEach(u=>{u.hp=mx(u);u.mp=mm(u);u.bf={};u.ef={}});save();
 V(`<h2 class=ttl>⚔️ 百職戰紀 ⚔️</h2><div class=c>💰 ${P.g}　💎 ${P.cr||0}<br><small>🧪×${P.it.hp}　🔷×${P.it.mp}　💊×${P.it.rv}　🧴×${P.it.cl||
-0}　🔍×${P.it.an||0}</small></div><div class="sc g2 hm">${P.u.map(u=>card(u)).join('')}</div>${G.sf||G.rdm||P.u.some(u=>u.pts)?`<div class=c><small>${G.rdm?
+0}　🔍×${P.it.an||0}</small></div><div class="sc g2 hm">${P.u.map(u=>card(u,'','',1)).join('')}</div>${G.sf||G.rdm||P.u.some(u=>u.pts)?`<div class=c><small>${G.rdm?
 (()=>{const m=G.rdm;G.rdm='';return m+'<br>'})():''}${G.sf?'⚠️ 瀏覽器無法儲存進度，請到「存檔管理」匯出備份。':''}${G.sf&&P.u.some(u=>u.pts)?'<br>':''}${P.u.some(u=>u.pts)?
 '🔸 有未分配的職業點數，請到「隊伍・職業」分配。':''}</small></div>`:''}${canRb()?`<button ${P.g<rbCost()?'disabled':''} style="border-color:var(--ac)" onclick="rb()">✨ 轉生（💰${rbCost()}）</button>`:
 ''}${P.best>=10?`<button onclick="sp()">📍 出發：第 ${(P.sf||0)+1} 層 ${sa(P.sf||0).e}${sa(P.sf||0).n}</button>`:''}<div class=row><button class=p onclick="fight()">出戰</button>${P.best>=100?
-`<button onclick="rd0()" style="border-color:#a35fe0">🌀 次元魔王討伐${rdOk()?'':'（已挑戰）'}</button>`:''}</div><div class=row><button onclick="pv()">隊伍・職業</button><button onclick="tv()">酒館</button><button onclick="eqv()">裝備</button></div><div class=row><button style="flex:2" onclick="qv()">📜 每日・成就・圖鑑${qBad()?
+`<button onclick="rd0()" style="border-color:#a35fe0">🌀 次元魔王討伐${rdOk()?'':'（已挑戰）'}</button>`:''}</div><div class=row><button onclick="pv()">隊伍・職業</button><button onclick="tv()">酒館</button><button onclick="eqv()">裝備</button></div><div class=row><button style="flex:2" onclick="qv()">📜 每日・成就・圖鑑・統計${qBad()?
 ` <b style="color:var(--ac2)">●${qBad()}</b>`:''}</button><button onclick="sv()">💾 存檔${G.sf?' ⚠️':''}</button></div>`)}
-function pv(){V(`<h3>隊伍 <small>(${P.u.length}/4)</small></h3><div class=sc><div class=g2>${P.u.map((u,i)=>card(u,'','onclick=ud('+i+')')).join('')}</div><h3>後備 <small>(${P.rs.length}/${rcap()})</small></h3>${P.rs.map((u,
+function pv(){V(`<h3>隊伍 <small>(${P.u.length}/4)</small></h3><div class=sc><div class=g2>${P.u.map((u,i)=>card(u,'','onclick=ud('+i+')',1)).join('')}</div><h3>後備 <small>(${P.rs.length}/${rcap()})</small></h3>${P.rs.map((u,
 i)=>`<div class=c style="text-align:left" onclick="rv(${i})">${emo(u)} <b>${u.nm}</b> Lv${u.lv} ${jn(u)}<span style="float:right">換人 ›</span></div>`).join('')||
 '<small>後備沒有人。到酒館招募，或在隊員畫面按「移到後備」。</small>'}</div><small>點選隊員：配點、改名；點選後備：換上場</small><button onclick="town()">返回</button>`)}
 function rv(i){const u=P.rs[i];V(`<div class=c><div class=big>${emo(u)}</div><b>${u.nm}</b> Lv${u.lv} ${jn(u)}<br><small>HP ${mx(u)} 攻 ${st(u,
@@ -284,7 +296,7 @@ while(af.length<r){const k=pick(pool);if(!af.some(a=>a[0]==k))af.push([k,avl(k,l
 const base=pick(sl=='x'?BS.x:BS[sl][ph?'p':'m']);return{id:uid++,sl,n:(r>=2&&n?n.sn+'之':af.length?AP[af[0][0]]+'的':'')+base,lv,r,st,af,fm:n?n.r:-1,up:0}}
 const can=(u,it)=>u.lv>=it.lv,CAP=()=>P.cap||40,bagCost=()=>Math.floor(CAP()*CAP()/4);
 function bag(){const c=bagCost();if(P.g>=c&&CAP()<200){P.g-=c;P.cap=CAP()+10;save()}eqv()}
-// ■■■ [S06] 裝備背包、管理、批次分解、鍛造、鎖定 ■■■
+// ■■■ [S06] 裝備背包、管理、批次分解、鍛造、鎖定、整備（最佳裝備／預設組） ■■■
 let E2=0,eqTab='w';
 function eqT(k){eqTab=k;eqv(E2)}
 function eqv(i){const e0=document.querySelector('.sc'),tp=i===undefined&&e0?e0.scrollTop:0;if(i!==undefined)E2=i;const u=P.u[E2],SN={w:'武器',a:'防具',x:'飾品'},
@@ -295,7 +307,7 @@ it)?'裝備':'Lv'+it.lv,`eq1(${it.id})`,!can(u,it))}${cell(it.lk?'🔒':'賣出'
 V(`<div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px"><b style="color:var(--ac)">裝備・背包 <small>(${P.inv.length}/${CAP()})</small></b><small>💰${P.g}　💎${P.cr||
 0}</small></div><div class=row style="gap:4px">${P.u.map((x,k)=>`<button style="${sb};font-size:16px" ${k==E2?'class=p':''} onclick="eqv(${k})">${emo(x)}</button>`).join('')}</div><div class=c style="text-align:left;padding:4px 8px"><b>${u.nm}</b> Lv${u.lv}　<small>HP ${mx(u)} 攻 ${st(u,
 1)} 魔 ${st(u,2)} 防 ${st(u,3)} 速 ${st(u,4)}</small>${setTx(u)}</div><div class=row style="gap:4px">${['w','a','x'].map(k=>`<button style="${sb}" ${k==eqTab?
-'class=p':''} onclick="eqT('${k}')">${SN[k]}${(u.eq||{})[k]?' ●':''}</button>`).join('')}</div><div class=c style="text-align:left;padding:5px 8px;display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:0"><small>目前${SN[eqTab]}：</small>${cur?
+'class=p':''} onclick="eqT('${k}')">${SN[k]}${(u.eq||{})[k]?' ●':''}</button>`).join('')}<button style="${sb};flex:none;padding:4px 9px" onclick="epo()">🎽 整備</button></div><div class=c style="text-align:left;padding:5px 8px;display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:0"><small>目前${SN[eqTab]}：</small>${cur?
 itx(cur):'<small>（空）</small>'}</div>${cur?`<div style="display:flex;gap:4px;flex:none">${cell('卸下',`ue('${eqTab}')`)}${cell('管理',`itd(${cur.id})`)}</div>`:
 ''}</div></div><div class=sc style="gap:4px">${P.inv.some(it=>it.sl==eqTab)?P.inv.filter(it=>it.sl==eqTab).map(card).join(''):'<div class=c><small>背包裡沒有'+SN[eqTab]+'。打倒怪物會掉落裝備。</small></div>'}</div><div style="display:flex;flex-direction:column;gap:4px"><div class=row style="gap:4px">${[0,
 1,2,3].map(r=>`<button style="${bb};font-size:13px" ${dq[r]?'class=p':''} onclick="dzT(${r})">${dq[r]?'☑':'☐'}${RN[r]}<small> ${P.inv.filter(it=>it.r==r&&
@@ -356,6 +368,71 @@ b)=>b.r-a.r||b.lv-a.lv);G.fl=itx(it);save();fg()}
 function lkt(id){const f=fnd(id);if(!f)return;f.it.lk=f.it.lk?0:1;if(!f.it.lk)delete f.it.lk;save();itd(id,f.it.lk?'　🔒 已鎖定':'　🔓 已解除鎖定')}
 function sl1(id,ok){const k=P.inv.findIndex(x=>x.id==id);if(k<0||P.inv[k].lk)return eqv();if(P.inv[k].r>=4&&!ok)return cfm('確定賣出 '+iname(P.inv[k])+'？',
 '只會得到 💰'+px(P.inv[k])+'，神話武器無法復原。','sl1('+id+',1)','eqv()');P.g+=px(P.inv[k]);P.inv.splice(k,1);save();eqv()}
+// 🎽 裝備整備（裝備頁的「🎽 整備」進入）：✨一鍵最佳裝備＋預設組。預設組存在 P.ep[隊員id]＝[{w,a,x}×3]（存裝備編號；空格＝null）
+// 「最佳」＝評分最高的三格組合；評分＝輸出（依招式屬性算攻或魔，暴擊與回魔略計）、生存（HP／防禦／減傷／閃避／吸血）、速度的加權對數，套裝與詞條直接用 recalc 算
+// 頁面狀態：G.eps（隊員 index 或 'T'＝全隊）、G.epm（訊息）、G.epu（還原用，只在整備頁內有效）
+const EPW=[.6,.3,.1],EPN=3,EPK=['w','a','x'],EPL={w:'武器',a:'防具',x:'飾品'},
+epN=it=>`<span style="color:${RC[it.r]}">${it.n}${it.up?'+'+it.up:''}</span>`,
+epG=(u,n)=>{const a=(P.ep||{})[u.id],s=Array.isArray(a)?a[n]:null;return s&&typeof s=='object'?s:null},
+epU=u=>{const S=u.S,p=u.ps;let a=0,b=0;for(const s of u.sk){const k=SK[s];if(!k)continue;if(k[3]=='p'||k[3]=='l')a+=k[2];else if(k[3]=='m')b+=k[2];else if(k[3]=='h')b+=k[2]*.5}
+const t=a+b||1,off=(S[1]*a+S[2]*b)/t*(1+.5*(.1+p.crit))*(1+.3*p.regen),dm=Math.min(.8,.6*S[3]/Math.max(1,.25*S[0])),eh=S[0]/(1-dm)/((1-p.dr)*(1-p.dodge))*(1+p.leech*2.5),L=x=>Math.log(Math.max(1,x));
+return EPW[0]*L(off)+EPW[1]*L(eh)+EPW[2]*L(S[4])},
+epE=(u,eq)=>{u.eq=eq;recalc(u);return epU(u)};
+// 在候選裝備 cs（{w:[],a:[],x:[]}）裡找 u 的最佳三格組合；每格只留「單件最高的前 3 件＋各職系最高的 1 件」再逐一組合，避免組合爆炸
+function epBest(u,cs){const o={eq:u.eq,hp:u.hp,mp:u.mp},cur=o.eq||{},top={};
+for(const sl of EPK){const arr=(cs[sl]||[]).map(it=>({it,v:epE(u,{[sl]:it})+(cur[sl]&&cur[sl].id==it.id?1e-6:0)})).sort((a,b)=>b.v-a.v),keep=new Set(arr.slice(0,3).map(x=>x.it)),seen={};
+for(const x of arr){const f=x.it.fm;if(f>=0&&!seen[f]){seen[f]=1;keep.add(x.it)}}
+top[sl]=arr.map(x=>x.it).filter(it=>keep.has(it));if(!top[sl].length)top[sl]=[null]}
+let best=null;for(const w of top.w)for(const a of top.a)for(const x of top.x){const eq={w,a,x};let v=epE(u,eq);for(const s of EPK)if(eq[s]&&cur[s]&&cur[s].id==eq[s].id)v+=1e-6;if(!best||v>best.v)best={v,eq}}
+u.eq=o.eq;recalc(u);u.hp=o.hp;u.mp=o.mp;return best}
+// 最佳方案：sc＝隊員 index 或 'T'（全隊）。回傳 {D:{隊員id:{w,a,x}},g:評分差（對數）}，沒有更好的就回傳 null
+function epPlanBest(sc){const T=sc==='T',us=T?P.u.slice():[P.u[sc]],pool=P.inv.concat(...us.map(u=>Object.values(u.eq||{}).filter(Boolean))),cur={};
+us.forEach(u=>{recalc(u);cur[u.id]=epU(u)});
+const run=ord=>{const taken=new Set(),D={};let g=0;for(const u of ord){const cs={w:[],a:[],x:[]};pool.forEach(it=>{if(!taken.has(it.id)&&can(u,it))cs[it.sl].push(it)});
+const b=epBest(u,cs),d={};g+=b.v-cur[u.id];for(const k of EPK){if(b.eq[k]){d[k]=b.eq[k].id;taken.add(b.eq[k].id)}else if((u.eq||{})[k])d[k]=null}D[u.id]=d}return{D,g}};
+let r=run(us);if(T){const r2=run(us.slice().reverse());if(r2.g>r.g)r=r2}return r.g>1e-3?r:null}
+// 套用方案 D（{隊員id:{w,a,x}}：編號＝換上、null＝卸下、沒寫＝不動）。先在副本上算，背包放不下就整個取消，不會弄丟任何裝備
+function epApply(D){const us=P.u.filter(u=>D[u.id]),E={},inv=P.inv.slice(),ch=[],bad=[];us.forEach(u=>E[u.id]=Object.assign({},u.eq||{}));
+const where=id=>{const i=inv.findIndex(x=>x.id==id);if(i>=0)return{i};for(const h of us)for(const k of EPK){const it=E[h.id][k];if(it&&it.id==id)return{h,k,it}}return null};
+for(const u of us)for(const sl of EPK){const id=D[u.id][sl];if(id===undefined)continue;const cur=E[u.id][sl];
+if(id===null){if(cur){inv.push(cur);E[u.id][sl]=null}continue}
+if(cur&&cur.id==id)continue;const w=where(id);if(!w){bad.push(1);continue}
+const it=w.h?w.it:inv[w.i];if(it.sl!=sl||!can(u,it)){bad.push(1);continue}
+if(w.h){const d=D[w.h.id][w.k];if(d===undefined||d==id){bad.push(1);continue}E[w.h.id][w.k]=null}else inv.splice(w.i,1);
+if(cur)inv.push(cur);E[u.id][sl]=it}
+if(inv.length>Math.max(CAP(),P.inv.length))return{full:1,ch,bad};
+for(const u of us)for(const sl of EPK){const a=(u.eq||{})[sl],b=E[u.id][sl];if((a?a.id:0)!=(b?b.id:0))ch.push({u,sl,it:b})}
+if(ch.length){us.forEach(u=>{u.eq=E[u.id]});P.inv=inv;us.forEach(recalc)}return{ch,bad}}
+const epSn=us=>{const o={};us.forEach(u=>{o[u.id]={};EPK.forEach(k=>{const it=(u.eq||{})[k];o[u.id][k]=it?it.id:null})});return o};
+// 套用＋記錄還原＋顯示訊息
+function epGo(D,us,head){const sn=epSn(us),r=epApply(D);
+if(r.full){G.epm='⚠️ 背包空間不夠，沒有換裝。請先清出一些位置。';G.epu=null;return epv()}
+const ln=us.map(u=>{const c=r.ch.filter(x=>x.u===u);return c.length?emo(u)+u.nm+'：'+c.map(x=>EPL[x.sl]+'→'+(x.it?epN(x.it):'空')).join('、'):''}).filter(Boolean);
+G.epm=(ln.length?head+'<br>'+ln.join('<br>'):'沒有需要更換的裝備。')+(r.bad.length?'<br>⚠️ 有 '+r.bad.length+' 格換不了（裝備已不在、被別人穿著或等級不足）':'');
+G.epu=ln.length?sn:null;if(ln.length)save();epv()}
+const epUs=()=>G.eps==='T'?P.u:[P.u[G.eps]];
+function epo(){G.eps=E2;G.epm='';G.epu=null;epv()}
+function epW(k){G.eps=k;if(k!=='T')E2=k;G.epm='';G.epu=null;epv()}
+function epB(){const T=G.eps==='T',us=epUs(),r=epPlanBest(T?'T':+G.eps);
+if(!r){G.epm='✨ '+(T?'全隊':us[0].nm)+'已經是最佳配置，不需要更換。';G.epu=null;return epv()}
+epGo(r.D,us,'✨ 已換上最佳裝備（預估綜合評分 +'+Math.round((Math.exp(r.g/us.length)-1)*1000)/10+'%）')}
+function epA(n){const us=epUs(),D={};us.forEach(u=>{const s=epG(u,n);if(s){D[u.id]={};EPK.forEach(k=>{if(s[k]!=null)D[u.id][k]=s[k]})}});
+const uu=us.filter(u=>D[u.id]);if(!uu.length)return epv();epGo(D,uu,'✅ 已套用組'+(n+1))}
+function epS(n){const us=epUs();if(us.some(u=>epG(u,n)))return cfm('覆蓋組'+(n+1)+'？',(G.eps==='T'?'全隊':us[0].nm)+'目前存的組'+(n+1)+'會被現在身上的裝備取代。','epS2('+n+')','epv()');epS2(n)}
+function epS2(n){const us=epUs();if(!P.ep||typeof P.ep!='object'||Array.isArray(P.ep))P.ep={};
+us.forEach(u=>{const a=Array.isArray(P.ep[u.id])?P.ep[u.id]:[];while(a.length<EPN)a.push(null);const s={};EPK.forEach(k=>{const it=(u.eq||{})[k];s[k]=it?it.id:null});a[n]=s;P.ep[u.id]=a});
+G.epm='💾 已存入組'+(n+1)+'（'+(G.eps==='T'?'全隊 '+us.length+' 人':us[0].nm)+'）';G.epu=null;save();epv()}
+function epR(){const sn=G.epu;G.epu=null;if(!sn)return epv();const r=epApply(sn);G.epm=r.full?'⚠️ 背包空間不夠，無法還原。':'↩ 已還原。';if(!r.full)save();epv()}
+function epv(){if(G.eps!=='T'&&!P.u[G.eps])G.eps=E2;const T=G.eps==='T',u=T?null:P.u[G.eps],sb='min-height:0;padding:4px 2px;font-size:16px;line-height:1.25;border-radius:8px',
+cell=(t,k,d)=>`<button style="min-height:0;padding:6px 9px;font-size:13px;line-height:1.2;border-radius:8px;flex:none" ${d?'disabled':''} onclick="${k}">${t}</button>`,
+nm=it=>it?epN(it):'<span style="opacity:.5">—</span>',
+rows=[0,1,2].map(n=>{let sm,has;if(T){const c=P.u.filter(x=>epG(x,n)).length;has=c>0;sm=has?'已存 '+c+'／'+P.u.length+' 人':'（空）'}
+else{const s=epG(u,n);has=!!s;sm=has?EPK.map(k=>{if(s[k]==null)return nm(null);const f=fnd(s[k]);return f?epN(f.it):'<span style="opacity:.5">已不在</span>'}).join('・'):'（空）'}
+return `<div class=c style="text-align:left;padding:5px 8px;display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:0"><b>組${n+1}</b><br><small style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sm}</small></div>${cell('套用','epA('+n+')',!has)}${cell('存入','epS('+n+')')}</div>`}).join('');
+V(`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px"><b style="color:var(--ac)">🎽 裝備整備</b><small>${T?'全隊 '+P.u.length+' 人':u.nm+' Lv'+u.lv}</small></div><div class=row style="gap:4px">${P.u.map((x,k)=>`<button style="${sb}" ${!T&&k==G.eps?'class=p':''} onclick="epW(${k})">${emo(x)}</button>`).join('')}<button style="${sb};font-size:13px" ${T?'class=p':''} onclick="epW('T')">👥 全隊</button></div>
+<div class=sc style="gap:6px">${T?'':`<div class=c style="text-align:left;padding:5px 8px"><small>目前：</small>${EPK.map(k=>nm((u.eq||{})[k])).join('<small>・</small>')}</div>`}<button style="min-height:46px" onclick="epB()">✨ 一鍵最佳裝備<br><small>${T?'全隊重新分配（身上的也一起算）':'只從背包與自己身上挑'}</small></button>
+${G.epm?`<div class=c style="text-align:left;padding:5px 8px"><small>${G.epm}</small>${G.epu?`<div style="margin-top:4px">${cell('↩ 還原','epR()')}</div>`:''}</div>`:''}
+<small style="opacity:.7;padding:0 2px">預設組（${T?'全隊':u.nm}）</small>${rows}<small style="opacity:.6;padding:0 2px">「最佳」＝綜合評分最高的三格組合：輸出（依招式屬性算攻或魔）、生存（HP、防禦、減傷、閃避、吸血）、速度，套裝與詞條都會算進去。套用預設組時，空格不動、找不到的裝備會跳過。</small></div><div class=row><button onclick="eqv(E2)">返回裝備</button></div>`)}
 // ■■■ [S07] 酒館：道具店、存款、賣出頁、招募 ■■■
 const rcap=()=>P.tv||1,rcost=()=>25*Math.pow(P.u.length+P.rs.length,2),tcost=()=>400*(P.tv||1)*(P.tv||1);
 function tv(m=''){const tl=P.tv||1,full=P.u.length>=4&&P.rs.length>=rcap();V(`<h3>酒館・道具店</h3><div class=c>💰 ${P.g}　隊伍 ${P.u.length}/4　後備 ${P.rs.length}/${rcap()}　酒館 Lv${tl}<br>${m}<small>新手等級為隊伍平均 −2；招募的人越多越貴。隊伍滿 4 人後，新人會進後備。</small></div><button class=p ${full||
@@ -430,14 +507,17 @@ else{const it=mkItem({main:P.u[0].main,lv:Math.min(LV,Math.max(1,avg())),boss:0}
 q.splice(i,1);P.ct.h=ctv('h')+1;save();btv('✅ 懸賞完成！'+m)}
 function btDrop(i,ok){const b=P.bt&&P.bt.q&&P.bt.q[i];if(!b)return btv();if(b.c>0&&!ok)return cfm('放棄這個懸賞？','目前進度 '+b.c+'/'+b.t+' 會消失。','btDrop('+i+',1)','btv()');P.bt.q.splice(i,1);save();btv()}
 function btv(m=''){const q=btEns(),sm='min-height:0;padding:6px 8px;font-size:13px;line-height:1.2;border-radius:8px;flex:none';
-V(`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px"><b style="color:var(--ac)">📜 懸賞板</b><small>已完成 ${ctv('h')} 場</small></div>${m?`<div class=c><small>${m}</small></div>`:''}<div class=sc style="gap:4px">${q.map((b,i)=>{const ok=b.c>=b.t;return `<div class=c style="text-align:left;padding:6px 8px;display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:0"><b>${btTx(b)}</b><br><small>進度 ${b.c}/${b.t}　獎勵 ${btRw(b.w)}</small></div><div style="display:flex;gap:4px;flex:none"><button style="${sm}" onclick="btDrop(${i})">放棄</button><button style="${sm}" ${ok?'class=p':'disabled'} onclick="btGet(${i})">${ok?'領取':'進行中'}</button></div></div>`}).join('')}<div class=c><small>懸賞板清空後，下次進來會出新的一批（1～5 件）。完成的懸賞會累計到成就「賞金獵人」。</small></div></div><button style="min-height:40px" onclick="tv()">返回酒館</button>`)}
+V(`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px"><b style="color:var(--ac)">📜 懸賞板</b><small>已完成 ${ctv('h')} 場</small></div>${m?`<div class=c><small>${m}</small></div>`:''}<div class=sc style="gap:4px">${q.map((b,i)=>{const ok=b.c>=b.t;return `<div class=c style="text-align:left;padding:6px 8px;display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:0"><b>${btTx(b)}</b><br><small>進度 ${b.c}/${b.t}　獎勵 ${btRw(b.w)}</small></div><div style="display:flex;gap:4px;flex:none"><button style="${sm}" onclick="btDrop(${i})">放棄</button><button style="${sm}" ${ok?'class=p':'disabled'} onclick="btGet(${i})">${ok?'領取':'進行中'}</button></div></div>`}).join('')}<div class=c><small>懸賞板清空後，下次進來會出新的一批（1～5 件）。完成的懸賞會累計到成就「賞金獵人」。指定的怪物，等級會依你的最高層數自動調整。</small></div></div><button style="min-height:40px" onclick="tv()">返回酒館</button>`)}
 function rc(){const c=rcost();if(P.g<c||(P.u.length>=4&&P.rs.length>=rcap()))return;P.g-=c;const n=pick(NM.filter(x=>![...P.u,...P.rs].some(u=>u.nm==x)))||
 '隊員'+uid,u=mk(Math.max(1,avg()-2),n);u.rb=0;(P.u.length<4?P.u:P.rs).push(u);save();tv(n+(P.u.includes(u)?' 加入了隊伍！':' 進入後備！')+'<br>')}
 // ■■■ [S08] 戰鬥系統：敵人生成、狀態、弱點與護盾、畫面與特效、AI、行動、結算 ■■■
 // 敵人生成：等級跟隨隊伍平均等級；階級、職業路線與玩家使用同一套規則
+// 被每日任務或懸賞指定的怪物（進行中）：出現時等級至少跟最高層數的等級一樣（避免低區域的怪物太弱）；區域型懸賞則整個區域的怪物都算
+function tgq(n){const d=P.dq&&P.dq.d===dk()&&Array.isArray(P.dq.q)?P.dq.q:[],b=P.bt&&Array.isArray(P.bt.q)?P.bt.q:[];
+return d.some(q=>q.x&&(q.k=='m'||q.k=='o')&&q.c<q.t&&q.x.n==n)||b.some(q=>q.x&&q.c<q.t&&(q.k=='a'?ANM[n]===q.x.a:q.x.n==n))}
 function gen(){const ar=area(),F=P.w,ai=Math.min(9,Math.floor(F/10)),lo=ai*10+1,hi=ai<9?ai*10+10:1e9,boss=F%5==4,l0=F+1,n=boss?(F%10==9?3:1):l0<3?R(1,2):R(2,3)+(l0>=15?R(0,1):0);
-return Array.from({length:n},(_,i)=>{const bb=boss&&(n<3||i==1),ak=F>=100?R(0,9):ai,A=AR[ak],l=Math.min(hi,Math.max(lo,l0+R(-1,1)+(bb?3:0))),pool=A.sp.filter(s=>s.t<=(l>=15?2:l>=5?1:0)),sp=bb?A.b:pick(pool.length?pool:A.sp),u=mk(l,'',sp);
-autoBuild(u);if(F>=79)mgr(u,bb);u.nm=(bb?'★':'')+sp.n;u.boss=bb;u.wf=wkr();shg(u);trg(u);if(bb){u.sg=['bs'+ak+'0','bs'+ak+'1'];u.cd=3;u.ch=0;u.eg=0}u.hp=mx(u);u.mp=bb?1e6:mm(u);return u})}
+return Array.from({length:n},(_,i)=>{const bb=boss&&(n<3||i==1),ak=F>=100?R(0,9):ai,A=AR[ak],l=Math.min(hi,Math.max(lo,l0+R(-1,1)+(bb?3:0))),pool=A.sp.filter(s=>s.t<=(l>=15?2:l>=5?1:0)),sp=bb?A.b:pick(pool.length?pool:A.sp),tg=tgq(sp.n),u=mk(tg?Math.max(l,P.best+1+R(-1,1)+(bb?3:0)):l,'',sp);
+autoBuild(u);if((tg?Math.max(F,P.best):F)>=79)mgr(u,bb);u.nm=(bb?'★':'')+sp.n;u.boss=bb;u.wf=wkr();shg(u);trg(u);if(bb){u.sg=['bs'+ak+'0','bs'+ak+'1'];u.cd=3;u.ch=0;u.eg=0}u.hp=mx(u);u.mp=bb?1e6:mm(u);return u})}
 // 第 80 層起：怪物隨機穿 1～3 件裝備（與掉落同一套品質機率，BOSS 品質更好），沿用 recalc 的裝備與套裝加成
 function mgr(u,b){u.eq={};['w','a','x'].sort(()=>Math.random()-.5).slice(0,R(1,3)).forEach(k=>u.eq[k]=mkItem({main:u.main,lv:u.lv,boss:b?1:0},0,k));u.gr=Object.keys(u.eq).length;recalc(u)}
 const enTag=u=>u&&u.en?'<span style="color:#ff5a5a;font-weight:700">（敵）</span>':'';
@@ -450,7 +530,7 @@ function apx(t,k){t.ef=t.ef||{};if(t.tr=='im')return 0;if(k=='st'&&(t.boss||t.ef
 async function tick(u){const e=u.ef||(u.ef={}),ev=[];let d=0;if(e.ps)d+=Math.ceil(mx(u)*.06);if(e.bn)d+=Math.ceil(mx(u)*.08);
 if(d){u.hp=Math.max(0,u.hp-d);ev.push([u,'-'+d,'d']);enr(u);lg(`${enTag(u)}${u.nm} 受到異常傷害 ${d}`);if(!u.hp)lg(`${u.nm} 倒下了`)}
 let sk0=0;if(u.hp>0&&e.st){delete e.st;sk0=1;lg(`${enTag(u)}${u.nm} 暈眩，無法行動`);ev.push([u,'💫','b'])}
-if(u.tr=='rg'&&u.hp>0&&u.hp<mx(u)&&!e.ps&&!e.bn){const h=Math.ceil(mx(u)*.05);u.hp=Math.min(mx(u),u.hp+h);ev.push([u,'+'+h,'h'])}
+if(u.tr=='rg'&&u.hp>0&&u.hp<mx(u)&&!e.ps&&!e.bn){const h=Math.ceil(mx(u)*TRG);u.hp=Math.min(mx(u),u.hp+h);ev.push([u,'+'+h,'h'])}
 if(ev.length){renderB();fx(ev);await sleep(480)}return u.hp<=0||sk0}
 const IT={hp:{n:'治療藥水',d:'HP +40%',c:30},mp:{n:'魔力藥水',d:'MP +40%',c:50},rv:{n:'復活藥',d:'復活並回復 50% HP',c:120},cl:{n:'淨化藥水',d:'解除異常狀態',c:40},an:{n:'分析鏡',d:'對敵人使用，顯示弱點、特性與破盾資訊',c:60}};
 const sd=k=>{const g={e:'單',E:'全',a:'單',A:'全',s:'自'}[k[4]];return k[3]=='b'?`輔/${{atk:'攻',mag:'魔',def:'防',spd:'速'}[k[5]]||'能'}/${g}`:k[3]=='h'?`療/${g}`:`攻/${g}${k[3]=='l'?'/吸':''}${k[6]?'/'+({ps:'毒',bn:'燃',sl:'緩',st:'暈',wk:'弱',sn:'破'})[k[6]]:''}`},
@@ -466,17 +546,28 @@ AR.indexOf(B.ar))]||ARG[0];a=g[0]+'cc';b=g[1]}return`--g1:${a};--g2:${b}`}
 // 弱點與護盾：怪物只有 WKP 的機率有弱點（wf＝-1 代表沒有）；等級 ≥ SHL 的怪才可能有護盾（一般 SHP、BOSS SHB），有護盾時受到的傷害減半。
 // 破盾：只有玩家的職業技能能破盾，機率＝主職業階數係數×技能階數係數（SHF：一～五階 100/80/60/40/20%）；
 // 怪物有弱點時，主職業與技能都必須屬於弱點職系，否則 0%；怪物沒有弱點時只看技能階數。
-const WKP=.6,SHL=90,SHP=.25,SHB=.5,SHF=[0,1,.8,.6,.4,.2],wkr=()=>Math.random()<WKP?R(0,4):-1,
+const wkr=()=>Math.random()<WKP?R(0,4):-1,
 shg=u=>{if(u.lv>=SHL&&Math.random()<(u.boss?SHB:SHP))u.sh=1;return u},
 shb=(u,id,t)=>{const j=id.split(':')[0],c=id.includes(':')&&T[j];if(!c)return 0;const ps=SHF[c.t]||0;if(!(t.wf>=0))return ps;const m=u.main&&T[u.main];return c.r==t.wf&&m&&m.r==t.wf?ps*(SHF[m.t]||0):0},
 // 破盾資訊：隊員對某隻怪的「最佳破盾機率」＝其會的傷害技能中最高者；shh 產生顯示文字（lg0＝戰鬥紀錄用的長版）
 shu=(u,t)=>sk(u).reduce((m,id)=>SK[id]&&'pml'.includes(SK[id][3])?Math.max(m,shb(u,id,t)):m,0),
 shh=(t,lg0)=>{const a=P.u.filter(x=>x.hp>0).map(x=>[x,shu(x,t)]).filter(q=>q[1]>0);return a.length?(lg0?'🛡️ 破盾機率：':'🛡️')+a.map(q=>emo(q[0])+Math.round(q[1]*100)+'%').join(' '):lg0?'🛡️ 隊伍中沒有人能破這層護盾':'🛡️無人可破'};
 // 特性（怪物等級 ≥ TRL 才可能有，一隻最多一個；分析後才看得到）：u.tr＝hp 物理硬化／hm 魔法硬化／rf 反傷／rg 再生／im 免疫異常
-const TRL=100,TRP=.25,TRB=.5,TRN={hp:['🪨','物理硬化','受到的物理傷害 ×0.6'],hm:['🧿','魔法硬化','受到的魔法傷害 ×0.6'],rf:['🌵','反傷','被物理攻擊時，反彈 15% 傷害給攻擊者（不會致死）'],rg:['💚','再生','每回合回復 5% HP（中毒或燃燒時不再生）'],im:['🚫','免疫異常','不會受到中毒、燃燒等異常狀態']},
+const TRN={hp:['🪨','物理硬化','受到的物理傷害 ×'+TRH],hm:['🧿','魔法硬化','受到的魔法傷害 ×'+TRH],rf:['🌵','反傷','被物理攻擊時，反彈 '+Math.round(TRF*100)+'% 傷害給攻擊者（不會致死）'],rg:['💚','再生','每回合回復 '+Math.round(TRG*100)+'% HP（中毒或燃燒時不再生）'],im:['🚫','免疫異常','不會受到中毒、燃燒等異常狀態']},
 trg=u=>{if(u.lv>=TRL&&Math.random()<(u.boss?TRB:TRP))u.tr=pick(Object.keys(TRN));return u};
-// 弱點：招式所屬職系＝怪物弱點時，威力補到基準值（單體 5.2／全體每目標 2.9，約為滿級五階的 1.1 倍），階數越低倍率越高，上限 3.5
-const wkm=(u,id,t)=>{const j=id.split(':')[0],r=id.includes(':')&&T[j]?T[j].r:-1;if(r<0||t.wf!==r)return 1;return Math.min(3.5,Math.max(1,(SK[id][4]=='E'?2.9:5.2)/(SK[id][2]*(1+.02*(u.jl[j]||0)))))},
+// 戰鬥統計（P.bst 全是數字；只統計一般戰鬥，次元魔王討伐不計）。本場資料放在 B：ds 各隊員輸出、dt 承受、hl 治療、rc 回合數
+// P.bst 鍵：f 場數 w／l 勝／敗 rn 總回合 mr 最長回合 dd／dt 傷害／承受 hl 治療 ph 出手 cr 暴擊 mh 最高單次 wt／wk 弱點出手／加成 sh 有盾怪 sa／sb 對盾出手／破盾 t_xx 特性怪 aw0～10／al0～10 各區勝／敗
+const bzA=(k,n=1)=>{if(B&&!B.rd){const b=P.bst||(P.bst={});b[k]=(b[k]||0)+n}},
+bzK=(k,n)=>{if(B&&!B.rd){const b=P.bst||(P.bst={});if(n>(b[k]||0))b[k]=n}},
+bzH=(u,t,d,cr,wm)=>{if(!B||B.rd)return;if(u.en){B.dt=(B.dt||0)+d;bzA('dt',d);return}
+const i=P.u.indexOf(u);if(i>=0){const a=B.ds||(B.ds=[]);a[i]=(a[i]||0)+d}
+bzA('dd',d);bzA('ph');bzK('mh',d);if(cr)bzA('cr');if(t.wf>=0){bzA('wt');if(wm>1)bzA('wk')}if(t.sh&&t.hp>0)bzA('sa')},
+bzL=(u,h)=>{if(B&&!B.rd&&!u.en&&h>0){B.hl=(B.hl||0)+h;bzA('hl',h)}},
+bzE=()=>{if(B.rd)return;bzA('f');B.en.forEach(e=>{if(e.sh)bzA('sh');if(e.tr)bzA('t_'+e.tr)})},
+bzR=ok=>{const z=P.w>=100?10:Math.floor(P.w/10),c=B.rc||0;bzA(ok?'w':'l');bzA((ok?'aw':'al')+z);bzA('rn',c);bzK('mr',c)},
+bzM=()=>`本場 ${B.rc||0} 回合｜輸出 ${P.u.map((u,i)=>emo(u)+' '+fmt((B.ds||[])[i]||0)).join('　')}｜承受 ${fmt(B.dt||0)}｜治療 ${fmt(B.hl||0)}`;
+// 弱點：招式所屬職系＝怪物弱點時，威力補到基準值（單體 WKS／全體每目標 WKA，約為滿級五階的 1.1 倍），階數越低倍率越高，上限 WKX（數值在 [S01A]）
+const wkm=(u,id,t)=>{const j=id.split(':')[0],r=id.includes(':')&&T[j]?T[j].r:-1;if(r<0||t.wf!==r)return 1;return Math.min(WKX,Math.max(1,(SK[id][4]=='E'?WKA:WKS)/(SK[id][2]*(1+.02*(u.jl[j]||0)))))},
 snc=k=>k[3]=='h'?'kh':k[3]=='b'?'kb':k[3]=='l'?'kl':k[6]?'k'+k[6]:k[3]=='m'?'km':'kp',
 lgH=ex=>{const t=Date.now()-(B.pt||0);return`<i style="float:right;font-size:11px;font-style:normal">${G.dt?'▴':'▾'}</i>`+(ex?B.log:B.log.slice(-2)).join('<br>').replace(/ snp"/g,` snp" style="animation-delay:-${t}ms"`)};
 function dtg(){G.dt=G.dt?0:1;renderB()}
@@ -552,35 +643,35 @@ async function act(u,my,foe,id,tg,bx=1){const [nm,c,pw0,ty,tt,ex,sx,sc]=SK[id],p
 const ts=tt=='E'?fl:tt=='A'?al:tt=='s'?[u]:tt=='a'?[al.sort((a,b)=>a.hp/mx(a)-b.hp/mx(b))[0]]:[tg&&tg.hp>0?tg:pick(fl)];
 B.pt=Date.now();lg(`${enTag(u)}${u.nm} 使用「<span class="sn ${snc(SK[id])} snp">${nm}</span>」`);if(!u.en&&id.includes(':')){const dm=dqAdd('u',1,q=>q.x.s==id);if(dm)lg(dm)}
 for(const t of ts){
-if(ty=='h'){const h=Math.floor(es(u,2)*pw*(.9+Math.random()*.2));t.hp=Math.min(mx(t),t.hp+h);ev.push([t,'+'+h,'h'])}
+if(ty=='h'){const h=Math.floor(es(u,2)*pw*(.9+Math.random()*.2));const o=t.hp;t.hp=Math.min(mx(t),t.hp+h);bzL(u,t.hp-o);ev.push([t,'+'+h,'h'])}
 else if(ty=='b'){t.bf[ex]={v:pw,t:3};ev.push([t,'↑','b'])}
 else{const m=ty=='m',cr=Math.random()<.1+u.ps.crit;if(Math.random()<t.ps.dodge){ev.push([t,'MISS','b']);continue}const wm=wkm(u,id,
 t);if(wm>1)ev.push([t,'🎯弱點×'+wm.toFixed(1),'w']);let d=es(u,m?2:1)*pw*wm*(.9+Math.random()*.2)-es(t,3)*(m?.3:.6);d=Math.max(1,Math.floor(d*(u.en?
-.9:1)*(cr?1.5:1)*(1-t.ps.dr)*(t.gd?.5:1)*(t.sh?.5:1)*(t.tr=='hp'&&!m||t.tr=='hm'&&m?.6:1)));const h0=t.hp;t.hp=Math.max(0,t.hp-d);if(B.rd&&t.en&&!u.en)rdAdd(u,h0-t.hp);ev.push([t,
-(cr?'!':'')+d,'d']);enr(t);if(t.tr=='rf'&&!m&&u.hp>1){const r=Math.min(u.hp-1,Math.max(1,Math.floor((h0-t.hp)*.15)));u.hp-=r;ev.push([u,'-'+r,'d']);lg(`🌵 ${u.nm} 受到反傷 ${r}`)}if(ty=='l')u.hp=Math.min(mx(u),u.hp+(d>>1));if(u.ps.leech&&ty!='l')u.hp=Math.min(mx(u),u.hp+Math.floor(d*u.ps.leech*2));if(t.sh&&
-!u.en&&t.hp>0&&Math.random()<shb(u,id,t)){t.sh=0;lg(`🛡️ ${t.nm} 的護盾被打破了！`);ev.push([t,'🛡️破盾','w'])}if(!t.hp)lg(`${t.nm} 倒下了`);else if(sx&&
+.9:1)*(cr?1.5:1)*(1-t.ps.dr)*(t.gd?.5:1)*(t.sh?SHD:1)*(t.tr=='hp'&&!m||t.tr=='hm'&&m?TRH:1)));const h0=t.hp;t.hp=Math.max(0,t.hp-d);if(B.rd&&t.en&&!u.en)rdAdd(u,h0-t.hp);ev.push([t,
+(cr?'!':'')+d,'d']);enr(t);bzH(u,t,d,cr,wm);if(t.tr=='rf'&&!m&&u.hp>1){const r=Math.min(u.hp-1,Math.max(1,Math.floor((h0-t.hp)*TRF)));u.hp-=r;ev.push([u,'-'+r,'d']);lg(`🌵 ${u.nm} 受到反傷 ${r}`)}if(ty=='l')u.hp=Math.min(mx(u),u.hp+(d>>1));if(u.ps.leech&&ty!='l')u.hp=Math.min(mx(u),u.hp+Math.floor(d*u.ps.leech*2));if(t.sh&&
+!u.en&&t.hp>0&&Math.random()<shb(u,id,t)){t.sh=0;bzA('sb');lg(`🛡️ ${t.nm} 的護盾被打破了！`);ev.push([t,'🛡️破盾','w'])}if(!t.hp)lg(`${t.nm} 倒下了`);else if(sx&&
 Math.random()<sc){const r=apx(t,sx);if(r)ev.push([t,r,'b'])}}}
 renderB();fx(ev,u,SK[id]);if(fxo()){if(bx>1)shk();if(ev.some(q=>String(q[1])[0]=='!'))await sleep(90)}await sleep(520)}
 async function fight(rd){P.u.forEach(u=>{u.gd=0;u.ef={}});B={en:rd?rgen():gen(),ar:rd?RDA:area(),rd,rn:0,pv:{},log:[],cur:null,res:
-null,sel:null,menu:null,it:null};lg(rd?'🌀 次元魔王討伐・第 '+RD.w+' 波　'+B.en.map(e=>e.nm).join('、'):(P.w%10==0&&P.w<=100?'📍 進入「'+B.ar.n+'」　':
+null,sel:null,menu:null,it:null,ds:[],rc:0};bzE();lg(rd?'🌀 次元魔王討伐・第 '+RD.w+' 波　'+B.en.map(e=>e.nm).join('、'):(P.w%10==0&&P.w<=100?'📍 進入「'+B.ar.n+'」　':
 '')+(P.w%5==4?'BOSS 出現！會蓄力放大招，血量過半會狂暴。':'遭遇敵人！')+' '+B.en.map(e=>e.nm).join('、'));renderB();await sleep(700);
 for(;;){
 const all=[...P.u,...B.en].filter(u=>u.hp>0).sort((a,b)=>es(b,4)-es(a,4)+Math.random()-.5);
 for(const u of all){if(u.hp<=0)continue;u.gd=0;const my=u.en?B.en:P.u,foe=u.en?P.u:B.en;if(!foe.some(x=>x.hp>0))break;if(await tick(u))continue;
 let c=null;if(!u.en&&!G.auto)c=await ask(u);if(!c)c=aiPick(u,my,foe);if(c.cmd=='def')await defend(u);else if(c.cmd=='charge')await chg(u);else if(c.cmd=='flee'){if(await flee(u))return}else if(c.it)await useItem(u,
 c.it,c.tg);else await act(u,my,foe,c.id,c.tg,c.x);if(B.rd&&rdSub())renderB()}
-[...P.u,...B.en].forEach(u=>{u.mp=Math.min(mm(u),u.mp+2+Math.floor(u.ps.regen*40));for(const k in u.bf)if(--u.bf[k].t<=0)delete u.bf[k];for(const k in u.ef||{})if(k!='st'&&--u.ef[k]<=0)delete u.ef[k]});
+B.rc++;[...P.u,...B.en].forEach(u=>{u.mp=Math.min(mm(u),u.mp+2+Math.floor(u.ps.regen*40));for(const k in u.bf)if(--u.bf[k].t<=0)delete u.bf[k];for(const k in u.ef||{})if(k!='st'&&--u.ef[k]<=0)delete u.ef[k]});
 if(B.rd){B.rn++;if(B.rn>20)B.en.forEach(e=>{const v=(e.eg?1.3:1)*(1+.15*(B.rn-20));e.bf.atk={v,t:99};e.bf.mag={v,t:99}});rdSub()}
 if(!B.en.some(x=>x.hp>0))return B.rd?rdWin():win();if(!P.u.some(x=>x.hp>0))return B.rd?rdEnd():lose()}}
-function win(){let xp=0,g=0;const msg=[];B.en.forEach(e=>{xp+=8+e.lv*3;g+=5+e.lv*3});if(P.w%5==4){g*=3;msg.push('擊敗 BOSS！金幣三倍，掉落 2 件裝備（至少 1 件稀有以上）')}
+function win(){bzR(1);let xp=0,g=0;const msg=[];B.en.forEach(e=>{xp+=8+e.lv*3;g+=5+e.lv*3});if(P.w%5==4){g*=3;msg.push('擊敗 BOSS！金幣三倍，掉落 2 件裝備（至少 1 件稀有以上）')}
 B.en.forEach(e=>{const L=[];if(Math.random()<(e.boss?1:.35))L.push(mkItem(e));if(e.boss)L.push(mkItem(e,2));L.forEach(it=>{const dm=dqAdd('e',1,q=>dqMt(q,it));if(dm)msg.push(dm);if(P.inv.length<CAP()){P.inv.push(it);msg.push('獲得 '+iname(it))}else{g+=px(it);msg.push('背包已滿，自動賣出 '+iname(it))}})});P.inv.sort((a,
 b)=>b.r-a.r||b.lv-a.lv);P.w++;P.best=Math.max(P.best,P.w);P.st=(P.st||0)+1;P.bs=Math.max(P.bs||0,P.st);P.g+=g;ctw(B.en,g,msg);if(P.w%10==0&&
 P.w<=100)msg.push('🗺️ 下一層進入新區域：'+area().e+' '+area().n);
 P.u.forEach(u=>{if(u.hp<=0)u.hp=1;u.xp+=xp;let up=0;while(u.lv<LV&&u.xp>=nx(u)){u.xp-=nx(u);u.lv++;u.pts++;up++}if(up){msg.push(`${u.nm} 升到 Lv${u.lv}，職業點數 +${up}（共 ${u.pts}）`);recalc(u)}
 u.hp=Math.min(mx(u),u.hp+Math.floor(mx(u)*.2));u.mp=Math.min(mm(u),u.mp+Math.floor(mm(u)*.2));u.bf={};u.ef={}});save();
-fd=1;V(`<div class="c win"><i class=cf>🎉</i><i class=cf style="left:68%;animation-delay:.5s">✨</i><i class=cf style="left:38%;animation-delay:1s">⭐</i><h3>勝利！</h3>經驗 +${xp}　金幣 +${g}<br><small>${msg.join('<br>')}</small></div><div class="sc g2">${P.u.map(u=>card(u)).join('')}</div><div class=row><button class=p onclick="fight()">繼續（第${P.w+1}戰${P.w%5==4?
+fd=1;V(`<div class="c win"><i class=cf>🎉</i><i class=cf style="left:68%;animation-delay:.5s">✨</i><i class=cf style="left:38%;animation-delay:1s">⭐</i><h3>勝利！</h3>經驗 +${xp}　金幣 +${g}<br><small>${msg.join('<br>')}</small><br><small style="opacity:.75">${bzM()}</small></div><div class="sc g2">${P.u.map(u=>card(u)).join('')}</div><div class=row><button class=p onclick="fight()">繼續（第${P.w+1}戰${P.w%5==4?
 '・BOSS':''}）</button><button onclick="town()">回城休整</button></div>`)}
-function lose(){P.g=Math.floor(P.g*.8);P.st=0;save();V(`<div class=c><h3>全滅……</h3>倒在第 ${P.w+1} 戰，損失 20% 金幣。<br><small>回城後可調整職業再挑戰。</small></div><div class=sc></div><button class=p onclick="town()">回城</button>`)}
+function lose(){bzR(0);P.g=Math.floor(P.g*.8);P.st=0;save();V(`<div class=c><h3>全滅……</h3>倒在第 ${P.w+1} 戰，損失 20% 金幣。<br><small>回城後可調整職業再挑戰。</small><br><small style="opacity:.75">${bzM()}</small></div><div class=sc></div><button class=p onclick="town()">回城</button>`)}
 // ■■■ [S09] 存檔系統：版本、自動修復、遷移 ■■■
 // ===== 存檔：版本、整理、匯出入、備份 =====
 const SV=7,cln=(x,n=8)=>String(x==null?'':x).replace(/[<>&"'\x60]/g,'').slice(0,n),
@@ -596,6 +687,7 @@ function chk(){const rp=[],note=m=>{if(!rp.includes(m))rp.push(m)},ck=(v,m)=>{co
 P.g=ck(P.g,'金幣');P.cr=ck(P.cr,'魔石');
 Object.keys(IT).forEach(k=>{P.it[k]=ck(P.it[k],'道具數量')});
 ['ct','ac'].forEach(k=>Object.keys(P[k]).forEach(id=>{const v=P[k][id];if(typeof v=='number'&&!(isFinite(v)&&v>=0)){P[k][id]=0;note('成就／統計')}}));
+Object.keys(P.bst).forEach(k=>{const v=P.bst[k];if(typeof v!='number'||!(isFinite(v)&&v>=0)){P.bst[k]=0;note('戰鬥統計')}});
 const okI=it=>it&&typeof it=='object'&&['w','a','x'].includes(it.sl)&&Array.isArray(it.st)&&it.st.length>=5&&it.st.every(Number.isFinite),
 fixI=it=>{const l=Math.floor(+it.lv),r=Math.floor(+it.r);if(!(l>=1)||!(r>=0&&r<=4)||!Array.isArray(it.af))note('裝備資料');it.lv=l>=1?Math.min(LV,l):1;it.r=r>=0&&r<=4?r:0;it.up=ck(it.up,'裝備資料');if(!Array.isArray(it.af))it.af=[]};
 const us=[...P.u,...P.rs];
@@ -614,7 +706,7 @@ P.g=+P.g||0;P.cr=+P.cr||0;P.w=+P.w||0;P.best=+P.best||0;P.bs=+P.bs||0;P.st=+P.st
 0)>=100&&P.best>=100?Math.min(Math.floor(+P.sf),P.best):Math.min(Math.floor(Math.min(+P.sf||0,99)/10)*10,Math.floor(Math.min(P.best,
 99)/10)*10);P.bnk={g:Math.max(0,Math.floor(+(P.bnk&&P.bnk.g)||0)),cr:Math.max(0,Math.floor(+(P.bnk&&P.bnk.cr)||0))};if(!P.it)P.it={hp:
 3,mp:2,rv:1,cl:2};if(P.it.cl===undefined)P.it.cl=2;if(P.it.an===undefined)P.it.an=0;if(!P.inv)P.inv=[];if(!P.rs)P.rs=[];for(const k of ["ct",
-"ac","cx"])if(!P[k]||typeof P[k]!="object"||Array.isArray(P[k]))P[k]={};
+"ac","cx","bst","ep"])if(!P[k]||typeof P[k]!="object"||Array.isArray(P[k]))P[k]={};
 // v7：舊「五階之道」每 1 級一階 → 新「五階大師」每 25 級一階（舊領取階數 ÷25 無條件捨去）；已用舊旗標 P.aj 換算過的存檔不再換算
 if((P.v||0)<7){if(!P.aj)P.ac.j1=Math.floor((+P.ac.j1||0)/25);delete P.aj}while(P.u.length>4)P.rs.push(P.u.pop());
 const all=()=>[...P.u,...P.rs],R0=P.rb||0;
@@ -670,7 +762,7 @@ fd=1;V(`<h3>🌀 討伐結算</h3><div class=c><div style="font-size:13px;color:
 '<small>沒有造成傷害</small>'}</div><div class=c style="text-align:left"><b>獎勵</b><br><small>💰${fmt(q.g)}　💎${q.cr}</small>${q.its.map(it=>'<div>'+itx(it)+'</div>').join('')}${q.sold?
 '<small>背包已滿的裝備已自動賣出</small>':''}</div><div class=c style="text-align:left"><b>🏆 歷史前五名</b>${P.rk.map((x,i)=>`<div style="display:flex;justify-content:space-between${i==q.rank?
 ';color:var(--ac2);font-weight:700':''}"><span>${['🥇','🥈','🥉','④','⑤'][i]} ${x.d}</span><span>${fmt(x.t)}　${x.w} 波</span></div>`).join('')}</div></div><button class=p onclick="town()">回首頁</button>`)}
-// ■■■ [S11] 每日任務、成就、圖鑑 ■■■
+// ■■■ [S11] 每日任務、成就、圖鑑、戰鬥統計頁 ■■■
 // ===== v9b：每日任務・成就・圖鑑 =====
 let qTab='d';
 const ctv=k=>+(P.ct&&P.ct[k])||0,acU=()=>P.u.concat(P.rs),
@@ -686,7 +778,7 @@ ACL=[['w1','初陣','贏得 1 場戰鬥',()=>ctv('b'),1,100,0],['w2','百戰老�
 qBad=()=>{dqEns();return P.dq.q.filter(x=>x.c>=x.t&&!x.r).length+ACL.filter(acOk).length};
 // 隨機每日任務（v10）：m 帶領隊伍消滅指定怪物、o 消滅指定魔王、u 使用指定技能、t 指定職業組合通關某層、e 獲得指定裝備、r 次元魔王討伐。
 // 任務存成 {k 類型,t 目標,c 進度,r 已領,g 金幣,cr 魔石,x 條件}；舊版（b/k/s/l/y）當天已產生的任務沿用舊顯示與計數。獎勵公式與舊版相同（魔王類×1.5／💎2，次元魔王×3／💎5，其餘×1／💎1）
-const DQM={m:1,o:1.5,u:1,t:1.5,e:1,r:3},DQC={m:1,o:2,u:1,t:2,e:1,r:5},DQSL={w:'武器',a:'防具',x:'飾品'},DQRP=[.4,.29,.12,.18],DQSP={w:.4,a:.41,x:.2};
+const DQSL={w:'武器',a:'防具',x:'飾品'};
 // 產生某類任務的條件與目標；沒有可行的條件時回傳 null（保證玩家做得到：職業、技能取自隊員實際學過的，怪物取自已能到達的區域）
 // 目前可挑戰的怪物與魔王（每日任務與懸賞共用）：sp＝[怪物, 區域索引]、bs＝[魔王, 區域索引]
 function dqPool(){const ma=P.best>=100?9:Math.min(9,Math.floor(P.best/10)),lm=i=>P.best>=100?1e3:Math.min(P.best+1,i*10+10);
@@ -740,10 +832,24 @@ function acP(){return ACL.reduce((t,a)=>t+(acI(a)?acN(a):acN(a)?1:0),0)}
 function acGet(id){const a=ACL.find(x=>x[0]==id);if(!a||!acOk(a))return;const g=acG(a);P.ac[id]=acN(a)+1;P.g+=g[0];P.cr=(P.cr||0)+g[1];save();qv()}
 function acAll(){let g=0,c=0,n=0;for(let i=0;i<2000;i++){const a=ACL.find(acOk);if(!a)break;const r=acG(a);P.ac[a[0]]=acN(a)+1;g+=r[0];c+=r[1];n++}if(n){P.g+=g;P.cr=(P.cr||0)+c;qMsg='已領取 '+n+' 項：💰'+fmt(g)+(c?' 💎'+c:'');save()}qv()}
 function qT(t){qTab=t;qv()}
+// ===== 戰鬥統計頁（📜 裡的「統計」分頁）：資料在 P.bst，收集用的函式在 [S08]（bzA／bzH／bzE／bzR）=====
+function bzV(){const b=P.bst||{},g=k=>+b[k]||0,pc=(a,c)=>c>0?(Math.round(a/c*1000)/10)+'%':'—',f=g('f'),w=g('w'),l=g('l'),
+cd=(t,body)=>`<div class=c style="text-align:left"><b>${t}</b><br><small>${body}</small></div>`;
+if(!f)return cd('📊 戰鬥統計','還沒有紀錄。出戰一場之後會開始累計（次元魔王討伐不列入）。');
+const fl=Math.max(0,f-w-l),n=w+l,
+ov=cd('📊 戰鬥總覽',`出戰 ${fmt(f)} 場：勝 ${fmt(w)}／敗 ${fmt(l)}${fl?'／逃跑或中斷 '+fmt(fl):''}<br>勝率 ${pc(w,n)}　平均每場 ${(g('rn')/Math.max(1,n)).toFixed(1)} 回合　最長一戰 ${fmt(g('mr'))} 回合<br>目前連勝 ${fmt(P.st||0)}　最高連勝 ${fmt(P.bs||0)}`),
+dm=cd('⚔️ 輸出與承受',`造成傷害 ${fmt(g('dd'))}　承受傷害 ${fmt(g('dt'))}<br>技能治療 ${fmt(g('hl'))}　最高單次傷害 ${fmt(g('mh'))}<br>暴擊率 ${pc(g('cr'),g('ph'))}（${fmt(g('cr'))}／${fmt(g('ph'))} 次攻擊）`),
+tr=Object.keys(TRN).map(k=>TRN[k][0]+TRN[k][1]+' '+fmt(g('t_'+k))).join('　'),
+mc=cd('🎯 弱點・護盾・特性',`弱點：對有弱點的怪出手 ${fmt(g('wt'))} 次，觸發弱點加成 ${fmt(g('wk'))} 次（${pc(g('wk'),g('wt'))}）<br>護盾：遇到有盾的怪 ${fmt(g('sh'))} 隻，對有盾怪出手 ${fmt(g('sa'))} 次，破盾 ${fmt(g('sb'))} 次（${pc(g('sb'),g('sa'))}）<br>特性：${tr}`),
+rows=[...AR,DMA].map((a,i)=>{const x=g('aw'+i),y=g('al'+i),t=x+y;return t?`<div style="margin:6px 0"><span>${a.e} ${a.n}</span><span style="float:right">${x}勝 ${y}敗　${pc(x,t)}</span><div style="height:5px;margin-top:3px;background:rgba(255,255,255,.12);border-radius:3px"><div style="height:100%;width:${Math.round(x/t*100)}%;background:var(--ac);border-radius:3px"></div></div></div>`:''}).join(''),
+az=cd('🗺️ 各區勝率',rows||'還沒有紀錄。');
+return ov+dm+az+mc+`<button style="color:var(--hp)" onclick="bzX()">清除統計</button>`}
+function bzX(){cfm('清除戰鬥統計？','只會清除「統計」分頁的數字，不影響進度、成就與每日任務。','bzD()','qv()')}
+function bzD(){P.bst={};save();qv()}
 function qv(){dqEns();let h='';
 if(qTab=='d')h=P.dq.q.map((x,i)=>`<div class=c style="text-align:left"><b>${dqTx(x)}</b><br><small>進度 ${fmt(x.c)}/${fmt(x.t)}　獎勵 💰${fmt(x.g)} 💎${x.cr}</small><div class=row>${x.k=='r'&&
 x.c<x.t&&rdOk()?'<button onclick="rd0()">前往挑戰</button>':''}<button ${x.c>=x.t&&!x.r?'class=p':'disabled'} onclick="dqGet(${i})">${x.r?
-'已領取':'領取'}</button></div></div>`).join('')+`<div class=c><small>每日任務每天重置；全部領取後額外 💎10。累計全部完成 ${ctv('a')} 天。${P.best<100?'<br>通關魔王城後會多一項「次元魔王討伐」任務。':
+'已領取':'領取'}</button></div></div>`).join('')+`<div class=c><small>每日任務每天重置；全部領取後額外 💎10。累計全部完成 ${ctv('a')} 天。<br>任務指定的怪物，等級會依你的最高層數自動調整。${P.best<100?'<br>通關魔王城後會多一項「次元魔王討伐」任務。':
 ''}</small></div>`;
 else if(qTab=='a'){const L=ACL.map(a=>{const T0=acT(a),v=Math.min(acV(a),T0),ok=acOk(a),inf=acI(a)&&!acDn(a),got=!inf&&acN(a)>0;return{a,v,T0,ok,got,inf,g:acG(a),o:got?2:ok?0:1}}).sort((x,y)=>x.o-y.o),nb=L.filter(x=>x.ok).length;
 h=`<div class=c style="text-align:left"><b>🏅 成就點數 ${acP()}</b>${qMsg?'<br><small>'+qMsg+'</small>':''}<br><small>每領取一個成就（可無限成長的成就每一階都算）+1 點。標有 ∞ 的成就領完會自動出現下一階，目標與獎勵逐階遞增。</small>${nb>1?
@@ -751,10 +857,11 @@ h=`<div class=c style="text-align:left"><b>🏅 成就點數 ${acP()}</b>${qMsg?
 ';opacity:.6':''}"><b>${got?'🏅':'🎖️'} ${acNm(a)}</b>${inf?' <small style="color:var(--ac2)">∞</small>':''} <small>${acD(a)}</small><br><small>進度 ${fmt(v)}/${fmt(T0)}　獎勵 💰${fmt(g[0])}${g[1]?
 ' 💎'+g[1]:''}</small><button style="margin-top:4px" ${ok&&!got?'class=p':'disabled'} onclick="acGet('${a[0]}')">${got?'已領取':ok?'領取':
 '未達成'}</button></div>`).join('');qMsg=''}
+else if(qTab=='z')h=bzV();
 else{const sec=(n,e,l)=>{const k=l.filter(x=>P.cx[x.n]>0).length;return`<h3>${e} ${n} <small>(${k}/${l.length})</small></h3><div class=g2>${l.map(x=>{const c=P.cx[x.n]||
 0;return`<div class=c><div class=big>${c?x.e:'❓'}</div><small>${c?x.n+'<br>擊敗 '+fmt(c):'？？？'}</small></div>`}).join('')}</div>`};
 h=`<div class=c><small>已收集 ${cxN()}/${cxT()} 種（擊敗怪物即登錄）</small></div>`+AR.map(a=>sec(a.n,a.e,[a.b,...a.sp])).join('')+sec('次元裂隙','🌀',RDS)}
-V(`<h3>📜 每日・成就・圖鑑</h3><div class=row>${[['d','每日'],['a','成就'],['c','圖鑑']].map(([k,n])=>`<button ${k==qTab?'class=p':''} onclick="qT('${k}')">${n}</button>`).join('')}</div><div class=sc>${h}</div><button onclick="town()">返回</button>`)}
+V(`<h3>📜 每日・成就・圖鑑・統計</h3><div class=row>${[['d','每日'],['a','成就'],['c','圖鑑'],['z','統計']].map(([k,n])=>`<button ${k==qTab?'class=p':''} onclick="qT('${k}')">${n}</button>`).join('')}</div><div class=sc>${h}</div><button onclick="town()">返回</button>`)}
 // ■■■ [S12] 存檔管理頁：匯出入、備份、清除 ■■■
 function sv(m=''){const b=gb();V(`<h3>💾 存檔管理</h3><div class=c style="text-align:left"><small>進度只存在這個瀏覽器裡，清除網站資料就會消失，建議定期匯出備份。${G.sf?
 '<br><b style="color:var(--hp)">⚠️ 目前無法寫入瀏覽器存檔！請立刻匯出備份。</b>':''}${m}</small></div><div class=sc><button class=p onclick="ex()">匯出存檔（複製存檔碼）</button><button onclick="im()">匯入存檔（貼上存檔碼）</button>${b?
