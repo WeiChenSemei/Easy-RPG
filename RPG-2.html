@@ -77,6 +77,7 @@ small{color:var(--mu);font-size:12px}
 //  [S05] 裝備資料：品質、詞條、套裝、神話武器、mkItem
 //  [S06] 裝備背包、管理、批次分解、鍛造、鎖定、整備（最佳裝備／預設組）
 //  [S07] 酒館：道具店、存款、賣出頁、招募
+//  [S07A] 聖物系統（魔石合成、分解、全隊加成）
 //  [S08] 戰鬥系統：敵人生成、狀態、弱點與護盾、戰鬥統計收集、畫面與特效、AI、行動、結算
 //  [S09] 存檔系統：版本、自動修復、遷移
 //  [S10] 出發頁、次元魔境、次元魔王討伐
@@ -100,7 +101,9 @@ SHL=90,SHP=.25,SHB=.5,SHF=[0,1,.8,.6,.4,.2],SHD=.5,
 // 特性：TRL 怪物等級門檻；TRP／TRB 一般怪／BOSS 出現機率；TRH 硬化後的傷害倍率；TRF 反傷比例；TRG 再生每回合回復比例（占最大 HP）
 TRL=100,TRP=.25,TRB=.5,TRH=.6,TRF=.15,TRG=.05,
 // 每日任務：DQM 獎勵倍率；DQC 魔石倍率；DQRP 裝備品質機率（普通／精良／稀有／傳說）；DQSP 裝備部位機率（武器／防具／飾品）
-DQM={m:1,o:1.5,u:1,t:1.5,e:1,r:3},DQC={m:1,o:2,u:1,t:2,e:1,r:5},DQRP=[.4,.29,.12,.18],DQSP={w:.4,a:.41,x:.2};
+DQM={m:1,o:1.5,u:1,t:1.5,e:1,r:3},DQC={m:1,o:2,u:1,t:2,e:1,r:5},DQRP=[.4,.29,.12,.18],DQSP={w:.4,a:.41,x:.2},
+// 聖物：RLB 合成基礎價（💎）；RLK 每多擁有 1 顆，價格再加 RLB×RLK；RLM 每種聖物數量上限；RLR 分解返還比例（按該顆當初價格）；RLC 數量上限的基數（上限＝RLC＋成就點數）
+RLB=80,RLK=.35,RLM=10,RLR=.25,RLC=5;
 // ■■■ [S01] 資料表與常數：職業樹、技能、區域與怪物 ■■■
 const B0=[30,5,5,3,5],LG=[2,1,1,.6,.8],K=['hp','atk','mag','def','spd'],LV=80,
 NM=['艾倫','莉娜','洛克','米菈','卡爾','諾亞','蕾雅','凱恩','索菲','泰爾','瑪麗','溫蒂'],
@@ -177,7 +180,7 @@ for(const id in u.jl)T[id].g.forEach((v,i)=>S[i]+=v*u.jl[id]*(i?1:2.2));
 use.forEach(id=>T[id].ps.forEach(o=>{if(u.jl[id]>=o.l)ps[o.p]+=o.v}));const fc={};Object.values(u.eq||{}).forEach(it=>{if(it){ist(it).forEach((v,
 i)=>S[i]+=v);iaf(it).forEach(([k,v])=>ps[k]+=v);if(it.fm>=0)fc[it.fm]=(fc[it.fm]||0)+1}});for(const f in fc)[2,3].forEach((c,i)=>{if(fc[f]>=c)SETB[f][i].forEach(([k,
 v])=>ps[k]+=v)});
-ps.dodge=Math.min(.5,ps.dodge);ps.dr=Math.min(.6,ps.dr);ps.crit=Math.min(.8,ps.crit);S[0]*=1+ps.hp+ps.all;S[1]*=1+ps.off+ps.atk+ps.all;S[2]*=1+ps.off+ps.mag+ps.all;S[3]*=1+ps.def+ps.all;S[4]*=1+ps.spd+ps.all;if(u.main&&
+if(!u.en&&P&&P.rl)rlA(ps);ps.dodge=Math.min(.5,ps.dodge);ps.dr=Math.min(.6,ps.dr);ps.crit=Math.min(.8,ps.crit);S[0]*=1+ps.hp+ps.all;S[1]*=1+ps.off+ps.atk+ps.all;S[2]*=1+ps.off+ps.mag+ps.all;S[3]*=1+ps.def+ps.all;S[4]*=1+ps.spd+ps.all;if(u.main&&
 !u.en)mbs(u.main).forEach(([i,p])=>S[i]*=1+p);u.S=S;u.ps=ps;const sks=use.flatMap(id=>T[id].ks.map((o,i)=>u.jl[id]>=o.l?id+':'+i:0).filter(Boolean)),
 seen=new Set();u.sk=['atk',...sks.filter(id=>!seen.has(SK[id][0])&&seen.add(SK[id][0]))];if(u.hp>mx(u))u.hp=mx(u);if(u.mp>mm(u))u.mp=mm(u)}
 const mk=(lv,nm,sp)=>{const u={id:uid++,nm,lv,xp:0,pts:lv,jl:{},main:null,subs:[],bf:{},ef:{}};if(sp){u.m=sp.m;u.em=sp.e;u.en=1}recalc(u);u.hp=mx(u);u.mp=mm(u);return u};
@@ -202,7 +205,7 @@ V(`<h2 class=ttl>⚔️ 百職戰紀 ⚔️</h2><div class=c>💰 ${P.g}　💎 
 (()=>{const m=G.rdm;G.rdm='';return m+'<br>'})():''}${G.sf?'⚠️ 瀏覽器無法儲存進度，請到「存檔管理」匯出備份。':''}${G.sf&&P.u.some(u=>u.pts)?'<br>':''}${P.u.some(u=>u.pts)?
 '🔸 有未分配的職業點數，請到「隊伍・職業」分配。':''}</small></div>`:''}${canRb()?`<button ${P.g<rbCost()?'disabled':''} style="border-color:var(--ac)" onclick="rb()">✨ 轉生（💰${rbCost()}）</button>`:
 ''}${P.best>=10?`<button onclick="sp()">📍 出發：第 ${(P.sf||0)+1} 層 ${sa(P.sf||0).e}${sa(P.sf||0).n}</button>`:''}<div class=row><button class=p onclick="fight()">出戰</button>${P.best>=100?
-`<button onclick="rd0()" style="border-color:#a35fe0">🌀 次元魔王討伐${rdOk()?'':'（已挑戰）'}</button>`:''}</div><div class=row><button onclick="pv()">隊伍・職業</button><button onclick="tv()">酒館</button><button onclick="eqv()">裝備</button></div><div class=row><button style="flex:2" onclick="qv()">📜 每日・成就・圖鑑・統計${qBad()?
+`<button onclick="rd0()" style="border-color:#a35fe0">🌀 次元魔王討伐${rdOk()?'':'（已挑戰）'}</button>`:''}</div><div class=row><button onclick="pv()">隊伍</button><button onclick="tv()">酒館</button><button onclick="eqv()">裝備</button><button onclick="rlo()">💠 聖物</button></div><div class=row><button style="flex:2" onclick="qv()">📜 每日・成就・圖鑑・統計${qBad()?
 ` <b style="color:var(--ac2)">●${qBad()}</b>`:''}</button><button onclick="sv()">💾 存檔${G.sf?' ⚠️':''}</button></div>`)}
 function pv(){V(`<h3>隊伍 <small>(${P.u.length}/4)</small></h3><div class=sc><div class=g2>${P.u.map((u,i)=>card(u,'','onclick=ud('+i+')',1)).join('')}</div><h3>後備 <small>(${P.rs.length}/${rcap()})</small></h3>${P.rs.map((u,
 i)=>`<div class=c style="text-align:left" onclick="rv(${i})">${emo(u)} <b>${u.nm}</b> Lv${u.lv} ${jn(u)}<span style="float:right">換人 ›</span></div>`).join('')||
@@ -254,7 +257,15 @@ function dcx(u,id){const n=T[id],l=u.jl[id]||0;if(l<1)return'還沒配點';const
 function dec(id){const u=P.u[U.i],n=T[id];if(dcx(u,id))return rt();u.jl[id]--;u.pts++;if(u.jl[id]<=0){delete u.jl[id];u.subs=u.subs.filter(x=>x!=id);if(u.main==id){const pa=n.t>1&&
 (u.jl[n.par]||0)>0?n.par:null;u.main=pa;if(pa)u.subs=u.subs.filter(x=>x!=pa)}}recalc(u);save();rt()}
 function inv(id){const u=P.u[U.i],n=T[id];if(u.pts>0&&!lk(u,n)&&!xl(u,n)&&(u.jl[id]||0)<em(u,n)){u.jl[id]=(u.jl[id]||0)+1;u.pts--;if(!u.main)u.main=id;recalc(u);save()}rt()}
-function sm(id){const u=P.u[U.i];u.main=u.main==id?null:id;u.subs=u.subs.filter(x=>x!=u.main);recalc(u);save();rt()}
+// 設定主職：新主職若原本是副職，原主職換到它的位置；若不是副職，原主職補進空的副職格（格子滿了就不補，並提示）。再點一次目前主職＝取消主職
+function sm(id){const u=P.u[U.i],o=u.main;
+if(o==id)u.main=null;
+else{u.main=id;const i=u.subs.indexOf(id);
+if(i>=0){if(o){u.subs[i]=o;tstm('🔁 原主職「'+T[o].n+'」已轉為副職')}else u.subs.splice(i,1)}
+else if(o){if(u.subs.length<slots(u)){u.subs.push(o);tstm('🔁 原主職「'+T[o].n+'」已轉為副職')}else tstm('⚠️ 副職格已滿，原主職「'+T[o].n+'」沒有轉成副職')}}
+recalc(u);save();rt()}
+// 浮動提示（約 2.5 秒後消失）；掛在 body 上，換畫面也不會被清掉
+function tstm(t){const d=document.createElement('div');d.textContent=t;d.style.cssText='position:fixed;left:50%;top:12%;transform:translateX(-50%);max-width:86%;padding:8px 14px;border-radius:10px;background:rgba(0,0,0,.88);color:#fff;font-size:13px;text-align:center;z-index:99;pointer-events:none';document.body.appendChild(d);setTimeout(()=>d.remove(),2500)}
 function ss(id){const u=P.u[U.i];u.subs=u.subs.includes(id)?u.subs.filter(x=>x!=id):[...u.subs,id];recalc(u);save();rt()}
 function resetPts(u){u.jl={};u.main=null;u.subs=[];u.pts=u.lv+(u.rb||0);recalc(u)}
 const canRb=()=>P.u.length>=4&&P.u.every(u=>u.lv>=LV),rbCost=()=>2500*P.u.reduce((a,u)=>a+(u.rb||0)+1,0);
@@ -510,6 +521,27 @@ function btv(m=''){const q=btEns(),sm='min-height:0;padding:6px 8px;font-size:13
 V(`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px"><b style="color:var(--ac)">📜 懸賞板</b><small>已完成 ${ctv('h')} 場</small></div>${m?`<div class=c><small>${m}</small></div>`:''}<div class=sc style="gap:4px">${q.map((b,i)=>{const ok=b.c>=b.t;return `<div class=c style="text-align:left;padding:6px 8px;display:flex;align-items:center;gap:6px"><div style="flex:1;min-width:0"><b>${btTx(b)}</b><br><small>進度 ${b.c}/${b.t}　獎勵 ${btRw(b.w)}</small></div><div style="display:flex;gap:4px;flex:none"><button style="${sm}" onclick="btDrop(${i})">放棄</button><button style="${sm}" ${ok?'class=p':'disabled'} onclick="btGet(${i})">${ok?'領取':'進行中'}</button></div></div>`}).join('')}<div class=c><small>懸賞板清空後，下次進來會出新的一批（1～5 件）。完成的懸賞會累計到成就「賞金獵人」。指定的怪物，等級會依你的最高層數自動調整。</small></div></div><button style="min-height:40px" onclick="tv()">返回酒館</button>`)}
 function rc(){const c=rcost();if(P.g<c||(P.u.length>=4&&P.rs.length>=rcap()))return;P.g-=c;const n=pick(NM.filter(x=>![...P.u,...P.rs].some(u=>u.nm==x)))||
 '隊員'+uid,u=mk(Math.max(1,avg()-2),n);u.rb=0;(P.u.length<4?P.u:P.rs).push(u);save();tv(n+(P.u.includes(u)?' 加入了隊伍！':' 進入後備！')+'<br>')}
+// ■■■ [S07A] 聖物系統：魔石💎隨機合成、分解、全隊加成 ■■■
+// 聖物＝每顆提升全隊一項能力（加進 recalc 的詞條 ps，和裝備詞條同一條路：爆擊／閃避／減傷的上限照舊，只套用玩家）。資料 P.rl＝{詞條:數量}
+// 數量上限＝RLC＋成就點數，每種最多 RLM 顆；合成價與分解返還見 S01A 的 RLB／RLK／RLR
+// RLT：[詞條, 圖示, 名稱, 每顆效果, 能力名]（regen 的 +.025＝每回合回魔 +1）
+const RLT=[['atk','⚔️','破軍之刃',.015,'攻擊'],['mag','🔮','星辰魔晶',.015,'魔力'],['off','💠','雙極寶玉',.012,'攻擊與魔力'],['def','🛡️','磐石之盾',.015,'防禦'],['spd','🪽','疾風之羽',.015,'速度'],['hp','❤️','生命聖杯',.015,'生命'],
+['crit','🎯','鷹眼寶石',.008,'爆擊率'],['leech','🩸','吸血寶石',.005,'吸血'],['regen','💧','靈泉聖瓶',.025,'每回合回魔'],['dodge','🌫️','幻影披風',.006,'閃避率'],['dr','🧿','守護護符',.006,'受傷減免'],['all','🌈','萬象寶珠',.009,'全能力']],
+RLV=Object.fromEntries(RLT.map(r=>[r[0],r[3]])),RLX={crit:.8,dodge:.5,dr:.6},
+rlA=ps=>{const r=P.rl;for(const k in r)if(RLV[k])ps[k]+=r[k]*RLV[k]},
+rlN=()=>Object.values(P.rl||{}).reduce((a,b)=>a+b,0),rlCap=()=>RLC+acP(),
+rlPrice=m=>Math.round(RLB*(1+RLK*m)),rlPx=()=>rlPrice(rlN()),rlRf=()=>Math.floor(rlPrice(Math.max(0,rlN()-1))*RLR),
+// 可抽到的種類：沒滿 RLM 顆，且（爆擊／閃避／減傷）不是全隊都已達上限
+rlEl=()=>RLT.filter(r=>(P.rl[r[0]]||0)<RLM&&!(RLX[r[0]]&&P.u.every(u=>u.ps[r[0]]>=RLX[r[0]]))),
+rlV=(r,n)=>r[0]=='regen'?'+'+Math.round(r[3]*40*n*10)/10:'+'+Math.round(r[3]*n*1000)/10+'%';
+function rlo(){G.rlm='';rlv()}
+function rlG(){const n=rlN(),px=rlPx(),el=rlEl();if(n>=rlCap()||(P.cr||0)<px||!el.length)return rlv();
+const r=pick(el);P.cr-=px;P.rl[r[0]]=(P.rl[r[0]]||0)+1;acU().forEach(recalc);G.rlm='🎲 獲得 '+r[1]+r[2]+'！全隊'+r[4]+' '+rlV(r,1)+'（已有 ×'+P.rl[r[0]]+'，花費 💎'+px+'）';save();rlv()}
+function rlD(k){const r=RLT.find(x=>x[0]==k);if(!r||!(P.rl[k]>0))return rlv();cfm('分解 '+r[1]+r[2]+'？','分解 1 顆，返還 💎'+rlRf()+'。全隊'+r[4]+'的加成會減少 '+rlV(r,1).replace('+','')+'。',"rlD2('"+k+"')",'rlv()')}
+function rlD2(k){const r=RLT.find(x=>x[0]==k);if(!r||!(P.rl[k]>0))return rlv();const g=rlRf();P.rl[k]--;if(!P.rl[k])delete P.rl[k];P.cr=(P.cr||0)+g;acU().forEach(recalc);G.rlm='♻️ 分解了 '+r[1]+r[2]+'，返還 💎'+g;save();rlv()}
+function rlv(){if(!P.rl)P.rl={};const n=rlN(),cap=rlCap(),px=rlPx(),el=rlEl(),cr=P.cr||0,why=n>=cap?'已達上限（領取成就可提高）':!el.length?'沒有可合成的種類':cr<px?'魔石不足':'',
+rows=RLT.map(r=>{const c=P.rl[r[0]]||0;return `<div class=c style="text-align:left;padding:5px 8px;display:flex;align-items:center;gap:6px${c?'':';opacity:.55'}"><div style="flex:1;min-width:0"><b>${r[1]} ${r[2]}</b> <small>×${c}／${RLM}</small><br><small>全隊${r[4]} ${rlV(r,1)}／顆${c?'　合計 <b>'+rlV(r,c)+'</b>':''}</small></div><button style="min-height:0;padding:6px 10px;font-size:13px;line-height:1.2;border-radius:8px;flex:none" ${c?'':'disabled'} onclick="rlD('${r[0]}')">分解</button></div>`}).join('');
+V(`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px"><b style="color:var(--ac)">💠 聖物</b><small>${n}／${cap} 顆　💎${fmt(cr)}</small></div><div class=sc style="gap:6px"><button style="min-height:46px" ${why?'disabled':''} onclick="rlG()">🎲 合成聖物（💎${fmt(px)}）<br><small>${why||'隨機獲得 1 顆，全隊生效'}</small></button>${G.rlm?`<div class=c style="text-align:left;padding:5px 8px"><small>${G.rlm}</small></div>`:''}${rows}<small style="opacity:.65;padding:0 2px">上限＝${RLC}＋成就點數（目前 ${acP()}，領取成就可提高）；每種最多 ${RLM} 顆。合成價隨擁有數增加；分解返還該顆價格的 ${Math.round(RLR*100)}%。全隊爆擊、閃避、減傷已達上限時，不會再抽到該種。</small></div><button onclick="town()">返回</button>`)}
 // ■■■ [S08] 戰鬥系統：敵人生成、狀態、弱點與護盾、畫面與特效、AI、行動、結算 ■■■
 // 敵人生成：等級跟隨隊伍平均等級；階級、職業路線與玩家使用同一套規則
 // 被每日任務或懸賞指定的怪物（進行中）：出現時等級至少跟最高層數的等級一樣（避免低區域的怪物太弱）；區域型懸賞則整個區域的怪物都算
@@ -688,6 +720,7 @@ P.g=ck(P.g,'金幣');P.cr=ck(P.cr,'魔石');
 Object.keys(IT).forEach(k=>{P.it[k]=ck(P.it[k],'道具數量')});
 ['ct','ac'].forEach(k=>Object.keys(P[k]).forEach(id=>{const v=P[k][id];if(typeof v=='number'&&!(isFinite(v)&&v>=0)){P[k][id]=0;note('成就／統計')}}));
 Object.keys(P.bst).forEach(k=>{const v=P.bst[k];if(typeof v!='number'||!(isFinite(v)&&v>=0)){P.bst[k]=0;note('戰鬥統計')}});
+Object.keys(P.rl).forEach(k=>{const v=P.rl[k];if(!RLV[k]||!Number.isInteger(v)||v<=0||v>RLM){if(RLV[k]&&Number.isInteger(v)&&v>RLM)P.rl[k]=RLM;else delete P.rl[k];note('聖物')}});
 const okI=it=>it&&typeof it=='object'&&['w','a','x'].includes(it.sl)&&Array.isArray(it.st)&&it.st.length>=5&&it.st.every(Number.isFinite),
 fixI=it=>{const l=Math.floor(+it.lv),r=Math.floor(+it.r);if(!(l>=1)||!(r>=0&&r<=4)||!Array.isArray(it.af))note('裝備資料');it.lv=l>=1?Math.min(LV,l):1;it.r=r>=0&&r<=4?r:0;it.up=ck(it.up,'裝備資料');if(!Array.isArray(it.af))it.af=[]};
 const us=[...P.u,...P.rs];
@@ -706,7 +739,7 @@ P.g=+P.g||0;P.cr=+P.cr||0;P.w=+P.w||0;P.best=+P.best||0;P.bs=+P.bs||0;P.st=+P.st
 0)>=100&&P.best>=100?Math.min(Math.floor(+P.sf),P.best):Math.min(Math.floor(Math.min(+P.sf||0,99)/10)*10,Math.floor(Math.min(P.best,
 99)/10)*10);P.bnk={g:Math.max(0,Math.floor(+(P.bnk&&P.bnk.g)||0)),cr:Math.max(0,Math.floor(+(P.bnk&&P.bnk.cr)||0))};if(!P.it)P.it={hp:
 3,mp:2,rv:1,cl:2};if(P.it.cl===undefined)P.it.cl=2;if(P.it.an===undefined)P.it.an=0;if(!P.inv)P.inv=[];if(!P.rs)P.rs=[];for(const k of ["ct",
-"ac","cx","bst","ep"])if(!P[k]||typeof P[k]!="object"||Array.isArray(P[k]))P[k]={};
+"ac","cx","bst","ep","rl"])if(!P[k]||typeof P[k]!="object"||Array.isArray(P[k]))P[k]={};
 // v7：舊「五階之道」每 1 級一階 → 新「五階大師」每 25 級一階（舊領取階數 ÷25 無條件捨去）；已用舊旗標 P.aj 換算過的存檔不再換算
 if((P.v||0)<7){if(!P.aj)P.ac.j1=Math.floor((+P.ac.j1||0)/25);delete P.aj}while(P.u.length>4)P.rs.push(P.u.pop());
 const all=()=>[...P.u,...P.rs],R0=P.rb||0;
