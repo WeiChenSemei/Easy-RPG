@@ -308,6 +308,10 @@ button{color:inherit;cursor:pointer;touch-action:manipulation}
 .story-journal ol{padding-left:18px;margin:0;display:grid;gap:7px}
 .story-journal li{color:#d5deea;font-size:9px;line-height:1.5}
 .story-journal small{display:block;color:#8f9daf;font-size:8px;margin-top:2px}
+@media(max-width:700px){.story-journal h3{font-size:13px;line-height:1.5}.story-journal li{font-size:12px;line-height:1.6}.story-journal small{font-size:11px;line-height:1.55}}
+.save-tools{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+.save-tools button{flex:1;min-width:120px;min-height:38px;padding:8px;border:1px solid #e8c88655;border-radius:7px;background:#e8c88612;color:#efdba9;font-size:10px}
+.save-tools button:disabled{opacity:.45;cursor:not-allowed}
 .footer-note{text-align:center;color:#647286;font-size:9px;margin:13px auto 0}
 .start-screen{position:fixed;inset:0;z-index:10;background:#0a101bd9;backdrop-filter:blur(9px);display:grid;place-items:center;padding:20px}
 .start-box{width:min(860px,100%);max-height:94vh;overflow:auto;border:1px solid #d7b87965;border-radius:18px;background:linear-gradient(145deg,#25354b,#172237 68%);box-shadow:0 28px 100px #000a;padding:25px}
@@ -431,6 +435,7 @@ summary::-webkit-details-marker{display:none}
       <div class="start-emblem">✦</div>
       <div class="start-title">星火編年史</div>
       <div class="start-sub">羈絆遠征版　｜　六位隊友專屬故事・戰鬥共鳴・羈絆結局</div>
+      <div style="margin-top:9px"><button id="importStartBtn" class="secondary-btn" style="min-height:36px;padding:7px 11px;font-size:11px">匯入存檔備份</button></div>
     </div>
     <div class="setup-row">
       <section>
@@ -493,6 +498,7 @@ summary::-webkit-details-marker{display:none}
   </div>
 </div>
 <div id="modalHost"></div>
+<input id="importSaveFile" type="file" accept=".json,application/json" style="display:none">
 <script>
 "use strict";
 
@@ -1093,7 +1099,7 @@ const COMPANION_ECHO_ENDINGS={lyra:["bond_lyra","starlit_vow"],borin:["bond_bori
 function createChronicleState(){return {runs:[],echoes:[],reunionEchoes:[],hiddenBossDefeats:[]}}
 function normalizeChronicleState(raw,endingHistory,story,complete){
   const c=Object.assign(createChronicleState(),raw||{}),byRun=new Map();
-  (Array.isArray(c.runs)?c.runs:[]).forEach(record=>{const run=Math.max(1,intValue(record&&record.run,1)),endingId=ENDINGS[record&&record.endingId]?record.endingId:null;if(!endingId)return;byRun.set(run,{run:run,endingId:endingId,alignment:record.alignment||"neutral",route:record.route||"",choices:Array.isArray(record.choices)?record.choices:[],hiddenBosses:Array.isArray(record.hiddenBosses)?record.hiddenBosses:[],legacy:!!record.legacy})});
+  (Array.isArray(c.runs)?c.runs:[]).forEach(record=>{const run=Math.max(1,intValue(record&&record.run,1)),endingId=ENDINGS[record&&record.endingId]?record.endingId:null;if(!endingId)return;byRun.set(run,{run:run,endingId:endingId,alignment:record.alignment||"neutral",route:record.route||"",choices:Array.isArray(record.choices)?record.choices.filter(choice=>choice&&typeof choice==="object"&&!Array.isArray(choice)):[],hiddenBosses:Array.isArray(record.hiddenBosses)?record.hiddenBosses:[],legacy:!!record.legacy})});
   (Array.isArray(endingHistory)?endingHistory:[]).forEach((record,index)=>{const run=Math.max(1,intValue(record&&record.run,index+1)),endingId=record&&record.endingId;if(!ENDINGS[endingId]||byRun.has(run))return;byRun.set(run,{run:run,endingId:endingId,alignment:"neutral",route:"",choices:[],hiddenBosses:[],legacy:true})});
   if(complete&&story&&ENDINGS[story.endingId]){const current=byRun.get(story.run);if(!current||!current.choices.length)byRun.set(story.run,{run:story.run,endingId:story.endingId,alignment:moralAlignment(story.morality),route:(story.flags||{}).routeDestination||"",choices:Array.isArray(story.choices)?story.choices:[],hiddenBosses:(story.flags||{}).chronicleBossDefeated?["chronicle_devourer"]:[],legacy:false})}
   c.runs=Array.from(byRun.values()).sort((a,b)=>b.run-a.run).slice(0,40);c.echoes=Array.from(new Set((Array.isArray(c.echoes)?c.echoes:[]).filter(id=>CHRONICLE_ECHOES.some(e=>e.id===id))));c.reunionEchoes=Array.from(new Set((Array.isArray(c.reunionEchoes)?c.reunionEchoes:[]).filter(id=>DB.companions[id])));c.hiddenBossDefeats=Array.isArray(c.hiddenBossDefeats)?c.hiddenBossDefeats.filter(x=>x&&x.id==="chronicle_devourer"):[];return c;
@@ -1107,7 +1113,7 @@ function chronicleRouteIndex(){
   const found=new Map(),add=(choice,run)=>{if(!choice)return;const key=[choice.region,choice.stage,choice.name].join("|"),entry=found.get(key)||{region:choice.region||"旅途",stage:choice.stage||"",name:choice.name||"未命名路線",note:choice.note||"",runs:[]};if(run&&!entry.runs.includes(run))entry.runs.push(run);if(!entry.note&&choice.note)entry.note=choice.note;found.set(key,entry)};
   (state.chronicle&&state.chronicle.runs||[]).forEach(record=>(record.choices||[]).forEach(choice=>add(choice,record.run)));(state.story&&state.story.choices||[]).forEach(choice=>add(choice,state.story.run));return Array.from(found.values()).sort((a,b)=>a.region.localeCompare(b.region,"zh-Hant")||a.stage.localeCompare(b.stage,"zh-Hant")||a.name.localeCompare(b.name,"zh-Hant"));
 }
-function companionEndingEcho(id){const endings=COMPANION_ECHO_ENDINGS[id]||["bond_"+id];return endings.find(ending=>state.endingHistory.some(record=>record.endingId===ending))||null}
+function companionEndingEcho(id){const endings=new Set(COMPANION_ECHO_ENDINGS[id]||["bond_"+id]),runs=(state.endingHistory||[]).slice().sort((a,b)=>intValue(b.run)-intValue(a.run));const recent=runs.find(record=>endings.has(record.endingId));return recent?recent.endingId:uniqueEndingIds().find(ending=>endings.has(ending))||null}
 function chronicleRouteChoices(region,stageIndex,stage){
   if(state.dungeonRun)return [];const seen=new Set(uniqueEndingIds()),choices=[];
   CHRONICLE_ECHOES.forEach(echo=>{if(echo.at.region!==region.id||echo.at.stage!==stageIndex||state.story.seen.includes("chronicle_echo_"+echo.id)||!echo.endings.some(id=>seen.has(id)))return;choices.push({name:"【編年迴響】"+echo.name,icon:echo.icon,desc:echo.desc,type:"treasure",event:echo.event,gain:echo.gain,onceId:"chronicle_echo_"+echo.id,chronicleEchoId:echo.id,storyNote:echo.note})});
@@ -1242,9 +1248,47 @@ const rand = n => Math.floor(Math.random()*n);
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const intValue=(value,fallback=0)=>{const n=Number(value);return Number.isFinite(n)?Math.round(n):fallback};
 expandSideQuestChoices();
+const ROUTE_CHOICE_TYPES=["battle","boss","event","recruit","rest","shop","treasure","sideQuestStart"];
+function inspectChoiceRecord(choice,path,issues){
+  if(!choice||typeof choice!=="object"||Array.isArray(choice)){issues.push(path+"：選項資料格式不完整");return}
+  if(!choice.name||typeof choice.name!=="string")issues.push(path+"：缺少選項名稱");
+  if(choice.type&&!ROUTE_CHOICE_TYPES.includes(choice.type))issues.push(path+"：未知選項類型「"+String(choice.type)+"」");
+  if((choice.type==="recruit"||choice.recruit)&&!DB.companions[choice.recruit])issues.push(path+"：找不到招募同伴「"+String(choice.recruit)+"」");
+  if(choice.gain&&(typeof choice.gain!=="object"||Array.isArray(choice.gain)))issues.push(path+"：獎勵資料格式不正確");
+  if(choice.gain&&choice.gain.item&&!isItemDataValid(choice.gain.item))issues.push(path+"：找不到完整獎勵道具資料「"+String(choice.gain.item)+"」");
+  if(choice.gain&&["gold","count"].some(key=>choice.gain[key]!==undefined&&(!Number.isFinite(Number(choice.gain[key]))||Number(choice.gain[key])<0)))issues.push(path+"：獎勵數量資料不正確");
+  if(choice.sideQuestId){const quest=SIDE_QUESTS.find(entry=>entry&&entry.id===choice.sideQuestId);if(!isSideQuestNodeValid(quest,choice.sideQuestNode))issues.push(path+"：支線節點不存在或不完整")}
+  if(choice.type==="sideQuestStart"&&!choice.sideQuestId)issues.push(path+"：支線入口缺少目標");
+  if(choice.type==="battle"||choice.type==="boss"){
+    if(choice.bossVariants!==undefined&&(!Array.isArray(choice.bossVariants)||!choice.bossVariants.length||choice.bossVariants.some(variant=>!variant||!Array.isArray(variant.enemies)||!variant.enemies.length)))issues.push(path+"：首領分歧資料不完整");
+    const pools=[];if(Array.isArray(choice.enemies))pools.push(choice.enemies);if(Array.isArray(choice.bossVariants))choice.bossVariants.forEach(variant=>pools.push(variant&&Array.isArray(variant.enemies)?variant.enemies:choice.enemies));
+    if(!pools.length||pools.some(pool=>!Array.isArray(pool)||!pool.length||pool.some(id=>!isMonsterDataValid(id))))issues.push(path+"：遭遇首領或怪物資料不完整");
+  }
+}
+function inspectCampaignData(){
+  const issues=[],regionIds=new Set();
+  (Array.isArray(DB.regions)?DB.regions:[]).forEach((region,regionIndex)=>{
+    if(!region||typeof region!=="object"){issues.push("區域 "+regionIndex+"：資料格式不完整");return}
+    const regionName=region.name||("區域 "+(regionIndex+1));
+    if(!region.id||regionIds.has(region.id))issues.push(regionName+"：區域識別碼缺漏或重複");if(region.id)regionIds.add(region.id);
+    if(!Array.isArray(region.stages)||!region.stages.length){issues.push(regionName+"：沒有關卡");return}
+    region.stages.forEach((stage,stageIndex)=>{const path=regionName+"・"+(stage&&stage.title||"第 "+(stageIndex+1)+" 關");if(!stage||!Array.isArray(stage.choices)||!stage.choices.length){issues.push(path+"：沒有路線選項");return}stage.choices.forEach((choice,index)=>inspectChoiceRecord(choice,path+"／選項 "+(index+1),issues))});
+  });
+  (Array.isArray(SIDE_QUESTS)?SIDE_QUESTS:[]).forEach(quest=>{const npc=quest&&quest.npc||"未命名 NPC";if(!quest||!Array.isArray(quest.nodes)||!quest.nodes.length){issues.push("NPC 支線「"+npc+"」：沒有劇情節點");return}(quest.nodes||[]).forEach((node,index)=>{const at=node&&node.at,region=at&&DB.regions.find(entry=>entry&&entry.id===at.region);if(!region||!Array.isArray(region.stages)||!region.stages[at.stage])issues.push("NPC 支線「"+npc+"」第 "+(index+1)+" 幕：關卡位置不存在");if(!node||!Array.isArray(node.options)||!node.options.length){issues.push("NPC 支線「"+npc+"」第 "+(index+1)+" 幕：沒有抉擇");return}(node.options||[]).forEach((choice,optionIndex)=>inspectChoiceRecord(choice,"NPC 支線「"+npc+"」／選項 "+(optionIndex+1),issues))})});
+  Object.keys(BOND_STORIES||{}).forEach(id=>{const story=BOND_STORIES[id];if(!story||!Array.isArray(story.nodes)||!story.nodes.length){issues.push("羈絆故事「"+id+"」：劇情節點資料不完整");return}(story.nodes||[]).forEach((node,index)=>{if(!node||!Array.isArray(node.options)||!node.options.length){issues.push("羈絆故事「"+(story.name||id)+"」第 "+(index+1)+" 幕：沒有選項");return}(node.options||[]).forEach(option=>{if(!option||!["justice","neutral","evil"].includes(option.alignment))issues.push("羈絆故事「"+(story.name||id)+"」：立場資料不完整")})})});
+  (Array.isArray(RANDOM_DUNGEONS)?RANDOM_DUNGEONS:[]).forEach(dungeon=>{if(!dungeon){issues.push("隨機地下城：資料格式不完整");return}const foes=Array.isArray(dungeon.foes)?dungeon.foes:[],bosses=Array.isArray(dungeon.bosses)?dungeon.bosses:[];[...foes,...bosses].forEach(id=>{if(!isMonsterDataValid(id))issues.push("隨機地下城「"+(dungeon.name||"未命名")+"」：找不到完整怪物資料「"+id+"」")});if(!foes.length||!bosses.length)issues.push("隨機地下城「"+(dungeon.name||"未命名")+"」：缺少遭遇配置")});
+  Object.keys(DB.jobs||{}).forEach(id=>{const job=DB.jobs[id];if(!job){issues.push("職業「"+id+"」：資料格式不完整");return}if(!Array.isArray(job.skills))issues.push("職業「"+(job.name||id)+"」：技能清單格式不正確");else job.skills.forEach(skill=>{if(!DB.skills[skill])issues.push("職業「"+(job.name||id)+"」：找不到技能「"+skill+"」")});if(job.requires!==undefined&&!Array.isArray(job.requires))issues.push("職業「"+(job.name||id)+"」：轉職條件格式不正確");else (job.requires||[]).forEach(req=>{if(!req||!DB.jobs[req.job]||!Number.isFinite(Number(req.ap))||Number(req.ap)<0)issues.push("職業「"+(job.name||id)+"」：轉職條件資料不完整")})});
+  (Array.isArray(CHRONICLE_ECHOES)?CHRONICLE_ECHOES:[]).forEach(echo=>{if(!echo){issues.push("周目迴響：資料格式不完整");return}const at=echo.at,region=at&&DB.regions.find(entry=>entry&&entry.id===at.region);if(!region||!Array.isArray(region.stages)||!region.stages[at.stage])issues.push("周目迴響「"+(echo.name||"未命名")+"」：出現位置不存在");if(echo.endings!==undefined&&!Array.isArray(echo.endings))issues.push("周目迴響「"+(echo.name||"未命名")+"」：結局清單格式不正確");else (echo.endings||[]).forEach(id=>{if(!ENDINGS[id])issues.push("周目迴響「"+(echo.name||"未命名")+"」：解鎖結局不存在")});if(echo.gain&&echo.gain.item&&!isItemDataValid(echo.gain.item))issues.push("周目迴響「"+(echo.name||"未命名")+"」：獎勵道具不存在或不完整")});
+  (Array.isArray(CONTRACTS)?CONTRACTS:[]).forEach(contract=>{const label="遠征委託「"+(contract&&contract.name||"未命名")+"」";if(!contract||!Number.isFinite(Number(contract.goal))||Number(contract.goal)<=0||!contract.reward){issues.push(label+"：目標或獎勵資料不完整");return}if(!["wins","gearedMembers","postgameBosses"].includes(contract.counter))issues.push(label+"：進度追蹤資料不正確");if(!isItemDataValid(contract.reward.item))issues.push(label+"：獎勵道具不存在或不完整");["gold","xp","ap","count"].forEach(key=>{if(!Number.isFinite(Number(contract.reward[key]))||Number(contract.reward[key])<0)issues.push(label+"：獎勵數值不正確")})});
+  Object.keys(DB.items||{}).forEach(id=>{if(!isItemDataValid(id))issues.push("道具「"+id+"」：名稱、圖示、說明或價格資料不完整")});
+  Object.keys(DB.monsters||{}).forEach(id=>{if(!isMonsterDataValid(id))issues.push("怪物「"+id+"」：戰鬥數值或顯示資料不完整")});
+  return issues.length>80?issues.slice(0,80).concat(["其餘資料異常未展開，總數超過 80 項"]):issues;
+}
+const CAMPAIGN_DATA_ISSUES=inspectCampaignData();
 const fmtInt=value=>intValue(value).toLocaleString("zh-Hant");
 let state=null, selectedRace="human", selectedJob="vanguard", activeTab="jobs", autoTimer=null, selectedGearMember="hero", selectedJobMember="hero";
-const SAVE_KEY="starfireChronicles_v1";
+const SAVE_KEY="starfireChronicles_v1",SAVE_BACKUP_FORMAT="starfire-chronicles-save",SAVE_BACKUP_VERSION=1;
+let pendingImportedSave=null;
 const xpToNext = level => 45 + (level-1)*32;
 const apRank = ap => ap>=240?5:ap>=145?4:ap>=75?3:ap>=30?2:1;
 const apNext = ap => [30,75,145,240].find(x=>ap<x)||240;
@@ -1297,6 +1341,39 @@ function saveGame(show){
 function restoreGame(){
   try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)return null;const s=JSON.parse(raw);return s&&s.party&&s.party.length?s:null}catch(e){return null}
 }
+function saveBackupFile(){
+  if(!state)return;saveGame();const backupState=JSON.parse(JSON.stringify(state,(key,value)=>typeof value==="string"?value.replace(/[<>]/g,""):value)),payload={format:SAVE_BACKUP_FORMAT,formatVersion:SAVE_BACKUP_VERSION,exportedAt:new Date().toISOString(),save:backupState},blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),link=document.createElement("a"),run=fmtInt(state.story.run||1);
+  link.href=url;link.download="星火編年史-第"+run+"輪-存檔.json";document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1200);addLog("已下載第 "+run+" 輪存檔備份。請將 JSON 檔保存在安全的位置。");
+}
+function validateSaveBackup(payload){
+  if(!payload||typeof payload!=="object"||payload.format!==SAVE_BACKUP_FORMAT||Number(payload.formatVersion)!==SAVE_BACKUP_VERSION)throw new Error("format");
+  const s=payload.save;if(!s||typeof s!=="object"||Array.isArray(s)||!Array.isArray(s.party)||s.party.length<1||s.party.length>3||!s.story||typeof s.story!=="object"||Array.isArray(s.story)||(s.campaignVersion!=null&&(!Number.isFinite(Number(s.campaignVersion))||Number(s.campaignVersion)>10)))throw new Error("shape");
+  if(!Number.isFinite(Number(s.region))||!Number.isFinite(Number(s.stage))||!Number.isFinite(Number(s.story.run)))throw new Error("progress");
+  const ids=new Set(),characters=[...s.party,...(Array.isArray(s.reserve)?s.reserve:[])];
+  if(characters.length>12)throw new Error("party");
+  characters.forEach(member=>{if(!member||typeof member!=="object"||typeof member.id!=="string"||!/^[a-zA-Z0-9_-]{1,40}$/.test(member.id)||!(member.id==="hero"||DB.companions[member.id])||ids.has(member.id)||typeof member.name!=="string"||!member.name.length||member.name.length>32||!DB.races[member.race]||!DB.jobs[member.mainJob]||!Number.isFinite(Number(member.level)))throw new Error("member");ids.add(member.id)});
+  if(s.encounter&&(!Array.isArray(s.encounter.enemies)||!s.encounter.enemies.length||s.encounter.enemies.length>10||s.encounter.enemies.some(enemy=>!enemy||!DB.monsters[enemy.template])))throw new Error("battle");
+  if(s.dungeonRun&&(!Array.isArray(s.dungeonRun.stages)||!s.dungeonRun.stages.length||s.dungeonRun.stages.some(stage=>!stage||typeof stage!=="object")))throw new Error("dungeon");
+  const stack=[{value:payload,depth:0}];let visited=0;
+  while(stack.length){const current=stack.pop(),value=current.value;if(++visited>50000||current.depth>32)throw new Error("size");if(typeof value==="string"&&/[<>]/.test(value))throw new Error("text");if(!value||typeof value!=="object")continue;Object.keys(value).forEach(key=>{if(key==="__proto__"||key==="prototype"||key==="constructor"||/[<>]/.test(key))throw new Error("key");stack.push({value:value[key],depth:current.depth+1})})}
+  return s;
+}
+function showImportError(){
+  pendingImportedSave=null;$("modalHost").innerHTML='<div class="modal-back"><div class="modal"><h2>無法讀取這份存檔</h2><p>檔案格式不符、內容不完整或資料超出目前版本可讀範圍。原有進度沒有變更；請選擇由本遊戲匯出的 JSON 存檔。</p><div class="modal-actions"><button class="action-btn" id="closeImportError">知道了</button></div></div></div>';$("closeImportError").onclick=()=>$("modalHost").innerHTML="";
+}
+function showImportPreview(save){
+  pendingImportedSave=save;const run=Math.max(1,intValue(save.story.run,1)),region=DB.regions[clamp(intValue(save.region),0,DB.regions.length-1)],stage=region.stages[clamp(intValue(save.stage),0,region.stages.length-1)];
+  $("modalHost").innerHTML='<div class="modal-back"><div class="modal"><h2>載入存檔備份？</h2><p>備份內容：第 '+fmtInt(run)+' 輪・'+region.name+'／'+stage.title+'・旅團 '+fmtInt(save.party.length)+' 人。載入後會取代這個瀏覽器目前的進度；目前進度不會自動放進備份檔，請先下載備份再繼續。</p><div class="modal-actions"><button class="secondary-btn" id="cancelImport">取消</button><button class="action-btn" id="confirmImport">載入並取代進度</button></div></div></div>';
+  $("cancelImport").onclick=()=>{$("modalHost").innerHTML="";pendingImportedSave=null};$("confirmImport").onclick=applyImportedSave;
+}
+function readSaveBackup(file){
+  if(!file)return;if(file.size>3*1024*1024||typeof FileReader==="undefined"){showImportError();return}const reader=new FileReader();reader.onload=()=>{try{const payload=JSON.parse(String(reader.result||"")),save=validateSaveBackup(payload);showImportPreview(save)}catch(e){showImportError()}};reader.onerror=showImportError;reader.readAsText(file);
+}
+function applyImportedSave(){
+  if(!pendingImportedSave)return;const oldState=state,oldTab=activeTab;let normalized;
+  try{state=pendingImportedSave;normalized=normalizeSavedNumbers(state)}catch(e){state=oldState;activeTab=oldTab;showImportError();return}
+  state=oldState;stopAuto();state=normalized;state.auto=false;state.encounter=state.encounter||null;selectedGearMember=state.party[0].id;selectedJobMember=state.party[0].id;activeTab="jobs";pendingImportedSave=null;$("modalHost").innerHTML="";$("startScreen").classList.add("hidden");$("app").classList.remove("hidden");addLog("存檔備份已載入。旅團、路線與周目紀錄已恢復。");renderAll();
+}
 function normalizeSavedNumbers(s){
   s.gold=Math.max(0,intValue(s.gold));
   const version=intValue(s.campaignVersion);
@@ -1321,15 +1398,15 @@ function normalizeSavedNumbers(s){
   s.story.bossChoices=Object.assign({},oldStory.bossChoices||{});
   s.story.sideQuests=Object.assign({},oldStory.sideQuests||{});
   s.story.bonds=Object.assign({},oldStory.bonds||{});
-  Object.keys(s.story.bonds).forEach(id=>{if(!BOND_STORIES[id]){delete s.story.bonds[id];return}const bond=s.story.bonds[id];bond.rank=clamp(intValue(bond.rank),0,3);bond.decisions=Array.isArray(bond.decisions)?bond.decisions:[]});
+  Object.keys(s.story.bonds).forEach(id=>{const bond=s.story.bonds[id];if(!BOND_STORIES[id]||!bond||typeof bond!=="object"){delete s.story.bonds[id];return}bond.rank=clamp(intValue(bond.rank),0,3);bond.decisions=Array.isArray(bond.decisions)?bond.decisions:[]});
   [...(s.party||[]),...(s.reserve||[])].forEach(c=>c.bondLevel=clamp(intValue(c.bondLevel),0,3));
   if(!s.story.flags.firstCompanion&&s.party[1])s.story.flags.firstCompanion=s.party[1].id;
   if(!s.story.flags.secondCompanion&&s.party[2])s.story.flags.secondCompanion=s.party[2].id;
-  Object.keys(s.story.sideQuests).forEach(id=>{const q=s.story.sideQuests[id];if(!SIDE_QUESTS.some(def=>def.id===id)){delete s.story.sideQuests[id];return}q.status=q.status==="complete"?"complete":"active";q.step=clamp(intValue(q.step),0,SIDE_QUESTS.find(def=>def.id===id).nodes.length);q.decisions=Array.isArray(q.decisions)?q.decisions:[]});
+  Object.keys(s.story.sideQuests).forEach(id=>{const q=s.story.sideQuests[id];if(!SIDE_QUESTS.some(def=>def.id===id)||!q||typeof q!=="object"){delete s.story.sideQuests[id];return}q.status=q.status==="complete"?"complete":"active";q.step=clamp(intValue(q.step),0,SIDE_QUESTS.find(def=>def.id===id).nodes.length);q.decisions=Array.isArray(q.decisions)?q.decisions:[]});
   s.story.seen=Array.isArray(oldStory.seen)?oldStory.seen:[];
-  s.story.choices=Array.isArray(oldStory.choices)?oldStory.choices:[];
+  s.story.choices=Array.isArray(oldStory.choices)?oldStory.choices.filter(choice=>choice&&typeof choice==="object"&&!Array.isArray(choice)):[];
   s.story.endingId=ENDINGS[s.story.endingId]?s.story.endingId:null;
-  s.endingHistory=Array.isArray(s.endingHistory)?s.endingHistory:[];
+  s.endingHistory=Array.isArray(s.endingHistory)?s.endingHistory.filter(record=>record&&typeof record==="object"&&!Array.isArray(record)&&ENDINGS[record.endingId]):[];
   if(s.complete&&!s.story.endingId){s.story.endingId=resolveEnding(s.story);s.endingHistory.push({run:s.story.run,endingId:s.story.endingId})}
   s.chronicle=normalizeChronicleState(s.chronicle,s.endingHistory,s.story,s.complete);
   s.postgame=!!s.postgame;
@@ -1385,15 +1462,16 @@ function normalizeSavedNumbers(s){
     });
     s.encounter.tacticUsedRound=Math.max(0,intValue(s.encounter.tacticUsedRound));planBattleTactic(s.encounter);
   }
+  s.dataWarnings=(Array.isArray(s.dataWarnings)?s.dataWarnings:[]).filter(value=>typeof value==="string").map(value=>value.replace(/[<>]/g,"").slice(0,140)).filter(Boolean).slice(-40);
   s.log=(Array.isArray(s.log)?s.log:[]).map(line=>String(line).replace(/-?\d+\.\d+/g,value=>String(intValue(value))));
   s.speed=[1,2,4].includes(intValue(s.speed,1))?intValue(s.speed,1):1;
   return s;
 }
 function startGame(){
   activeTab="jobs";
-  const name=($("heroNameInput").value||"星見").trim().slice(0,10)||"星見";
+  const name=($("heroNameInput").value||"星見").replace(/[<>]/g,"").trim().slice(0,10)||"星見";
   const p=createCharacter("hero",name,selectedRace,selectedJob,1);
-  state={campaignVersion:10,party:[p],reserve:[],gold:85,inventory:{potion:3,ether:2,phoenix:1,bomb:1,ember_bomb:1,war_draught:1,rune_piercer:1,tide_orb:1},region:0,stage:0,story:createStoryState(),endingHistory:[],chronicle:createChronicleState(),postgame:false,postgameLoop:0,postgameDepth:0,postgameComplete:false,dungeonRun:null,questProgress:{wins:0,postgameBosses:0,gearedMembers:[]},questClaims:{},activeNode:null,encounter:null,log:["你獨自離開故鄉，踏上尋找星火燈塔的旅程。"],auto:false,speed:1,complete:false,created:Date.now()};
+  state={campaignVersion:10,party:[p],reserve:[],gold:85,inventory:{potion:3,ether:2,phoenix:1,bomb:1,ember_bomb:1,war_draught:1,rune_piercer:1,tide_orb:1},region:0,stage:0,story:createStoryState(),endingHistory:[],chronicle:createChronicleState(),postgame:false,postgameLoop:0,postgameDepth:0,postgameComplete:false,dungeonRun:null,questProgress:{wins:0,postgameBosses:0,gearedMembers:[]},questClaims:{},activeNode:null,encounter:null,dataWarnings:[],log:["你獨自離開故鄉，踏上尋找星火燈塔的旅程。"],auto:false,speed:1,complete:false,created:Date.now()};
   selectedGearMember=p.id;selectedJobMember=p.id;
   const stats=statBlock(p);p.hp=stats.hp;p.mp=stats.mp;
   $("startScreen").classList.add("hidden");$("app").classList.remove("hidden");addLog(name+"（"+DB.races[selectedRace].name+"・"+DB.jobs[selectedJob].name+"）獨自踏上旅程。");renderAll();saveGame();
@@ -1418,17 +1496,17 @@ function hpPct(c){return clamp(c.hp/statBlock(c).hp*100,0,100)}
 function mpPct(c){return clamp(c.mp/statBlock(c).mp*100,0,100)}
 function xpPct(c){return clamp(c.xp/xpToNext(c.level)*100,0,100)}
 function sideQuestState(id){state.story.sideQuests=state.story.sideQuests||{};return state.story.sideQuests[id]||null}
-function sideQuestAtOrPast(at){if(state.dungeonRun)return false;const targetRegion=DB.regions.findIndex(r=>r.id===at.region);if(targetRegion<0)return false;if(state.region>targetRegion)return true;if(state.region<targetRegion)return false;return state.stage>=at.stage}
-function availableSideQuests(){if(!state||state.dungeonRun||state.complete||state.postgameComplete)return [];return SIDE_QUESTS.map(q=>{const saved=sideQuestState(q.id);if(saved&&saved.status==="complete")return null;const index=saved?clamp(saved.step,0,q.nodes.length):0,node=q.nodes[index];return node&&sideQuestAtOrPast(node.at)?{quest:q,index:index,node:node,saved:saved}:null}).filter(Boolean)}
+function sideQuestAtOrPast(at){if(state.dungeonRun||!at||typeof at!="object")return false;const targetRegion=DB.regions.findIndex(r=>r&&r.id===at.region);if(targetRegion<0)return false;if(state.region>targetRegion)return true;if(state.region<targetRegion)return false;return Number.isFinite(Number(at.stage))&&state.stage>=Number(at.stage)}
+function availableSideQuests(){if(!state||state.dungeonRun||state.complete||state.postgameComplete)return [];return SIDE_QUESTS.map(q=>{if(!q||!Array.isArray(q.nodes)){noteCampaignDataIssue("NPC 支線：劇情節點資料不存在");return null}const saved=sideQuestState(q.id);if(saved&&saved.status==="complete")return null;const index=saved?clamp(saved.step,0,q.nodes.length):0,node=q.nodes[index];return node&&sideQuestAtOrPast(node.at)?{quest:q,index:index,node:node,saved:saved}:null}).filter(Boolean)}
 function bondState(id){state.story.bonds=state.story.bonds||{};return state.story.bonds[id]||(state.story.bonds[id]={rank:0,decisions:[]})}
 function bondWasMetThisRun(id){const flags=state.story.flags||{},bond=state.story.bonds&&state.story.bonds[id];return flags.firstCompanion===id||flags.secondCompanion===id||!!(bond&&bond.rank>0)}
-function nextBondChapter(id){const story=BOND_STORIES[id],saved=state.story.bonds&&state.story.bonds[id],rank=saved?clamp(intValue(saved.rank),0,story.nodes.length):0,node=story.nodes[rank];return node&&bondWasMetThisRun(id)&&sideQuestAtOrPast(node.at)?{index:rank,node:node}:null}
+function nextBondChapter(id){const story=BOND_STORIES[id];if(!story||!Array.isArray(story.nodes))return null;const saved=state.story.bonds&&state.story.bonds[id],rank=saved?clamp(intValue(saved.rank),0,story.nodes.length):0,node=story.nodes[rank];return node&&node.at&&bondWasMetThisRun(id)&&sideQuestAtOrPast(node.at)?{index:rank,node:node}:null}
 function renderBonds(){
   if(!state)return;
   const canOpen=!state.activeNode&&!state.encounter&&!state.complete&&!state.postgameComplete&&!state.dungeonRun;
   let html='<div class="eyebrow" style="margin:1px 0 8px">旅伴羈絆　・　每人三幕，選擇會留下立場與回憶</div>';
   Object.keys(BOND_STORIES).forEach(id=>{
-    const profile=BOND_STORIES[id],saved=state.story.bonds&&state.story.bonds[id],rank=saved?clamp(intValue(saved.rank),0,3):0,member=[...(state.party||[]),...(state.reserve||[])].find(c=>c.id===id),met=bondWasMetThisRun(id),next=nextBondChapter(id),ready=!!next&&canOpen,done=rank>=profile.nodes.length&&met,status=!met?"本輪尚未相逢":done?"本輪篇章完成":ready?"新篇章可閱讀":"隨旅途逐步展開";
+    const profile=BOND_STORIES[id];if(!profile||!Array.isArray(profile.nodes)){noteCampaignDataIssue("羈絆故事：劇情節點資料不存在");return}const saved=state.story.bonds&&state.story.bonds[id],rank=saved?clamp(intValue(saved.rank),0,3):0,member=[...(state.party||[]),...(state.reserve||[])].find(c=>c.id===id),met=bondWasMetThisRun(id),next=nextBondChapter(id),ready=!!next&&canOpen,done=rank>=profile.nodes.length&&met,status=!met?"本輪尚未相逢":done?"本輪篇章完成":ready?"新篇章可閱讀":"隨旅途逐步展開";
     html+='<div class="bond-card '+(ready?"ready":"")+'"><div class="bond-head"><span class="bond-icon">'+profile.icon+'</span><span class="bond-name">'+profile.name+'　・　'+status+'</span><span class="bond-rank">'+(member?"共鳴 "+fmtInt(member.bondLevel||0)+" / 3":"未加入")+'</span></div><div class="bond-progress"><i style="width:'+clamp(rank/3*100,0,100)+'%"></i></div><p class="bond-trait">'+profile.trait+'</p><div class="bond-actions"><span>本輪羈絆篇章　'+fmtInt(rank)+' / 3</span><button data-bond-open="'+id+'" '+(ready?"":"disabled")+'>'+(ready?"閱讀第 "+fmtInt(next.index+1)+" 幕":done?"已完成":"尚未開放")+'</button></div>'+(member&&intValue(member.bondLevel)>0?'<div class="bond-passive">已啟用羈絆共鳴：專屬戰鬥效果隨永久共鳴階位提升。</div>':'')+'</div>';
   });
   html+='<div class="side-hint">每幕有正義、中立、邪惡三種立場。完成篇章會提升該角色的永久戰鬥共鳴；將角色編入現役隊伍時，共鳴被動會生效。完成三幕並走向非邪惡結局，可解鎖該隊友的專屬結局。</div>';
@@ -1436,7 +1514,7 @@ function renderBonds(){
   $("sideContent").querySelectorAll("[data-bond-open]").forEach(button=>button.onclick=()=>startBondScene(button.dataset.bondOpen));
 }
 function startBondScene(id){const next=nextBondChapter(id);if(!next||state.activeNode||state.encounter||state.complete||state.postgameComplete||state.dungeonRun)return;bondState(id);state.activeNode={type:"bondScene",companionId:id,nodeIndex:next.index};activeTab="bonds";renderAll();if(window.matchMedia("(max-width:700px)").matches){$("scene").scrollIntoView({behavior:"smooth",block:"start"})}}
-function selectBondOption(id,nodeIndex,optionIndex){const story=BOND_STORIES[id],node=story&&story.nodes[nodeIndex],option=node&&node.options[optionIndex],next=nextBondChapter(id);if(!option||!next||next.index!==nodeIndex)return;state.activeNode={type:"bondResult",companionId:id,nodeIndex:nodeIndex,optionIndex:optionIndex,name:story.name+"・"+option.name,event:option.event,alignment:option.alignment,code:option.code};renderAll()}
+function selectBondOption(id,nodeIndex,optionIndex){const story=BOND_STORIES[id],node=story&&story.nodes[nodeIndex],option=node&&node.options[optionIndex],next=nextBondChapter(id);if(!option||!next||next.index!==nodeIndex)return;if(!["justice","neutral","evil"].includes(option.alignment)){noteCampaignDataIssue("羈絆故事「"+(story.name||id)+"」：抉擇立場資料不完整");renderAll();saveGame();return}state.activeNode={type:"bondResult",companionId:id,nodeIndex:nodeIndex,optionIndex:optionIndex,name:story.name+"・"+option.name,event:option.event||option.desc||"你們把這段約定記在旅誌裡。",alignment:option.alignment,code:option.code};renderAll()}
 function finishBondNode(id,nodeIndex,optionIndex){
   const story=BOND_STORIES[id],node=story&&story.nodes[nodeIndex],option=node&&node.options[optionIndex],saved=state.story.bonds&&state.story.bonds[id],member=[...(state.party||[]),...(state.reserve||[])].find(c=>c.id===id);
   if(!story||!node||!option||!member||!bondWasMetThisRun(id)||!saved||saved.rank!==nodeIndex)return;
@@ -1451,8 +1529,8 @@ function finishBondNode(id,nodeIndex,optionIndex){
   state.activeNode=null;activeTab="bonds";renderAll();saveGame();
 }
 function sideQuestRouteChoices(){return availableSideQuests().sort((a,b)=>(a.saved?0:1)-(b.saved?0:1)).slice(0,2).map(x=>({name:(x.saved?"【續辦支線】":"【NPC支線】")+x.quest.npc+"・"+x.node.title,icon:x.quest.icon,desc:(x.saved?"回到尚未完成的故事。":"新的支線故事已在此路線出現。")+" "+x.quest.desc,type:"sideQuestStart",sideQuestId:x.quest.id,sideQuestNode:x.index}))}
-function openSideQuest(id){const q=SIDE_QUESTS.find(x=>x.id===id);if(!q)return;const saved=sideQuestState(id),index=saved?clamp(saved.step,0,q.nodes.length):0;if(index>=q.nodes.length||!sideQuestAtOrPast(q.nodes[index].at))return;state.story.sideQuests[id]=saved||{status:"active",step:0,decisions:[]};state.activeNode={type:"sideQuestScene",sideQuestId:id,nodeIndex:index};renderAll()}
-function selectSideQuestOption(id,nodeIndex,optionIndex){const q=SIDE_QUESTS.find(x=>x.id===id),node=q&&q.nodes[nodeIndex],option=node&&node.options[optionIndex];if(!option)return;state.activeNode=Object.assign({},option,{name:q.npc+"・"+option.name,event:option.event||option.desc,sideQuest:{id:id,nodeIndex:nodeIndex,optionIndex:optionIndex}});if(option.type==="battle"||option.type==="boss"){startEncounter(option.enemies,option.type==="boss");return}renderAll()}
+function openSideQuest(id){const q=SIDE_QUESTS.find(x=>x&&x.id===id);if(!q||!Array.isArray(q.nodes)){noteCampaignDataIssue("NPC 支線：劇情節點資料不存在");return}const saved=sideQuestState(id),index=saved?clamp(saved.step,0,q.nodes.length):0,node=q.nodes[index];if(index>=q.nodes.length||!isSideQuestNodeValid(q,index)||!sideQuestAtOrPast(node.at)){noteCampaignDataIssue("NPC 支線「"+(q.npc||"未命名")+"」：目前章節位置或選項無效");state.activeNode=null;renderAll();saveGame();return}state.story.sideQuests[id]=saved||{status:"active",step:0,decisions:[]};state.activeNode={type:"sideQuestScene",sideQuestId:id,nodeIndex:index};renderAll()}
+function selectSideQuestOption(id,nodeIndex,optionIndex){const q=SIDE_QUESTS.find(x=>x&&x.id===id),node=q&&Array.isArray(q.nodes)&&q.nodes[nodeIndex],option=node&&Array.isArray(node.options)&&node.options[optionIndex];if(!option)return;if(!choiceDataAvailable(option,"NPC 支線")){state.activeNode=null;renderAll();saveGame();return}state.activeNode=Object.assign({},option,{name:q.npc+"・"+option.name,event:option.event||option.desc,sideQuest:{id:id,nodeIndex:nodeIndex,optionIndex:optionIndex}});if(option.type==="battle"||option.type==="boss"){startEncounter(option.enemies,option.type==="boss");return}renderAll()}
 function finishSideQuestNode(id,nodeIndex,optionIndex,isBattle){const q=SIDE_QUESTS.find(x=>x.id===id),saved=sideQuestState(id),node=q&&q.nodes[nodeIndex],option=node&&node.options[optionIndex];if(!q||!saved||saved.step!==nodeIndex||!option)return;
   if(option.storyFlag)state.story.flags[option.storyFlag.key]=option.storyFlag.value;
   recordMorality(option,"side:"+id+":"+nodeIndex);
@@ -1473,6 +1551,7 @@ function renderParty(){
   if(state.reserve&&state.reserve.length)$("partyList").innerHTML+='<div class="reserve-note"><b>候補旅伴</b><br>'+state.reserve.map(c=>c.name+'（'+DB.races[c.race].name+'・'+DB.jobs[c.mainJob].name+'）').join('、')+'<br><small>重逢時可邀請候補加入；隊伍滿員可選擇替換成員，被換下的隊友會保留等級、熟練與裝備。</small></div>';
 }
 function choiceAvailable(choice){
+  if(!choiceDataAvailable(choice,"主線路口"))return false;
   if(choice.sideQuestId)return availableSideQuests().some(x=>x.quest.id===choice.sideQuestId&&x.index===choice.sideQuestNode);
   if(choice.omen&&state.story.omen!==choice.omen)return false;
   if(choice.onceId&&state.story.seen.includes(choice.onceId))return false;
@@ -1480,10 +1559,35 @@ function choiceAvailable(choice){
   if(choice.requiresScore&&Object.keys(choice.requiresScore).some(key=>(state.story.routeScore[key]||0)<choice.requiresScore[key]))return false;
   return true;
 }
+function isItemDataValid(id){const item=DB.items[id];return !!(item&&typeof item.name==="string"&&item.name.trim()&&typeof item.icon==="string"&&item.icon.trim()&&typeof item.desc==="string"&&(item.price===undefined||Number.isFinite(Number(item.price))&&Number(item.price)>=0))}
+function isContractRewardShapeValid(contract){return !!(contract&&Number.isFinite(Number(contract.goal))&&Number(contract.goal)>0&&contract.reward&&["gold","xp","ap","count"].every(key=>Number.isFinite(Number(contract.reward[key]))&&Number(contract.reward[key])>=0))}
+function isMonsterDataValid(id){const monster=DB.monsters[id];return !!(monster&&typeof monster.name==="string"&&monster.name.trim()&&typeof monster.icon==="string"&&monster.icon.trim()&&Number.isFinite(Number(monster.hp))&&Number(monster.hp)>0&&["atk","def","xp","gold"].every(key=>Number.isFinite(Number(monster[key]))&&Number(monster[key])>=0))}
+function isSideQuestNodeValid(quest,index){if(!quest||!Array.isArray(quest.nodes))return false;const node=quest.nodes[index],at=node&&node.at,region=at&&DB.regions.find(entry=>entry&&entry.id===at.region);return !!(node&&region&&Array.isArray(region.stages)&&region.stages[at.stage]&&Array.isArray(node.options)&&node.options.length)}
+function routeChoiceIssue(choice){
+  if(!choice||typeof choice!=="object"||Array.isArray(choice))return "選項資料格式不完整";
+  if(choice.type&&!ROUTE_CHOICE_TYPES.includes(choice.type))return "選項類型無法辨識";
+  if((choice.type==="recruit"||choice.recruit)&&!DB.companions[choice.recruit])return "招募同伴資料不存在";
+  if(choice.gain&&(typeof choice.gain!=="object"||Array.isArray(choice.gain)))return "獎勵資料格式不正確";
+  if(choice.gain&&choice.gain.item&&!isItemDataValid(choice.gain.item))return "獎勵道具資料不存在或不完整";
+  if(choice.gain&&["gold","count"].some(key=>choice.gain[key]!==undefined&&(!Number.isFinite(Number(choice.gain[key]))||Number(choice.gain[key])<0)))return "獎勵數量資料不正確";
+  if(choice.sideQuestId){const quest=SIDE_QUESTS.find(entry=>entry&&entry.id===choice.sideQuestId);if(!isSideQuestNodeValid(quest,choice.sideQuestNode))return "支線目標資料不存在或不完整"}
+  if(choice.type==="sideQuestStart"&&!choice.sideQuestId)return "支線入口沒有目標";
+  if(choice.type==="battle"||choice.type==="boss"){
+    if(choice.bossVariants!==undefined&&(!Array.isArray(choice.bossVariants)||!choice.bossVariants.length||choice.bossVariants.some(variant=>!variant||!Array.isArray(variant.enemies)||!variant.enemies.length)))return "首領分歧資料不完整";
+    const pools=[];if(Array.isArray(choice.enemies))pools.push(choice.enemies);if(Array.isArray(choice.bossVariants))choice.bossVariants.forEach(variant=>pools.push(variant&&Array.isArray(variant.enemies)?variant.enemies:choice.enemies));
+    if(!pools.length||pools.some(pool=>!Array.isArray(pool)||!pool.length||pool.some(id=>!isMonsterDataValid(id))))return "遭遇敵人資料不完整";
+  }
+  return null;
+}
+function noteCampaignDataIssue(message){
+  if(!state)return;state.dataWarnings=Array.isArray(state.dataWarnings)?state.dataWarnings:[];const safe=String(message||"內容資料異常").replace(/[<>]/g,"").slice(0,140);if(state.dataWarnings.includes(safe))return;state.dataWarnings.push(safe);state.dataWarnings=state.dataWarnings.slice(-40);addLog("路線保護機制略過一項不完整的冒險資料，旅團仍可繼續前進。")
+}
+function choiceDataAvailable(choice,context){const issue=routeChoiceIssue(choice);if(!issue)return true;noteCampaignDataIssue((context?context+"：":"")+issue);return false}
 function resolveChoiceVariant(choice){
-  if(!choice.bossVariants)return choice;
-  const variants=choice.bossVariants,variant=variants.find(v=>v.requires&&Object.keys(v.requires).every(key=>state.story.flags[key]===v.requires[key]))||variants.find(v=>!v.requires)||variants[variants.length-1];
-  const pool=(variant.enemies||choice.enemies||[]).filter(id=>DB.monsters[id]);if(!pool.length)return choice;
+  if(!Array.isArray(choice.bossVariants)||!choice.bossVariants.length)return choice;
+  const variants=choice.bossVariants.filter(v=>v&&Array.isArray(v.enemies)&&v.enemies.length),variant=variants.find(v=>v.requires&&Object.keys(v.requires).every(key=>state.story.flags[key]===v.requires[key]))||variants.find(v=>!v.requires)||variants[variants.length-1];
+  if(!variant)return choice;
+  const pool=(variant.enemies||choice.enemies||[]).filter(id=>isMonsterDataValid(id));if(!pool.length)return choice;
   state.story.bossChoices=state.story.bossChoices||{};
   const key=[state.story.run,state.region,state.stage,pool.join("_")].join(":"),enemy=pool.includes(state.story.bossChoices[key])?state.story.bossChoices[key]:pool[rand(pool.length)];
   state.story.bossChoices[key]=enemy;
@@ -1555,7 +1659,7 @@ function completePartySwap(recruitId,replaceId){
   const stats=statBlock(candidate);candidate.hp=stats.hp;candidate.mp=stats.mp;candidate.status=[];candidate.guard=0;state.party.push(candidate);
   if(selectedGearMember===outgoing.id)selectedGearMember=candidate.id;if(selectedJobMember===outgoing.id)selectedJobMember=candidate.id;
   addLog(candidate.name+"正式加入旅團，"+outgoing.name+"暫時轉為候補；等級、職業熟練與裝備都已保留。");
-  const profile=DB.companions[recruitId];state.activeNode.type="recruit";state.activeNode.event=(profile?profile.intro+" ":"")+candidate.name+"加入旅團，與「"+outgoing.name+"」交換了遠征席位。";renderAll();saveGame();return true;
+   const profile=DB.companions[recruitId],memory=state.activeNode.reunionMemory;state.activeNode.type="recruit";state.activeNode.event=(profile?profile.intro+" ":"")+candidate.name+"加入旅團，與「"+outgoing.name+"」交換了遠征席位。"+(memory?" "+memory:"");renderAll();saveGame();return true;
 }
 function beginNextJourney(){
   const run=(state.story.run||1)+1;
@@ -1609,24 +1713,35 @@ function renderScene(){
     host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">遭遇戰　・　'+(e.boss?"強敵來襲":"敵影出現")+'</div><div class="scene-heading">'+e.title+'</div><p class="scene-desc">留意敵人的預備動作，戰術選對可抓住破綻，判斷錯誤會遭反擊。元素弱點、護壁與戰鬥道具也能改變戰局；需要時可交由自動戰鬥處理。</p></div><div class="scene-icon">⚔</div></div></div>';
     return;
   }
-  const region=currentRegion(),dungeon=state.dungeonRun,stage=dungeon?dungeon.stages[dungeon.stage]:region.stages[state.stage];
+   const region=currentRegion(),dungeon=state.dungeonRun,stage=(dungeon?dungeon.stages[dungeon.stage]:region.stages[state.stage])||{title:"路線整備",desc:"旅團正在重新確認行程。",choices:[]};
   if(!state.activeNode){
-    const authoredChoices=stage.choices.filter(choiceAvailable).map(resolveChoiceVariant),choices=authoredChoices.concat(missingMainMoralChoices(dungeon?null:region,stage,state.stage,authoredChoices),sideQuestRouteChoices(),chronicleRouteChoices(region,state.stage,stage));if(!dungeon&&region.id==="starfall"&&stage.title==="初火王座")choices.push(jobFinalChoice());const portal=dungeon?'<div class="scene-actions"><button class="secondary-btn" id="leaveDungeon">中途撤出，返回原冒險路線　↩</button></div>':'<div class="scene-actions"><button class="dungeon-btn" id="enterDungeon" '+(state.party.length<2?'disabled':'')+'>'+((state.party.length<2)?'✧　結識一位同伴後即可探索隨機地下城':'✧　探索隨機地下城　・　支線不影響主線進度')+'</button></div>';
+     const authoredChoices=(Array.isArray(stage.choices)?stage.choices:[]).filter(choiceAvailable).map(resolveChoiceVariant),choices=authoredChoices.concat(missingMainMoralChoices(dungeon?null:region,stage,state.stage,authoredChoices),sideQuestRouteChoices(),chronicleRouteChoices(region,state.stage,stage));if(!dungeon&&region.id==="starfall"&&stage.title==="初火王座")choices.push(jobFinalChoice());for(let i=choices.length-1;i>=0;i--)if(!choiceDataAvailable(choices[i],"旅途選項"))choices.splice(i,1);
+     if(!choices.length&&dungeon){
+       host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">地下城路線修復</div><div class="scene-heading">這一層沒有可用的出口</div><p class="scene-desc">地下城資料或路線條件未能提供選項。撤出不會影響主線進度，之後可以重新生成一座地下城。</p></div><div class="scene-icon">↩</div></div><div class="scene-actions"><button class="action-btn" id="recoverDungeon">安全撤出　・　回到原冒險路線</button></div></div>';
+       $("recoverDungeon").onclick=leaveDungeon;return;
+     }
+     if(!choices.length&&state.stage>0){const failedStage=stage.title;state.stage=0;state.activeNode=null;state.encounter=null;addLog("「"+failedStage+"」沒有可用路線，旅團已自動回到「"+region.stages[0].title+"」重新選路；已記錄的劇情與資源都保留。");renderHeader();return renderScene()}
+     if(!choices.length){
+       host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">路線保護機制</div><div class="scene-heading">本章起點也沒有可用選項</div><p class="scene-desc">旅團已回到本章開端，已記錄的選擇與資源都保留。若路線條件仍無法修復，可安全略過本章，直接前往下一區域。</p></div><div class="scene-icon">⌖</div></div><div class="scene-actions"><button class="action-btn" id="recoverRoute">安全略過本章，繼續冒險　→</button></div></div>';
+       $("recoverRoute").onclick=safelySkipChapter;return;
+     }
+     const portal=dungeon?'<div class="scene-actions"><button class="secondary-btn" id="leaveDungeon">中途撤出，返回原冒險路線　↩</button></div>':'<div class="scene-actions"><button class="dungeon-btn" id="enterDungeon" '+(state.party.length<2?'disabled':'')+'>'+((state.party.length<2)?'✧　結識一位同伴後即可探索隨機地下城':'✧　探索隨機地下城　・　支線不影響主線進度')+'</button></div>';
     host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">'+(dungeon?'地下城岔路　・　路線每次重組':'路線抉擇'+(state.story.run>1?'　・　第 '+fmtInt(state.story.run)+' 輪':''))+'</div><div class="scene-heading">'+stage.title+'</div><p class="scene-desc">'+stage.desc+'</p></div><div class="scene-icon">'+(dungeon?dungeon.icon:'⌖')+'</div></div><div class="choice-grid">'+choices.map((c,i)=>'<button class="choice-card" data-choice="'+i+'"><span class="choice-name"><span class="choice-ico">'+c.icon+'</span>'+c.name+(c.repeatable?'<em class="repeatable-tag">反覆修練</em>':'')+moralityTagHTML(c)+'</span><span class="choice-desc">'+c.desc+'</span></button>').join("")+'</div>'+portal+'</div>';
     host.querySelectorAll("[data-choice]").forEach(b=>b.onclick=()=>enterChoice(choices[Number(b.dataset.choice)]));
     const enter=$("enterDungeon");if(enter)enter.onclick=beginDungeon;const leave=$("leaveDungeon");if(leave)leave.onclick=leaveDungeon;return;
   }
   const n=state.activeNode;
   if(n.type==="bondScene"){
-    const id=n.companionId,profile=BOND_STORIES[id],node=profile&&profile.nodes[n.nodeIndex];
+     const id=n.companionId,profile=BOND_STORIES[id],node=profile&&Array.isArray(profile.nodes)&&profile.nodes[n.nodeIndex];
     if(!profile||!node){state.activeNode=null;renderAll();return}
     const previous=n.nodeIndex>0?state.story.flags["bond_"+id+"_"+n.nodeIndex]:null,echo={care:"上一幕，你選擇先照顧眼前的人。這份心意仍留在你們之間。",truth:"上一幕，你決定先查明事情的全貌。那段共同追尋的真相仍影響著彼此。",power:"上一幕，你選擇掌握眼前的力量。這份決定也成了你們必須共同承擔的重量。"}[previous],member=[...(state.party||[]),...(state.reserve||[])].find(c=>c.id===id),travelLine=member&&state.party.some(c=>c.id===id)?profile.name+"此刻正與旅團並肩。":profile.name+"在營地等候，仍透過旅誌與旅團分享這段心事。";
-    host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">旅伴羈絆　・　'+profile.name+'　・　第 '+fmtInt(n.nodeIndex+1)+' 幕 / '+fmtInt(profile.nodes.length)+'</div><div class="scene-heading">'+node.title+'</div><p class="scene-desc">'+node.text+'<br><br>'+travelLine+'</p></div><div class="scene-icon">'+profile.icon+'</div></div>'+(echo?'<div class="bond-memory">'+echo+'</div>':'')+'<div class="choice-grid">'+node.options.map((option,index)=>'<button class="choice-card" data-bond-option="'+index+'"><span class="choice-name"><span class="choice-ico">'+({justice:"☼",neutral:"◇",evil:"♜"}[option.alignment])+'</span>'+option.name+moralityTagHTML({morality:{[option.alignment]:1}})+'</span><span class="choice-desc">'+option.desc+'</span></button>').join("")+'</div><div class="scene-actions"><button class="secondary-btn" id="leaveBondScene">稍後再談　↩</button></div></div>';
+     const bondOptions=(Array.isArray(node.options)?node.options:[]).map((option,index)=>({option:option,index:index})).filter(entry=>entry.option&&["justice","neutral","evil"].includes(entry.option.alignment));if(bondOptions.length!==(node.options||[]).length)noteCampaignDataIssue("羈絆故事「"+profile.name+"」：抉擇資料不完整");
+     host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">旅伴羈絆　・　'+profile.name+'　・　第 '+fmtInt(n.nodeIndex+1)+' 幕 / '+fmtInt(profile.nodes.length)+'</div><div class="scene-heading">'+node.title+'</div><p class="scene-desc">'+node.text+'<br><br>'+travelLine+'</p></div><div class="scene-icon">'+profile.icon+'</div></div>'+(echo?'<div class="bond-memory">'+echo+'</div>':'')+(!bondOptions.length?'<p class="scene-desc">這段回憶暫時沒有可用的抉擇；你可以稍後再談。</p>':'<div class="choice-grid">'+bondOptions.map(entry=>'<button class="choice-card" data-bond-option="'+entry.index+'"><span class="choice-name"><span class="choice-ico">'+({justice:"☼",neutral:"◇",evil:"♜"}[entry.option.alignment])+'</span>'+entry.option.name+moralityTagHTML({morality:{[entry.option.alignment]:1}})+'</span><span class="choice-desc">'+entry.option.desc+'</span></button>').join("")+'</div>')+'<div class="scene-actions"><button class="secondary-btn" id="leaveBondScene">稍後再談　↩</button></div></div>';
     host.querySelectorAll("[data-bond-option]").forEach(button=>button.onclick=()=>selectBondOption(id,n.nodeIndex,Number(button.dataset.bondOption)));
     $("leaveBondScene").onclick=()=>{state.activeNode=null;renderAll()};return;
   }
   if(n.type==="bondResult"){
-    const profile=BOND_STORIES[n.companionId],node=profile&&profile.nodes[n.nodeIndex];
+     const profile=BOND_STORIES[n.companionId],node=profile&&Array.isArray(profile.nodes)&&profile.nodes[n.nodeIndex];
     if(!profile||!node){state.activeNode=null;renderAll();return}
     const alignmentName={justice:"正義",neutral:"中立",evil:"邪惡"}[n.alignment],rank=clamp(intValue(([...(state.party||[]),...(state.reserve||[])].find(c=>c.id===n.companionId)||{}).bondLevel)+1,0,3);
     host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">羈絆抉擇　・　'+alignmentName+'立場</div><div class="scene-heading">'+n.name+'</div><p class="scene-desc">'+n.event+'</p></div><div class="scene-icon">'+profile.icon+'</div></div><div class="bond-memory">這段回憶會記入旅誌。完成本幕後，'+profile.name+'的專屬戰鬥共鳴將提升至第 '+fmtInt(rank)+' 階。'+(n.nodeIndex===profile.nodes.length-1?"三幕篇章也將告一段落，並影響旅團可能抵達的結局。":"")+'</div><div class="scene-actions"><button class="action-btn" id="confirmBondChoice">記住這個約定　→</button><button class="secondary-btn" id="cancelBondChoice">返回選擇</button></div></div>';
@@ -1636,21 +1751,23 @@ function renderScene(){
   if(n.type==="sideQuestScene"){
     const q=SIDE_QUESTS.find(x=>x.id===n.sideQuestId),node=q&&q.nodes[n.nodeIndex],progress=q?(n.nodeIndex+1)+" / "+q.nodes.length:"";
     if(!q||!node){state.activeNode=null;renderAll();return}
-    host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">NPC 支線　・　'+q.npc+'　・　'+progress+'</div><div class="scene-heading">'+node.title+'</div><p class="scene-desc">'+node.text+'</p></div><div class="scene-icon">'+q.icon+'</div></div><div class="choice-grid">'+node.options.map((option,index)=>'<button class="choice-card" data-side-option="'+index+'"><span class="choice-name"><span class="choice-ico">'+option.icon+'</span>'+option.name+moralityTagHTML(option)+'</span><span class="choice-desc">'+option.desc+'</span></button>').join("")+'</div><div class="scene-actions"><button class="secondary-btn" id="leaveSideQuest">暫時離開，稍後再續　↩</button></div></div>';
+    const sideOptions=(Array.isArray(node.options)?node.options:[]).map((option,index)=>({option:option,index:index})).filter(entry=>choiceDataAvailable(entry.option,"NPC 支線「"+q.npc+"」"));
+    host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">NPC 支線　・　'+q.npc+'　・　'+progress+'</div><div class="scene-heading">'+node.title+'</div><p class="scene-desc">'+node.text+'</p></div><div class="scene-icon">'+q.icon+'</div></div>'+(!sideOptions.length?'<p class="scene-desc">這段支線目前沒有可用的抉擇，進度已保留；你可以先回到主線繼續冒險。</p>':'<div class="choice-grid">'+sideOptions.map(entry=>'<button class="choice-card" data-side-option="'+entry.index+'"><span class="choice-name"><span class="choice-ico">'+entry.option.icon+'</span>'+entry.option.name+moralityTagHTML(entry.option)+'</span><span class="choice-desc">'+entry.option.desc+'</span></button>').join("")+'</div>')+'<div class="scene-actions"><button class="secondary-btn" id="leaveSideQuest">暫時離開，稍後再續　↩</button></div></div>';
     host.querySelectorAll("[data-side-option]").forEach(button=>button.onclick=()=>selectSideQuestOption(q.id,n.nodeIndex,Number(button.dataset.sideOption)));
     $("leaveSideQuest").onclick=()=>{state.activeNode=null;renderAll()};return;
   }
   if(n.type==="partySwap"){
     const candidate=state.reserve.find(c=>c.id===n.recruitId),profile=DB.companions[n.recruitId];
     if(!candidate||!profile){state.activeNode=null;renderAll();return}
-    host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">旅團編成　・　隊伍已滿</div><div class="scene-heading">讓誰加入這次遠征？</div><p class="scene-desc">'+profile.intro+' '+candidate.name+'已回到你們身邊。選擇一位暫時留守營地的隊友；被換下的同伴會保留等級、職業熟練與裝備。</p></div><div class="scene-icon">♧</div></div><div class="choice-grid">'+state.party.slice(1).map(member=>'<button class="choice-card" data-swap-out="'+member.id+'"><span class="choice-name"><span class="choice-ico">'+raceOf(member).icon+'</span>由 '+candidate.name+' 替換 '+member.name+'</span><span class="choice-desc">'+raceOf(member).name+'・'+jobOf(member).name+'　Lv '+fmtInt(member.level)+'　・　裝備與成長將完整保留在候補名單。</span></button>').join('')+'</div></div>';
+     host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">旅團編成　・　隊伍已滿</div><div class="scene-heading">讓誰加入這次遠征？</div><p class="scene-desc">'+profile.intro+' '+candidate.name+'已回到你們身邊。選擇一位暫時留守營地的隊友；被換下的同伴會保留等級、職業熟練與裝備。</p></div><div class="scene-icon">♧</div></div>'+(n.reunionMemory?'<div class="bond-memory">'+n.reunionMemory+'</div>':'')+'<div class="choice-grid">'+state.party.slice(1).map(member=>'<button class="choice-card" data-swap-out="'+member.id+'"><span class="choice-name"><span class="choice-ico">'+raceOf(member).icon+'</span>由 '+candidate.name+' 替換 '+member.name+'</span><span class="choice-desc">'+raceOf(member).name+'・'+jobOf(member).name+'　Lv '+fmtInt(member.level)+'　・　裝備與成長將完整保留在候補名單。</span></button>').join('')+'</div></div>';
     host.querySelectorAll('[data-swap-out]').forEach(button=>button.onclick=()=>completePartySwap(n.recruitId,button.dataset.swapOut));return;
   }
   if(n.type==="shop"){
     const stock=["potion","ether","iron_sword","moon_staff","wind_bow","guard_vest","star_charm"];
     if(state.postgame)stock.push("dawnblade","starlight_staff","aegis_mail","comet_charm","dawn_aegis","astral_bow","philosopher_ring","worldshard");
     stock.push(...Object.keys(TACTICAL_ITEMS));state.party.forEach(c=>stock.push(...(JOB_RELIC_IDS[c.mainJob]||[])));
-    host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">補給點　・　星鑄幣 '+fmtInt(state.gold)+'</div><div class="scene-heading">巡路商人的折疊攤位</div><p class="scene-desc">旅商打開一只比馬車還大的行囊，展示沿途收來的裝備與補給。</p></div><div class="scene-icon">⚖</div></div><div class="choice-grid">'+Array.from(new Set(stock)).map(id=>{const it=DB.items[id],price=it.price||34;return '<button class="choice-card" data-buy="'+id+'"><span class="choice-name"><span class="choice-ico">'+it.icon+'</span>'+it.name+'</span><span class="choice-desc">'+it.desc+"　・　"+fmtInt(price)+" 枚星鑄幣"+(state.gold<price?"　（星鑄幣不足）":"")+'</span></button>'}).join("")+'</div><div class="scene-actions"><button class="secondary-btn" id="leaveShop">謝過旅商，繼續上路　→</button></div></div>';
+    const shopStock=Array.from(new Set(stock)).filter(id=>{if(isItemDataValid(id))return true;noteCampaignDataIssue("商店：商品資料不存在或不完整");return false});
+    host.innerHTML='<div class="scene-card"><div class="scene-top"><div><div class="scene-label">補給點　・　星鑄幣 '+fmtInt(state.gold)+'</div><div class="scene-heading">巡路商人的折疊攤位</div><p class="scene-desc">旅商打開一只比馬車還大的行囊，展示沿途收來的裝備與補給。</p></div><div class="scene-icon">⚖</div></div><div class="choice-grid">'+shopStock.map(id=>{const it=DB.items[id],price=Number.isFinite(Number(it.price))?Number(it.price):34;return '<button class="choice-card" data-buy="'+id+'"><span class="choice-name"><span class="choice-ico">'+it.icon+'</span>'+it.name+'</span><span class="choice-desc">'+it.desc+"　・　"+fmtInt(price)+" 枚星鑄幣"+(state.gold<price?"　（星鑄幣不足）":"")+'</span></button>'}).join("")+'</div><div class="scene-actions"><button class="secondary-btn" id="leaveShop">謝過旅商，繼續上路　→</button></div></div>';
     host.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>buyItem(b.dataset.buy));
     $("leaveShop").onclick=()=>{state.activeNode=null;advanceStage();renderAll()};return;
   }
@@ -1659,13 +1776,16 @@ function renderScene(){
   $("continueRoute").onclick=()=>{if(n.sideQuest){finishSideQuestNode(n.sideQuest.id,n.sideQuest.nodeIndex,n.sideQuest.optionIndex,false);return}state.activeNode=null;advanceStage();renderAll()};
 }
 function enterChoice(choice){
+  if(!choiceDataAvailable(choice,"旅途選項")){state.activeNode=null;renderAll();saveGame();return}
   if(choice.sideQuestId){openSideQuest(choice.sideQuestId);return}
   recordStoryChoice(choice);
   const n=Object.assign({},choice);n.name=n.name||choice.title;n.event=n.event||n.storyNote||n.desc||"旅團沿著選定的道路整理行裝，繼續前進。";
-  if(choice.recruit){
-    const profile=DB.companions[choice.recruit],result=recruitAlly(choice.recruit),member=result.member;
-    if(result.status==="swapRequired"){n.type="partySwap";n.recruitId=choice.recruit;n.event=profile.intro+" 旅團目前已滿員，請選擇一位暫時留守營地的同伴。";state.activeNode=n;renderAll();saveGame();return}
-    n.event=result.status==="already"?profile.intro+" "+member.name+"早已在旅團之中，這段同行約定再次得到確認。":profile.intro+" "+member.name+"（"+DB.races[member.race].name+"・"+DB.jobs[member.mainJob].name+"）正式加入旅團。";
+   if(choice.recruit){
+     const profile=DB.companions[choice.recruit],reunionEnding=companionEndingEcho(choice.recruit),result=recruitAlly(choice.recruit),member=result.member;
+     if(reunionEnding){n.reunionEndingId=reunionEnding;n.reunionMemory="上一輪「"+ENDINGS[reunionEnding].name+"」的記憶在此刻回來了。"+(member?member.name:profile.name)+"似乎也記得你們曾共同走到的遠方。";state.story.flags["reunionEcho_"+choice.recruit]=reunionEnding;if(!state.chronicle.reunionEchoes.includes(choice.recruit))state.chronicle.reunionEchoes.push(choice.recruit)}
+     if(result.status==="swapRequired"){n.type="partySwap";n.recruitId=choice.recruit;n.event=profile.intro+" 旅團目前已滿員，請選擇一位暫時留守營地的同伴。"+(n.reunionMemory?" "+n.reunionMemory:"");state.activeNode=n;renderAll();saveGame();return}
+     n.event=result.status==="already"?profile.intro+" "+member.name+"早已在旅團之中，這段同行約定再次得到確認。":profile.intro+" "+member.name+"（"+DB.races[member.race].name+"・"+DB.jobs[member.mainJob].name+"）正式加入旅團。";
+     if(n.reunionMemory)n.event+=" "+n.reunionMemory;
   }
   state.activeNode=n;
   if(choice.type==="battle"||choice.type==="boss"){startEncounter(choice.enemies,choice.type==="boss");return}
@@ -1690,14 +1810,16 @@ function advanceStage(){
   else if(state.region<DB.regions.length-1){state.region++;state.stage=0;state.gold+=30;addLog("突破 "+r.name+"。旅商贈予 30 枚星鑄幣，新的區域已開放。")}
   else{state.complete=true;addLog("星火燈塔重新點亮，漫長旅途迎來終章。")}
 }
+function safelySkipChapter(){if(!state||state.dungeonRun)return;const region=currentRegion();state.activeNode=null;state.encounter=null;state.stage=region.stages.length-1;addLog("路線保護機制已略過「"+region.name+"」本章，前往下一區域；既有旅誌、隊伍與資源都保留。");advanceStage();renderAll();saveGame()}
 function partyHeal(ratio){state.party.forEach(c=>{const s=statBlock(c);c.hp=Math.min(s.hp,Math.max(1,c.hp+Math.floor(s.hp*ratio)));c.mp=Math.min(s.mp,c.mp+Math.floor(s.mp*ratio*.55));c.status=[]})}
 function startEncounter(ids,boss){
+  if(!Array.isArray(ids)||!ids.length||ids.length>8||ids.some(id=>!isMonsterDataValid(id))){noteCampaignDataIssue("遭遇戰：敵人資料不完整");state.activeNode=null;state.encounter=null;renderAll();saveGame();return false}
   const regionScale=({emberroad:0,hearthtrail:0,mistwood:0,glasslake:1,starway:2,crownreach:2,starfall:2,afterglow:3})[currentRegion().id]||0,dungeonScale=state.dungeonRun?Math.floor(state.dungeonRun.stage/2):0,scale=regionScale+dungeonScale+(state.postgame?state.postgameLoop+(state.postgameDepth?1:0):0)+Math.max(0,(state.story.run||1)-1);const enemies=ids.map((id,index)=>{const m=DB.monsters[id],affinity=MONSTER_AFFINITIES[id]||{};return {id:id+"_"+Date.now()+"_"+index,template:id,name:m.name,icon:m.icon,hp:m.hp+scale*18,maxHp:m.hp+scale*18,atk:m.atk+scale*4,def:m.def+scale*2,xp:m.xp,gold:m.gold,boss:!!(m.boss||boss),skills:m.skills,status:[],weaknesses:(affinity.weaknesses||[]).slice(),resists:(affinity.resists||[]).slice(),revealed:false,barrier:intValue(affinity.barrier),maxBarrier:intValue(affinity.barrier),debuffs:{},exposed:0}});
   state.encounter={enemies:enemies,round:1,boss:!!boss,repeatable:!!(state.activeNode&&state.activeNode.repeatable),ended:false,won:false,title:boss?("守關戰　・　"+enemies[0].name):enemies.map(e=>e.name).join("與"),rewardXp:0,rewardGold:0,phase:"party",partyIndex:0,enemyIndex:0,busy:false,actorId:null,comboUsed:false};
   state.encounter.tacticUsedRound=0;planBattleTactic(state.encounter);
   state.battleMenu="main";
   addLog((boss?"強敵":"敵人")+"「"+enemies.map(e=>e.name).join("、")+"」出現了！");
-  renderAll();
+  renderAll();return true;
 }
 function comboPairKey(a,b){return [a,b].sort().join("_")}
 function comboCandidates(){
@@ -1938,6 +2060,7 @@ function endEncounter(won){
   const e=state.encounter;if(!e||e.ended)return;
   e.ended=true;e.won=won;stopAuto();state.party.forEach(c=>{c.buffs=[]});
   if(won){
+    if(state.activeNode&&state.activeNode.chronicleBossId){const bossId=state.activeNode.chronicleBossId;state.story.flags.chronicleBossDefeated=true;state.story.flags.chronicleBossId=bossId;if(!state.chronicle.hiddenBossDefeats.some(record=>record.id===bossId&&record.run===state.story.run))state.chronicle.hiddenBossDefeats.push({id:bossId,run:state.story.run});addLog("旅團擊敗吞食未竟編年者。這段戰果已記入編年史；若完成終章，將解鎖隱藏結局。")}
     if(state.postgame&&e.boss&&!state.dungeonRun){state.postgameComplete=true;state.postgameBossTemplate=e.enemies[0]&&e.enemies[0].template}
     const xp=e.enemies.reduce((a,m)=>a+m.xp,0),gold=e.enemies.reduce((a,m)=>a+m.gold,0);
     e.rewardXp=xp;e.rewardGold=gold;state.gold+=gold;
@@ -2080,13 +2203,13 @@ function renderBag(){
   let html='<div class="eyebrow" style="margin:1px 0 5px">選擇要整理裝備的隊員</div><div class="bag-party-select">'+state.party.map(p=>'<button class="bag-party-btn '+(p.id===chosen.id?"active":"")+'" data-bag-member="'+p.id+'">'+p.name+'</button>').join("")+'</div>';
   const stats=statBlock(chosen);
   html+='<div class="bag-section-note">'+chosen.name+'　・　'+raceOf(chosen).name+'／'+jobOf(chosen).name+(battling?'　・　戰鬥中無法更換裝備':'　・　更換後立即套用能力值')+'</div><div class="bag-stats"><span>HP '+fmtInt(chosen.hp)+' / '+fmtInt(stats.hp)+'</span><span>MP '+fmtInt(chosen.mp)+' / '+fmtInt(stats.mp)+'</span><span>攻 '+fmtInt(stats.atk)+'</span><span>魔 '+fmtInt(stats.mag)+'</span><span>防 '+fmtInt(stats.def)+'</span></div><div class="eyebrow" style="margin:1px 0 6px">裝備欄</div>';
-  ["weapon","armor","charm"].forEach(slot=>{const id=chosen.gear[slot],item=id&&DB.items[id];html+='<div class="bag-item"><span class="bag-icon">'+(item?item.icon:(slot==="weapon"?"⚔":slot==="armor"?"◇":"✧"))+'</span><span class="bag-name">'+(item?item.name:({weapon:"武器空欄",armor:"防具空欄",charm:"飾品空欄"}[slot]))+'</span><span class="bag-count">'+slotName(slot)+'</span>'+(item?'<button data-unequip="'+slot+'" '+(canEquip?"":"disabled")+'>卸下</button>':"")+'</div>'});
+   ["weapon","armor","charm"].forEach(slot=>{const id=chosen.gear[slot],item=id&&isItemDataValid(id)?DB.items[id]:null;if(id&&!item)noteCampaignDataIssue("裝備：物品資料不存在或不完整");html+='<div class="bag-item"><span class="bag-icon">'+(item?item.icon:(slot==="weapon"?"⚔":slot==="armor"?"◇":"✧"))+'</span><span class="bag-name">'+(item?item.name:({weapon:"武器空欄",armor:"防具空欄",charm:"飾品空欄"}[slot]))+'</span><span class="bag-count">'+slotName(slot)+'</span>'+(item?'<button data-unequip="'+slot+'" '+(canEquip?"":"disabled")+'>卸下</button>':"")+'</div>'});
   html+='<div class="eyebrow" style="margin:14px 0 5px">可裝備物品　・　行囊</div>';
-  const gearEntries=Object.keys(state.inventory).filter(id=>state.inventory[id]>0&&DB.items[id]&&["weapon","armor","charm"].includes(DB.items[id].type));
+   const gearEntries=Object.keys(state.inventory).filter(id=>{if(state.inventory[id]<=0)return false;if(!isItemDataValid(id)){noteCampaignDataIssue("行囊：物品資料不存在或不完整");return false}return ["weapon","armor","charm"].includes(DB.items[id].type)});
   if(!gearEntries.length)html+='<div class="bag-empty">目前沒有可更換的裝備。可以在商店購買，或於星火回廊尋找遺物。</div>';
   gearEntries.forEach(id=>{const it=DB.items[id];html+='<div class="bag-item"><span class="bag-icon">'+it.icon+'</span><span class="bag-name">'+it.name+'<small style="display:block;color:#91a0af;font-size:8px;margin-top:2px">'+it.desc+'</small></span><span class="bag-count">×'+fmtInt(state.inventory[id])+'</span><button data-equip-item="'+id+'" '+(canEquip?"":"disabled")+'>'+(!canEquip?"戰鬥中":"裝備")+'</button></div>'});
   html+='<div class="eyebrow" style="margin:14px 0 5px">消耗道具</div>';
-  const itemEntries=Object.keys(state.inventory).filter(id=>state.inventory[id]>0&&DB.items[id]&&!["weapon","armor","charm"].includes(DB.items[id].type));
+   const itemEntries=Object.keys(state.inventory).filter(id=>{if(state.inventory[id]<=0)return false;if(!isItemDataValid(id)){noteCampaignDataIssue("行囊：物品資料不存在或不完整");return false}return !["weapon","armor","charm"].includes(DB.items[id].type)});
   if(!itemEntries.length)html+='<div class="bag-empty">行囊裡沒有消耗道具。</div>';
   itemEntries.forEach(id=>{const it=DB.items[id];html+='<div class="bag-item"><span class="bag-icon">'+it.icon+'</span><span class="bag-name">'+it.name+'<small style="display:block;color:#91a0af;font-size:8px;margin-top:2px">'+it.desc+'</small></span><span class="bag-count">×'+fmtInt(state.inventory[id])+'</span><button data-use="'+id+'">'+(battling?"戰鬥使用":"使用")+'</button></div>'});
   $("sideContent").innerHTML=html;
@@ -2097,7 +2220,7 @@ function renderBag(){
 }
 function slotName(s){return {weapon:"武器",armor:"防具",charm:"飾品"}[s]}
 function equipItem(id,characterId=selectedGearMember){
-  const item=DB.items[id],c=state.party.find(p=>p.id===characterId);if(!item||!item.slot||!c||!state.inventory[id]||(state.encounter&&!state.encounter.ended))return;
+  const item=DB.items[id],c=state.party.find(p=>p.id===characterId);if(!isItemDataValid(id)||!item.slot||!c||!state.inventory[id]||(state.encounter&&!state.encounter.ended)){if(!isItemDataValid(id))noteCampaignDataIssue("裝備：物品資料不存在或不完整");return}
   const old=c.gear[item.slot];if(old)state.inventory[old]=(state.inventory[old]||0)+1;
   c.gear[item.slot]=id;state.inventory[id]--;if(!state.inventory[id])delete state.inventory[id];
   state.questProgress.gearedMembers=state.questProgress.gearedMembers||[];
@@ -2107,7 +2230,7 @@ function equipItem(id,characterId=selectedGearMember){
 }
 function unequip(slot,characterId=selectedGearMember){const c=state.party.find(p=>p.id===characterId),id=c&&c.gear[slot];if(!id||(state.encounter&&!state.encounter.ended))return;state.inventory[id]=(state.inventory[id]||0)+1;c.gear[slot]=null;addLog(c.name+"卸下「"+DB.items[id].name+"」。");renderAll()}
 function useItem(id){
-  const item=DB.items[id];if(!item||!state.inventory[id])return;
+  const item=DB.items[id];if(!isItemDataValid(id)||!state.inventory[id]){if(!isItemDataValid(id))noteCampaignDataIssue("行囊：物品資料不存在或不完整");renderAll();return}
   if(state.encounter&&!state.encounter.ended){runPartyItem(id);return}
   if(item.heal){const t=lowestParty()||hero(),before=t.hp;t.hp=Math.min(statBlock(t).hp,t.hp+item.heal);addLog("使用 "+item.name+"，"+t.name+"恢復 "+fmtInt(t.hp-before)+" 點生命。")}
   else if(item.mp){const t=hero();t.mp=Math.min(statBlock(t).mp,t.mp+item.mp);addLog("使用 "+item.name+"，"+t.name+"恢復魔力。")}
@@ -2116,26 +2239,36 @@ function useItem(id){
   state.inventory[id]--;if(!state.inventory[id])delete state.inventory[id];renderAll();
 }
 function buyItem(id){
-  const item=DB.items[id],price=item.price||34;if(state.gold<price){addLog("星鑄幣不足，無法購買。");renderAll();return}
+  const item=DB.items[id];if(!isItemDataValid(id)){noteCampaignDataIssue("商店：商品資料不存在或不完整");renderAll();return}const price=Number.isFinite(Number(item.price))?Number(item.price):34;if(state.gold<price){addLog("星鑄幣不足，無法購買。");renderAll();return}
   state.gold-=price;state.inventory[id]=(state.inventory[id]||0)+1;addLog("向旅商購買「"+item.name+"」。");renderAll();
 }
 function renderLog(){
   let html='<div class="eyebrow" style="margin-bottom:10px">旅途記錄與命運分歧</div>';
-  if(state.story.choices.length){html+='<section class="story-journal"><h3>第 '+fmtInt(state.story.run)+' 輪留下的選擇</h3><ol>'+state.story.choices.map(x=>'<li>'+x.region+'・'+x.stage+'：'+x.name+(x.note?'<small>'+x.note+'</small>':'')+'</li>').join('')+'</ol></section>'}
-  const endings=[...new Set(state.endingHistory.map(x=>x.endingId))];
-  if(endings.length){html+='<section class="story-journal"><h3>已寫入編年史的結局　'+fmtInt(endings.length)+' / '+fmtInt(Object.keys(ENDINGS).length)+'</h3><ol>'+endings.map(id=>'<li>'+ENDINGS[id].name+'<small>'+ENDINGS[id].subtitle+'</small></li>').join('')+'</ol></section>'}
+  const saveLocked=!!(state.encounter&&!state.encounter.ended);
+  html+='<section class="story-journal"><h3>存檔備份</h3><small>進度會自動保存在這個瀏覽器。下載 JSON 備份後，可在另一台裝置從初始畫面或此處匯入；匯入前會先預覽並要求確認。</small><div class="save-tools"><button id="exportSaveBtn" '+(saveLocked?'disabled title="請在戰鬥結束後備份"':'')+'>下載存檔備份</button><button id="importSaveBtn" '+(saveLocked?'disabled title="請在戰鬥結束後匯入"':'')+'>匯入存檔</button></div></section>';
+  if(state.story.choices.length&&!state.complete){html+='<details class="story-journal"><summary><h3>第 '+fmtInt(state.story.run)+' 輪目前留下的選擇　・　'+fmtInt(state.story.choices.length)+' 筆</h3></summary><ol>'+state.story.choices.map(x=>'<li>'+x.region+'・'+x.stage+'：'+x.name+(x.note?'<small>'+x.note+'</small>':'')+'</li>').join('')+'</ol></details>'}
+  const endings=uniqueEndingIds(),endingTotal=Object.keys(ENDINGS).length,routeEntries=chronicleRouteIndex(),archives=(state.chronicle&&state.chronicle.runs||[]).slice().sort((a,b)=>b.run-a.run),echoes=CHRONICLE_ECHOES.filter(echo=>(state.chronicle.echoes||[]).includes(echo.id)),hiddenBossCount=(state.chronicle.hiddenBossDefeats||[]).length,endingShortage=Math.max(0,3-endings.length),thisRunBoss=!!state.story.flags.chronicleBossDefeated;
+  html+='<details class="story-journal"><summary><h3>結局圖鑑　・　'+fmtInt(endings.length)+' / '+fmtInt(endingTotal)+' 種</h3></summary>'+(endings.length?'<ol>'+endings.map(id=>'<li>'+ENDINGS[id].name+'<small>'+ENDINGS[id].subtitle+'</small></li>').join('')+'</ol>':'<small>完成一輪主線後，已見結局會收錄於此。</small>')+'<small>尚有 '+fmtInt(Math.max(0,endingTotal-endings.length))+' 種結局等待發現；未解鎖的結局名稱會先保密。</small></details>';
+  const hiddenObjective=endingShortage?'再收集 '+fmtInt(endingShortage)+' 種不同結局，即可在星門找到隱藏首領。':thisRunBoss?'本輪已擊敗吞食未竟編年者；完成終章可解鎖「群星之間的共同編年」。':'已達成三種結局條件。前往星路第十三道，尋找未竟編年裂縫。';
+  html+='<details class="story-journal"><summary><h3>周目傳承　・　已討伐隱藏首領 '+fmtInt(hiddenBossCount)+' 次</h3></summary><small>'+hiddenObjective+'</small><small>已尋獲編年迴響 '+fmtInt(echoes.length)+' / '+fmtInt(CHRONICLE_ECHOES.length)+'　・　重逢記憶 '+fmtInt((state.chronicle.reunionEchoes||[]).length)+' 位同伴</small>'+(echoes.length?'<ol>'+echoes.map(echo=>'<li>'+echo.icon+' '+echo.name+'<small>'+echo.note+'</small></li>').join('')+'</ol>':'<small>完成不同結局後，舊旅途會在新周目留下可探索的記憶事件。</small>')+'</details>';
+  html+='<details class="story-journal"><summary><h3>已走過的路線　・　'+fmtInt(routeEntries.length)+' 種記錄</h3></summary>'+(routeEntries.length?'<ol>'+routeEntries.map(entry=>'<li>'+entry.region+'・'+entry.stage+'：'+entry.name+'<small>'+(entry.runs.length?'第 '+entry.runs.map(run=>fmtInt(run)).join('、')+' 輪走過':'本輪走過')+(entry.note?'　・　'+entry.note:'')+'</small></li>').join('')+'</ol>':'<small>做出第一個路線選擇後，足跡會自動整理在此。</small>')+'</details>';
+  html+='<details class="story-journal"><summary><h3>周目旅誌　・　保存最近 '+fmtInt(archives.length)+' 輪</h3></summary>'+(archives.length?archives.map(record=>'<details class="story-journal"><summary><h3>第 '+fmtInt(record.run)+' 輪　・　'+ENDINGS[record.endingId].name+'</h3></summary><small>結局：'+ENDINGS[record.endingId].subtitle+'　・　傾向：'+({justice:"正義",neutral:"中立",evil:"邪惡"}[record.alignment]||"中立")+(record.route?'　・　主線：'+record.route:'')+'</small>'+(record.choices&&record.choices.length?'<ol>'+record.choices.map(choice=>'<li>'+choice.region+'・'+choice.stage+'：'+choice.name+(choice.note?'<small>'+choice.note+'</small>':'')+'</li>').join('')+'</ol>':record.legacy?'<small>這輪來自舊存檔；舊版沒有保留逐項路線紀錄。</small>':'<small>這輪沒有逐項路線記錄。</small>')+'</details>').join(''):'<small>完成第一輪後，結局、善惡傾向與逐項路線會保存在這裡。</small>')+'</details>';
+  const dataIssues=Array.from(new Set([...(CAMPAIGN_DATA_ISSUES||[]),...(state.dataWarnings||[])]));
+  html+='<details class="story-journal"><summary><h3>路線資料檢查　・　'+(dataIssues.length?'發現 '+fmtInt(dataIssues.length)+' 項':'目前未發現問題')+'</h3></summary><small>冒險選項、支線、怪物、職業技能與獎勵資料會在此整理。缺少必要內容的路線會被略過，避免卡住主線。</small>'+(dataIssues.length?'<ol>'+dataIssues.map(issue=>'<li>'+issue+'</li>').join('')+'</ol>':'<small>目前已檢查的冒險資料完整；若旅途中觸發保護機制，紀錄會追加在這裡。</small>')+'</details>';
   html+='<div class="eyebrow" style="margin:12px 0 8px">最近的旅途記錄</div><ul class="log-list">'+(state.log.length?state.log.slice(0,16).map(x=>"<li>"+x+"</li>").join(""):"<li>尚無記錄。</li>")+'</ul>';
   $("sideContent").innerHTML=html;
+  $("exportSaveBtn").onclick=saveBackupFile;
+  $("importSaveBtn").onclick=()=>$("importSaveFile").click();
 }
 function renderQuests(){
   const readyIds=new Set(availableSideQuests().map(x=>x.quest.id));
   let html='<div class="eyebrow" style="margin:1px 0 8px">NPC 支線　・　人物故事會隨主線逐步展開</div>';
-  SIDE_QUESTS.forEach(q=>{const saved=sideQuestState(q.id),index=saved?clamp(saved.step,0,q.nodes.length):0,node=q.nodes[index],done=!!(saved&&saved.status==="complete"),ready=readyIds.has(q.id)&&!state.activeNode&&!state.encounter&&!state.dungeonRun&&!state.complete&&!state.postgameComplete;const target=node&&DB.regions.find(r=>r.id===node.at.region),targetText=target?target.chapter+"・"+target.stages[node.at.stage].title:"";const status=done?"已完成":ready?(saved?"可續辦・第 "+(index+1)+" 幕":"可接取"):saved?"等待後續路線":"尚未抵達";
+  SIDE_QUESTS.forEach(q=>{if(!q||!Array.isArray(q.nodes)){noteCampaignDataIssue("NPC 支線：劇情節點資料不存在");return}const saved=sideQuestState(q.id),index=saved?clamp(saved.step,0,q.nodes.length):0,node=q.nodes[index],done=!!(saved&&saved.status==="complete"),ready=readyIds.has(q.id)&&!state.activeNode&&!state.encounter&&!state.dungeonRun&&!state.complete&&!state.postgameComplete;const target=node&&node.at&&DB.regions.find(r=>r.id===node.at.region),targetStage=target&&node&&target.stages[node.at.stage],targetText=targetStage?target.chapter+"・"+targetStage.title:"";const status=done?"已完成":ready?(saved?"可續辦・第 "+(index+1)+" 幕":"可接取"):saved?"等待後續路線":"尚未抵達";
     html+='<div class="quest-card '+(ready?"ready":"")+'"><div class="quest-title"><span>'+q.icon+'　'+q.npc+'</span><span class="quest-state">'+status+'</span></div><div class="quest-desc">'+(done?q.desc:node?node.title+"　・　"+q.desc+"　"+(ready?"":targetText):q.desc)+'</div><div class="quest-foot"><span>'+(done?q.nodes.length+" / "+q.nodes.length+" 幕":(saved?index:0)+" / "+q.nodes.length+" 幕　・　完成支線可獲經驗、熟練與星鑄幣")+'</span><button data-side-start="'+q.id+'" '+(ready?"":"disabled")+'>'+(done?"已完成":saved?"繼續故事":"開始故事")+'</button></div></div>';
   });
   html+='<div class="side-hint">NPC 支線可從主線路口接取，也能在此查看進度。中途離開後，故事會保留並可稍後續辦。</div><div class="eyebrow" style="margin:14px 0 8px">遠征委託　・　完成目標領取報酬</div>';
-  CONTRACTS.forEach(q=>{const progress=questProgress(q.id),claimed=!!state.questClaims[q.id],ready=progress>=q.goal&&!claimed,pct=clamp(progress/q.goal*100,0,100),reward=q.reward;
-    html+='<div class="quest-card '+(ready?"ready":"")+'"><div class="quest-title"><span>'+q.name+'</span><span class="quest-state">'+(claimed?"已領取":ready?"可領取":"進行中")+'</span></div><div class="quest-desc">'+q.desc+'</div><div class="quest-progress"><i style="width:'+pct+'%"></i></div><div class="quest-foot"><span>'+fmtInt(Math.min(progress,q.goal))+' / '+fmtInt(q.goal)+'　・　獎勵 '+fmtInt(reward.gold)+' 金、'+fmtInt(reward.xp)+' 經驗、'+DB.items[reward.item].name+' ×'+fmtInt(reward.count)+'</span><button data-claim-quest="'+q.id+'" '+(ready?"":"disabled")+'>'+(claimed?"完成":ready?"領取":"未完成")+'</button></div></div>';
+  CONTRACTS.forEach(q=>{if(!isContractRewardShapeValid(q)){noteCampaignDataIssue("遠征委託：目標或獎勵資料不完整");return}const progress=questProgress(q.id),claimed=!!state.questClaims[q.id],ready=progress>=q.goal&&!claimed,pct=clamp(progress/q.goal*100,0,100),reward=q.reward,rewardItem=isItemDataValid(reward.item)?DB.items[reward.item]:null;if(!rewardItem)noteCampaignDataIssue("遠征委託「"+q.name+"」：獎勵道具不存在或不完整");
+    html+='<div class="quest-card '+(ready?"ready":"")+'"><div class="quest-title"><span>'+q.name+'</span><span class="quest-state">'+(claimed?"已領取":ready?"可領取":"進行中")+'</span></div><div class="quest-desc">'+q.desc+'</div><div class="quest-progress"><i style="width:'+pct+'%"></i></div><div class="quest-foot"><span>'+fmtInt(Math.min(progress,q.goal))+' / '+fmtInt(q.goal)+'　・　獎勵 '+fmtInt(reward.gold)+' 金、'+fmtInt(reward.xp)+' 經驗、'+(rewardItem?rewardItem.name:"遺失道具（旅誌已記錄）")+' ×'+fmtInt(reward.count)+'</span><button data-claim-quest="'+q.id+'" '+(ready?"":"disabled")+'>'+(claimed?"完成":ready?"領取":"未完成")+'</button></div></div>';
   });
   html+='<div class="side-hint">委託進度會自動保存。高原後日談的首領懸賞，在結局選擇留守後開放。</div>';
   $("sideContent").innerHTML=html;
@@ -2143,16 +2276,19 @@ function renderQuests(){
   $("sideContent").querySelectorAll("[data-claim-quest]").forEach(b=>b.onclick=()=>claimQuest(b.dataset.claimQuest));
 }
 function claimQuest(id){
-  const q=CONTRACTS.find(x=>x.id===id);if(!q||state.questClaims[id]||questProgress(id)<q.goal)return;
+  const q=CONTRACTS.find(x=>x.id===id);if(!q||state.questClaims[id]||!isContractRewardShapeValid(q)||questProgress(id)<q.goal){if(q&&!isContractRewardShapeValid(q))noteCampaignDataIssue("遠征委託：目標或獎勵資料不完整");return}
   state.questClaims[id]=true;state.gold+=q.reward.gold;state.party.forEach(c=>gainXP(c,q.reward.xp));
-  gainAP(q.reward.ap);state.inventory[q.reward.item]=(state.inventory[q.reward.item]||0)+q.reward.count;
-  addLog("領取委託「"+q.name+"」報酬：星鑄幣、經驗與 "+DB.items[q.reward.item].name+"。");renderAll();
+  gainAP(q.reward.ap);const rewardItem=isItemDataValid(q.reward.item);if(rewardItem)state.inventory[q.reward.item]=(state.inventory[q.reward.item]||0)+q.reward.count;else noteCampaignDataIssue("遠征委託「"+q.name+"」：獎勵道具不存在或不完整");
+  addLog("領取委託「"+q.name+"」報酬：星鑄幣與經驗"+(rewardItem?"，以及 "+DB.items[q.reward.item].name:"；道具獎勵資料異常，已記入旅誌")+"。");renderAll();
 }
 function setTab(tab){activeTab=tab;document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));if(tab==="jobs")renderJobs();else if(tab==="bag")renderBag();else if(tab==="quests")renderQuests();else if(tab==="bonds")renderBonds();else renderLog()}
+function scrollBattleToTop(){if(!window.matchMedia("(max-width:700px)").matches)return;requestAnimationFrame(()=>{const target=$("battleDockHost").querySelector(".jrpg-stage");if(!target)return;const top=target.getBoundingClientRect().top+window.scrollY-8;window.scrollTo({top:Math.max(0,top),behavior:"smooth"})})}
 function renderAll(){
   if(!state)return;
+  const wasInBattle=document.body.classList.contains("in-battle");
   if(state.encounter&&state.encounter.ended)stopAuto();
   renderHeader();renderParty();renderScene();renderBattleDock();setTab(activeTab);
+  if(state.encounter&&!state.encounter.ended&&!wasInBattle)scrollBattleToTop();
   saveGame();
 }
 function showConfirm(){
@@ -2163,6 +2299,8 @@ function showConfirm(){
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>setTab(b.dataset.tab)));
 if(window.matchMedia("(max-width:700px)").matches)document.querySelectorAll(".mobile-fold").forEach(panel=>panel.open=false);
 $("startBtn").onclick=startGame;
+$("importStartBtn").onclick=()=>$("importSaveFile").click();
+$("importSaveFile").onchange=event=>{const file=event.target.files&&event.target.files[0];readSaveBackup(file);event.target.value=""};
 $("saveBtn").onclick=()=>saveGame(true);
 $("newBtn").onclick=showConfirm;
 drawSetup();
